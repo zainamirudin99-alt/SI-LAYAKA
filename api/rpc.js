@@ -480,6 +480,83 @@ const methods = {
     return CONFIG.LAYANAN_LIST;
   },
 
+  // ---- FORM OPTIONS (sebelumnya hanya di Apps Script) ----
+
+  async getEligibilityFormOptions([]) {
+    return {
+      golongan: CONFIG.GOLONGAN_PILIHAN,
+      jabatan:  CONFIG.JABATAN_FUNGSIONAL_LIST,
+      predikat: CONFIG.PREDIKAT_SKP_LIST,
+      bulan:    CONFIG.BULAN_LIST,
+      ijazahBaru: CONFIG.IJAZAH_BARU_2023_LIST
+    };
+  },
+
+  async getDocGenFormOptions([]) {
+    return {
+      predikat:   ['Sangat Baik','Baik'],
+      ijazahBaru: CONFIG.IJAZAH_BARU_2023_LIST
+    };
+  },
+
+  async getKontrakFormOptions([]) {
+    const tahunSekarang = new Date().getFullYear();
+    const daftarTahun = [];
+    for (let t = tahunSekarang - 1; t <= tahunSekarang + 3; t++) daftarTahun.push(t);
+    return {
+      jangkaWaktuBulan: [1,2,3,4,5,6,7,8,9,10,11,12],
+      bulan:            CONFIG.BULAN_LIST,
+      tahun:            daftarTahun,
+      jenisPegEligible: CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE,
+      subMenuTendik:    CONFIG.LAYANAN_LIST['Kontrak Tendik'],
+      subMenuDosen:     CONFIG.LAYANAN_LIST['Kontrak Dosen']
+    };
+  },
+
+  async getPensiunFormOptions([]) {
+    return {
+      jenisPensiun: CONFIG.JENIS_PENSIUN_LIST
+    };
+  },
+
+  async getStatusAksesKontrakSaya([token]) {
+    const decoded = verifyToken(token);
+    const db = getDb();
+    const { data: emp, error } = await db.from('data_utama').select('jenis_peg').eq('nip', decoded.nip).maybeSingle();
+    if (error) throw error;
+    const jenisPegSaya = String((emp && emp.jenis_peg) || '').trim();
+    const eligible = CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE.some(j => j.toLowerCase() === jenisPegSaya.toLowerCase());
+    if (!eligible) return { success: true, eligible: false, diizinkan: false, jenisPeg: jenisPegSaya };
+
+    // Cek tabel akses_kontrak_mandiri di Supabase
+    const kategoriCocok = CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE.find(j => j.toLowerCase() === jenisPegSaya.toLowerCase());
+    const { data: aksesRow } = await db.from('akses_kontrak_mandiri')
+      .select('diizinkan').eq('kategori', kategoriCocok).order('tanggal_diubah', { ascending: false }).limit(1).maybeSingle();
+    const diizinkan = eligible && aksesRow && aksesRow.diizinkan === true;
+    return { success: true, eligible, diizinkan, jenisPeg: jenisPegSaya };
+  },
+
+  async getSemuaStatusAksesKontrakKategori([token]) {
+    requireRole(token, ['admin','super_admin']);
+    const db = getDb();
+    const { data: rows } = await db.from('akses_kontrak_mandiri').select('kategori,diizinkan').order('tanggal_diubah', { ascending: false });
+    // Ambil baris terakhir per kategori
+    const peta = {};
+    (rows || []).forEach(r => { if (!(r.kategori in peta)) peta[r.kategori] = r.diizinkan; });
+    const daftar = CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE.map(k => ({ kategori: k, diizinkan: !!peta[k] }));
+    return { success: true, daftar };
+  },
+
+  async getLatestSavedGenerateData([token, nip]) {
+    verifyToken(token);
+    const db = getDb();
+    // Coba dari tabel save_data (atau usulan_pensiun jika tersedia)
+    const { data } = await db.from('usulan_pensiun').select('*').eq('nip', String(nip||'').trim())
+      .order('tanggal_diajukan', { ascending: false }).limit(1).maybeSingle();
+    if (!data) return null;
+    return data;
+  },
+
   // ---- CHECK ELIGIBLE ----
 
   async checkEligibility([token, payload]) {
