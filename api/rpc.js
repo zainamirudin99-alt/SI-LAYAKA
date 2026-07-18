@@ -708,9 +708,10 @@ const methods = {
 
   async getGlosariumTag([token]) {
     verifyToken(token);
-    const {data:cols}=await getDb().from('data_utama').select('*').limit(0);
+    const {data:cols}=await getDb().from('data_utama').select('*').limit(1);
+    const firstRow = (cols && cols.length > 0) ? cols[0] : {};
     return {
-      tagSpreadsheet:Object.keys((cols&&cols[0])||{}).filter(k=>!['id','created_at'].includes(k)).map(k=>({label:k,tag:`{{${k}}}`})),
+      tagSpreadsheet:Object.keys(firstRow).filter(k=>!['id','created_at'].includes(k)).map(k=>({label:k,tag:`{{${k}}}`})),
       referensiFormula:[
         {label:'Matematika',contoh:'{{ a + b * c }}'},
         {label:'Terbilang',contoh:'{{ nominal | terbilang }}'},

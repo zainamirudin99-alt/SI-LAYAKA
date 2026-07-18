@@ -88,7 +88,7 @@ function cekKoneksi() {
 // ============================================================
 function migrasiSemuaData() {
   if (cekKonfigurasi_()) return;
-  if (!confirmSafe_("Migrasi data (Data Utama & User Roles) ke Supabase?\n(Data yang sudah ada akan di-upsert)", "Konfirmasi")) return;
+  if (!confirmSafe_("Migrasi data (Data Utama, User Roles, & Templates) ke Supabase?\n(Data yang sudah ada akan di-upsert)", "Konfirmasi")) return;
 
   const r1 = migrasiDataUtama();
   const r2 = migrasiUserRoles();
@@ -98,8 +98,9 @@ function migrasiSemuaData() {
 
   alertSafe_(
     "Data Utama: "     + r1.berhasil + " OK, " + r1.gagal + " gagal\n" +
-    "User Roles: "     + r2.berhasil + " OK, " + r2.gagal + " gagal\n\n" +
-    "Catatan: Sheet selain Data Utama & User Roles dilewati (hanya struktur kolom database).",
+    "User Roles: "     + r2.berhasil + " OK, " + r2.gagal + " gagal\n" +
+    "Templates: "      + r3.berhasil + " OK, " + r3.gagal + " gagal\n\n" +
+    "Catatan: Sheet Usulan KP & Usulan Pensiun dilewati (hanya struktur kolom database).",
     "Selesai!"
   );
 }
@@ -224,8 +225,45 @@ function migrasiUserRoles() {
 // MIGRASI SHEET: Templates
 // ============================================================
 function migrasiTemplates() {
-  Logger.log("templates: dilewati (isinya tidak dimigrasi atas permintaan user)");
-  return {berhasil: 0, gagal: 0};
+  const ss    = getActiveSpreadsheet_();
+  if (!ss) { Logger.log("Spreadsheet tidak ditemukan"); return {berhasil:0,gagal:0}; }
+  const sheet = ss.getSheetByName(SHEET_TEMPLATES);
+  if (!sheet) { Logger.log("Sheet Templates tidak ditemukan (wajar jika belum ada template)"); return {berhasil:0,gagal:0}; }
+
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return {berhasil:0,gagal:0};
+
+  let berhasil = 0, gagal = 0;
+
+  for (let i = 1; i < values.length; i++) {
+    const id = String(values[i][0] || '').trim();
+    if (!id) continue;
+
+    const payload = {
+      id:          id,
+      judul:       String(values[i][1] || '').trim(),
+      file_id:     String(values[i][2] || '').trim(),
+      layanan:     String(values[i][3] || '').trim(),
+      sub_menu:    String(values[i][4] || '').trim(),
+      dibuat_pada: values[i][5] ? new Date(values[i][5]).toISOString() : new Date().toISOString()
+    };
+
+    try {
+      const r = UrlFetchApp.fetch(SUPABASE_URL + "/rest/v1/templates?on_conflict=id", {
+        method:  "POST",
+        headers: Object.assign({}, buildHeaders_(), { "Prefer": "resolution=merge-duplicates" }),
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
+      });
+      const code = r.getResponseCode();
+      if (code === 200 || code === 201) berhasil++;
+      else { Logger.log("GAGAL template " + id + ": " + code + " " + r.getContentText()); gagal++; }
+    } catch(e) { Logger.log("ERROR template " + id + ": " + e.message); gagal++; }
+    Utilities.sleep(50);
+  }
+
+  Logger.log("templates: " + berhasil + " OK, " + gagal + " gagal");
+  return {berhasil, gagal};
 }
 
 // ============================================================
