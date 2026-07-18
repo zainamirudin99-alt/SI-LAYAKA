@@ -872,10 +872,44 @@ module.exports = async (req, res) => {
     const gasUrl = process.env.GOOGLE_SCRIPT_URL;
     if (gasUrl) {
       try {
+        // ─── JWT → UUID session injection ────────────────────────────────
+        // Google Apps Script's CacheService has a 250-char KEY limit.
+        // JWT tokens are ~300 chars, so we must replace params[0] (the JWT)
+        // with a short UUID and send the decoded user data as `remoteSession`
+        // so that Apps Script can inject it into its CacheService on the fly.
+        let proxiedParams = params.slice(); // shallow copy
+        let remoteSession = null;
+
+        const firstParam = proxiedParams[0];
+        if (firstParam && typeof firstParam === 'string' && firstParam.split('.').length === 3) {
+          // Looks like a JWT — try to verify it
+          try {
+            const decoded = jwt.verify(firstParam, JWT_SECRET);
+            const shortId = uuidv4(); // short UUID (~36 chars) safe as CacheService key
+            remoteSession = {
+              id: shortId,
+              data: {
+                nip:                decoded.nip               || '',
+                nama_lengkap:       decoded.nama              || '',
+                nama:               decoded.nama              || '',
+                jabatan:            decoded.jabatan           || '',
+                status_kepegawaian: decoded.status_kepegawaian|| '',
+                role:               decoded.role              || 'normal'
+              }
+            };
+            proxiedParams[0] = shortId; // replace long JWT with short UUID
+          } catch (jwtErr) {
+            // Not a valid JWT or wrong secret — forward as-is and let Apps Script
+            // return its own "sesi tidak valid" error gracefully.
+            console.warn(`[rpc proxy] JWT decode failed for method=${method}:`, jwtErr.message);
+          }
+        }
+        // ─────────────────────────────────────────────────────────────────
+
         const response = await fetch(gasUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ method, params })
+          body: JSON.stringify({ method, params: proxiedParams, remoteSession })
         });
         const result = await response.json();
         res.status(200).json(result);
