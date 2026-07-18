@@ -789,20 +789,48 @@ const methods = {
 
   async getGlosariumTag([token]) {
     verifyToken(token);
-    const {data:cols}=await getDb().from('data_utama').select('*').limit(1);
-    const firstRow = (cols && cols.length > 0) ? cols[0] : {};
+
+    // Kolom Data Utama yang sudah diketahui (fallback jika tabel masih kosong)
+    const KOLOM_DATA_UTAMA_DEFAULT = [
+      'nip','nama_lengkap','nama','jenis_peg','status_kepegawaian','status_bekerja',
+      'jabatan','pangkat','golongan','tmt_gol','tmt_pensiun_bup','tmt_pengangkatan',
+      'tmp_lhr','tgl_lhr','unit','unit_es_ii','pendidikan','jenjang_pendidikan',
+      'program_studi','email','no_hp','no_karpeg','no_ktp','jenis_kelamin'
+    ];
+
+    // Coba ambil satu baris untuk mendapatkan kolom aktual
+    const {data: cols} = await getDb().from('data_utama').select('*').limit(1);
+    const firstRow = (cols && cols.length > 0) ? cols[0] : null;
+
+    // Gunakan kolom dari baris aktual jika ada, atau fallback ke kolom default
+    const kolomAktif = firstRow
+      ? Object.keys(firstRow).filter(k => !['id','created_at'].includes(k))
+      : KOLOM_DATA_UTAMA_DEFAULT;
+
     return {
-      tagSpreadsheet:Object.keys(firstRow).filter(k=>!['id','created_at'].includes(k)).map(k=>({label:k,tag:`{{${k}}}`})),
-      referensiFormula:[
-        {label:'Matematika',contoh:'{{ a + b * c }}'},
-        {label:'Terbilang',contoh:'{{ nominal | terbilang }}'},
-        {label:'Rupiah',contoh:'{{ nominal | rupiah }}'},
-        {label:'Huruf besar/kecil',contoh:'{{ jabatan | upper }}  {{ jabatan | lower }}'},
-        {label:'Masa Kerja (Thn)',contoh:'{{ diff_years(tmt, today) }}'},
-        {label:'Logika (ternary)',contoh:"{{ a > b ? 'X' : 'Y' }}"},
-        {label:'Loop Baris Tabel',contoh:'{{#nama_loop}} ... {{/nama_loop}}'},
-        {label:'Variabel turunan ("set")',contoh:'{{ set total = a + b }}{{ total }}'}
-      ]
+      tagSpreadsheet: kolomAktif.map(k => ({ label: k, tag: `{{${k}}}` })),
+      tagTurunan: [
+        { label: 'Total AK Baru',       tag: '{{total_ak_baru}}',       ket: 'Dihitung otomatis dari SKP' },
+        { label: 'Rekomendasi',          tag: '{{rekomendasi}}',          ket: 'Hasil rekomendasi kenaikan' },
+        { label: 'Masa Kerja (Tahun)',   tag: '{{masa_kerja_tahun}}',    ket: 'Dari TMT pengangkatan s/d sekarang' },
+        { label: 'Terbilang Nominal',    tag: '{{nominal | terbilang}}', ket: 'Angka ke teks Indonesia' },
+        { label: 'Tanggal Hari Ini',     tag: '{{today}}',               ket: 'Tanggal saat dokumen digenerate' },
+        { label: 'Nama Bulan (ID)',      tag: '{{bulan_nama}}',          ket: 'Contoh: Juli' },
+        { label: 'Golongan Berikutnya',  tag: '{{golongan_berikutnya}}', ket: 'Golongan setelah naik pangkat' }
+      ],
+      referensiFormula: [
+        { label: 'Matematika',            contoh: '{{ a + b * c }}' },
+        { label: 'Terbilang',             contoh: '{{ nominal | terbilang }}' },
+        { label: 'Rupiah',                contoh: '{{ nominal | rupiah }}' },
+        { label: 'Huruf besar/kecil',     contoh: '{{ jabatan | upper }}  {{ jabatan | lower }}' },
+        { label: 'Masa Kerja (Thn)',      contoh: '{{ diff_years(tmt, today) }}' },
+        { label: 'Logika (ternary)',       contoh: "{{ a > b ? 'X' : 'Y' }}" },
+        { label: 'Loop Baris Tabel',      contoh: '{{#nama_loop}} ... {{/nama_loop}}' },
+        { label: 'Variabel turunan ("set")', contoh: '{{ set total = a + b }}{{ total }}' }
+      ],
+      catatan: firstRow
+        ? `${kolomAktif.length} kolom tersedia dari database.`
+        : `⚠️ Database kosong — menampilkan ${KOLOM_DATA_UTAMA_DEFAULT.length} kolom default. Migrasikan data terlebih dahulu agar kolom aktual muncul.`
     };
   }
 };
