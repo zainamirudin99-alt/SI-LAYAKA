@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <base target="_top">
@@ -1438,6 +1438,15 @@
   <div class="toast-container" id="toastContainer"></div>
 
   <script>
+    // Global Error Logger to catch and show any hidden client-side errors
+    window.onerror = function(message, source, lineno, colno, error) {
+      alert("CLIENT ERROR: " + message + " (at " + source + ":" + lineno + ":" + colno + ")");
+      return false;
+    };
+    window.onunhandledrejection = function(event) {
+      alert("CLIENT UNHANDLED PROMISE REJECTION: " + event.reason);
+    };
+
 const google = {
   script: {
     run: new Proxy({}, {
