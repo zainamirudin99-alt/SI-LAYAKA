@@ -511,7 +511,8 @@ const methods = {
   async getPromosiDashboardSummary([token]) {
     verifyToken(token);
     const db=getDb();
-    const {data:emps}=await db.from('data_utama').select('nip,nama_lengkap,nama,jabatan,golongan,tmt_gol,status_bekerja,pendidikan,unit_es_ii');
+    const {data:emps, error}=await db.from('data_utama').select('nip,nama_lengkap,nama,jabatan,golongan,tmt_gol,status_bekerja,pendidikan,unit_es_ii');
+    if (error) throw error;
     const target=hitungTargetTmtPromosi(new Date());
     const perUnit={};
     (emps||[]).forEach(emp=>{
@@ -531,7 +532,8 @@ const methods = {
   async getPromosiEligibleList([token, unit, kategoriFilter]) {
     verifyToken(token);
     const db=getDb();
-    const {data:emps}=await db.from('data_utama').select('*').eq('unit_es_ii',unit);
+    const {data:emps, error}=await db.from('data_utama').select('*').eq('unit_es_ii',unit);
+    if (error) throw error;
     const target=hitungTargetTmtPromosi(new Date());
     const hasil=(emps||[])
       .map(emp=>Object.assign({emp},cekEligiblePromosi(emp,target.targetDate)))
@@ -547,7 +549,8 @@ const methods = {
   async getPensiunDashboardSummary([token]) {
     verifyToken(token);
     const db=getDb();
-    const {data:emps}=await db.from('data_utama').select('nip,nama_lengkap,nama,jabatan,unit_es_ii,tmt_pensiun_bup');
+    const {data:emps, error}=await db.from('data_utama').select('nip,nama_lengkap,nama,jabatan,unit_es_ii,tmt_pensiun_bup');
+    if (error) throw error;
     const ambangHari=CONFIG.PENSIUN_DASHBOARD_AMBANG_TAHUN*365;
     const perUnit={};
     (emps||[]).forEach(emp=>{
@@ -564,7 +567,8 @@ const methods = {
   async getPensiunEligibleList([token, unit]) {
     verifyToken(token);
     const db=getDb();
-    const {data:emps}=await db.from('data_utama').select('nip,nama_lengkap,nama,jabatan,tmt_pensiun_bup,unit_es_ii').eq('unit_es_ii',unit);
+    const {data:emps, error}=await db.from('data_utama').select('nip,nama_lengkap,nama,jabatan,tmt_pensiun_bup,unit_es_ii').eq('unit_es_ii',unit);
+    if (error) throw error;
     const ambangHari=CONFIG.PENSIUN_DASHBOARD_AMBANG_TAHUN*365;
     const daftar=(emps||[])
       .filter(e=>{
