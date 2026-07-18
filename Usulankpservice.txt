@@ -1,0 +1,228 @@
+/**
+ * =================================================================
+ * USULANKPSERVICE.GS  (MODUL BARU)
+ * Alur: User cek eligible -> ajukan usulan (beberapa pegawai + surat
+ * pengantar) -> Admin lihat notifikasi per unit -> Admin proses satu
+ * per satu lewat Opsi A/B (mekanisme generate yang SUDAH ADA, TIDAK
+ * diubah) -> begitu generate sukses, status usulan otomatis diperbarui
+ * -> User melihat status akhir ("Siap diusulkan ke-SIASN" / "Sedang
+ * dibuatkan SK").
+ *
+ * Satu baris sheet = SATU PEGAWAI yang diusulkan (bukan satu baris per
+ * batch), supaya admin bisa memproses & melacak status tiap orang
+ * secara independen ("admin bisa memproses satu satu di Opsi A dan B").
+ * "Batch ID" menghubungkan pegawai-pegawai yang diajukan bersamaan
+ * dalam satu submit (berbagi satu file surat pengantar yang sama).
+ * =================================================================
+ */
+
+const USULAN_KP_SHEET_NAME = 'Usulan KP';
+const USULAN_KP_HEADERS = [
+  'ID', 'Batch ID', 'NIP Diajukan', 'Nama Diajukan', 'Unit',
+  'Diajukan Oleh NIP', 'Nama Pengaju', 'Tanggal Diajukan',
+  'File Surat Pengantar', 'Status', 'Opsi A Selesai Pada', 'Opsi B Selesai Pada', 'Diproses Oleh NIP'
+];
+const USULAN_KP_STATUS_DIAJUKAN = 'Diajukan';
+
+function ensureUsulanKpSheet_() {
+  const ss = getSpreadsheet_();
+  let sheet = ss.getSheetByName(USULAN_KP_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(USULAN_KP_SHEET_NAME);
+    sheet.appendRow(USULAN_KP_HEADERS);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+/** Baca seluruh baris usulan KP jadi array of object (key = header dinormalisasi). */
+function getAllUsulanKp_() {
+  const sheet = ensureUsulanKpSheet_();
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return [];
+
+  const keys = ['id', 'batchId', 'nip', 'nama', 'unit', 'diajukanOlehNip', 'namaPengaju', 'tanggalDiajukan', 'fileUrl', 'status', 'opsiASelesaiPada', 'opsiBSelesaiPada', 'diprosesOlehNip'];
+  const rows = [];
+  for (let i = 1; i < values.length; i++) {
+    if (!values[i][0]) continue;
+    const obj = { _rowIndex: i + 1 };
+    keys.forEach((k, idx) => { obj[k] = values[i][idx]; });
+    rows.push(obj);
+  }
+  return rows;
+}
+
+/** Folder Drive tempat file surat pengantar disimpan (sub-folder di dalam folder output, dibuat otomatis kalau belum ada). */
+function getFolderLampiranUsulan_() {
+  const outputFolder = DriveApp.getFolderById(CONFIG.OUTPUT_FOLDER_ID);
+  const namaFolder = 'Lampiran Usulan Kenaikan Pangkat';
+  const existing = outputFolder.getFoldersByName(namaFolder);
+  if (existing.hasNext()) return existing.next();
+  return outputFolder.createFolder(namaFolder);
+}
+
+/** Simpan base64 (dari <input type="file"> client) sebagai file Drive, kembalikan URL-nya. */
+function simpanLampiranUsulan_(base64DataUrl, namaFileAsli) {
+  if (!base64DataUrl) return '';
+  const splitData = base64DataUrl.split(',');
+  const contentType = (splitData[0].match(/:(.*?);/) || [, 'application/octet-stream'])[1];
+  const rawBase64 = splitData[1];
+  const blob = Utilities.newBlob(Utilities.base64Decode(rawBase64), contentType, namaFileAsli || 'surat_pengantar');
+  const file = getFolderLampiranUsulan_().createFile(blob);
+  return file.getUrl();
+}
+
+/**
+ * REF: tombol "Usulan" di tab Check Eligible (peran user/admin/super_admin).
+ * @param {Object} payload {
+ *   daftarPegawai: [{ nip, nama }, ...],   // minimal 1
+ *   suratPengantarBase64: string,          // data URL dari <input type="file">
+ *   namaFileSuratPengantar: string
+ * }
+ */
+function ajukanUsulanKP(sessionToken, payload) {
+  const pengaju = requireRole_(sessionToken, ['user', 'admin', 'super_admin']);
+  try {
+    const daftarPegawai = payload.daftarPegawai || [];
+    if (!daftarPegawai.length) return { success: false, message: 'Pilih minimal 1 pegawai untuk diusulkan.' };
+    if (!payload.suratPengantarBase64) return { success: false, message: 'Surat pengantar wajib diunggah.' };
+
+    const fileUrl = simpanLampiranUsulan_(payload.suratPengantarBase64, payload.namaFileSuratPengantar);
+    const sheet = ensureUsulanKpSheet_();
+    const batchId = Utilities.getUuid();
+    const now = new Date();
+    const employees = getAllEmployees_();
+
+    const rows = daftarPegawai.map(p => {
+      const emp = employees.find(e => String(e.nip || '').trim() === String(p.nip || '').trim());
+      return [
+        Utilities.getUuid(), batchId, p.nip, p.nama,
+        (emp && emp.unit_es_ii) || '',
+        pengaju.nip, pengaju.nama_lengkap || pengaju.nama || '',
+        now, fileUrl, USULAN_KP_STATUS_DIAJUKAN, '', '', ''
+      ];
+    });
+
+    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, USULAN_KP_HEADERS.length).setValues(rows);
+
+    return { success: true, message: `Usulan untuk ${rows.length} pegawai berhasil diajukan.` };
+  } catch (err) {
+    return { success: false, message: 'Gagal mengajukan usulan: ' + err.message };
+  }
+}
+
+/** REF: notifikasi dashboard Admin -- jumlah usulan berstatus "Diajukan", dikelompokkan per Unit. */
+function getUsulanNotifikasiSummary(sessionToken) {
+  requireRole_(sessionToken, ['admin', 'super_admin']);
+  try {
+    const semua = getAllUsulanKp_().filter(u => u.status === USULAN_KP_STATUS_DIAJUKAN);
+    const perUnit = {};
+    semua.forEach(u => {
+      const unit = String(u.unit || '(Tanpa Unit)').trim() || '(Tanpa Unit)';
+      perUnit[unit] = (perUnit[unit] || 0) + 1;
+    });
+    const daftarUnit = Object.keys(perUnit).sort().map(unit => ({ unit, jumlah: perUnit[unit] }));
+    return { success: true, totalUsulanBaru: semua.length, daftarUnit: daftarUnit };
+  } catch (err) {
+    return { success: false, message: 'Gagal memuat notifikasi usulan: ' + err.message };
+  }
+}
+
+/** REF: daftar nama yang diusulkan untuk SATU unit (drill-down dari notifikasi Admin). */
+function getUsulanListByUnit(sessionToken, unit) {
+  requireRole_(sessionToken, ['admin', 'super_admin']);
+  try {
+    const daftar = getAllUsulanKp_()
+      .filter(u => u.status === USULAN_KP_STATUS_DIAJUKAN)
+      .filter(u => (String(u.unit || '(Tanpa Unit)').trim() || '(Tanpa Unit)') === unit)
+      .map(u => ({
+        id: u.id, nip: u.nip, nama: u.nama,
+        namaPengaju: u.namaPengaju,
+        tanggalDiajukan: formatTanggalIndonesia_(u.tanggalDiajukan),
+        fileUrl: u.fileUrl,
+        opsiASelesai: !!u.opsiASelesaiPada,
+        opsiBSelesai: !!u.opsiBSelesaiPada
+      }))
+      .sort((a, b) => String(a.nama).localeCompare(String(b.nama)));
+    return { success: true, daftar: daftar };
+  } catch (err) {
+    return { success: false, message: 'Gagal memuat daftar usulan: ' + err.message };
+  }
+}
+
+/** REF: "User bisa melihat Proses pengusulannya sampai mana" -- seluruh usulan yang PERNAH diajukan user ybs. */
+function getUsulanSayaForUser(sessionToken) {
+  const pengguna = requireRole_(sessionToken, ['user', 'admin', 'super_admin']);
+  try {
+    const daftar = getAllUsulanKp_()
+      .filter(u => String(u.diajukanOlehNip || '').trim() === String(pengguna.nip).trim())
+      .map(u => ({
+        nip: u.nip, nama: u.nama,
+        tanggalDiajukan: formatTanggalIndonesia_(u.tanggalDiajukan),
+        status: u.status,
+        opsiASelesai: !!u.opsiASelesaiPada,
+        opsiBSelesai: !!u.opsiBSelesaiPada
+      }))
+      .sort((a, b) => new Date(b.tanggalDiajukan) - new Date(a.tanggalDiajukan));
+    return { success: true, daftar: daftar };
+  } catch (err) {
+    return { success: false, message: 'Gagal memuat status usulan Anda: ' + err.message };
+  }
+}
+
+/**
+ * Tentukan teks notifikasi status akhir berdasarkan STATUS KEPEGAWAIAN,
+ * lihat CONFIG.USULAN_KP_KATA_KUNCI_PNS untuk kata kunci yang dikenali.
+ */
+function tentukanNotifStatusAkhir_(statusKepegawaian) {
+  const s = String(statusKepegawaian || '').toLowerCase();
+  const cocokPns = CONFIG.USULAN_KP_KATA_KUNCI_PNS.some(kw => s.indexOf(kw.toLowerCase()) !== -1);
+  return cocokPns ? CONFIG.USULAN_KP_NOTIF_SIASN : CONFIG.USULAN_KP_NOTIF_SK;
+}
+
+/**
+ * Dipanggil OTOMATIS dari DocumentGenerator.gs setelah generateDocument()
+ * SUKSES -- menandai Opsi A ATAU Opsi B (sesuai subLayanan yang baru saja
+ * diproses) selesai untuk NIP terkait, bila memang berasal dari usulan
+ * "Diajukan". Status baru berubah ke notifikasi akhir (SIASN/SK) setelah
+ * KEDUA Opsi A DAN Opsi B sama-sama selesai diproses -- REVISI sesuai
+ * konfirmasi Titto (pola sama seperti DPCP+SUPER Pensiun, bukan lagi
+ * cukup salah satu). Aman dipanggil untuk NIP yang bukan dari usulan.
+ * @param {string} nip
+ * @param {string} subLayanan  'AK Konversi Tahunan' (Opsi A) atau 'AK Konversi Kumulatif' (Opsi B)
+ * @param {string} diprosesOlehNip
+ */
+function tandaiOpsiUsulanKpSelesai_(nip, subLayanan, diprosesOlehNip) {
+  try {
+    const sheet = ensureUsulanKpSheet_();
+    const values = sheet.getDataRange().getValues();
+    const now = new Date();
+    const employees = getAllEmployees_();
+    const nipTarget = String(nip || '').trim();
+
+    for (let i = 1; i < values.length; i++) {
+      const nipBaris = String(values[i][2] || '').trim();
+      const statusBaris = values[i][9];
+      if (statusBaris !== USULAN_KP_STATUS_DIAJUKAN) continue;
+      if (nipBaris !== nipTarget) continue;
+
+      const kolomTanda = subLayanan === 'AK Konversi Tahunan' ? 11 : 12; // 1-based: K=Opsi A, L=Opsi B
+      sheet.getRange(i + 1, kolomTanda).setValue(now);
+
+      const opsiASelesai = subLayanan === 'AK Konversi Tahunan' ? true : !!values[i][10];
+      const opsiBSelesai = subLayanan === 'AK Konversi Kumulatif' ? true : !!values[i][11];
+
+      if (opsiASelesai && opsiBSelesai) {
+        const emp = employees.find(e => String(e.nip || '').trim() === nipBaris);
+        const notifAkhir = tentukanNotifStatusAkhir_(emp && emp.status_kepegawaian);
+        sheet.getRange(i + 1, 10, 1, 1).setValue(notifAkhir); // kolom J = Status
+        sheet.getRange(i + 1, 13).setValue(diprosesOlehNip); // kolom M = Diproses Oleh NIP
+      }
+      return; // NIP unik per baris "Diajukan" aktif, cukup satu baris yang cocok
+    }
+  } catch (err) {
+    // Kegagalan di sini TIDAK BOLEH menggagalkan generate dokumen yang
+    // sudah berhasil -- cukup catat, jangan lempar ulang.
+    Logger.log('Gagal menandai Opsi usulan KP selesai: ' + err.message);
+  }
+}

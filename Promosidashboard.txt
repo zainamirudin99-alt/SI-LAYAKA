@@ -1,0 +1,349 @@
+/**
+ * =================================================================
+ * PROMOSIDASHBOARDSERVICE.GS  (MODUL BARU)
+ * Dashboard di menu Kenaikan Pangkat > Check Eligible, tampil di
+ * bagian atas halaman SEBELUM pengguna memilih nama pegawai.
+ *
+ * Dashboard ini murni SKRINING BERBASIS MASA KERJA (TMT golongan
+ * dibandingkan ke TMT target kenaikan berikutnya) -- SAMA SEKALI
+ * TERPISAH dari mesin Angka Kredit di EligibilityService.gs. Mesin AK
+ * itu TETAP dipakai apa adanya begitu admin memilih satu nama Dosen
+ * dari daftar hasil skrining di sini (lihat JavaScriptClient.html:
+ * pilih nama dashboard -> pre-fill tab "0. Check Eligible" yang sudah
+ * ada -> jalankan checkEligibility() seperti biasa, TIDAK diubah).
+ * =================================================================
+ */
+
+/**
+ * Tentukan bulan & tahun TMT kenaikan pangkat yang SEDANG DIPROSES hari
+ * ini, berdasarkan jadwal periode pengajuan (siklus 16-15 setiap bulan,
+ * TMT efektif 2 bulan setelah awal jendela pengajuan).
+ *
+ * Pola jadwal (tetap, berulang tiap tahun):
+ *   TMT 1 [Bulan+2] <- jendela pengajuan 16 [Bulan] - 15 [Bulan+1]
+ * Contoh sesuai spesifikasi: hari ini 1 Juli -> jendela berjalan adalah
+ * "16 Juni - 15 Juli" -> TMT yang diproses = 1 Agustus.
+ *
+ * @param {Date} today
+ * @return {{targetMonth:number, targetYear:number, targetDate:Date}}
+ *   targetMonth 1-12, targetDate = tanggal 1 bulan target (untuk
+ *   perbandingan masa kerja).
+ */
+function hitungTargetTmtPromosi_(today) {
+  const day = today.getDate();
+  const month = today.getMonth() + 1; // 1-12
+  const year = today.getFullYear();
+
+  let windowStartMonth, windowStartYear;
+  if (day >= 16) {
+    windowStartMonth = month;
+    windowStartYear = year;
+  } else {
+    windowStartMonth = month - 1;
+    windowStartYear = year;
+    if (windowStartMonth === 0) { windowStartMonth = 12; windowStartYear -= 1; }
+  }
+
+  let targetMonth = windowStartMonth + 2;
+  let targetYear = windowStartYear;
+  if (targetMonth > 12) { targetMonth -= 12; targetYear += 1; }
+
+  return {
+    targetMonth: targetMonth,
+    targetYear: targetYear,
+    targetDate: new Date(targetYear, targetMonth - 1, 1)
+  };
+}
+
+/**
+ * Klasifikasi pegawai berdasarkan JABATAN (bukan kolom "jenis_peg" di
+ * sheet, supaya konsisten dengan daftar jabatan yang diberikan):
+ * 'dosen' | 'tendik_jabatan_fungsional' | 'tendik_non_jabatan_fungsional'.
+ */
+function klasifikasiPegawaiPromosi_(jabatan) {
+  const j = String(jabatan || '').trim();
+  if (CONFIG.JABATAN_FUNGSIONAL_LIST.indexOf(j) !== -1) return 'dosen';
+  if (CONFIG.TENDIK_JABATAN_FUNGSIONAL_LIST.indexOf(j) !== -1) return 'tendik_jabatan_fungsional';
+  return 'tendik_non_jabatan_fungsional';
+}
+
+/** Syarat minimal masa kerja (tahun) untuk satu kategori pegawai. */
+function syaratMasaKerjaPromosi_(kategori) {
+  return CONFIG.MASA_KERJA_MINIMAL[kategori] || 0;
+}
+
+/**
+ * Posisi (index) sebuah golongan di urutan I/a..IV/e (dipakai untuk
+ * bandingkan "lebih rendah/tinggi dari"). Memakai normalisasiGolongan_
+ * yang sudah ada di EligibilityService.gs (strip prefix "Set." dulu,
+ * karena "Set. X" selalu setara tingkat dengan "X" -- konvensi yang
+ * sama dipakai di seluruh sistem). -1 bila golongan tidak dikenali.
+ */
+function golonganIndex_(golongan) {
+  return CONFIG.GOLONGAN_URUTAN.indexOf(normalisasiGolongan_(golongan));
+}
+
+/**
+ * Normalisasi teks kolom PENDIDIKAN di sheet ke salah satu key
+ * CONFIG.PENDIDIKAN_GOLONGAN_REGULER. Mengenali beberapa variasi
+ * penulisan umum. Return null bila tidak dikenali sama sekali --
+ * pemanggil HARUS memperlakukan ini sebagai "tidak bisa dipastikan"
+ * (lihat sudahMencapaiBatasGolongan_), bukan otomatis eligible/tidak.
+ */
+function pendidikanTier_(pendidikan) {
+  const p = String(pendidikan || '').trim().toUpperCase();
+  if (!p) return null;
+  if (/^SD/.test(p)) return 'SD';
+  if (/^SMP|^SLTP/.test(p)) return 'SMP';
+  if (/^SMA|^SMK|^SLTA/.test(p)) return 'SMA/SMK';
+  if (/^D[\s\-.]?1|^D[\s\-.]?I(?!\w)/.test(p)) return 'D-I';
+  if (/^D[\s\-.]?2|^D[\s\-.]?II(?!\w)/.test(p)) return 'D-II';
+  if (/^D[\s\-.]?3|^D[\s\-.]?III(?!\w)/.test(p)) return 'D-III';
+  if (/^D[\s\-.]?4|^D[\s\-.]?IV(?!\w)|^S[\s\-.]?1(?!\d)|SARJANA/.test(p)) return 'D-IV/S-1';
+  if (/^S[\s\-.]?2(?!\d)|MAGISTER|MASTER/.test(p)) return 'S-2';
+  if (/^S[\s\-.]?3(?!\d)|DOKTOR/.test(p)) return 'S-3';
+  return null;
+}
+
+/**
+ * Cek apakah golongan SEKARANG sudah mencapai/melewati batas atas
+ * golongan reguler untuk kategori pegawai ybs:
+ * - dosen: batas dari JABATAN_GOLONGAN_TERTINGGI (per jabatan fungsional)
+ * - tendik_non_jabatan_fungsional: batas dari PENDIDIKAN_GOLONGAN_REGULER
+ *   (per tingkat pendidikan, jalur "Kenaikan Pangkat Reguler")
+ * - tendik_jabatan_fungsional: BELUM ADA tabel batas dari Titto untuk
+ *   jabatan fungsional Tendik (beda dari Dosen) -- determinable=true
+ *   dengan sudahMencapaiBatas=false (skrining tetap murni masa kerja
+ *   untuk kategori ini, SAMA seperti sebelum perbaikan ini).
+ *
+ * determinable=false berarti data sumber (jabatan/pendidikan) tidak
+ * cocok dengan tabel manapun -- pemanggil TIDAK menganggap pegawai ini
+ * eligible sampai datanya jelas, supaya tidak salah klaim eligible.
+ */
+function sudahMencapaiBatasGolongan_(kategori, employee) {
+  const golonganIdx = golonganIndex_(employee.golongan);
+  if (golonganIdx === -1) return { determinable: false, batasGolongan: null, sudahMencapaiBatas: false };
+
+  if (kategori === 'dosen') {
+    const batas = CONFIG.JABATAN_GOLONGAN_TERTINGGI[String(employee.jabatan || '').trim()];
+    if (!batas) return { determinable: false, batasGolongan: null, sudahMencapaiBatas: false };
+    const batasIdx = golonganIndex_(batas);
+    return { determinable: true, batasGolongan: batas, sudahMencapaiBatas: golonganIdx >= batasIdx };
+  }
+
+  if (kategori === 'tendik_non_jabatan_fungsional') {
+    const tier = pendidikanTier_(employee.pendidikan);
+    if (!tier) return { determinable: false, batasGolongan: null, sudahMencapaiBatas: false };
+    const batas = CONFIG.PENDIDIKAN_GOLONGAN_REGULER[tier].max;
+    const batasIdx = golonganIndex_(batas);
+    return { determinable: true, batasGolongan: batas, sudahMencapaiBatas: golonganIdx >= batasIdx };
+  }
+
+  // tendik_jabatan_fungsional: belum ada tabel batas -- lihat catatan di atas.
+  return { determinable: true, batasGolongan: null, sudahMencapaiBatas: false };
+}
+
+/**
+ * Klasifikasi kolom STATUS BEKERJA -- menentukan (a) apakah pegawai bisa
+ * diusulkan SAMA SEKALI, (b) jalur mana yang berlaku KHUSUS untuk pemilik
+ * Jabatan Fungsional (Dosen & Tendik Jabatan Fungsional -- Tendik Non-JF
+ * TIDAK terpengaruh, mereka sudah selalu di jalur reguler), dan (c) apakah
+ * perlu ditandai "perhatian" di dashboard.
+ *
+ * 'normal'  = jalur jabatan fungsional biasa (syarat 2 tahun + batas
+ *             golongan per JABATAN_GOLONGAN_TERTINGGI)
+ * 'reguler' = jalur Kenaikan Pangkat Reguler (syarat 4 tahun + batas
+ *             golongan per PENDIDIKAN_GOLONGAN_REGULER, SAMA seperti
+ *             Tendik Non-JF)
+ *
+ * Pencocokan berbasis pola teks (case-insensitive) karena isi kolom di
+ * sheet bisa bervariasi penulisannya -- lihat catatan di setiap cabang.
+ */
+function klasifikasiStatusBekerjaPromosi_(statusBekerja) {
+  const s = String(statusBekerja || '').trim().toLowerCase();
+
+  // --- Status yang membuat TIDAK BISA DIUSULKAN SAMA SEKALI ---
+  if (/diberhentikan\s+sementara/.test(s)) {
+    return { dikenali: true, eligibleSamaSekali: false, track: 'normal', notifPerhatian: false, labelStatus: 'Diberhentikan Sementara' };
+  }
+  if (/\bnon[\s-]?aktif\b|\btidak\s+aktif\b/.test(s)) {
+    return { dikenali: true, eligibleSamaSekali: false, track: 'normal', notifPerhatian: false, labelStatus: 'Non Aktif' };
+  }
+
+  // --- Tugas Belajar DN/LN: cek bebas/tidak bebas jabatan ---
+  if (/tugas\s+belajar/.test(s)) {
+    const negeri = /\bln\b|luar\s+negeri/.test(s) ? 'LN' : (/\bdn\b|dalam\s+negeri/.test(s) ? 'DN' : '');
+    const tidakBebas = /tidak\s+bebas/.test(s);
+    const bebas = !tidakBebas && /\bbebas\b/.test(s);
+
+    if (bebas) {
+      return { dikenali: true, eligibleSamaSekali: true, track: 'reguler', notifPerhatian: true, labelStatus: `Tugas Belajar ${negeri} - Bebas Jabatan`.trim() };
+    }
+    if (tidakBebas) {
+      return { dikenali: true, eligibleSamaSekali: true, track: 'normal', notifPerhatian: true, labelStatus: `Tugas Belajar ${negeri} - Tidak Bebas Jabatan`.trim() };
+    }
+    // "Tugas Belajar" terbaca tapi bebas/tidak-bebas jabatan tidak jelas dari
+    // teks -- jangan menebak jalur mana yang berlaku, tandai tidak eligible
+    // dulu sampai datanya jelas (aman, bukan meng-klaim eligible sembarangan).
+    return { dikenali: false, eligibleSamaSekali: false, track: 'normal', notifPerhatian: true, labelStatus: `Tugas Belajar ${negeri} (status bebas/tidak bebas jabatan tidak terbaca)`.trim() };
+  }
+
+  if (/ijin\s+belajar|izin\s+belajar/.test(s)) {
+    return { dikenali: true, eligibleSamaSekali: true, track: 'normal', notifPerhatian: false, labelStatus: 'Ijin Belajar' };
+  }
+
+  if (/dipekerjakan/.test(s)) {
+    return { dikenali: true, eligibleSamaSekali: true, track: 'normal', notifPerhatian: true, labelStatus: 'Dipekerjakan' };
+  }
+
+  if (/aktif\s+bekerja|^aktif$/.test(s) || s === '') {
+    return { dikenali: true, eligibleSamaSekali: true, track: 'normal', notifPerhatian: false, labelStatus: 'Aktif Bekerja' };
+  }
+
+  // Status lain yang belum dikenali (mis. Pensiun, Meninggal, dll.) --
+  // diperlakukan seperti Aktif secara default (lunak, tidak salah exclude
+  // orang gara-gara variasi penulisan), tanpa notifikasi khusus. Kalau ada
+  // status lain yang perlu aturan spesifik, tambahkan cabang baru di sini.
+  return { dikenali: false, eligibleSamaSekali: true, track: 'normal', notifPerhatian: false, labelStatus: String(statusBekerja || '').trim() || 'Aktif Bekerja' };
+}
+
+/**
+ * Status eligible SATU pegawai untuk siklus kenaikan pangkat yang sedang
+ * berjalan. Urutan pengecekan:
+ * 1. Status Bekerja: kalau "Diberhentikan Sementara"/"Non Aktif" (atau
+ *    "Tugas Belajar" yang bebas/tidak-bebas jabatannya tidak terbaca) ->
+ *    TIDAK eligible, berhenti di sini.
+ * 2. Untuk PEMILIK JABATAN FUNGSIONAL (Dosen & Tendik Jabatan Fungsional):
+ *    Status Bekerja menentukan JALUR mana yang berlaku -- "normal" (syarat
+ *    2 tahun + batas golongan per jabatan) atau "reguler" (syarat 4 tahun +
+ *    batas golongan per pendidikan, dipicu status Tugas Belajar yang bebas
+ *    dari jabatan). Tendik Non Jabatan Fungsional TIDAK terpengaruh field
+ *    ini -- selalu jalur reguler seperti sebelumnya.
+ * 3. TMT golongan sudah mencapai syarat minimal jalur ybs, dihitung ke TMT
+ *    TARGET (bukan ke hari ini) -- lihat hitungTargetTmtPromosi_.
+ * 4. Golongan sekarang BELUM mencapai batas atas golongan jalur ybs. Kalau
+ *    datanya tidak bisa dipastikan (jabatan/pendidikan tidak dikenali),
+ *    pegawai TIDAK dianggap eligible sampai datanya jelas.
+ */
+function cekEligiblePromosi_(employee, targetDate) {
+  const kategori = klasifikasiPegawaiPromosi_(employee.jabatan);
+  const statusInfo = klasifikasiStatusBekerjaPromosi_(employee.status_bekerja);
+
+  if (!statusInfo.eligibleSamaSekali) {
+    return {
+      kategori: kategori, eligible: false, masaKerjaTahun: 0, syaratTahun: 0,
+      batasGolongan: null, sudahMencapaiBatas: false, batasTidakDiketahui: false,
+      statusInfo: statusInfo, jalurReguler: false
+    };
+  }
+
+  // "track" dari status bekerja hanya berlaku untuk pemilik Jabatan
+  // Fungsional (Dosen & Tendik JF). Tendik Non-JF sudah selalu reguler.
+  const isJabatanFungsional = (kategori === 'dosen' || kategori === 'tendik_jabatan_fungsional');
+  const jalurReguler = kategori === 'tendik_non_jabatan_fungsional' || (isJabatanFungsional && statusInfo.track === 'reguler');
+
+  const syaratTahun = jalurReguler ? CONFIG.MASA_KERJA_MINIMAL.tendik_non_jabatan_fungsional : syaratMasaKerjaPromosi_(kategori);
+  const masaKerjaTahun = diffYears_(employee.tmt_gol, targetDate);
+  const cukupMasaKerja = !!employee.tmt_gol && masaKerjaTahun >= syaratTahun;
+
+  const kategoriUntukBatas = jalurReguler ? 'tendik_non_jabatan_fungsional' : kategori;
+  const batasInfo = sudahMencapaiBatasGolongan_(kategoriUntukBatas, employee);
+  const belumMentok = batasInfo.determinable && !batasInfo.sudahMencapaiBatas;
+
+  return {
+    kategori: kategori,
+    eligible: cukupMasaKerja && belumMentok,
+    masaKerjaTahun: masaKerjaTahun,
+    syaratTahun: syaratTahun,
+    batasGolongan: batasInfo.batasGolongan,
+    sudahMencapaiBatas: batasInfo.sudahMencapaiBatas,
+    batasTidakDiketahui: !batasInfo.determinable,
+    statusInfo: statusInfo,
+    jalurReguler: jalurReguler
+  };
+}
+
+/** Apakah baris pegawai bisa diusulkan sama sekali berdasarkan Status Bekerja (dipakai saring dashboard). */
+function isPegawaiAktif_(employee) {
+  return klasifikasiStatusBekerjaPromosi_(employee.status_bekerja).eligibleSamaSekali;
+}
+
+/**
+ * Ringkasan dashboard TAHAP 1: jumlah eligible per Unit/Fakultas
+ * (unit_es_ii), dipisah Dosen vs Tendik (gabungan JF + Non-JF, sesuai
+ * contoh "Tendik Eligible: 5" pada spesifikasi -- rincian per sub-kategori
+ * tetap tersedia lewat getPromosiEligibleList untuk drill-down).
+ */
+function getPromosiDashboardSummary(sessionToken) {
+  requireSession_(sessionToken);
+  try {
+    const target = hitungTargetTmtPromosi_(new Date());
+    const employees = getAllEmployees_();
+
+    const perUnit = {}; // unit -> { dosen: n, tendik: n }
+    employees.forEach(emp => {
+      if (!isPegawaiAktif_(emp)) return;
+      const hasil = cekEligiblePromosi_(emp, target.targetDate);
+      if (!hasil.eligible) return;
+
+      const unit = String(emp.unit_es_ii || '(Tanpa Unit)').trim() || '(Tanpa Unit)';
+      if (!perUnit[unit]) perUnit[unit] = { dosen: 0, tendik: 0 };
+      if (hasil.kategori === 'dosen') perUnit[unit].dosen++;
+      else perUnit[unit].tendik++;
+    });
+
+    const daftarUnit = Object.keys(perUnit).sort().map(unit => ({
+      unit: unit,
+      dosen: perUnit[unit].dosen,
+      tendik: perUnit[unit].tendik,
+      total: perUnit[unit].dosen + perUnit[unit].tendik
+    }));
+
+    return {
+      success: true,
+      targetTmt: `1 ${BULAN_ID[target.targetMonth - 1]} ${target.targetYear}`,
+      daftarUnit: daftarUnit
+    };
+  } catch (err) {
+    return { success: false, message: 'Gagal memuat dashboard eligible: ' + err.message };
+  }
+}
+
+/**
+ * Daftar nama pegawai eligible untuk SATU unit + kategori (dipakai
+ * drill-down dashboard TAHAP 2 -> TAHAP 3). kategoriFilter: 'dosen' |
+ * 'tendik' (gabungan kedua sub-kategori tendik).
+ */
+function getPromosiEligibleList(sessionToken, unit, kategoriFilter) {
+  requireSession_(sessionToken);
+  try {
+    const target = hitungTargetTmtPromosi_(new Date());
+    const employees = getAllEmployees_();
+
+    const hasil = employees
+      .filter(emp => isPegawaiAktif_(emp))
+      .map(emp => Object.assign({ emp: emp }, cekEligiblePromosi_(emp, target.targetDate)))
+      .filter(r => r.eligible)
+      .filter(r => (String(r.emp.unit_es_ii || '(Tanpa Unit)').trim() || '(Tanpa Unit)') === unit)
+      .filter(r => kategoriFilter === 'dosen' ? r.kategori === 'dosen' : r.kategori !== 'dosen')
+      .map(r => ({
+        nip: r.emp.nip,
+        nama: r.emp.nama_lengkap || r.emp.nama,
+        jabatan: r.emp.jabatan,
+        kategori: r.kategori,
+        tmtGolongan: formatTanggalIndonesia_(r.emp.tmt_gol),
+        golonganSekarang: r.emp.golongan,
+        batasGolongan: r.batasGolongan,
+        masaKerjaTahun: r.masaKerjaTahun,
+        syaratTahun: r.syaratTahun,
+        jalurReguler: r.jalurReguler,
+        notifPerhatian: r.statusInfo.notifPerhatian,
+        labelStatus: r.statusInfo.labelStatus
+      }))
+      .sort((a, b) => String(a.nama).localeCompare(String(b.nama)));
+
+    return { success: true, targetTmt: `1 ${BULAN_ID[target.targetMonth - 1]} ${target.targetYear}`, daftar: hasil };
+  } catch (err) {
+    return { success: false, message: 'Gagal memuat daftar pegawai eligible: ' + err.message };
+  }
+}

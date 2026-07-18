@@ -1,0 +1,236 @@
+/**
+ * =================================================================
+ * UTILS.GS
+ * Fungsi utilitas murni (tidak bergantung pada state aplikasi):
+ * format tanggal Indonesia, terbilang, rupiah, normalisasi string,
+ * dan helper tanggal untuk Template Engine.
+ * =================================================================
+ */
+
+const BULAN_ID = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
+
+/**
+ * Normalisasi header sheet menjadi key snake_case, misal:
+ * "Tanggal Lahir" -> "tanggal_lahir", "TMT Golongan" -> "tmt_golongan"
+ * Header yang sudah berbentuk tag (mis. "tgl_lhr") akan tetap sama.
+ */
+function normalizeHeaderKey_(header) {
+  return String(header)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+/**
+ * Mengubah objek Date (atau string tanggal) menjadi format Indonesia,
+ * contoh: "17 Agustus 1998". Dipakai otomatis untuk semua kolom yang
+ * key-nya diawali tgl_ atau tmt_ (lihat CONFIG.DATE_TAG_PREFIXES).
+ */
+function formatTanggalIndonesia_(value) {
+  const d = toDate_(value);
+  if (!d) return value === null || value === undefined ? '' : String(value);
+  return `${d.getDate()} ${BULAN_ID[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/**
+ * Konversi berbagai bentuk nilai (Date object, string "YYYY-MM-DD",
+ * serial number Sheets, dsb) menjadi objek Date JS yang valid.
+ * Mengembalikan null bila gagal di-parse.
+ */
+function toDate_(value) {
+  if (value instanceof Date && !isNaN(value.getTime())) return value;
+  if (typeof value === 'number') {
+    // Serial date Google Sheets (basis 30 Des 1899)
+    const epoch = new Date(Date.UTC(1899, 11, 30));
+    return new Date(epoch.getTime() + value * 86400000);
+  }
+  if (typeof value === 'string') {
+    const s = value.trim();
+    if (!s) return null;
+    // Format wajib YYYY-MM-DD untuk password / input form
+    const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (iso) return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+
+    // Format tanggal Indonesia DD/MM/YYYY atau DD-MM-YYYY (hari lebih dulu,
+    // dipakai kolom seperti TMT GOL / TMT JAB apabila tersimpan sebagai teks).
+    // PENTING: jangan diserahkan ke new Date(s) bawaan JS di bawah, karena
+    // parser bawaan menafsirkannya ala Amerika (MM/DD/YYYY) sehingga tanggal
+    // & bulan tertukar — mis. "01/10/2024" (seharusnya 1 Oktober 2024) malah
+    // terbaca 10 Januari 2024. Ditangani eksplisit di sini SEBELUM fallback.
+    const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (dmy) {
+      const day = Number(dmy[1]), month = Number(dmy[2]), year = Number(dmy[3]);
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        return new Date(year, month - 1, day);
+      }
+    }
+
+    const parsed = new Date(s);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  return null;
+}
+
+/**
+ * Format tanggal menjadi string wajib "YYYY-MM-DD" (dipakai untuk
+ * mencocokkan password = tanggal lahir pegawai).
+ */
+function formatDateYMD_(value) {
+  const d = toDate_(value);
+  if (!d) return '';
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+/** Selisih tahun penuh antara dua tanggal (dibulatkan ke bawah). */
+function diffYears_(a, b) {
+  const d1 = toDate_(a), d2 = toDate_(b);
+  if (!d1 || !d2) return 0;
+  let years = d2.getFullYear() - d1.getFullYear();
+  const anniversaryPassed =
+    d2.getMonth() > d1.getMonth() ||
+    (d2.getMonth() === d1.getMonth() && d2.getDate() >= d1.getDate());
+  if (!anniversaryPassed) years -= 1;
+  return Math.max(0, years);
+}
+
+/** Selisih bulan penuh antara dua tanggal (dibulatkan ke bawah). */
+function diffMonths_(a, b) {
+  const d1 = toDate_(a), d2 = toDate_(b);
+  if (!d1 || !d2) return 0;
+  let months = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
+  if (d2.getDate() < d1.getDate()) months -= 1;
+  return Math.max(0, months);
+}
+
+/** Selisih hari antara dua tanggal. */
+function diffDays_(a, b) {
+  const d1 = toDate_(a), d2 = toDate_(b);
+  if (!d1 || !d2) return 0;
+  return Math.round((d2.getTime() - d1.getTime()) / 86400000);
+}
+
+/**
+ * Format angka menjadi Rupiah, contoh: 1234567 -> "Rp1.234.567"
+ */
+function formatRupiah_(value) {
+  const n = Math.round(Number(value) || 0);
+  const sign = n < 0 ? '-' : '';
+  const formatted = Math.abs(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${sign}Rp${formatted}`;
+}
+
+/**
+ * Konversi angka menjadi teks terbilang Bahasa Indonesia.
+ * Contoh: 1234 -> "seribu dua ratus tiga puluh empat"
+ */
+function terbilang_(value) {
+  const n = Math.round(Number(value) || 0);
+  if (n === 0) return 'nol';
+  if (n < 0) return 'minus ' + terbilang_(Math.abs(n));
+
+  const satuan = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan'];
+
+  function subThree(num) {
+    let s = '';
+    const h = Math.floor(num / 100);
+    const rem = num % 100;
+    const t = Math.floor(rem / 10);
+    const s1 = rem % 10;
+
+    if (h > 0) s += (h === 1 ? 'seratus' : satuan[h] + ' ratus') + ' ';
+    if (rem >= 11 && rem <= 19) {
+      s += (rem === 10 ? 'sepuluh' : rem === 11 ? 'sebelas' : satuan[s1] + ' belas') + ' ';
+    } else if (rem === 10) {
+      s += 'sepuluh ';
+    } else {
+      if (t > 0) s += satuan[t] + ' puluh ';
+      if (s1 > 0) s += satuan[s1] + ' ';
+    }
+    return s.trim();
+  }
+
+  const groups = [
+    { value: 1000000000000, label: 'triliun' },
+    { value: 1000000000, label: 'miliar' },
+    { value: 1000000, label: 'juta' },
+    { value: 1000, label: 'ribu' }
+  ];
+
+  let remaining = n;
+  let parts = [];
+
+  for (const g of groups) {
+    const count = Math.floor(remaining / g.value);
+    if (count > 0) {
+      if (g.label === 'ribu' && count === 1) {
+        parts.push('seribu');
+      } else {
+        parts.push(subThree(count) + ' ' + g.label);
+      }
+      remaining %= g.value;
+    }
+  }
+  if (remaining > 0) parts.push(subThree(remaining));
+
+  return parts.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+/** Escape karakter khusus regex agar aman dipakai dalam Body.replaceText(). */
+function escapeRegex_(str) {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Escape teks pengganti agar aman terhadap interpretasi $ pada replaceText(). */
+function escapeReplacement_(str) {
+  return String(str).replace(/\$/g, '$$$$');
+}
+
+/** Ekstrak Drive File ID dari berbagai bentuk URL Google Drive/Docs. */
+function extractDriveFileId_(url) {
+  if (!url) return null;
+  const patterns = [
+    /\/d\/([a-zA-Z0-9_-]{20,})/,      // .../d/FILEID/...
+    /id=([a-zA-Z0-9_-]{20,})/,        // ...?id=FILEID
+    /folders\/([a-zA-Z0-9_-]{20,})/   // .../folders/FILEID
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  // Jika user langsung memasukkan ID mentah
+  if (/^[a-zA-Z0-9_-]{20,}$/.test(url.trim())) return url.trim();
+  return null;
+}
+
+/** Sanitasi nama file agar aman dipakai sebagai nama file Drive/PDF. */
+function sanitizeFileName_(name) {
+  return String(name).replace(/[\\/:*?"<>|]/g, '-').trim();
+}
+
+/**
+ * Ambil (atau buat otomatis kalau belum ada) sub-folder khusus di dalam
+ * folder output utama (CONFIG.OUTPUT_FOLDER_ID) -- dipakai memisahkan
+ * hasil generate per menu (Kenaikan Pangkat / Pensiun / Kontrak) supaya
+ * tidak semua dokumen tercampur di satu folder yang sama.
+ */
+function getOrCreateOutputSubfolder_(namaSubfolder) {
+  const rootFolder = DriveApp.getFolderById(CONFIG.OUTPUT_FOLDER_ID);
+  const existing = rootFolder.getFoldersByName(namaSubfolder);
+  if (existing.hasNext()) return existing.next();
+  return rootFolder.createFolder(namaSubfolder);
+}
+
+/** Pindahkan satu file Drive ke folder tujuan (hapus dari folder asal, tambahkan ke folder baru). */
+function pindahFileKeFolder_(file, targetFolder) {
+  const parents = file.getParents();
+  while (parents.hasNext()) {
+    parents.next().removeFile(file);
+  }
+  targetFolder.addFile(file);
+}

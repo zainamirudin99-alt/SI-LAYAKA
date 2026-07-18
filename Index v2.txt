@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <?!= include('Stylesheet'); ?>
+</head>
+<body class="theme-light">
+
+  <div class="theme-toggle">
+    <span id="themeLabel">Light</span>
+    <button id="themeToggleBtn" type="button">🌙</button>
+  </div>
+
+  <!-- ======================= LOGIN SCREEN ======================= -->
+  <div id="loginScreen">
+    <div class="login-card">
+      <?!= include('Logos'); ?>
+
+      <h1>Sistem Layanan Administrasi Kepegawaian</h1>
+      <p class="subtitle" id="authSubtitle">Silakan masuk menggunakan NIP dan password Anda</p>
+
+      <div class="auth-switch" data-auth-group="auth">
+        <button type="button" class="auth-switch-btn active" data-auth-target="pane-login">Masuk</button>
+        <button type="button" class="auth-switch-btn" data-auth-target="pane-register">Daftar Akun</button>
+      </div>
+
+      <div class="error-box" id="loginError"></div>
+      <div class="error-box" id="registerError"></div>
+
+      <!-- ---------- PANE: LOGIN ---------- -->
+      <div class="auth-pane active" data-auth-group-pane="auth" id="pane-login">
+        <form id="loginForm">
+          <div class="field">
+            <label for="loginNip">NIP</label>
+            <input type="text" id="loginNip" autocomplete="username" required placeholder="Masukkan NIP" />
+          </div>
+          <div class="field">
+            <label for="loginPassword">Password</label>
+            <input type="password" id="loginPassword" autocomplete="current-password" required placeholder="8 digit pertama NIP" />
+            <div class="helper-text">Password default = 8 digit angka pertama dari NIP Anda.</div>
+          </div>
+          <button type="submit" id="loginSubmitBtn" class="btn btn-primary">Masuk</button>
+        </form>
+      </div>
+
+      <!-- ---------- PANE: REGISTER ---------- -->
+      <div class="auth-pane" data-auth-group-pane="auth" id="pane-register">
+        <div class="helper-text" style="margin-bottom:14px; text-align:left;">
+          Gunakan formulir ini bila NIP Anda <strong>belum terdaftar</strong> di sistem. Password akan otomatis mengikuti aturan yang sama seperti login (8 digit pertama NIP).
+        </div>
+        <form id="registerForm">
+          <div class="field">
+            <label for="regNama">Nama Lengkap</label>
+            <input type="text" id="regNama" autocomplete="name" required placeholder="Masukkan nama lengkap" />
+          </div>
+          <div class="field">
+            <label for="regNip">NIP (akan menjadi username)</label>
+            <input type="text" id="regNip" autocomplete="username" required placeholder="Masukkan NIP" />
+          </div>
+          <div class="field">
+            <label for="regUnitKerja">Unit Kerja</label>
+            <input type="text" id="regUnitKerja" required placeholder="cth. Fakultas Teknik" />
+            <div class="helper-text">Diisi manual karena data Anda belum ada di sistem.</div>
+          </div>
+          <button type="submit" id="registerSubmitBtn" class="btn btn-primary">Daftar &amp; Masuk</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= APP SHELL ======================= -->
+  <div id="appShell">
+    <div class="app-layout">
+
+      <!-- SIDEBAR -->
+      <div class="sidebar">
+        <div class="sidebar-brand">
+          <span>SISTEM LAYANAN<br>ADMINISTRASI KEPEGAWAIAN</span>
+        </div>
+
+        <div class="nav-item" data-view="profil-saya" data-title="Profil Saya" style="display:none;">
+          🙍 Profil Saya
+        </div>
+        <div class="nav-item active" data-view="kenaikan-pangkat" data-title="Kenaikan Pangkat">
+          📈 Kenaikan Pangkat
+        </div>
+        <div class="nav-item" data-view="pensiun" data-title="Pensiun">
+          🧓 Pensiun
+        </div>
+        <div class="nav-item" data-view="kontrak" data-title="Kontrak" style="display:none;">
+          📄 Kontrak
+        </div>
+        <div class="nav-item" data-view="template" data-title="Manajemen Template">
+          🧩 Template
+        </div>
+        <div class="nav-item" data-view="peran-akun" data-title="Perubahan Status Akun" style="display:none;">
+          🛡️ Perubahan Status Akun
+        </div>
+        <div class="nav-item" data-view="lainnya" data-title="Menu Lainnya">
+          ⋯ Menu Lainnya
+        </div>
+
+        <div class="sidebar-footer">
+          <div class="user-chip">
+            <span class="u-name" id="sidebarUserName">-</span>
+            <span id="sidebarUserRole">-</span>
+          </div>
+          <button id="logoutBtn" class="btn btn-secondary" style="width:100%;">Keluar</button>
+        </div>
+      </div>
+
+      <!-- MAIN CONTENT -->
+      <div class="main-content">
+        <div class="topbar">
+          <div>
+            <h2 id="topbarTitle">Kenaikan Pangkat</h2>
+            <div class="breadcrumb">Sistem Layanan Administrasi Kepegawaian</div>
+          </div>
+        </div>
+
+        <!-- ============ VIEW: KENAIKAN PANGKAT ============ -->
+        <div class="view-panel" id="view-kenaikan-pangkat">
+          <div class="card kp-panel">
+            <div class="tabs" data-tab-group="kp">
+              <button class="tab-btn active" data-tab-target="tab-checkEligible">0. Check Eligible</button>
+              <button class="tab-btn" data-tab-target="tab-optA">Opsi A: AK Konversi Tahunan</button>
+              <button class="tab-btn" data-tab-target="tab-optB">Opsi B: AK Konversi Kumulatif</button>
+              <button class="tab-btn" data-tab-target="tab-statusUsulan" id="tabBtnStatusUsulan" style="display:none;">Status Usulan Saya</button>
+              <button class="tab-btn" data-tab-target="tab-usulanMasuk" id="tabBtnUsulanMasuk" style="display:none;">📨 Usulan Masuk <span id="usulanMasukBadge" class="cdli-badge" style="display:none;"></span></button>
+            </div>
+
+            <!-- ---------- CHECK ELIGIBLE ---------- -->
+            <div class="tab-panel active" data-tab-group-panel="kp" id="tab-checkEligible">
+
+              <!-- Dashboard eligible (skrining masa kerja) -- tampil SEBELUM pemilihan nama -->
+              <div class="ce-dashboard" id="ceDashboard">
+                <div class="ce-dashboard-header">
+                  <span class="ce-dashboard-title">📊 Dashboard Eligible Kenaikan Pangkat</span>
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="ce-dashboard-target" id="ceDashboardTarget"></span>
+                    <button type="button" class="btn btn-primary kp-small-btn" id="ceDashboardAjukanUsulanBtn" style="display:none;">📨 Ajukan Usulan</button>
+                  </div>
+                </div>
+
+                <div id="ceDashboardLevel1" class="ce-dashboard-grid"></div>
+
+                <div id="ceDashboardLevel2" style="display:none;">
+                  <button type="button" class="ce-dashboard-back" data-back="1">&larr; Kembali ke daftar unit</button>
+                  <div class="ce-dashboard-grid" id="ceDashboardLevel2Grid"></div>
+                </div>
+
+                <div id="ceDashboardLevel3" style="display:none;">
+                  <button type="button" class="ce-dashboard-back" data-back="2">&larr; Kembali</button>
+                  <div id="ceDashboardLevel3List" class="ce-dashboard-list"></div>
+                </div>
+              </div>
+
+              <div class="stack-field autocomplete-wrap" style="margin-top:20px;">
+                <label class="kp-label">Search Nama</label>
+                <input type="text" id="subjectCE_input" class="field-input" placeholder="Cari Nama atau NIP pegawai..." autocomplete="off" />
+                <input type="hidden" id="subjectCE_nip" />
+                <div class="autocomplete-list" id="subjectCE_list"></div>
+              </div>
+
+              <div class="actions-bar" style="justify-content:flex-start;">
+                <button class="btn btn-primary" id="ce_ajukanUsulanBtn" style="display:none;">📨 Ajukan Usulan</button>
+              </div>
+
+              <div class="grid-2" style="margin-top:18px;">
+                <div class="stack-field">
+                  <label>Golongan (saat ini)</label>
+                  <select id="ce_golongan"></select>
+                  <div class="helper-text" id="ce_golonganAutoFillMsg">Otomatis dari data pegawai, dapat diubah bila perlu.</div>
+                </div>
+                <div class="stack-field">
+                  <label>Jabatan</label>
+                  <select id="ce_jabatan"></select>
+                  <div class="helper-text" id="ce_jabatanAutoFillMsg">Otomatis dari data pegawai, dapat diubah bila perlu.</div>
+                </div>
+                <div class="stack-field grid-full" id="ce_tmtGolonganBaruWrap" style="display:none;">
+                  <label>TMT Golongan (baru)</label>
+                  <input type="text" id="ce_tmtGolonganBaru" class="field-input" placeholder="Ketik manual, cth: 1 Agustus 2026" />
+                  <div class="helper-text">Wajib diisi karena Golongan diubah dari data utama — TMT lama sudah tidak berlaku untuk golongan baru ini.</div>
+                </div>
+                <div class="stack-field grid-full" id="ce_tmtJabatanBaruWrap" style="display:none;">
+                  <label>TMT Jabatan (baru)</label>
+                  <input type="text" id="ce_tmtJabatanBaru" class="field-input" placeholder="Ketik manual, cth: 1 Agustus 2026" />
+                  <div class="helper-text">Wajib diisi karena Jabatan diubah dari data utama — TMT lama sudah tidak berlaku untuk jabatan baru ini.</div>
+                </div>
+
+                <div class="stack-field">
+                  <label>AK Integrasi</label>
+                  <input type="number" id="ce_akIntegrasi" step="any" />
+                </div>
+                <div class="stack-field">
+                  <label>Golongan Saat Integrasi</label>
+                  <select id="ce_golonganIntegrasi"></select>
+                </div>
+                <div class="stack-field">
+                  <label>Ada Ijazah Baru Setelah 2023</label>
+                  <select id="ce_ijazahBaru"></select>
+                  <div class="helper-text">Jika "Ada", nilai pendidikan dihitung 25% dari kebutuhan AK golongan sekarang.</div>
+                </div>
+              </div>
+
+              <div style="margin-top:18px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                  <label style="font-weight:700; font-size:14px;">Predikat SKP</label>
+                  <button type="button" class="btn btn-outline" id="ce_addPredikatRow" style="padding:6px 12px; font-size:12.5px;">+ Tambah</button>
+                </div>
+                <div style="overflow-x:auto;">
+                  <table class="dyn-table">
+                    <thead>
+                      <tr>
+                        <th>Tahun Penilaian</th>
+                        <th>Predikat</th>
+                        <th>Bulan Mulai Penilaian</th>
+                        <th>Bulan Akhir Penilaian</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="ce_predikatTableBody"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="actions-bar">
+                <button class="btn btn-primary" id="ce_hitungBtn">Hitung / Cek Eligibility</button>
+              </div>
+
+              <div class="card" id="ce_resultCard" style="display:none; margin-top:18px; background:var(--surface-alt);">
+                <h3 style="margin-top:0;" id="ce_resultTitle">Hasil Perhitungan</h3>
+                <div id="ce_resultBody"></div>
+                <div class="actions-bar" style="justify-content:flex-start; margin-top:16px;">
+                  <button class="btn btn-secondary" id="ce_lanjutABtn">Lanjut ke Opsi A →</button>
+                  <button class="btn btn-secondary" id="ce_lanjutBBtn">Lanjut ke Opsi B →</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ---------- OPSI A ---------- -->
+            <div class="tab-panel" data-tab-group-panel="kp" id="tab-optA">
+              <div class="helper-text" style="margin-bottom:14px;">
+                Angka pada dokumen yang dihasilkan (AK Konversi Tahunan) mengikuti rumus baku sesuai format Surat Keputusan, dan bisa berbeda dari estimasi cepat di tab "0. Check Eligible".
+              </div>
+
+              <div class="kp-entries-toolbar">
+                <span class="helper-text" style="margin:0;">Tiap entri menghasilkan satu bagian dokumen. Beberapa entri akan digabung jadi <strong>satu file</strong> saat Preview/Generate.</span>
+                <button type="button" class="btn btn-outline" id="optA_addEntryBtn">+ Tambah Data</button>
+              </div>
+
+              <div id="optA_entriesContainer"></div>
+
+              <div class="actions-bar">
+                <button class="btn btn-outline" id="optA_previewBtn">Preview</button>
+                <button class="btn btn-primary" id="optA_generateBtn">Generate</button>
+              </div>
+            </div>
+
+            <!-- ---------- OPSI B ---------- -->
+            <div class="tab-panel" data-tab-group-panel="kp" id="tab-optB">
+              <div class="helper-text" style="margin-bottom:14px;">
+                Angka pada dokumen yang dihasilkan (AK Konversi Kumulatif), termasuk Rekomendasi, mengikuti rumus baku sesuai format Surat Keputusan, dan bisa berbeda dari estimasi cepat di tab "0. Check Eligible".
+              </div>
+
+              <div class="kp-entries-toolbar">
+                <span class="helper-text" style="margin:0;">Tiap entri menghasilkan satu bagian dokumen. Beberapa entri akan digabung jadi <strong>satu file</strong> saat Preview/Generate.</span>
+                <button type="button" class="btn btn-outline" id="optB_addEntryBtn">+ Tambah Data</button>
+              </div>
+
+              <div id="optB_entriesContainer"></div>
+
+              <div class="actions-bar">
+                <button class="btn btn-outline" id="optB_previewBtn">Preview</button>
+                <button class="btn btn-primary" id="optB_generateBtn">Generate</button>
+              </div>
+            </div>
+
+            <!-- ---------- STATUS USULAN SAYA (peran user) ---------- -->
+            <div class="tab-panel" data-tab-group-panel="kp" id="tab-statusUsulan">
+              <div class="helper-text" style="margin-bottom:14px;">Daftar pegawai yang pernah Anda ajukan untuk Kenaikan Pangkat, beserta status terkini.</div>
+              <div id="statusUsulanList" class="ce-dashboard-list"></div>
+            </div>
+
+            <!-- ---------- USULAN MASUK (peran admin/super_admin) ---------- -->
+            <div class="tab-panel" data-tab-group-panel="kp" id="tab-usulanMasuk">
+              <div class="helper-text" style="margin-bottom:14px;">Usulan Kenaikan Pangkat yang diajukan User, dikelompokkan per Unit/Fakultas. Pilih nama untuk memprosesnya lewat Opsi A/B.</div>
+              <div id="usulanMasukLevel1" class="ce-dashboard-grid"></div>
+              <div id="usulanMasukLevel2" style="display:none;">
+                <button type="button" class="ce-dashboard-back" id="usulanMasukBackBtn">&larr; Kembali ke daftar unit</button>
+                <div id="usulanMasukLevel2List" class="ce-dashboard-list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ VIEW: PENSIUN ============ -->
+        <div class="view-panel" id="view-pensiun" style="display:none;">
+          <div class="card kp-panel">
+            <div class="tabs" data-tab-group="pensiun">
+              <button class="tab-btn active" data-tab-target="tab-dpcp">DPCP</button>
+              <button class="tab-btn" data-tab-target="tab-statusUsulanPensiun" id="tabBtnStatusUsulanPensiun" style="display:none;">Status Usulan Saya</button>
+              <button class="tab-btn" data-tab-target="tab-usulanMasukPensiun" id="tabBtnUsulanMasukPensiun" style="display:none;">📨 Usulan Masuk <span id="usulanMasukPensiunBadge" class="cdli-badge" style="display:none;"></span></button>
+            </div>
+
+            <div class="tab-panel active" data-tab-group-panel="pensiun" id="tab-dpcp">
+
+              <!-- STATE 1: Dashboard (unit -> daftar pegawai akan pensiun) -->
+              <div id="pensiunDashboardState">
+                <div class="ce-dashboard">
+                  <div class="ce-dashboard-header">
+                    <span class="ce-dashboard-title">🧓 Pegawai Akan Pensiun</span>
+                    <span class="ce-dashboard-target" id="pensiunDashboardAmbang"></span>
+                  </div>
+                  <div id="pensiunDashboardLevel1" class="ce-dashboard-grid"></div>
+                  <div id="pensiunDashboardLevel2" style="display:none;">
+                    <button type="button" class="ce-dashboard-back" id="pensiunBackToUnit">&larr; Kembali ke daftar unit</button>
+                    <div id="pensiunDashboardLevel2List" class="ce-dashboard-list"></div>
+                  </div>
+                </div>
+                <div class="helper-text" style="margin-top:14px;">Tidak menemukan pegawai di daftar? Cari manual langsung di bawah.</div>
+                <button type="button" class="btn btn-outline" id="pensiunGoToFormBtn" style="margin-top:8px;">Cari Pegawai Manual / Isi Form DPCP</button>
+              </div>
+
+              <!-- STATE 2: Form DPCP + SUPER -->
+              <div id="pensiunFormState" style="display:none;">
+                <button type="button" class="btn btn-outline" id="pensiunBackToDashboard" style="margin-bottom:18px;">&larr; Kembali ke Dashboard</button>
+
+                <div class="stack-field autocomplete-wrap">
+                  <label class="kp-label">Search Nama (atau pilih dari dashboard)</label>
+                  <input type="text" id="subjectPensiun_input" class="field-input" placeholder="Cari Nama atau NIP pegawai..." autocomplete="off" />
+                  <input type="hidden" id="subjectPensiun_nip" />
+                  <div class="autocomplete-list" id="subjectPensiun_list"></div>
+                </div>
+                <div class="helper-text" id="pensiunRiwayatMsg" style="display:none;"></div>
+
+                <div class="grid-2 kp-grid" style="margin-top:18px;">
+                  <div class="stack-field">
+                    <label>Jenis Pensiun</label>
+                    <select id="pensiun_jenisPensiun"></select>
+                  </div>
+                  <div class="stack-field grid-full" id="pensiun_tglPeristiwaWrap" style="display:none;">
+                    <label id="pensiun_tglPeristiwaLabel">Tanggal Peristiwa</label>
+                    <input type="date" id="pensiun_tglPeristiwa" class="field-input" />
+                  </div>
+                </div>
+
+                <div class="grid-2 kp-grid">
+                  <div class="stack-field"><label>NIP</label><input type="text" id="pensiun_nip" class="field-input" /></div>
+                  <div class="stack-field"><label>Nama Lengkap</label><input type="text" id="pensiun_namaLengkap" class="field-input" /></div>
+                  <div class="stack-field"><label>Nama Panggilan</label><input type="text" id="pensiun_nama" class="field-input" /></div>
+                  <div class="stack-field"><label>Tempat Lahir</label><input type="text" id="pensiun_tmpLhr" class="field-input" /></div>
+                  <div class="stack-field"><label>Tanggal Lahir</label><input type="date" id="pensiun_tglLhr" class="field-input" /></div>
+                  <div class="stack-field"><label>TMT CPNS</label><input type="date" id="pensiun_tmtCpns" class="field-input" /></div>
+                  <div class="stack-field"><label>Pangkat</label><input type="text" id="pensiun_pangkat" class="field-input" /></div>
+                  <div class="stack-field"><label>Golongan</label><input type="text" id="pensiun_golongan" class="field-input" /></div>
+                  <div class="stack-field"><label>TMT Golongan</label><input type="date" id="pensiun_tmtGol" class="field-input" /></div>
+                  <div class="stack-field"><label>Jabatan</label><input type="text" id="pensiun_jabatan" class="field-input" /></div>
+                  <div class="stack-field"><label>TMT Jabatan</label><input type="date" id="pensiun_tmtJab" class="field-input" /></div>
+                  <div class="stack-field"><label>TMT Pensiun</label><input type="date" id="pensiun_tmtPensiun" class="field-input" /></div>
+                  <div class="stack-field"><label>Bulan Terakhir Bekerja</label><input type="date" id="pensiun_bulanTerakhirBekerja" class="field-input" /></div>
+                  <div class="stack-field"><label>Unit Kerja</label><input type="text" id="pensiun_unitEsIi" class="field-input" /></div>
+                  <div class="stack-field"><label>Gaji Pokok</label><input type="text" id="pensiun_gajiPokok" class="field-input" placeholder="Contoh: 3500000" /></div>
+                  <div class="stack-field"><label>Pendidikan Pertama</label><input type="text" id="pensiun_pendidikanPertama" class="field-input" /></div>
+                </div>
+
+                <div class="grid-2 kp-grid">
+                  <div class="stack-field">
+                    <label>Masa Kerja Golongan Terakhir (KP)</label>
+                    <div class="mk-input-pair">
+                      <input type="number" id="pensiun_mkKpTahun" min="0" max="50" placeholder="Tahun" class="field-input" />
+                      <input type="number" id="pensiun_mkKpBulan" min="0" max="11" placeholder="Bulan" class="field-input" />
+                    </div>
+                  </div>
+                  <div class="stack-field">
+                    <label>Masa Kerja Sebelum CPNS</label>
+                    <div class="mk-input-pair">
+                      <input type="number" id="pensiun_mkSebelumTahun" min="0" max="50" placeholder="Tahun" class="field-input" />
+                      <input type="number" id="pensiun_mkSebelumBulan" min="0" max="11" placeholder="Bulan" class="field-input" />
+                    </div>
+                  </div>
+                  <div class="stack-field">
+                    <label>CLTN (Cuti Luar Tanggungan Negara)</label>
+                    <div class="mk-input-pair">
+                      <input type="number" id="pensiun_cltnTahun" min="0" max="50" placeholder="Tahun" class="field-input" />
+                      <input type="number" id="pensiun_cltnBulan" min="0" max="11" placeholder="Bulan" class="field-input" />
+                    </div>
+                  </div>
+                  <div class="stack-field">
+                    <label>PMK (Penambahan Masa Kerja)</label>
+                    <div class="mk-input-pair">
+                      <input type="number" id="pensiun_pmkTahun" min="0" max="50" placeholder="Tahun" class="field-input" />
+                      <input type="number" id="pensiun_pmkBulan" min="0" max="11" placeholder="Bulan" class="field-input" />
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mk-display-row">
+                  <div>Masa Kerja Golongan: <strong id="pensiun_txtMkGolongan">0 TAHUN 0 BULAN</strong></div>
+                  <div>Masa Kerja PNS: <strong id="pensiun_txtMkPns">0 TAHUN 0 BULAN</strong></div>
+                  <div>Masa Kerja Pensiun: <strong id="pensiun_txtMkPensiun">0 TAHUN 0 BULAN</strong></div>
+                </div>
+
+                <div class="stack-field grid-full">
+                  <label>Alamat</label>
+                  <textarea id="pensiun_alamat" rows="2" class="field-input"></textarea>
+                  <div class="helper-text" id="pensiun_alamatMsg">Otomatis dari data pegawai bila tersedia, dapat diubah bila perlu.</div>
+                </div>
+
+                <div class="stack-field grid-full">
+                  <label>Foto (opsional, maks. 1 MB, .jpg/.jpeg)</label>
+                  <input type="file" id="pensiun_fotoUpload" accept=".jpg,.jpeg" />
+                  <div class="helper-text" id="pensiun_fotoMsg" style="display:none;">✓ Foto berhasil dimuat.</div>
+                </div>
+
+                <div class="kp-penilaian-block">
+                  <div class="kp-penilaian-header">
+                    <label style="font-weight:700; font-size:14px;">Data Pasangan (maks. 2)</label>
+                    <button type="button" class="btn btn-outline kp-small-btn" id="pensiun_addPasangan">+ Tambah Pasangan</button>
+                  </div>
+                  <div id="pensiunPasanganContainer"></div>
+                </div>
+
+                <div class="kp-penilaian-block">
+                  <div class="kp-penilaian-header">
+                    <label style="font-weight:700; font-size:14px;">Data Anak (maks. 5)</label>
+                    <button type="button" class="btn btn-outline kp-small-btn" id="pensiun_addAnak">+ Tambah Anak</button>
+                  </div>
+                  <div id="pensiunAnakContainer"></div>
+                </div>
+
+                <div class="stack-field" style="margin-top:8px;">
+                  <label style="display:flex; align-items:center; gap:8px; font-weight:600;">
+                    <input type="checkbox" id="pensiun_isSaveActive" checked style="width:auto;" />
+                    Simpan data ini ke riwayat (Save Data)
+                  </label>
+                </div>
+
+                <div class="actions-bar">
+                  <button class="btn btn-outline" id="pensiun_previewDpcpBtn">Preview DPCP</button>
+                  <button class="btn btn-primary" id="pensiun_generateDpcpBtn">Generate DPCP</button>
+                </div>
+
+                <!-- ---------- SUPER ---------- -->
+                <div class="kp-penilaian-block" style="margin-top:28px; padding-top:20px; border-top:1px solid var(--border);">
+                  <label style="font-weight:700; font-size:14px;">Dokumen SUPER (Surat Pernyataan Pensiun)</label>
+                  <div class="helper-text" style="margin-bottom:14px;">Memakai NIP, Nama, Pangkat/Golongan, dan Jabatan dari data di atas.</div>
+                  <div class="grid-2 kp-grid">
+                    <div class="stack-field">
+                      <label>Nomor Surat Tidak Hukdis Sedang/Berat</label>
+                      <input type="text" id="pensiun_nomorSuperHukdis" class="field-input" />
+                    </div>
+                    <div class="stack-field">
+                      <label>Nomor Surat Tidak Pernah Pidana</label>
+                      <input type="text" id="pensiun_nomorSuperPidana" class="field-input" />
+                    </div>
+                  </div>
+                  <div class="actions-bar">
+                    <button class="btn btn-outline" id="pensiun_previewSuperBtn">Preview SUPER</button>
+                    <button class="btn btn-primary" id="pensiun_generateSuperBtn">Generate SUPER</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ---------- STATUS USULAN PENSIUN SAYA (peran user) ---------- -->
+            <div class="tab-panel" data-tab-group-panel="pensiun" id="tab-statusUsulanPensiun">
+              <div class="helper-text" style="margin-bottom:14px;">Daftar pegawai yang pernah Anda ajukan untuk Pensiun, beserta status terkini.</div>
+              <div id="statusUsulanPensiunList" class="ce-dashboard-list"></div>
+            </div>
+
+            <!-- ---------- USULAN MASUK PENSIUN (peran admin/super_admin) ---------- -->
+            <div class="tab-panel" data-tab-group-panel="pensiun" id="tab-usulanMasukPensiun">
+              <div class="helper-text" style="margin-bottom:14px;">Usulan Pensiun yang diajukan User, dikelompokkan per Unit/Fakultas. Buat DPCP dan SUPER untuk memprosesnya.</div>
+              <div id="usulanMasukPensiunLevel1" class="ce-dashboard-grid"></div>
+              <div id="usulanMasukPensiunLevel2" style="display:none;">
+                <button type="button" class="ce-dashboard-back" id="usulanMasukPensiunBackBtn">&larr; Kembali ke daftar unit</button>
+                <div id="usulanMasukPensiunLevel2List" class="ce-dashboard-list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ VIEW: KONTRAK ============ -->
+        <div class="view-panel" id="view-kontrak" style="display:none;">
+          <div class="card kp-panel">
+
+            <!-- STATE 1: Tenaga Kependidikan / Dosen -->
+            <div id="kontrakPilihKategoriState">
+              <div class="helper-text" style="margin-bottom:14px;">Pilih kategori pegawai untuk membuat dokumen Kontrak/Perjanjian Kerja.</div>
+              <div class="ce-dashboard-grid">
+                <button type="button" class="ce-dashboard-card" onclick="pilihKategoriKontrak('Kontrak Tendik')">
+                  <div class="cdc-title">Tenaga Kependidikan</div>
+                </button>
+                <button type="button" class="ce-dashboard-card" onclick="pilihKategoriKontrak('Kontrak Dosen')">
+                  <div class="cdc-title">Dosen</div>
+                </button>
+              </div>
+              <button type="button" class="btn btn-outline" id="kontrakKelolaAksesBtn" style="display:none; margin-top:16px;">🔐 Kelola Akses Mandiri per Kategori</button>
+            </div>
+
+            <!-- STATE 0 (khusus admin/super_admin): Kelola Akses Mandiri per Kategori -->
+            <div id="kontrakKelolaAksesState" style="display:none;">
+              <button type="button" class="ce-dashboard-back" id="kontrakBackFromAksesBtn">&larr; Kembali</button>
+              <div class="helper-text" style="margin-bottom:14px;">
+                Izinkan/cabut akses "Perpanjangan Mandiri" untuk SELURUH pegawai dalam satu kategori status kepegawaian sekaligus
+                (bukan satu per satu) — begitu diizinkan, semua pegawai berkategori itu langsung bisa membuat kontrak perpanjangan sendiri.
+              </div>
+              <div id="kontrakAksesKategoriList" class="ce-dashboard-list"></div>
+            </div>
+
+            <!-- STATE 2: pilih jenis kontrak spesifik -->
+            <div id="kontrakPilihSubMenuState" style="display:none;">
+              <button type="button" class="ce-dashboard-back" id="kontrakBackToKategoriBtn">&larr; Kembali</button>
+              <div id="kontrakSubMenuGrid" class="ce-dashboard-grid"></div>
+            </div>
+
+            <!-- STATE 3: Usulan Baru / Perpanjangan -->
+            <div id="kontrakPilihModeState" style="display:none;">
+              <button type="button" class="ce-dashboard-back" id="kontrakBackToSubMenuBtn">&larr; Kembali</button>
+              <div class="ce-dashboard-grid">
+                <button type="button" class="ce-dashboard-card" onclick="pilihModeKontrak('baru')">
+                  <div class="cdc-title">Usulan Baru</div>
+                  <div class="cdc-sub">Pegawai/tenaga baru, belum ada di data utama</div>
+                </button>
+                <button type="button" class="ce-dashboard-card" onclick="pilihModeKontrak('perpanjangan')">
+                  <div class="cdc-title">Perpanjangan</div>
+                  <div class="cdc-sub">Pegawai sudah ada di data utama</div>
+                </button>
+              </div>
+            </div>
+
+            <!-- STATE 4: Form -->
+            <div id="kontrakFormState" style="display:none;">
+              <button type="button" class="ce-dashboard-back" id="kontrakBackToModeBtn">&larr; Kembali</button>
+
+              <div class="stack-field autocomplete-wrap" id="kontrakSearchWrap">
+                <label class="kp-label">Cari Pegawai</label>
+                <input type="text" id="kontrak_search" class="field-input" placeholder="Cari nama atau NIP..." autocomplete="off" />
+                <input type="hidden" id="kontrak_nip" />
+                <div class="autocomplete-list" id="kontrak_searchList"></div>
+              </div>
+
+              <div class="grid-2 kp-grid">
+                <div class="stack-field">
+                  <label>NIP/NIK</label>
+                  <input type="text" id="kontrak_nipManual" class="field-input" />
+                </div>
+                <div class="stack-field">
+                  <label>Nama Lengkap</label>
+                  <input type="text" id="kontrak_namaLengkap" class="field-input" />
+                </div>
+                <div class="stack-field">
+                  <label>Tempat Lahir</label>
+                  <input type="text" id="kontrak_tmpLhr" class="field-input" />
+                </div>
+                <div class="stack-field">
+                  <label>Tanggal Lahir</label>
+                  <input type="date" id="kontrak_tglLhr" class="field-input" />
+                </div>
+                <div class="stack-field">
+                  <label>Pendidikan</label>
+                  <input type="text" id="kontrak_pendidikan" class="field-input" />
+                </div>
+                <div class="stack-field">
+                  <label>Jurusan</label>
+                  <input type="text" id="kontrak_jurusan" class="field-input" />
+                </div>
+                <div class="stack-field">
+                  <label>Unit Kerja</label>
+                  <input type="text" id="kontrak_unitEsIi" class="field-input" />
+                </div>
+                <div class="stack-field">
+                  <label>Jabatan</label>
+                  <input type="text" id="kontrak_jabatan" class="field-input" />
+                </div>
+                <div class="stack-field grid-full">
+                  <label>Alamat</label>
+                  <textarea id="kontrak_alamat" class="field-input" rows="2"></textarea>
+                  <div class="helper-text" id="kontrak_alamatMsg"></div>
+                </div>
+                <div class="stack-field">
+                  <label>Nomor Telepon</label>
+                  <input type="text" id="kontrak_nomorTelepon" class="field-input" />
+                </div>
+                <div class="stack-field">
+                  <label>Nomor Surat Perjanjian (opsional)</label>
+                  <input type="text" id="kontrak_nomorSurat" class="field-input" placeholder="Kosongkan bila belum ada" />
+                </div>
+              </div>
+
+              <div class="grid-2 kp-grid">
+                <div class="stack-field">
+                  <label>TMT Kontrak (mulai)</label>
+                  <div class="mk-input-pair">
+                    <select id="kontrak_tmtBulan" class="field-input"></select>
+                    <select id="kontrak_tmtTahun" class="field-input"></select>
+                  </div>
+                </div>
+                <div class="stack-field">
+                  <label>TST Kontrak (selesai)</label>
+                  <div class="mk-input-pair">
+                    <select id="kontrak_tstBulan" class="field-input"></select>
+                    <select id="kontrak_tstTahun" class="field-input"></select>
+                  </div>
+                </div>
+                <div class="stack-field">
+                  <label>Jangka Waktu Kontrak</label>
+                  <input type="text" id="kontrak_jangkaWaktu" class="field-input" readonly placeholder="Otomatis dari TMT & TST di atas" />
+                </div>
+                <div class="stack-field"></div>
+              </div>
+
+              <div class="stack-field">
+                <label>Besaran Upah</label>
+                <input type="text" id="kontrak_besaranUpah" class="field-input" readonly />
+                <div class="helper-text" id="kontrak_besaranUpahMsg">Otomatis dari Pendidikan (S2/Sp1 atau S3/Sp2).</div>
+              </div>
+
+              <div class="actions-bar">
+                <button class="btn btn-outline" id="kontrak_previewBtn">Preview</button>
+                <button class="btn btn-primary" id="kontrak_generateBtn">Generate</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ VIEW: PROFIL SAYA (peran 'normal') ============ -->
+        <div class="view-panel" id="view-profil-saya" style="display:none;">
+          <div class="card kp-panel" style="max-width:640px;">
+            <div class="helper-text" style="margin-bottom:18px;">
+              Anda masuk sebagai akun dengan akses terbatas — hanya bisa melihat data diri sendiri di bawah ini.
+            </div>
+            <div id="profilSayaContent" class="ce-dashboard-list"></div>
+          </div>
+        </div>
+
+        <!-- ============ VIEW: PERUBAHAN STATUS AKUN (khusus Super Admin) ============ -->
+        <div class="view-panel" id="view-peran-akun" style="display:none;">
+          <div class="card kp-panel">
+            <div class="helper-text" style="margin-bottom:18px;">
+              Ubah peran akun seorang pegawai (Normal/User &rarr; Admin). Peran Super Admin tidak bisa diubah lewat menu ini.
+            </div>
+            <div class="stack-field">
+              <label class="kp-label">Cari Nama / NIP</label>
+              <input type="text" id="peranAkun_search" class="field-input" placeholder="Ketik untuk menyaring daftar di bawah..." />
+            </div>
+            <div id="peranAkunList" class="ce-dashboard-list" style="margin-top:16px;"></div>
+          </div>
+        </div>
+
+        <!-- ============ VIEW: TEMPLATE MANAGER ============ -->
+        <div class="view-panel" id="view-template" style="display:none;">
+          <div class="card">
+            <h3 style="margin-top:0;">Tambah Template Baru</h3>
+            <form id="templateForm">
+              <div class="grid-2">
+                <div class="stack-field grid-full">
+                  <label>Link Google Drive (Template Dokumen)</label>
+                  <input type="text" id="tplDriveLink" placeholder="https://docs.google.com/document/d/..." required />
+                </div>
+                <div class="stack-field grid-full">
+                  <label>Judul Template</label>
+                  <input type="text" id="tplJudul" required />
+                </div>
+                <div class="stack-field">
+                  <label>Layanan</label>
+                  <select id="tplLayanan" required></select>
+                </div>
+                <div class="stack-field">
+                  <label>Sub-menu</label>
+                  <select id="tplSubMenu" required></select>
+                </div>
+              </div>
+              <div class="actions-bar">
+                <button type="submit" id="tplSubmitBtn" class="btn btn-primary">Simpan Template</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="card">
+            <h3 style="margin-top:0;">Template Terdaftar</h3>
+            <table class="table-list">
+              <thead>
+                <tr><th>Judul</th><th>Layanan</th><th>Sub-menu</th><th></th></tr>
+              </thead>
+              <tbody id="templateListBody"></tbody>
+            </table>
+          </div>
+
+          <!-- ============ PEMBACA RUMUS TEMPLATE ============ -->
+          <div class="card">
+            <h3 style="margin-top:0;">Baca Rumus dari Template</h3>
+            <p class="helper-text" style="margin:0 0 14px;">
+              Cek tag/rumus yang benar-benar ada di dalam file — dari link Google Drive atau upload file .docx langsung.
+            </p>
+
+            <div style="display:flex; gap:16px; margin-bottom:14px;">
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:13.5px;">
+                <input type="radio" name="sourceType" value="gdrive" checked onchange="toggleSourceInput()"> Link Google Drive
+              </label>
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:13.5px;">
+                <input type="radio" name="sourceType" value="upload" onchange="toggleSourceInput()"> Upload File .docx
+              </label>
+            </div>
+
+            <div id="sourceInputGdrive">
+              <input type="text" id="driveUrlInput" class="input-text" style="width:100%;"
+                     placeholder="Tempel link Google Drive / Google Docs di sini...">
+            </div>
+            <div id="sourceInputUpload" style="display:none;">
+              <input type="file" id="docxFileInput" accept=".docx">
+            </div>
+
+            <div class="actions-bar" style="justify-content:flex-start;">
+              <button type="button" class="btn btn-primary" onclick="bacaRumusTemplate()">Baca Rumus di File Ini</button>
+            </div>
+
+            <div id="hasilScanTemplate" style="margin-top:18px;"></div>
+          </div>
+
+          <!-- ============ GLOSARIUM TAG ============ -->
+          <div class="card">
+            <h3 style="margin-top:0;">Template Tag Glossary</h3>
+            <p class="helper-text" style="margin:0;">Daftar semua tag yang tersedia untuk dipakai di template.</p>
+          </div>
+
+          <h4 class="glossary-section-title">Tag dari Spreadsheet</h4>
+          <div id="glosariumSpreadsheetGrid" class="glossary-grid"></div>
+
+          <h4 class="glossary-section-title">Tag Turunan (Dihitung Backend)</h4>
+          <div id="glosariumTurunanGrid" class="glossary-grid"></div>
+
+          <h4 class="glossary-section-title">Advanced Logic &amp; Formulas</h4>
+          <div class="card">
+            <table class="table-list">
+              <thead>
+                <tr><th>Kegunaan</th><th>Contoh</th></tr>
+              </thead>
+              <tbody id="glosariumFormulaList"></tbody>
+            </table>
+            <p class="helper-text" id="glosariumCatatan" style="margin-top:10px; margin-bottom:0;"></p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= MODAL PREVIEW / DOWNLOAD ======================= -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <strong id="modalTitle">Preview</strong>
+        <button class="btn btn-secondary" onclick="closeModal()" style="padding:6px 12px;">Tutup ✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- ======================= TOAST ======================= -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <?!= include('JavaScriptClient'); ?>
+</body>
+</html>

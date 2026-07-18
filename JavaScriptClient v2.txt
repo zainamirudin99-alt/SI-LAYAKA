@@ -1,0 +1,2961 @@
+<script>
+/**
+ * =================================================================
+ * JAVASCRIPTCLIENT.HTML
+ * SELURUH logika di sini murni UI: state tampilan, validasi form
+ * ringan, dan pengiriman/penerimaan data via google.script.run.
+ * TIDAK ADA logika bisnis (autentikasi, kalkulasi AK, tag parsing)
+ * di sisi client — semuanya di backend .gs. Ada DUA sumber daftar
+ * pilihan (dropdown), sengaja dipisah:
+ *   - FORM_OPTIONS       -> dari getEligibilityFormOptions() / Config.gs
+ *                           (mesin lama, dipakai tab "Check Eligible")
+ *   - DOCGEN_FORM_OPTIONS -> dari getDocGenFormOptions() / DocGen.gs
+ *                           (khusus saat generate dokumen Opsi A & B,
+ *                           mis. Predikat SKP versi docx hanya 2 kategori)
+ * =================================================================
+ */
+
+let SESSION = { token: null, user: null };
+let FORM_OPTIONS = { golongan: [], jabatan: [], predikat: [], bulan: [], ijazahBaru: [] };
+let DOCGEN_FORM_OPTIONS = { predikat: [], ijazahBaru: [] };
+let ceSelectedEmployee = null; // { nip, nama } — hasil pilihan pada tab Check Eligible
+let ceOriginalGolongan = ''; // baseline golongan dari data utama, dipakai deteksi "berubah" utk TMT Golongan (baru)
+let ceOriginalJabatan = '';  // baseline jabatan dari data utama, dipakai deteksi "berubah" utk TMT Jabatan (baru)
+
+/* ------------------------- INIT ------------------------- */
+document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
+  bindLoginForm();
+  bindRegisterForm();
+  bindAuthSwitch();
+  bindThemeToggle();
+  bindSidebarNav();
+  bindTabs();
+  bindTemplateManagerForm();
+  restoreSessionIfAny();
+
+  google.script.run
+    .withSuccessHandler(opts => {
+      FORM_OPTIONS = opts;
+      google.script.run
+        .withSuccessHandler(docGenOpts => {
+          DOCGEN_FORM_OPTIONS = docGenOpts;
+          bindKenaikanPangkatForms();
+          bindCheckEligibleForm();
+          bindPensiunForm();
+          loadPromosiDashboard();
+          bindKontrakForm();
+        })
+        .withFailureHandler(err => showToast('error', 'Gagal memuat opsi form DocGen: ' + (err.message || err)))
+        .getDocGenFormOptions();
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat opsi form: ' + (err.message || err)))
+    .getEligibilityFormOptions();
+});
+
+/* ------------------------- THEME ------------------------- */
+function initTheme() {
+  const saved = localStorage.getItem('sikp_theme') || 'light';
+  document.body.classList.remove('theme-light', 'theme-dark');
+  document.body.classList.add('theme-' + saved);
+  updateThemeIcon(saved);
+}
+function bindThemeToggle() {
+  document.getElementById('themeToggleBtn').addEventListener('click', () => {
+    const isDark = document.body.classList.contains('theme-dark');
+    const next = isDark ? 'light' : 'dark';
+    document.body.classList.remove('theme-light', 'theme-dark');
+    document.body.classList.add('theme-' + next);
+    localStorage.setItem('sikp_theme', next);
+    updateThemeIcon(next);
+  });
+}
+function updateThemeIcon(mode) {
+  const btn = document.getElementById('themeToggleBtn');
+  btn.textContent = mode === 'dark' ? '🌙' : '☀️';
+  document.getElementById('themeLabel').textContent = mode === 'dark' ? 'Dark' : 'Light';
+}
+
+/* ------------------------- SESSION / LOGIN ------------------------- */
+function restoreSessionIfAny() {
+  const token = sessionStorage.getItem('sikp_token');
+  if (!token) return;
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.valid) {
+        SESSION.token = token;
+        SESSION.user = res.user;
+        showApp();
+      } else {
+        sessionStorage.removeItem('sikp_token');
+      }
+    })
+    .withFailureHandler(() => sessionStorage.removeItem('sikp_token'))
+    .validateSession(token);
+}
+
+function bindLoginForm() {
+  const form = document.getElementById('loginForm');
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const nip = document.getElementById('loginNip').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
+    const errBox = document.getElementById('loginError');
+    const btn = document.getElementById('loginSubmitBtn');
+
+    errBox.style.display = 'none';
+    setBtnLoading(btn, true, 'Masuk...');
+
+    google.script.run
+      .withSuccessHandler(res => {
+        setBtnLoading(btn, false, 'Masuk');
+        if (res.success) {
+          SESSION.token = res.token;
+          SESSION.user = res.user;
+          sessionStorage.setItem('sikp_token', res.token);
+          showApp();
+        } else {
+          errBox.textContent = res.message;
+          errBox.style.display = 'block';
+        }
+      })
+      .withFailureHandler(err => {
+        setBtnLoading(btn, false, 'Masuk');
+        errBox.textContent = 'Terjadi kesalahan: ' + (err.message || err);
+        errBox.style.display = 'block';
+      })
+      .login(nip, password);
+  });
+}
+
+/** Toggle antara panel "Masuk" dan "Daftar Akun" pada layar login. */
+function bindAuthSwitch() {
+  const buttons = document.querySelectorAll('[data-auth-target]');
+  const subtitle = document.getElementById('authSubtitle');
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      buttons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      document.querySelectorAll('[data-auth-group-pane="auth"]').forEach(pane => {
+        pane.classList.toggle('active', pane.id === btn.dataset.authTarget);
+      });
+
+      document.getElementById('loginError').style.display = 'none';
+      document.getElementById('registerError').style.display = 'none';
+
+      subtitle.textContent = btn.dataset.authTarget === 'pane-register'
+        ? 'Daftar menggunakan Nama, NIP, dan Unit Kerja Anda'
+        : 'Silakan masuk menggunakan NIP dan password Anda';
+    });
+  });
+}
+
+function bindRegisterForm() {
+  const form = document.getElementById('registerForm');
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const nama = document.getElementById('regNama').value.trim();
+    const nip = document.getElementById('regNip').value.trim();
+    const unitKerja = document.getElementById('regUnitKerja').value.trim();
+    const errBox = document.getElementById('registerError');
+    const btn = document.getElementById('registerSubmitBtn');
+
+    errBox.style.display = 'none';
+    setBtnLoading(btn, true, 'Mendaftar...');
+
+    google.script.run
+      .withSuccessHandler(res => {
+        setBtnLoading(btn, false, 'Daftar & Masuk');
+        if (res.success) {
+          SESSION.token = res.token;
+          SESSION.user = res.user;
+          sessionStorage.setItem('sikp_token', res.token);
+          showToast('success', res.message);
+          showApp();
+        } else {
+          errBox.textContent = res.message;
+          errBox.style.display = 'block';
+        }
+      })
+      .withFailureHandler(err => {
+        setBtnLoading(btn, false, 'Daftar & Masuk');
+        errBox.textContent = 'Terjadi kesalahan: ' + (err.message || err);
+        errBox.style.display = 'block';
+      })
+      .register(nama, nip, unitKerja);
+  });
+}
+
+function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appShell').style.display = 'block';
+  document.getElementById('sidebarUserName').textContent = SESSION.user.nama || SESSION.user.nip;
+  document.getElementById('sidebarUserRole').textContent = SESSION.user.jabatan || SESSION.user.status_kepegawaian || '-';
+  terapkanBatasanPeran_();
+  if (SESSION.user.role !== 'normal') loadTemplateList();
+}
+
+/**
+ * Terapkan batasan tampilan sesuai peran akun (SESSION.user.role):
+ * 'normal'      - HANYA "Profil Saya", semua menu lain disembunyikan.
+ * 'user'        - Kenaikan Pangkat (tanpa tab Opsi A/B) & Pensiun, TANPA
+ *                 menu Template atau Perubahan Status Akun.
+ * 'admin'       - akses penuh Kenaikan Pangkat/Pensiun/Template.
+ * 'super_admin' - sama seperti admin + Perubahan Status Akun.
+ *
+ * PENTING: ini pembatasan TAMPILAN saja (UX) -- pembatasan yang
+ * sesungguhnya (keamanan) ada di server lewat requireRole_() pada setiap
+ * fungsi backend yang sensitif (generateDocument, addTemplate, dst.),
+ * supaya tidak bisa dilewati lewat DevTools browser.
+ */
+function terapkanBatasanPeran_() {
+  const role = SESSION.user.role || 'normal';
+
+  const navProfil = document.querySelector('.nav-item[data-view="profil-saya"]');
+  const navKP = document.querySelector('.nav-item[data-view="kenaikan-pangkat"]');
+  const navPensiun = document.querySelector('.nav-item[data-view="pensiun"]');
+  const navKontrak = document.querySelector('.nav-item[data-view="kontrak"]');
+  const navTemplate = document.querySelector('.nav-item[data-view="template"]');
+  const navPeranAkun = document.querySelector('.nav-item[data-view="peran-akun"]');
+  const navLainnya = document.querySelector('.nav-item[data-view="lainnya"]');
+
+  // Sembunyikan semua dulu (deny-by-default), baru tampilkan sesuai peran.
+  [navProfil, navKP, navPensiun, navKontrak, navTemplate, navPeranAkun, navLainnya].forEach(el => { if (el) el.style.display = 'none'; });
+
+  let viewAktif = 'kenaikan-pangkat';
+  let judulAktif = 'Kenaikan Pangkat';
+
+  if (role === 'normal') {
+    if (navProfil) navProfil.style.display = 'flex';
+    viewAktif = 'profil-saya';
+    judulAktif = 'Profil Saya';
+    // Kontrak HANYA muncul kalau status kepegawaian sendiri termasuk
+    // kategori eligible DAN admin sudah mengizinkan akses mandiri --
+    // dicek async ke server, tidak diasumsikan dari data di klien.
+    google.script.run
+      .withSuccessHandler(res => {
+        if (res.success && res.eligible && res.diizinkan && navKontrak) navKontrak.style.display = 'flex';
+      })
+      .withFailureHandler(() => {})
+      .getStatusAksesKontrakSaya(SESSION.token);
+  } else {
+    if (navKP) navKP.style.display = 'flex';
+    if (navPensiun) navPensiun.style.display = 'flex';
+    if (navKontrak) navKontrak.style.display = 'flex';
+    if (navLainnya) navLainnya.style.display = 'flex';
+    if (role === 'admin' || role === 'super_admin') {
+      if (navTemplate) navTemplate.style.display = 'flex';
+    }
+    if (role === 'super_admin' && navPeranAkun) {
+      navPeranAkun.style.display = 'flex';
+    }
+  }
+
+  // Peran 'user' tidak boleh melihat tab Opsi A/B (hanya Check Eligible).
+  const tabOptA = document.querySelector('.tab-btn[data-tab-target="tab-optA"]');
+  const tabOptB = document.querySelector('.tab-btn[data-tab-target="tab-optB"]');
+  const tampilkanOpsiAB = (role === 'admin' || role === 'super_admin');
+  if (tabOptA) tabOptA.style.display = tampilkanOpsiAB ? '' : 'none';
+  if (tabOptB) tabOptB.style.display = tampilkanOpsiAB ? '' : 'none';
+
+  // Tab "Status Usulan Saya" (user) & "Usulan Masuk" (admin/super_admin).
+  const tabStatusUsulan = document.getElementById('tabBtnStatusUsulan');
+  const tabUsulanMasuk = document.getElementById('tabBtnUsulanMasuk');
+  if (tabStatusUsulan) tabStatusUsulan.style.display = (role === 'user') ? '' : 'none';
+  if (tabUsulanMasuk) tabUsulanMasuk.style.display = (role === 'admin' || role === 'super_admin') ? '' : 'none';
+  if (role === 'admin' || role === 'super_admin') loadUsulanMasukBadge();
+
+  // Sama untuk modul Pensiun.
+  const tabStatusUsulanPensiun = document.getElementById('tabBtnStatusUsulanPensiun');
+  const tabUsulanMasukPensiun = document.getElementById('tabBtnUsulanMasukPensiun');
+  if (tabStatusUsulanPensiun) tabStatusUsulanPensiun.style.display = (role === 'user') ? '' : 'none';
+  if (tabUsulanMasukPensiun) tabUsulanMasukPensiun.style.display = (role === 'admin' || role === 'super_admin') ? '' : 'none';
+  if (role === 'admin' || role === 'super_admin') loadUsulanMasukPensiunBadge();
+
+  // Tombol akses manual di dashboard Pensiun berubah makna sesuai peran:
+  // user -> buka modal Ajukan Usulan; admin/super_admin -> form DPCP penuh.
+  const pensiunGoToFormBtn = document.getElementById('pensiunGoToFormBtn');
+  if (pensiunGoToFormBtn) {
+    pensiunGoToFormBtn.textContent = (role === 'user')
+      ? 'Cari Pegawai Manual / Ajukan Usulan'
+      : 'Cari Pegawai Manual / Isi Form DPCP';
+  }
+
+  // Arahkan ke view default sesuai peran.
+  document.querySelectorAll('.nav-item[data-view]').forEach(i => i.classList.remove('active'));
+  document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
+  const navAktif = document.querySelector(`.nav-item[data-view="${viewAktif}"]`);
+  if (navAktif) navAktif.classList.add('active');
+  document.getElementById('view-' + viewAktif).style.display = 'block';
+  document.getElementById('topbarTitle').textContent = judulAktif;
+
+  if (viewAktif === 'profil-saya') loadProfilSaya();
+}
+
+/** Muat & tampilkan data diri terbatas (peran 'normal'). */
+function loadProfilSaya() {
+  const labelMap = {
+    nama_lengkap: 'Nama', tgl_lhr: 'Tanggal Lahir', golongan: 'Golongan',
+    status_kepegawaian: 'Status Kepegawaian', status_bekerja: 'Status Bekerja',
+    jabatan: 'Jabatan', tmt_pensiun_bup: 'TMT Pensiun'
+  };
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      const el = document.getElementById('profilSayaContent');
+      el.innerHTML = Object.keys(res.profil).map(key => `
+        <div class="ce-dashboard-list-item" style="cursor:default;">
+          <div><div class="cdli-name">${escapeHtml(labelMap[key] || key)}</div></div>
+          <div class="cdli-meta">${escapeHtml(res.profil[key] || '-')}</div>
+        </div>
+      `).join('');
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat profil: ' + (err.message || err)))
+    .getProfilSaya(SESSION.token);
+}
+
+/* ------------------------- MENU PERUBAHAN STATUS AKUN (Super Admin) ------------------------- */
+let peranAkunDataAsli = [];
+
+function loadPeranAkunList() {
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      peranAkunDataAsli = res.daftar;
+      renderPeranAkunList(peranAkunDataAsli);
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat daftar akun: ' + (err.message || err)))
+    .getAllUserRolesForAdmin(SESSION.token);
+}
+
+function renderPeranAkunList(daftar) {
+  const el = document.getElementById('peranAkunList');
+  if (!daftar.length) { el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada data.</div>'; return; }
+
+  el.innerHTML = daftar.map(p => `
+    <div class="ce-dashboard-list-item" style="cursor:default; flex-wrap:wrap;">
+      <div>
+        <div class="cdli-name">${escapeHtml(p.nama)}</div>
+        <div class="cdli-meta">NIP ${escapeHtml(p.nip)} &middot; ${escapeHtml(p.unitEsIi || '-')} &middot; Peran saat ini: <strong>${escapeHtml(p.role)}</strong></div>
+      </div>
+      ${p.role === 'super_admin'
+        ? '<span class="cdli-badge">SUPER ADMIN (tidak bisa diubah)</span>'
+        : `<div style="display:flex; gap:8px; align-items:center;">
+            <select class="field-input" style="min-height:36px; padding:6px 10px; font-size:12.5px;" data-nip="${escapeHtml(p.nip)}">
+              <option value="normal" ${p.role === 'normal' ? 'selected' : ''}>normal</option>
+              <option value="user" ${p.role === 'user' ? 'selected' : ''}>user</option>
+              <option value="admin" ${p.role === 'admin' ? 'selected' : ''}>admin</option>
+            </select>
+            <button type="button" class="btn btn-outline kp-small-btn" data-action="simpan-peran" data-nip="${escapeHtml(p.nip)}">Simpan</button>
+          </div>`
+      }
+    </div>
+  `).join('');
+
+  el.querySelectorAll('[data-action="simpan-peran"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const nip = btn.getAttribute('data-nip');
+      const select = el.querySelector(`select[data-nip="${nip}"]`);
+      google.script.run
+        .withSuccessHandler(res => {
+          if (res.success) { showToast('success', res.message); loadPeranAkunList(); }
+          else showToast('error', res.message);
+        })
+        .withFailureHandler(err => showToast('error', 'Gagal mengubah peran: ' + (err.message || err)))
+        .ubahPeranAkun(SESSION.token, nip, select.value);
+    });
+  });
+}
+
+function bindPeranAkunSearch() {
+  document.getElementById('peranAkun_search').addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    if (!q) { renderPeranAkunList(peranAkunDataAsli); return; }
+    renderPeranAkunList(peranAkunDataAsli.filter(p =>
+      String(p.nama).toLowerCase().includes(q) || String(p.nip).includes(q)
+    ));
+  });
+}
+
+function logoutUser() {
+  google.script.run.logout(SESSION.token);
+  sessionStorage.removeItem('sikp_token');
+  SESSION = { token: null, user: null };
+  document.getElementById('appShell').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('loginForm').reset();
+}
+
+function setBtnLoading(btn, loading, label) {
+  btn.disabled = loading;
+  btn.innerHTML = loading ? '<span class="spinner"></span> ' + label : label;
+}
+
+/* ------------------------- SIDEBAR NAV ------------------------- */
+function bindSidebarNav() {
+  document.querySelectorAll('.nav-item[data-view]').forEach(item => {
+    item.addEventListener('click', () => {
+      const view = item.getAttribute('data-view');
+      if (view === 'lainnya') {
+        showToast('info', 'postpone');
+        return;
+      }
+      document.querySelectorAll('.nav-item[data-view]').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
+      document.getElementById('view-' + view).style.display = 'block';
+      document.getElementById('topbarTitle').textContent = item.getAttribute('data-title');
+      if (view === 'template') loadGlosariumTag();
+      if (view === 'pensiun') loadPensiunDashboardOnce();
+      if (view === 'peran-akun') loadPeranAkunList();
+    });
+  });
+  document.getElementById('logoutBtn').addEventListener('click', logoutUser);
+  bindPeranAkunSearch();
+}
+
+/* ------------------------- GLOSARIUM TAG (Menu Lainnya) ------------------------- */
+let glosariumLoaded = false;
+function loadGlosariumTag() {
+  if (glosariumLoaded) return; // cache: sheet header & daftar tag jarang berubah dalam satu sesi
+  google.script.run
+    .withSuccessHandler(data => { glosariumLoaded = true; renderGlosariumTag(data); })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat glosarium tag: ' + (err.message || err)))
+    .getGlosariumTag(SESSION.token);
+}
+
+function renderGlosariumTag(data) {
+  const accents = ['accent-1', 'accent-2', 'accent-3'];
+
+  const cardHtml = (label, tag, ket, idx, icon) => `
+    <div class="glossary-card ${accents[idx % accents.length]}">
+      <div class="card-icon">${icon}</div>
+      <div class="card-label">${escapeHtml(label)}</div>
+      <code>${escapeHtml(tag)}</code>
+      ${ket ? `<div class="helper-text">${escapeHtml(ket)}</div>` : ''}
+      <button type="button" class="btn btn-copy" onclick="copyGlosariumTag(this, '${tag.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">Salin</button>
+    </div>`;
+
+  document.getElementById('glosariumSpreadsheetGrid').innerHTML =
+    data.tagSpreadsheet.map((t, i) => cardHtml(t.label, t.tag, '', i, '📄')).join('');
+
+  document.getElementById('glosariumTurunanGrid').innerHTML =
+    data.tagTurunan.map((t, i) => cardHtml(t.label, t.tag, t.ket, i, '⚙️')).join('');
+
+  document.getElementById('glosariumFormulaList').innerHTML =
+    data.referensiFormula
+      .map(f => `<tr><td>${escapeHtml(f.label)}</td><td><code>${escapeHtml(f.contoh)}</code></td></tr>`)
+      .join('');
+
+  document.getElementById('glosariumCatatan').textContent = data.catatan || '';
+}
+
+function copyGlosariumTag(btn, tag) {
+  navigator.clipboard.writeText(tag)
+    .then(() => showToast('success', 'Tag disalin ke clipboard'))
+    .catch(() => showToast('error', 'Gagal menyalin tag'));
+}
+
+/* ------------------------- BACA RUMUS DARI TEMPLATE ------------------------- */
+function toggleSourceInput() {
+  const type = document.querySelector('input[name="sourceType"]:checked').value;
+  document.getElementById('sourceInputGdrive').style.display = type === 'gdrive' ? 'block' : 'none';
+  document.getElementById('sourceInputUpload').style.display = type === 'upload' ? 'block' : 'none';
+}
+
+function bacaRumusTemplate() {
+  const type = document.querySelector('input[name="sourceType"]:checked').value;
+
+  if (type === 'gdrive') {
+    const url = document.getElementById('driveUrlInput').value.trim();
+    if (!url) { showToast('error', 'Isi link Google Drive dulu.'); return; }
+
+    showToast('info', 'Membaca rumus dari Google Drive...');
+    google.script.run
+      .withSuccessHandler(renderHasilScanTemplate)
+      .withFailureHandler(err => showToast('error', 'Gagal membaca template: ' + (err.message || err)))
+      .scanTemplateFormulas(SESSION.token, { sourceType: 'gdrive', driveUrl: url });
+    return;
+  }
+
+  const fileInput = document.getElementById('docxFileInput');
+  const file = fileInput.files[0];
+  if (!file) { showToast('error', 'Pilih file .docx dulu.'); return; }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const base64 = reader.result.split(',')[1];
+    showToast('info', 'Membaca rumus dari file...');
+    google.script.run
+      .withSuccessHandler(renderHasilScanTemplate)
+      .withFailureHandler(err => showToast('error', 'Gagal membaca template: ' + (err.message || err)))
+      .scanTemplateFormulas(SESSION.token, {
+        sourceType: 'upload',
+        fileName: file.name,
+        fileBase64: base64
+      });
+  };
+  reader.readAsDataURL(file);
+}
+
+function renderHasilScanTemplate(hasil) {
+  const box = document.getElementById('hasilScanTemplate');
+  const chip = (tag, variant) => `<span class="tag-chip ${variant || ''}"><code>${escapeHtml(tag)}</code></span>`;
+
+  let html = `
+    <div class="glossary-card">
+      <div class="card-label">Tag Nilai / Formula Ditemukan (${hasil.tagNilai.length})</div>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">
+        ${hasil.tagNilai.map(t => chip('{{' + t + '}}')).join('') || '<span class="helper-text">Tidak ada</span>'}
+      </div>
+    </div>`;
+
+  if (hasil.tagSetVariable.length) {
+    html += `
+      <div class="glossary-card accent-3" style="margin-top:12px;">
+        <div class="card-label">Variabel Turunan / "set" (${hasil.tagSetVariable.length})</div>
+        <p class="helper-text" style="margin:4px 0 8px;">
+          Dihitung di dalam template sendiri, bukan diisi dari data context — pastikan mesin mendukung sintaks <code>set nama = ekspresi</code>.
+        </p>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          ${hasil.tagSetVariable.map(t => chip(t, 'accent-3')).join('')}
+        </div>
+      </div>`;
+  }
+
+  html += `
+    <div class="glossary-card" style="margin-top:12px;">
+      <div class="card-label">Tag Loop Valid (${hasil.tagLoopBenar.length})</div>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">
+        ${hasil.tagLoopBenar.map(t => chip(t, 'accent-1')).join('') || '<span class="helper-text">Tidak ada</span>'}
+      </div>
+    </div>`;
+
+  if (hasil.tagLoopBermasalah.length || hasil.issues.length) {
+    html += `
+      <div class="glossary-card accent-warning" style="margin-top:12px;">
+        <div class="card-label">⚠ Masalah Ditemukan (${hasil.issues.length})</div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin:8px 0;">
+          ${hasil.tagLoopBermasalah.map(t => chip(t, 'accent-warning')).join('')}
+        </div>
+        <ul style="margin:0; padding-left:18px;">
+          ${hasil.issues.map(i => `<li class="helper-text">${escapeHtml(i.detail)}</li>`).join('')}
+        </ul>
+      </div>`;
+  }
+
+  box.innerHTML = html;
+}
+
+/* ------------------------- TABS (Check Eligible / Opsi A / Opsi B) ------------------------- */
+function bindTabs() {
+  document.querySelectorAll('[data-tab-group]').forEach(group => {
+    const groupName = group.getAttribute('data-tab-group');
+    group.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => activateTab(groupName, btn.getAttribute('data-tab-target')));
+    });
+  });
+}
+function activateTab(groupName, targetId) {
+  const group = document.querySelector(`[data-tab-group="${groupName}"]`);
+  group.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-tab-target') === targetId));
+  document.querySelectorAll(`.tab-panel[data-tab-group-panel="${groupName}"]`).forEach(p => p.classList.remove('active'));
+  document.getElementById(targetId).classList.add('active');
+  if (targetId === 'tab-statusUsulan') loadStatusUsulanSaya();
+  if (targetId === 'tab-usulanMasuk') loadUsulanMasukDashboard();
+  if (targetId === 'tab-statusUsulanPensiun') loadStatusUsulanPensiunSaya();
+  if (targetId === 'tab-usulanMasukPensiun') loadUsulanMasukPensiunDashboard();
+}
+
+/* ------------------------- AUTOCOMPLETE PENCARIAN PEGAWAI ------------------------- */
+/**
+ * Versi berbasis ELEMEN (bukan id) — dipakai entri Opsi A/B yang dibuat
+ * dinamis (fitur "+ Tambah Data"), karena elemen-elemen itu tidak punya
+ * id tetap. hiddenNipInput menyimpan NIP terpilih; onSelect(nip, nama)
+ * dipanggil setelah user memilih salah satu hasil.
+ */
+function setupAutocompleteEl(inputEl, listEl, hiddenNipInput, onSelect) {
+  let debounceTimer = null;
+
+  inputEl.addEventListener('input', () => {
+    const q = inputEl.value.trim();
+    hiddenNipInput.value = '';
+    clearTimeout(debounceTimer);
+    if (q.length < 2) { listEl.style.display = 'none'; return; }
+
+    debounceTimer = setTimeout(() => {
+      google.script.run
+        .withSuccessHandler(results => {
+          listEl.innerHTML = '';
+          if (!results.length) { listEl.style.display = 'none'; return; }
+          results.forEach(r => {
+            const item = document.createElement('div');
+            item.className = 'autocomplete-item';
+            item.innerHTML = `${escapeHtml(r.nama)}<small>NIP: ${escapeHtml(r.nip)}</small>`;
+            item.addEventListener('click', () => {
+              inputEl.value = `${r.nama} (${r.nip})`;
+              hiddenNipInput.value = r.nip;
+              listEl.style.display = 'none';
+              if (onSelect) onSelect(r.nip, r.nama);
+            });
+            listEl.appendChild(item);
+          });
+          listEl.style.display = 'block';
+        })
+        .withFailureHandler(err => showToast('error', 'Pencarian gagal: ' + (err.message || err)))
+        .searchEmployees(SESSION.token, q);
+    }, 300);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!listEl.contains(e.target) && e.target !== inputEl) listEl.style.display = 'none';
+  });
+}
+
+/**
+ * Sama seperti setupAutocompleteEl, tapi bisa memanggil fungsi pencarian
+ * backend BERBEDA (bukan selalu searchEmployees) -- dipakai Menu Kontrak
+ * supaya peran 'user' bisa diarahkan ke pencarian yang SUDAH dibatasi di
+ * server (searchEmployeesForKontrak), bukan cuma difilter di klien.
+ */
+function setupAutocompleteElCustom(inputEl, listEl, hiddenNipInput, onSelect, searchFnName) {
+  let debounceTimer = null;
+
+  inputEl.addEventListener('input', () => {
+    const q = inputEl.value.trim();
+    hiddenNipInput.value = '';
+    clearTimeout(debounceTimer);
+    if (q.length < 2) { listEl.style.display = 'none'; return; }
+
+    debounceTimer = setTimeout(() => {
+      google.script.run
+        .withSuccessHandler(results => {
+          listEl.innerHTML = '';
+          if (!results.length) { listEl.style.display = 'none'; return; }
+          results.forEach(r => {
+            const item = document.createElement('div');
+            item.className = 'autocomplete-item';
+            item.innerHTML = `${escapeHtml(r.nama)}<small>NIP: ${escapeHtml(r.nip)}</small>`;
+            item.addEventListener('click', () => {
+              inputEl.value = `${r.nama} (${r.nip})`;
+              hiddenNipInput.value = r.nip;
+              listEl.style.display = 'none';
+              if (onSelect) onSelect(r.nip, r.nama);
+            });
+            listEl.appendChild(item);
+          });
+          listEl.style.display = 'block';
+        })
+        .withFailureHandler(err => showToast('error', 'Pencarian gagal: ' + (err.message || err)))
+        [searchFnName](SESSION.token, q);
+    }, 300);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!listEl.contains(e.target) && e.target !== inputEl) listEl.style.display = 'none';
+  });
+}
+
+/** Wrapper lama berbasis id (dipakai tab "0. Check Eligible" yang masih statis). */
+function setupAutocomplete(inputId, listId, hiddenNipId, onSelect) {
+  setupAutocompleteEl(
+    document.getElementById(inputId),
+    document.getElementById(listId),
+    document.getElementById(hiddenNipId),
+    onSelect
+  );
+}
+
+/* ------------------------- SELECT HELPER (sumber opsi selalu dari backend) ------------------------- */
+/**
+ * items: array of string, ATAU array of object bila valueField/labelField diisi
+ * (dipakai khusus untuk daftar Bulan yang bisa direpresentasikan sebagai
+ * angka 1-12 untuk kalkulasi, atau sebagai nama untuk teks dokumen).
+ */
+function populateSelect(idOrEl, items, { placeholder = 'Pilih...', valueField = null, labelField = null } = {}) {
+  const sel = typeof idOrEl === 'string' ? document.getElementById(idOrEl) : idOrEl;
+  const optionsHtml = (items || []).map(item => {
+    if (valueField && labelField) return `<option value="${item[valueField]}">${item[labelField]}</option>`;
+    return `<option value="${item}">${item}</option>`;
+  }).join('');
+  sel.innerHTML = `<option value="">${placeholder}</option>` + optionsHtml;
+}
+
+/* ==================================================================
+ * TAB 0: CHECK ELIGIBLE
+ * ================================================================== */
+function bindCheckEligibleForm() {
+  setupAutocomplete('subjectCE_input', 'subjectCE_list', 'subjectCE_nip', onSelectCheckEligibleSubject);
+
+  populateSelect('ce_golongan', FORM_OPTIONS.golongan, { placeholder: 'Pilih Golongan...' });
+  populateSelect('ce_jabatan', FORM_OPTIONS.jabatan);
+  populateSelect('ce_golonganIntegrasi', FORM_OPTIONS.golongan, { placeholder: 'Pilih Golongan...' });
+  populateSelect('ce_ijazahBaru', FORM_OPTIONS.ijazahBaru);
+
+  document.getElementById('ce_golongan').addEventListener('change', updateCeTmtGolonganVisibility);
+  document.getElementById('ce_jabatan').addEventListener('change', updateCeTmtJabatanVisibility);
+
+  document.getElementById('ce_addPredikatRow').addEventListener('click', () => addPredikatRow());
+  addPredikatRow(); // baris pertama default
+
+  document.getElementById('ce_hitungBtn').addEventListener('click', runCheckEligibility);
+  document.getElementById('ce_lanjutABtn').addEventListener('click', () => lanjutKeOpsi('A'));
+  document.getElementById('ce_lanjutBBtn').addEventListener('click', () => lanjutKeOpsi('B'));
+  document.getElementById('ce_ajukanUsulanBtn').addEventListener('click', bukaModalAjukanUsulan);
+  document.getElementById('ceDashboardAjukanUsulanBtn').addEventListener('click', bukaModalAjukanUsulan);
+}
+
+/** Sama seperti updateTmtJabatanVisibility (kartu Opsi A/B), versi berbasis ID untuk tab Check Eligible. */
+function updateCeTmtGolonganVisibility() {
+  const sel = document.getElementById('ce_golongan');
+  const wrap = document.getElementById('ce_tmtGolonganBaruWrap');
+  const input = document.getElementById('ce_tmtGolonganBaru');
+  const berubah = sel.value !== '' && sel.value !== ceOriginalGolongan;
+  wrap.style.display = berubah ? 'block' : 'none';
+  if (!berubah) input.value = '';
+}
+function updateCeTmtJabatanVisibility() {
+  const sel = document.getElementById('ce_jabatan');
+  const wrap = document.getElementById('ce_tmtJabatanBaruWrap');
+  const input = document.getElementById('ce_tmtJabatanBaru');
+  const berubah = sel.value !== '' && sel.value !== ceOriginalJabatan;
+  wrap.style.display = berubah ? 'block' : 'none';
+  if (!berubah) input.value = '';
+}
+
+function onSelectCheckEligibleSubject(nip, nama) {
+  ceSelectedEmployee = { nip, nama };
+  document.getElementById('ce_resultCard').style.display = 'none';
+
+  // REF alur terkoreksi: tombol "Ajukan Usulan" tersedia begitu pegawai
+  // dipilih -- TIDAK perlu menunggu klik "Hitung / Cek Eligibility" dulu.
+  // Tetap disembunyikan utk peran 'normal' (tidak pernah sampai ke tab ini).
+  const ajukanBtn = document.getElementById('ce_ajukanUsulanBtn');
+  if (ajukanBtn) ajukanBtn.style.display = (SESSION.user.role !== 'normal') ? 'inline-flex' : 'none';
+
+  google.script.run
+    .withSuccessHandler(emp => {
+      const golonganSel = document.getElementById('ce_golongan');
+      const golonganMatch = cariOpsiCocok_(FORM_OPTIONS.golongan, emp.golongan);
+      golonganSel.value = golonganMatch;
+      ceOriginalGolongan = golonganMatch;
+      updateCeTmtGolonganVisibility();
+      document.getElementById('ce_golonganAutoFillMsg').textContent =
+        pesanStatusAutoFill_('Golongan', emp.golongan, golonganMatch, 'Otomatis dari data pegawai, dapat diubah bila perlu.');
+
+      const jabatanSel = document.getElementById('ce_jabatan');
+      const jabatanMatch = cariOpsiCocok_(FORM_OPTIONS.jabatan, emp.jabatan);
+      jabatanSel.value = jabatanMatch;
+      ceOriginalJabatan = jabatanMatch;
+      updateCeTmtJabatanVisibility();
+      document.getElementById('ce_jabatanAutoFillMsg').textContent =
+        pesanStatusAutoFill_('Jabatan', emp.jabatan, jabatanMatch, 'Otomatis dari data pegawai, dapat diubah bila perlu.');
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat data pegawai: ' + (err.message || err)))
+    .getEmployeeFullData(SESSION.token, nip);
+}
+
+function addPredikatRow() {
+  const tbody = document.getElementById('ce_predikatTableBody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" class="ce-tahun" placeholder="cth. 2024" /></td>
+    <td><select class="ce-predikat"></select></td>
+    <td><select class="ce-bulanMulai"></select></td>
+    <td><select class="ce-bulanAkhir"></select></td>
+    <td><button type="button" class="row-remove-btn" title="Hapus baris">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+
+  fillSelectOptions(tr.querySelector('.ce-predikat'), FORM_OPTIONS.predikat);
+  fillBulanSelectNumeric(tr.querySelector('.ce-bulanMulai'));
+  fillBulanSelectNumeric(tr.querySelector('.ce-bulanAkhir'));
+
+  tr.querySelector('.row-remove-btn').addEventListener('click', () => tr.remove());
+}
+function fillSelectOptions(selectEl, items) {
+  selectEl.innerHTML = '<option value="">Pilih</option>' + items.map(o => `<option>${o}</option>`).join('');
+}
+function fillBulanSelectNumeric(selectEl) {
+  selectEl.innerHTML = '<option value="">Pilih</option>' +
+    FORM_OPTIONS.bulan.map(b => `<option value="${b.value}">${b.label}</option>`).join('');
+}
+
+function collectPredikatRows() {
+  const rows = [];
+  document.querySelectorAll('#ce_predikatTableBody tr').forEach(tr => {
+    rows.push({
+      tahun: tr.querySelector('.ce-tahun').value,
+      predikat: tr.querySelector('.ce-predikat').value,
+      bulanMulai: tr.querySelector('.ce-bulanMulai').value,
+      bulanAkhir: tr.querySelector('.ce-bulanAkhir').value
+    });
+  });
+  return rows;
+}
+
+function runCheckEligibility() {
+  const nip = document.getElementById('subjectCE_nip').value;
+  if (!nip) { showToast('error', 'Pilih pegawai pada Search Nama terlebih dahulu.'); return; }
+
+  const golongan = document.getElementById('ce_golongan').value;
+  const jabatan = document.getElementById('ce_jabatan').value;
+  const golonganIntegrasi = document.getElementById('ce_golonganIntegrasi').value;
+  const akIntegrasi = document.getElementById('ce_akIntegrasi').value;
+  const ijazahBaru = document.getElementById('ce_ijazahBaru').value;
+
+  if (!golongan) { showToast('error', 'Golongan (saat ini) wajib dipilih.'); return; }
+  if (!jabatan) { showToast('error', 'Jabatan wajib dipilih.'); return; }
+  if (!golonganIntegrasi) { showToast('error', 'Golongan Saat Integrasi wajib dipilih.'); return; }
+  if (!ijazahBaru) { showToast('error', 'Ada Ijazah Baru Setelah 2023 wajib dipilih.'); return; }
+
+  const golonganBerubah = golongan !== ceOriginalGolongan;
+  if (golonganBerubah && !document.getElementById('ce_tmtGolonganBaru').value) {
+    showToast('error', 'Golongan diubah dari data utama — isi dulu "TMT Golongan (baru)" secara manual.');
+    return;
+  }
+  const jabatanBerubah = jabatan !== ceOriginalJabatan;
+  if (jabatanBerubah && !document.getElementById('ce_tmtJabatanBaru').value) {
+    showToast('error', 'Jabatan diubah dari data utama — isi dulu "TMT Jabatan (baru)" secara manual.');
+    return;
+  }
+
+  const payload = {
+    targetNip: nip,
+    golongan: golongan,
+    jabatan: jabatan,
+    akIntegrasi: akIntegrasi,
+    golonganIntegrasi: golonganIntegrasi,
+    adaIjazahBaru2023: ijazahBaru,
+    daftarPredikatSkp: collectPredikatRows()
+  };
+  if (golonganBerubah) payload.tmt_gol = document.getElementById('ce_tmtGolonganBaru').value;
+  if (jabatanBerubah) payload.tmt_jab = document.getElementById('ce_tmtJabatanBaru').value;
+
+  const btn = document.getElementById('ce_hitungBtn');
+  setBtnLoading(btn, true, 'Menghitung...');
+
+  google.script.run
+    .withSuccessHandler(res => {
+      setBtnLoading(btn, false, 'Hitung / Cek Eligibility');
+      if (!res.success) { showToast('error', res.message); return; }
+      ceSelectedEmployee = { nip: res.nip, nama: res.nama };
+      renderEligibilityResult(res);
+    })
+    .withFailureHandler(err => {
+      setBtnLoading(btn, false, 'Hitung / Cek Eligibility');
+      showToast('error', 'Gagal menghitung: ' + (err.message || err));
+    })
+    .checkEligibility(SESSION.token, payload);
+}
+
+function renderEligibilityResult(res) {
+  const card = document.getElementById('ce_resultCard');
+  const body = document.getElementById('ce_resultBody');
+  const isEligible = res.eligibility.status === 'Eligible';
+  const badgeColor = isEligible ? 'var(--success)' : 'var(--danger)';
+
+  body.innerHTML = `
+    <div class="grid-2">
+      <div><strong>Nama</strong><br>${escapeHtml(res.nama)}</div>
+      <div><strong>NIP</strong><br>${escapeHtml(res.nip)}</div>
+      <div><strong>Golongan Sekarang</strong><br>${escapeHtml(res.golonganSekarang || '-')}</div>
+      <div><strong>Jabatan</strong><br>${escapeHtml(res.jabatan)}</div>
+    </div>
+    <hr style="border-color:var(--border); margin:14px 0;">
+    <div style="font-size:13.5px; line-height:1.9;">
+      AK Integrasi&emsp;&emsp;&emsp;&emsp;: ${fmtNum(res.rincian.akIntegrasi)}<br>
+      Total AK Konversi (SKP)&nbsp;&nbsp;: ${fmtNum(res.rincian.totalAkKonversi)}<br>
+      Nilai Pendidikan Baru&nbsp;&nbsp;&nbsp;: ${fmtNum(res.rincian.nilaiPendidikanBaru)}<br>
+      Pengurangan Golongan&nbsp;&nbsp;&nbsp;: - ${fmtNum(res.rincian.pengurangan)}<br>
+      <strong style="font-size:15px;">Total AK Akhir&emsp;&emsp;&emsp;: ${fmtNum(res.totalAkAkhir)}</strong>
+    </div>
+    <div style="margin-top:14px; padding:12px 14px; border-radius:8px; background:${badgeColor}22; border:1px solid ${badgeColor}; color:${badgeColor}; font-weight:700;">
+      ${escapeHtml(res.eligibility.status)}
+      <div style="font-weight:400; font-size:12.5px; margin-top:4px; color:var(--text);">${escapeHtml(res.eligibility.message)}</div>
+    </div>
+  `;
+  card.style.display = 'block';
+  // Tombol "Ajukan Usulan" SUDAH tampil sejak pegawai dipilih (lihat
+  // onSelectCheckEligibleSubject) -- tidak perlu di-toggle lagi di sini.
+}
+function fmtNum(n) { return Number(n || 0).toLocaleString('id-ID', { maximumFractionDigits: 2 }); }
+
+function lanjutKeOpsi(opt) {
+  if (!ceSelectedEmployee) { showToast('error', 'Pilih & hitung data pegawai terlebih dahulu.'); return; }
+  activateTab('kp', opt === 'A' ? 'tab-optA' : 'tab-optB');
+
+  const container = document.getElementById(opt === 'A' ? 'optA_entriesContainer' : 'optB_entriesContainer');
+  const firstCard = container.querySelector('.kp-entry-card');
+  if (!firstCard) return;
+
+  firstCard.querySelector('[data-field="subjectInput"]').value = `${ceSelectedEmployee.nama} (${ceSelectedEmployee.nip})`;
+  firstCard.querySelector('[data-field="subjectNip"]').value = ceSelectedEmployee.nip;
+
+  // Bawa override Golongan/Jabatan (kalau diubah manual di Check Eligible)
+  // beserta TMT barunya, supaya admin tidak perlu mengetik ulang di Opsi A/B.
+  const golonganCE = document.getElementById('ce_golongan').value;
+  const jabatanCE = document.getElementById('ce_jabatan').value;
+  const overrides = {
+    golongan: golonganCE && golonganCE !== ceOriginalGolongan ? golonganCE : '',
+    tmtGolonganBaru: document.getElementById('ce_tmtGolonganBaru').value,
+    jabatan: jabatanCE && jabatanCE !== ceOriginalJabatan ? jabatanCE : '',
+    tmtJabatanBaru: document.getElementById('ce_tmtJabatanBaru').value
+  };
+
+  onSelectDocGenSubjectCard(opt, firstCard, ceSelectedEmployee.nip, overrides);
+}
+
+/* ==================================================================
+ * TAB 1 & 2: KENAIKAN PANGKAT — OPSI A & OPSI B (generate dokumen)
+ * Form Opsi A & B berbentuk KARTU ENTRI yang bisa digandakan lewat
+ * tombol "+ Tambah Data" — beberapa entri (mis. beberapa pegawai atau
+ * beberapa periode) digabung jadi SATU file saat Preview/Generate.
+ * ================================================================== */
+function bindKenaikanPangkatForms() {
+  document.getElementById('optA_addEntryBtn').addEventListener('click', () => addOptAEntry());
+  document.getElementById('optB_addEntryBtn').addEventListener('click', () => addOptBEntry());
+
+  addOptAEntry(); // entri pertama default
+  addOptBEntry(); // entri pertama default
+
+  document.getElementById('optA_previewBtn').addEventListener('click', () => handlePreviewGenerate('A', 'preview'));
+  document.getElementById('optA_generateBtn').addEventListener('click', () => handlePreviewGenerate('A', 'generate'));
+  document.getElementById('optB_previewBtn').addEventListener('click', () => handlePreviewGenerate('B', 'preview'));
+  document.getElementById('optB_generateBtn').addEventListener('click', () => handlePreviewGenerate('B', 'generate'));
+}
+
+/**
+ * Saat admin pilih pegawai di satu kartu entri, isi otomatis dropdown
+ * Jabatan & Golongan KARTU ITU SAJA (tetap bisa diubah manual).
+ * @param {Object} [overrides] opsional -- dipakai lanjutKeOpsi() untuk
+ *   membawa perubahan Golongan/Jabatan (+ TMT barunya) dari Check
+ *   Eligible, diterapkan SETELAH auto-fill supaya tidak tertimpa.
+ */
+function onSelectDocGenSubjectCard(opt, cardEl, nip, overrides) {
+  google.script.run
+    .withSuccessHandler(emp => {
+      const jabatanSel = cardEl.querySelector('[data-field="jabatan"]');
+      const jabatanMatch = cariOpsiCocok_(FORM_OPTIONS.jabatan, emp.jabatan);
+      jabatanSel.value = jabatanMatch;
+      // Simpan sebagai baseline "data utama" untuk kartu ini — dipakai
+      // updateTmtJabatanVisibility() untuk mendeteksi kapan admin BENAR-BENAR
+      // mengubah jabatan (bukan sekadar auto-fill dari pegawai yang dipilih).
+      cardEl.dataset.originalJabatan = jabatanMatch;
+      updateTmtJabatanVisibility(cardEl);
+      cardEl.querySelector('[data-field="jabatanAutoFillMsg"]').textContent =
+        pesanStatusAutoFill_('Jabatan', emp.jabatan, jabatanMatch, 'Otomatis dari data utama, dapat diubah bila perlu — mengikuti pilihan ini pada hasil generate.');
+
+      const golonganSel = cardEl.querySelector('[data-field="golongan"]');
+      const golonganMatch = cariOpsiCocok_(FORM_OPTIONS.golongan, emp.golongan);
+      golonganSel.value = golonganMatch;
+      // Sama seperti jabatan: simpan baseline & cek apakah perlu tampilkan
+      // "TMT Golongan (baru)".
+      cardEl.dataset.originalGolongan = golonganMatch;
+      updateTmtGolonganVisibility(cardEl);
+      cardEl.querySelector('[data-field="golonganAutoFillMsg"]').textContent =
+        pesanStatusAutoFill_('Golongan', emp.golongan, golonganMatch, 'Otomatis dari data pegawai, dapat diubah bila perlu (termasuk varian Set.).');
+
+      // Override dari Check Eligible (kalau ada) -- diterapkan SETELAH
+      // auto-fill di atas selesai, supaya tidak tertimpa data pegawai.
+      if (overrides) {
+        if (overrides.golongan) { golonganSel.value = overrides.golongan; updateTmtGolonganVisibility(cardEl); }
+        if (overrides.tmtGolonganBaru) cardEl.querySelector('[data-field="tmtGolonganBaru"]').value = overrides.tmtGolonganBaru;
+        if (overrides.jabatan) { jabatanSel.value = overrides.jabatan; updateTmtJabatanVisibility(cardEl); }
+        if (overrides.tmtJabatanBaru) cardEl.querySelector('[data-field="tmtJabatan"]').value = overrides.tmtJabatanBaru;
+      }
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat data pegawai: ' + (err.message || err)))
+    .getEmployeeFullData(SESSION.token, nip);
+}
+
+/**
+ * Tampilkan/sembunyikan kolom "TMT Jabatan (baru)" pada satu kartu entri
+ * berdasarkan apakah dropdown Jabatan kartu itu SEDANG BERBEDA dari nilai
+ * data utama (originalJabatan). Saat disembunyikan, isiannya dikosongkan
+ * lagi supaya tidak ikut terkirim sebagai override tak sengaja.
+ */
+function updateTmtJabatanVisibility(cardEl) {
+  const jabatanSel = cardEl.querySelector('[data-field="jabatan"]');
+  const wrap = cardEl.querySelector('[data-field="tmtJabatanWrap"]');
+  const tmtInput = cardEl.querySelector('[data-field="tmtJabatan"]');
+  const original = cardEl.dataset.originalJabatan || '';
+  const berubah = jabatanSel.value !== '' && jabatanSel.value !== original;
+
+  wrap.style.display = berubah ? 'block' : 'none';
+  if (!berubah) tmtInput.value = '';
+}
+
+/** Sama seperti updateTmtJabatanVisibility di atas, tapi untuk Golongan. */
+function updateTmtGolonganVisibility(cardEl) {
+  const golonganSel = cardEl.querySelector('[data-field="golongan"]');
+  const wrap = cardEl.querySelector('[data-field="tmtGolonganWrap"]');
+  const tmtInput = cardEl.querySelector('[data-field="tmtGolonganBaru"]');
+  const original = cardEl.dataset.originalGolongan || '';
+  const berubah = golonganSel.value !== '' && golonganSel.value !== original;
+
+  wrap.style.display = berubah ? 'block' : 'none';
+  if (!berubah) tmtInput.value = '';
+}
+
+/** Nomori ulang badge "Data #N" & sembunyikan tombol Hapus bila cuma tersisa 1 entri. */
+function renumberEntries(container) {
+  const cards = container.querySelectorAll('.kp-entry-card');
+  cards.forEach((card, i) => {
+    card.querySelector('[data-field="entryBadge"]').textContent = 'Data #' + (i + 1);
+    card.querySelector('[data-action="remove-entry"]').style.display = cards.length > 1 ? 'inline-flex' : 'none';
+  });
+}
+
+/** Ambil value field bertanda data-field="name" di dalam satu kartu entri. */
+function fv(card, name) {
+  const el = card.querySelector(`[data-field="${name}"]`);
+  return el ? el.value : '';
+}
+
+/* ---------- OPSI A: kartu entri ---------- */
+function addOptAEntry() {
+  const container = document.getElementById('optA_entriesContainer');
+  const card = document.createElement('div');
+  card.className = 'kp-entry-card';
+  card.innerHTML = `
+    <div class="kp-entry-header">
+      <span class="kp-entry-badge" data-field="entryBadge">Data</span>
+      <button type="button" class="kp-entry-remove" data-action="remove-entry" title="Hapus entri ini">🗑 Hapus</button>
+    </div>
+    <div class="stack-field autocomplete-wrap">
+      <label class="kp-label">Target Employee (Subject)</label>
+      <input type="text" class="field-input" data-field="subjectInput" placeholder="Cari Nama atau NIP pegawai..." autocomplete="off" />
+      <input type="hidden" data-field="subjectNip" />
+      <div class="autocomplete-list" data-field="subjectList"></div>
+    </div>
+    <div class="grid-2 kp-grid">
+      <div class="stack-field">
+        <label>Nomor Surat PAK Konversi</label>
+        <input type="text" class="field-input" data-field="nomorSurat" />
+      </div>
+      <div class="stack-field">
+        <label>Bulan Awal Penilaian</label>
+        <select class="field-input" data-field="bulanAwal"></select>
+      </div>
+      <div class="stack-field">
+        <label>Tahun Penilaian</label>
+        <input type="text" class="field-input" data-field="tahunPenilaian" placeholder="cth. 2024" />
+      </div>
+      <div class="stack-field">
+        <label>Bulan Selesai Penilaian</label>
+        <select class="field-input" data-field="bulanSelesai"></select>
+      </div>
+      <div class="stack-field">
+        <label>Predikat SKP</label>
+        <select class="field-input" data-field="predikat"></select>
+      </div>
+      <div class="stack-field">
+        <label>Tanggal Surat PAK Konversi</label>
+        <input type="text" class="field-input" data-field="tanggalSurat" placeholder="Ketik manual, cth: 12 Juli 2026" />
+      </div>
+      <div class="stack-field">
+        <label>Jabatan</label>
+        <select class="field-input" data-field="jabatan"></select>
+        <div class="helper-text" data-field="jabatanAutoFillMsg">Otomatis dari data utama, dapat diubah bila perlu — mengikuti pilihan ini pada hasil generate.</div>
+      </div>
+      <div class="stack-field">
+        <label>Golongan</label>
+        <select class="field-input" data-field="golongan"></select>
+        <div class="helper-text" data-field="golonganAutoFillMsg">Otomatis dari data pegawai, dapat diubah bila perlu (termasuk varian Set.).</div>
+      </div>
+      <div class="stack-field grid-full" data-field="tmtJabatanWrap" style="display:none;">
+        <label>TMT Jabatan (baru)</label>
+        <input type="text" class="field-input" data-field="tmtJabatan" placeholder="Ketik manual, cth: 1 Agustus 2026" />
+        <div class="helper-text">Wajib diisi karena Jabatan diubah dari data utama — TMT lama sudah tidak berlaku untuk jabatan baru ini.</div>
+      </div>
+      <div class="stack-field grid-full" data-field="tmtGolonganWrap" style="display:none;">
+        <label>TMT Golongan (baru)</label>
+        <input type="text" class="field-input" data-field="tmtGolonganBaru" placeholder="Ketik manual, cth: 1 Agustus 2026" />
+        <div class="helper-text">Wajib diisi karena Golongan diubah dari data utama — TMT lama sudah tidak berlaku untuk golongan baru ini.</div>
+      </div>
+    </div>
+  `;
+  container.appendChild(card);
+
+  const bulanNames = FORM_OPTIONS.bulan.map(b => b.label);
+  populateSelect(card.querySelector('[data-field="bulanAwal"]'), bulanNames);
+  populateSelect(card.querySelector('[data-field="bulanSelesai"]'), bulanNames);
+  populateSelect(card.querySelector('[data-field="predikat"]'), DOCGEN_FORM_OPTIONS.predikat);
+  populateSelect(card.querySelector('[data-field="jabatan"]'), FORM_OPTIONS.jabatan, { placeholder: 'Pilih Jabatan...' });
+  populateSelect(card.querySelector('[data-field="golongan"]'), FORM_OPTIONS.golongan, { placeholder: 'Pilih Golongan...' });
+  card.dataset.originalJabatan = '';
+  card.dataset.originalGolongan = '';
+  card.querySelector('[data-field="jabatan"]').addEventListener('change', () => updateTmtJabatanVisibility(card));
+  card.querySelector('[data-field="golongan"]').addEventListener('change', () => updateTmtGolonganVisibility(card));
+
+  setupAutocompleteEl(
+    card.querySelector('[data-field="subjectInput"]'),
+    card.querySelector('[data-field="subjectList"]'),
+    card.querySelector('[data-field="subjectNip"]'),
+    nip => onSelectDocGenSubjectCard('A', card, nip)
+  );
+
+  card.querySelector('[data-action="remove-entry"]').addEventListener('click', () => {
+    card.remove();
+    renumberEntries(container);
+  });
+
+  renumberEntries(container);
+}
+
+function buildFormDataOptA_Card(card) {
+  const data = {
+    nomor_surat_pak_konversi: fv(card, 'nomorSurat'),
+    bulan_awal_penilaian: fv(card, 'bulanAwal'),
+    tahun_penilaian: fv(card, 'tahunPenilaian'),
+    bulan_selesai_penilaian: fv(card, 'bulanSelesai'),
+    predikat_skp: fv(card, 'predikat'),
+    tanggal_surat_pak_konversi: fv(card, 'tanggalSurat'),
+    jabatan: fv(card, 'jabatan'),
+    golongan: fv(card, 'golongan')
+  };
+  // "tmt_jab"/"tmt_gol" HANYA disertakan kalau memang diisi (jabatan/golongan
+  // diubah dari data utama) — supaya tidak menimpa nilai pegawai di data
+  // utama dengan string kosong saat TIDAK ada perubahan (kasus mayoritas).
+  const tmtJabatan = fv(card, 'tmtJabatan');
+  if (tmtJabatan) data.tmt_jab = tmtJabatan;
+  const tmtGolonganBaru = fv(card, 'tmtGolonganBaru');
+  if (tmtGolonganBaru) data.tmt_gol = tmtGolonganBaru;
+  return data;
+}
+
+/* ---------- OPSI B: kartu entri (dengan tabel Penilaian bersarang per entri) ---------- */
+function addOptBEntry() {
+  const container = document.getElementById('optB_entriesContainer');
+  const card = document.createElement('div');
+  card.className = 'kp-entry-card';
+  card.innerHTML = `
+    <div class="kp-entry-header">
+      <span class="kp-entry-badge" data-field="entryBadge">Data</span>
+      <button type="button" class="kp-entry-remove" data-action="remove-entry" title="Hapus entri ini">🗑 Hapus</button>
+    </div>
+    <div class="stack-field autocomplete-wrap">
+      <label class="kp-label">Target Employee (Subject)</label>
+      <input type="text" class="field-input" data-field="subjectInput" placeholder="Cari Nama atau NIP pegawai..." autocomplete="off" />
+      <input type="hidden" data-field="subjectNip" />
+      <div class="autocomplete-list" data-field="subjectList"></div>
+    </div>
+    <div class="grid-2 kp-grid">
+      <div class="stack-field">
+        <label>Nomor Surat Akumulasi Konversi</label>
+        <input type="text" class="field-input" data-field="nomorSuratAkumulasi" />
+      </div>
+      <div class="stack-field">
+        <label>Tahun Selesai Penilaian</label>
+        <input type="text" class="field-input" data-field="tahunSelesai" placeholder="cth. 2024" />
+      </div>
+      <div class="stack-field">
+        <label>Jumlah Angka Kredit yang Diperoleh Saat Integrasi</label>
+        <input type="text" class="field-input" data-field="jumlahAK" />
+      </div>
+      <div class="stack-field">
+        <label>Angka Dasar Saat Integrasi</label>
+        <input type="text" class="field-input" data-field="angkaDasar" />
+      </div>
+      <div class="stack-field">
+        <label>Tanggal Surat Akumulasi Konversi</label>
+        <input type="text" class="field-input" data-field="tanggalSuratAkumulasi" placeholder="Ketik manual, cth: 12 Juli 2026" />
+      </div>
+      <div class="stack-field">
+        <label>Nomor Surat AK Kumulatif</label>
+        <input type="text" class="field-input" data-field="nomorSuratKumulatif" />
+      </div>
+      <div class="stack-field">
+        <label>Ada Ijazah Baru Setelah 2023</label>
+        <select class="field-input" data-field="ijazahBaru"></select>
+      </div>
+      <div class="stack-field">
+        <label>Jabatan</label>
+        <select class="field-input" data-field="jabatan"></select>
+        <div class="helper-text" data-field="jabatanAutoFillMsg">Otomatis dari data utama, dapat diubah bila perlu — mengikuti pilihan ini pada hasil generate.</div>
+      </div>
+      <div class="stack-field">
+        <label>Golongan</label>
+        <select class="field-input" data-field="golongan"></select>
+        <div class="helper-text" data-field="golonganAutoFillMsg">Otomatis dari data pegawai, dapat diubah bila perlu (termasuk varian Set.).</div>
+      </div>
+      <div class="stack-field grid-full" data-field="tmtJabatanWrap" style="display:none;">
+        <label>TMT Jabatan (baru)</label>
+        <input type="text" class="field-input" data-field="tmtJabatan" placeholder="Ketik manual, cth: 1 Agustus 2026" />
+        <div class="helper-text">Wajib diisi karena Jabatan diubah dari data utama — TMT lama sudah tidak berlaku untuk jabatan baru ini.</div>
+      </div>
+      <div class="stack-field grid-full" data-field="tmtGolonganWrap" style="display:none;">
+        <label>TMT Golongan (baru)</label>
+        <input type="text" class="field-input" data-field="tmtGolonganBaru" placeholder="Ketik manual, cth: 1 Agustus 2026" />
+        <div class="helper-text">Wajib diisi karena Golongan diubah dari data utama — TMT lama sudah tidak berlaku untuk golongan baru ini.</div>
+      </div>
+    </div>
+
+    <div class="kp-penilaian-block">
+      <div class="kp-penilaian-header">
+        <label style="font-weight:700; font-size:14px;">Penilaian</label>
+        <button type="button" class="btn btn-outline kp-small-btn" data-action="add-penilaian-row">+ Tambah Baris</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="dyn-table">
+          <thead>
+            <tr>
+              <th>No</th><th>Tahun Penilaian</th><th>Bulan Awal Penilaian</th>
+              <th>Bulan Selesai Penilaian</th><th>Predikat SKP</th><th></th>
+            </tr>
+          </thead>
+          <tbody data-field="penilaianBody"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+  container.appendChild(card);
+
+  populateSelect(card.querySelector('[data-field="ijazahBaru"]'), DOCGEN_FORM_OPTIONS.ijazahBaru);
+  populateSelect(card.querySelector('[data-field="jabatan"]'), FORM_OPTIONS.jabatan, { placeholder: 'Pilih Jabatan...' });
+  populateSelect(card.querySelector('[data-field="golongan"]'), FORM_OPTIONS.golongan, { placeholder: 'Pilih Golongan...' });
+  card.dataset.originalJabatan = '';
+  card.dataset.originalGolongan = '';
+  card.querySelector('[data-field="jabatan"]').addEventListener('change', () => updateTmtJabatanVisibility(card));
+  card.querySelector('[data-field="golongan"]').addEventListener('change', () => updateTmtGolonganVisibility(card));
+
+  setupAutocompleteEl(
+    card.querySelector('[data-field="subjectInput"]'),
+    card.querySelector('[data-field="subjectList"]'),
+    card.querySelector('[data-field="subjectNip"]'),
+    nip => onSelectDocGenSubjectCard('B', card, nip)
+  );
+
+  card.querySelector('[data-action="add-penilaian-row"]').addEventListener('click', () => addPenilaianRowIn(card));
+  addPenilaianRowIn(card); // baris pertama default
+
+  card.querySelector('[data-action="remove-entry"]').addEventListener('click', () => {
+    card.remove();
+    renumberEntries(container);
+  });
+
+  renumberEntries(container);
+}
+
+function addPenilaianRowIn(card) {
+  const tbody = card.querySelector('[data-field="penilaianBody"]');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="row-no">${tbody.children.length + 1}</td>
+    <td><input type="text" class="p-tahun" placeholder="cth. 2024" /></td>
+    <td><select class="p-bulanAwal"></select></td>
+    <td><select class="p-bulanSelesai"></select></td>
+    <td><select class="p-predikat"></select></td>
+    <td><button type="button" class="row-remove-btn" title="Hapus baris">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+
+  const bulanNames = FORM_OPTIONS.bulan.map(b => b.label);
+  fillSelectOptions(tr.querySelector('.p-bulanAwal'), bulanNames);
+  fillSelectOptions(tr.querySelector('.p-bulanSelesai'), bulanNames);
+  fillSelectOptions(tr.querySelector('.p-predikat'), DOCGEN_FORM_OPTIONS.predikat);
+
+  tr.querySelector('.row-remove-btn').addEventListener('click', () => {
+    tr.remove();
+    renumberPenilaianRowsIn(tbody);
+  });
+}
+function renumberPenilaianRowsIn(tbody) {
+  Array.from(tbody.children).forEach((tr, i) => { tr.querySelector('.row-no').textContent = i + 1; });
+}
+
+function collectPenilaianRowsIn(card) {
+  const rows = [];
+  card.querySelectorAll('[data-field="penilaianBody"] tr').forEach((tr, i) => {
+    rows.push({
+      no: i + 1,
+      tahun_penilaian: tr.querySelector('.p-tahun').value,
+      bulan_awal_penilaian: tr.querySelector('.p-bulanAwal').value,
+      bulan_selesai_penilaian: tr.querySelector('.p-bulanSelesai').value,
+      predikat_skp: tr.querySelector('.p-predikat').value
+    });
+  });
+  return rows;
+}
+
+function buildFormDataOptB_Card(card) {
+  const data = {
+    nomor_surat_akumulasi_konversi: fv(card, 'nomorSuratAkumulasi'),
+    tahun_selesai_penilaian: fv(card, 'tahunSelesai'),
+    jumlah_angka_kredit_diperoleh: fv(card, 'jumlahAK'),
+    angka_dasar_saat_integrasi: fv(card, 'angkaDasar'),
+    tanggal_surat_akumulasi_konversi: fv(card, 'tanggalSuratAkumulasi'),
+    nomor_surat_ak_kumulatif: fv(card, 'nomorSuratKumulatif'),
+    ada_ijazah_baru_2023: fv(card, 'ijazahBaru'),
+    jabatan: fv(card, 'jabatan'),
+    golongan: fv(card, 'golongan'),
+    data_massal: collectPenilaianRowsIn(card)
+  };
+  const tmtJabatan = fv(card, 'tmtJabatan');
+  if (tmtJabatan) data.tmt_jab = tmtJabatan;
+  const tmtGolonganBaru = fv(card, 'tmtGolonganBaru');
+  if (tmtGolonganBaru) data.tmt_gol = tmtGolonganBaru;
+  return data;
+}
+
+function val(id) { return document.getElementById(id).value; }
+
+function handlePreviewGenerate(opt, mode) {
+  const container = document.getElementById(opt === 'A' ? 'optA_entriesContainer' : 'optB_entriesContainer');
+  const cards = Array.from(container.querySelectorAll('.kp-entry-card'));
+  if (!cards.length) { showToast('error', 'Tambahkan minimal 1 data (klik "+ Tambah Data") terlebih dahulu.'); return; }
+
+  const entries = [];
+  for (let i = 0; i < cards.length; i++) {
+    const card = cards[i];
+    const nip = fv(card, 'subjectNip');
+    if (!nip) {
+      showToast('error', 'Pilih Target Employee (Subject) pada setiap entri terlebih dahulu.');
+      return;
+    }
+    const jabatanBerubah = fv(card, 'jabatan') !== '' && fv(card, 'jabatan') !== (card.dataset.originalJabatan || '');
+    if (jabatanBerubah && !fv(card, 'tmtJabatan')) {
+      showToast('error', `Data #${i + 1}: Jabatan diubah dari data utama — isi dulu "TMT Jabatan (baru)" secara manual.`);
+      return;
+    }
+    const golonganBerubah = fv(card, 'golongan') !== '' && fv(card, 'golongan') !== (card.dataset.originalGolongan || '');
+    if (golonganBerubah && !fv(card, 'tmtGolonganBaru')) {
+      showToast('error', `Data #${i + 1}: Golongan diubah dari data utama — isi dulu "TMT Golongan (baru)" secara manual.`);
+      return;
+    }
+    const formData = opt === 'A' ? buildFormDataOptA_Card(card) : buildFormDataOptB_Card(card);
+    entries.push({ formData, targetNip: nip });
+  }
+
+  const subLayanan = opt === 'A' ? 'AK Konversi Tahunan' : 'AK Konversi Kumulatif';
+
+  google.script.run
+    .withSuccessHandler(templates => {
+      if (!templates.length) {
+        showToast('error', `Belum ada template terdaftar untuk "${subLayanan}". Tambahkan di menu Template.`);
+        return;
+      }
+      const templateFileId = templates[0].fileId; // pakai template pertama yang cocok
+      const payload = { templateFileId, entries, subLayanan };
+
+      if (mode === 'preview') {
+        runPreview(payload);
+      } else {
+        runGenerate(payload);
+      }
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat template: ' + (err.message || err)))
+    .getTemplatesForService(SESSION.token, 'Kenaikan Pangkat', subLayanan);
+}
+
+function runPreview(payload) {
+  showToast('info', 'Membuat preview dokumen...');
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) {
+        openPreviewModal(res.previewUrl);
+      } else {
+        showToast('error', res.message);
+      }
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal preview: ' + (err.message || err)))
+    .previewDocument(SESSION.token, payload);
+}
+
+function runGenerate(payload) {
+  showToast('info', 'Memproses dokumen, mohon tunggu...');
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) {
+        showToast('success', `${res.fileName} berhasil dibuat.`);
+        openDownloadModal(res);
+      } else {
+        showToast('error', res.message);
+      }
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal generate: ' + (err.message || err)))
+    .generateDocument(SESSION.token, payload);
+}
+
+/* ------------------------- MODAL PREVIEW / DOWNLOAD ------------------------- */
+function openPreviewModal(url) {
+  document.getElementById('modalTitle').textContent = 'Preview Dokumen';
+  document.getElementById('modalBody').innerHTML = `<iframe src="${url}"></iframe>`;
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+function openDownloadModal(res) {
+  document.getElementById('modalTitle').textContent = 'Dokumen Siap';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="padding:24px; text-align:center;">
+      <p style="margin-bottom:18px;">File <strong>${escapeHtml(res.fileName)}</strong> berhasil dibuat sebagai Google Docs dan tersimpan di folder "Kenaikan Pangkat".</p>
+      <a class="btn btn-primary" style="text-decoration:none;" href="${res.viewUrl}" target="_blank" rel="noopener">Buka Dokumen</a>
+    </div>`;
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+function closeModal() {
+  document.getElementById('modalOverlay').style.display = 'none';
+  document.getElementById('modalBody').innerHTML = '';
+}
+
+/* ------------------------- TEMPLATE MANAGER ------------------------- */
+function bindTemplateManagerForm() {
+  const layananSel = document.getElementById('tplLayanan');
+  const subMenuSel = document.getElementById('tplSubMenu');
+
+  google.script.run.withSuccessHandler(opts => {
+    layananSel.innerHTML = '<option value="">Pilih Layanan...</option>' +
+      Object.keys(opts).map(l => `<option value="${l}">${l}</option>`).join('');
+  }).getLayananOptions();
+
+  layananSel.addEventListener('change', () => {
+    google.script.run.withSuccessHandler(opts => {
+      const subs = opts[layananSel.value] || [];
+      subMenuSel.innerHTML = '<option value="">Pilih Sub-menu...</option>' + subs.map(s => `<option value="${s}">${s}</option>`).join('');
+    }).getLayananOptions();
+  });
+
+  document.getElementById('templateForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('tplSubmitBtn');
+    setBtnLoading(btn, true, 'Menyimpan...');
+
+    const payload = {
+      driveLink: val('tplDriveLink'),
+      judul: val('tplJudul'),
+      layanan: val('tplLayanan'),
+      subMenu: val('tplSubMenu')
+    };
+
+    google.script.run
+      .withSuccessHandler(res => {
+        setBtnLoading(btn, false, 'Simpan Template');
+        showToast(res.success ? 'success' : 'error', res.message);
+        if (res.success) {
+          document.getElementById('templateForm').reset();
+          loadTemplateList();
+        }
+      })
+      .withFailureHandler(err => {
+        setBtnLoading(btn, false, 'Simpan Template');
+        showToast('error', 'Gagal menyimpan: ' + (err.message || err));
+      })
+      .addTemplate(SESSION.token, payload);
+  });
+}
+
+function loadTemplateList() {
+  google.script.run
+    .withSuccessHandler(templates => {
+      const tbody = document.getElementById('templateListBody');
+      tbody.innerHTML = '';
+      if (!templates.length) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Belum ada template terdaftar.</td></tr>';
+        return;
+      }
+      templates.forEach(t => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(t.judul)}</td>
+          <td>${escapeHtml(t.layanan)}</td>
+          <td>${escapeHtml(t.subMenu)}</td>
+          <td><button class="btn btn-outline" style="padding:6px 10px; font-size:12px;" onclick="deleteTemplateHandler('${t.id}')">Hapus</button></td>`;
+        tbody.appendChild(tr);
+      });
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat daftar template: ' + (err.message || err)))
+    .getAllTemplates(SESSION.token);
+}
+
+function deleteTemplateHandler(id) {
+  google.script.run
+    .withSuccessHandler(res => { showToast(res.success ? 'success' : 'error', res.message); loadTemplateList(); })
+    .withFailureHandler(err => showToast('error', String(err.message || err)))
+    .deleteTemplate(SESSION.token, id);
+}
+
+/* ------------------------- TOAST ------------------------- */
+function showToast(type, message) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + (type === 'error' ? 'error' : type === 'success' ? 'success' : '');
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+
+/* ------------------------- HELPERS ------------------------- */
+/**
+ * Cocokkan nilai mentah dari data pegawai (mis. golongan/jabatan) ke salah
+ * satu opsi dropdown yang tersedia, TOLERAN terhadap spasi berlebih & besar-
+ * kecil huruf -- data di spreadsheet sering tidak konsisten rapi (spasi
+ * ganda, spasi di ujung, dsb.), dan pencocokan yang terlalu ketat membuat
+ * dropdown tampak "tidak auto-fill" padahal datanya sebenarnya ADA, cuma
+ * tidak cocok persis secara string. Return opsi yang cocok, atau '' kalau
+ * benar-benar tidak ada yang cocok setelah dinormalisasi.
+ */
+function cariOpsiCocok_(daftarOpsi, nilaiMentah) {
+  const bersihkan = s => String(s || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  const target = bersihkan(nilaiMentah);
+  if (!target) return '';
+  return daftarOpsi.find(opsi => bersihkan(opsi) === target) || '';
+}
+
+/**
+ * Teks status auto-fill untuk field Golongan/Jabatan -- supaya kalau
+ * TIDAK ter-auto-fill, admin langsung tahu KENAPA (persisten di bawah
+ * field, BUKAN toast yang hilang dalam 4 detik):
+ * - data utama benar-benar kosong untuk field ini, ATAU
+ * - data ADA tapi tidak cocok satu pun pilihan yang tersedia (mis. typo,
+ *   golongan yang tidak dikenal sistem).
+ * Kalau berhasil cocok, kembalikan teks normal seperti biasa.
+ */
+function pesanStatusAutoFill_(labelField, rawValue, matchedValue, teksNormal) {
+  if (matchedValue) return teksNormal;
+  const raw = String(rawValue || '').trim();
+  if (!raw) return `Data utama tidak memiliki nilai ${labelField} untuk pegawai ini — silakan isi manual.`;
+  return `Data utama: "${raw}" — tidak cocok pilihan yang tersedia, silakan pilih manual.`;
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* =====================================================================
+ * DASHBOARD ELIGIBLE KENAIKAN PANGKAT (tab "0. Check Eligible")
+ * Murni skrining berbasis masa kerja -- lihat PromosiDashboardService.gs.
+ * Level 1 (Unit) -> Level 2 (Dosen/Tendik) -> Level 3 (daftar nama).
+ * Pilih nama Dosen -> pre-fill & pakai mesin AK yang SUDAH ADA (tidak
+ * diubah). Pilih nama Tendik -> kartu info sederhana saja (tidak ada
+ * mesin AK untuk Tendik).
+ * ===================================================================== */
+let promosiDashboardData = null; // cache respons getPromosiDashboardSummary
+
+function loadPromosiDashboard() {
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      promosiDashboardData = res;
+      document.getElementById('ceDashboardTarget').textContent = 'TMT diproses: ' + res.targetTmt;
+      renderPromosiDashboardLevel1(res.daftarUnit);
+
+      // REF: tombol "Ajukan Usulan" di header dashboard -- muncul begitu
+      // dashboard termuat, TANPA perlu cari/pilih satu nama dulu (beda
+      // dari tombol di bawah field pencarian yang muncul setelah pilih
+      // pegawai). Sama-sama membuka modal yang SAMA (bisa tambah banyak
+      // nama + satu surat pengantar di dalamnya).
+      const dashboardAjukanBtn = document.getElementById('ceDashboardAjukanUsulanBtn');
+      if (dashboardAjukanBtn) dashboardAjukanBtn.style.display = (SESSION.user.role !== 'normal') ? 'inline-flex' : 'none';
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat dashboard eligible: ' + (err.message || err)))
+    .getPromosiDashboardSummary(SESSION.token);
+}
+
+function renderPromosiDashboardLevel1(daftarUnit) {
+  const el = document.getElementById('ceDashboardLevel1');
+  if (!daftarUnit.length) {
+    el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada pegawai yang eligible untuk siklus TMT saat ini.</div>';
+    return;
+  }
+  el.innerHTML = daftarUnit.map(u => `
+    <button type="button" class="ce-dashboard-card" data-unit="${escapeHtml(u.unit)}" onclick="showPromosiDashboardLevel2('${escapeHtml(u.unit).replace(/'/g, "\\'")}')">
+      <div class="cdc-title">${escapeHtml(u.unit)}</div>
+      <div class="cdc-count">${u.total}</div>
+      <div class="cdc-sub">Dosen ${u.dosen} &middot; Tendik ${u.tendik}</div>
+    </button>
+  `).join('');
+}
+
+function showPromosiDashboardLevel2(unit) {
+  const unitData = promosiDashboardData.daftarUnit.find(u => u.unit === unit);
+  if (!unitData) return;
+
+  document.getElementById('ceDashboardLevel1').style.display = 'none';
+  document.getElementById('ceDashboardLevel2').style.display = 'block';
+  document.getElementById('ceDashboardLevel3').style.display = 'none';
+
+  const grid = document.getElementById('ceDashboardLevel2Grid');
+  grid.innerHTML = `
+    <button type="button" class="ce-dashboard-card ${unitData.dosen === 0 ? 'cdc-empty' : ''}" ${unitData.dosen === 0 ? 'disabled' : `onclick="loadPromosiDashboardLevel3('${escapeHtml(unit).replace(/'/g, "\\'")}','dosen')"`}>
+      <div class="cdc-title">Dosen Eligible</div>
+      <div class="cdc-count">${unitData.dosen}</div>
+    </button>
+    <button type="button" class="ce-dashboard-card ${unitData.tendik === 0 ? 'cdc-empty' : ''}" ${unitData.tendik === 0 ? 'disabled' : `onclick="loadPromosiDashboardLevel3('${escapeHtml(unit).replace(/'/g, "\\'")}','tendik')"`}>
+      <div class="cdc-title">Tendik Eligible</div>
+      <div class="cdc-count">${unitData.tendik}</div>
+    </button>
+  `;
+  document.querySelector('#ceDashboardLevel2 .ce-dashboard-back').onclick = () => {
+    document.getElementById('ceDashboardLevel1').style.display = 'grid';
+    document.getElementById('ceDashboardLevel2').style.display = 'none';
+  };
+}
+
+function loadPromosiDashboardLevel3(unit, kategori) {
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      document.getElementById('ceDashboardLevel2').style.display = 'none';
+      document.getElementById('ceDashboardLevel3').style.display = 'block';
+
+      const listEl = document.getElementById('ceDashboardLevel3List');
+      if (!res.daftar.length) {
+        listEl.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada data.</div>';
+      } else {
+        listEl.innerHTML = res.daftar.map(p => `
+          <div class="ce-dashboard-list-item" onclick="onSelectPromosiPegawai('${escapeHtml(p.nip)}','${escapeHtml(p.nama).replace(/'/g, "\\'")}','${p.kategori}')">
+            <div>
+              <div class="cdli-name">${escapeHtml(p.nama)} ${p.notifPerhatian ? '<span class="cdli-warn" title="Perlu perhatian khusus">⚠️ Perhatian</span>' : ''}</div>
+              <div class="cdli-meta">${escapeHtml(p.jabatan || '-')} &middot; NIP ${escapeHtml(p.nip)} &middot; TMT Golongan: ${escapeHtml(p.tmtGolongan || '-')} &middot; Golongan: ${escapeHtml(p.golonganSekarang || '-')}${p.batasGolongan ? ' (maks. ' + escapeHtml(p.batasGolongan) + ')' : ''}</div>
+              <div class="cdli-meta">Status: ${escapeHtml(p.labelStatus || '-')}${p.jalurReguler ? ' &middot; Jalur Kenaikan Pangkat Reguler (syarat ' + p.syaratTahun + ' tahun)' : ''}</div>
+            </div>
+            <span class="cdli-badge">${p.kategori === 'dosen' ? 'DOSEN' : (p.kategori === 'tendik_jabatan_fungsional' ? 'TENDIK JF' : 'TENDIK NON-JF')}</span>
+          </div>
+        `).join('');
+      }
+
+      document.querySelector('#ceDashboardLevel3 .ce-dashboard-back').onclick = () => showPromosiDashboardLevel2(unit);
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat daftar pegawai: ' + (err.message || err)))
+    .getPromosiEligibleList(SESSION.token, unit, kategori);
+}
+
+function onSelectPromosiPegawai(nip, nama, kategori) {
+  if (kategori === 'dosen') {
+    // Pre-fill & jalankan mesin Check Eligible YANG SUDAH ADA (tidak diubah).
+    document.getElementById('subjectCE_input').value = `${nama} (${nip})`;
+    document.getElementById('subjectCE_nip').value = nip;
+    onSelectCheckEligibleSubject(nip, nama);
+    document.getElementById('subjectCE_input').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else {
+    // Tendik: tidak ada mesin Angka Kredit -- cukup kartu konfirmasi.
+    const listEl = document.getElementById('ceDashboardLevel3List');
+    const infoCard = document.createElement('div');
+    infoCard.className = 'ce-info-card';
+    infoCard.innerHTML = `<strong>${escapeHtml(nama)}</strong> (NIP ${escapeHtml(nip)}) telah memenuhi syarat masa kerja untuk diusulkan kenaikan pangkat pada siklus TMT saat ini. Proses lebih lanjut mengikuti mekanisme administrasi Tendik yang berlaku (di luar sistem ini).`;
+    const existing = listEl.parentElement.querySelector('.ce-info-card');
+    if (existing) existing.remove();
+    listEl.parentElement.appendChild(infoCard);
+  }
+}
+
+/* =====================================================================
+ * MODUL PENSIUN (menu "Pensiun" > DPCP)
+ * REF (logika masa kerja, jenis pensiun, keluarga, foto) = codegs_v6.txt
+ * & index_v7.txt yang diberikan Titto -- diporting ke pola UI yang sama
+ * dengan Kenaikan Pangkat (kartu entri data-field, dashboard drill-down).
+ * Beda dari referensi: tanggal pakai <input type="date"> (ISO YYYY-MM-DD)
+ * bukan teks manual DD/MM/YYYY -- lebih aman, tidak ada ambiguitas parsing.
+ * ===================================================================== */
+let pensiunFotoBase64String = '';
+let pensiunDashboardLoaded = false;
+
+/* ---------- DASHBOARD ---------- */
+function loadPensiunDashboardOnce() {
+  if (pensiunDashboardLoaded) return;
+  pensiunDashboardLoaded = true;
+  loadPensiunDashboard();
+}
+function loadPensiunDashboard() {
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      document.getElementById('pensiunDashboardAmbang').textContent = `Ambang: < ${res.ambangTahun} tahun`;
+      renderPensiunDashboardLevel1(res.daftarUnit);
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat dashboard pensiun: ' + (err.message || err)))
+    .getPensiunDashboardSummary(SESSION.token);
+}
+function renderPensiunDashboardLevel1(daftarUnit) {
+  const el = document.getElementById('pensiunDashboardLevel1');
+  el.style.display = 'grid';
+  if (!daftarUnit.length) {
+    el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada pegawai yang akan pensiun dalam waktu dekat.</div>';
+    return;
+  }
+  el.innerHTML = daftarUnit.map(u => `
+    <button type="button" class="ce-dashboard-card" onclick="showPensiunDashboardLevel2('${escapeHtml(u.unit).replace(/'/g, "\\'")}')">
+      <div class="cdc-title">${escapeHtml(u.unit)}</div>
+      <div class="cdc-count">${u.jumlah}</div>
+      <div class="cdc-sub">pegawai</div>
+    </button>
+  `).join('');
+}
+function showPensiunDashboardLevel2(unit) {
+  document.getElementById('pensiunDashboardLevel1').style.display = 'none';
+  document.getElementById('pensiunDashboardLevel2').style.display = 'block';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      const listEl = document.getElementById('pensiunDashboardLevel2List');
+      if (!res.daftar.length) {
+        listEl.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada data.</div>';
+        return;
+      }
+      listEl.innerHTML = res.daftar.map(p => `
+        <div class="ce-dashboard-list-item" onclick="onSelectPensiunEmployee('${escapeHtml(p.nip)}','${escapeHtml(p.nama).replace(/'/g, "\\'")}')">
+          <div>
+            <div class="cdli-name">${escapeHtml(p.nama)}</div>
+            <div class="cdli-meta">${escapeHtml(p.jabatan || '-')} &middot; NIP ${escapeHtml(p.nip)} &middot; TMT Pensiun ${escapeHtml(p.tmtPensiunBup || '-')}</div>
+          </div>
+          <span class="cdli-badge">${p.sisaHari} HARI LAGI</span>
+        </div>
+      `).join('');
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat daftar pegawai: ' + (err.message || err)))
+    .getPensiunEligibleList(SESSION.token, unit);
+}
+
+function pensiunGoToFormState() {
+  document.getElementById('pensiunDashboardState').style.display = 'none';
+  document.getElementById('pensiunFormState').style.display = 'block';
+}
+function pensiunBackToDashboardState() {
+  document.getElementById('pensiunFormState').style.display = 'none';
+  document.getElementById('pensiunDashboardState').style.display = 'block';
+}
+
+/* ---------- KONVERSI TANGGAL untuk <input type="date"> ---------- */
+function pensiunToDateInputValue(value) {
+  if (!value) return '';
+  const isoMatch = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoMatch) return isoMatch[1];
+  const dmy = String(value).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+  const d = new Date(value);
+  if (!isNaN(d.getTime())) return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return '';
+}
+
+/* ---------- PILIH PEGAWAI (dari dashboard ATAU search manual) ---------- */
+function onSelectPensiunEmployee(nip, nama) {
+  if (SESSION.user.role === 'user') {
+    bukaModalAjukanUsulanPensiun(nip, nama);
+    return;
+  }
+  pensiunGoToFormState();
+  document.getElementById('subjectPensiun_input').value = `${nama} (${nip})`;
+  document.getElementById('subjectPensiun_nip').value = nip;
+
+  google.script.run
+    .withSuccessHandler(emp => {
+      document.getElementById('pensiun_nip').value = emp.nip || '';
+      document.getElementById('pensiun_namaLengkap').value = emp.nama_lengkap || emp.nama || '';
+      document.getElementById('pensiun_nama').value = emp.nama || '';
+      document.getElementById('pensiun_tmpLhr').value = emp.tmp_lhr || '';
+      document.getElementById('pensiun_tglLhr').value = pensiunToDateInputValue(emp.tgl_lhr);
+      document.getElementById('pensiun_tmtCpns').value = pensiunToDateInputValue(emp.tmt_pengangkatan);
+      document.getElementById('pensiun_pangkat').value = emp.pangkat || '';
+      document.getElementById('pensiun_golongan').value = emp.golongan || '';
+      document.getElementById('pensiun_tmtGol').value = pensiunToDateInputValue(emp.tmt_gol);
+      document.getElementById('pensiun_jabatan').value = emp.jabatan || '';
+      document.getElementById('pensiun_tmtJab').value = pensiunToDateInputValue(emp.tmt_jab);
+      document.getElementById('pensiun_tmtPensiun').value = pensiunToDateInputValue(emp.tmt_pensiun_bup);
+      document.getElementById('pensiun_unitEsIi').value = emp.unit_es_ii || '';
+
+      // REVISI: alamat & pendidikan_pertama sebelumnya SELALU kosong
+      // (harus diketik manual walau datanya ADA di Data Utama) -- sekarang
+      // auto-fill dengan pola sama seperti Kontrak, tetap bisa diedit.
+      const pensiunAlamatMsg = document.getElementById('pensiun_alamatMsg');
+      if (emp.alamat) {
+        document.getElementById('pensiun_alamat').value = emp.alamat;
+        if (pensiunAlamatMsg) pensiunAlamatMsg.textContent = 'Otomatis dari data utama, dapat diubah bila perlu.';
+      } else {
+        document.getElementById('pensiun_alamat').value = '';
+        if (pensiunAlamatMsg) pensiunAlamatMsg.textContent = 'Data utama tidak memiliki Alamat untuk pegawai ini — wajib diisi manual.';
+      }
+      // "Pendidikan Pertama" BISA berbeda dari Pendidikan saat ini (mis.
+      // sudah studi lanjut sejak awal masuk) -- diisi otomatis dari
+      // Pendidikan di Data Utama sebagai TITIK AWAL yang wajar, TETAP
+      // harus dicek/diedit admin kalau memang berbeda.
+      document.getElementById('pensiun_pendidikanPertama').value = emp.pendidikan || '';
+
+      pensiunRunRealtimeCalculations();
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat data pegawai: ' + (err.message || err)))
+    .getEmployeeFullData(SESSION.token, nip);
+
+  // REF: fitur "gunakan data generate sebelumnya"
+  google.script.run
+    .withSuccessHandler(riwayat => {
+      const msg = document.getElementById('pensiunRiwayatMsg');
+      if (riwayat) {
+        msg.style.display = 'block';
+        msg.innerHTML = 'Ditemukan riwayat DPCP sebelumnya untuk pegawai ini. ' +
+          '<button type="button" class="btn btn-outline" style="padding:4px 10px; font-size:11.5px; margin-left:6px;" id="pensiunPakaiRiwayatBtn">Gunakan Data Ini</button>';
+        pensiunLatestRiwayat = riwayat;
+        document.getElementById('pensiunPakaiRiwayatBtn').addEventListener('click', pensiunTerapkanRiwayat);
+      } else {
+        msg.style.display = 'none';
+      }
+    })
+    .withFailureHandler(() => {})
+    .getLatestSavedGenerateData(SESSION.token, nip);
+}
+
+let pensiunLatestRiwayat = null;
+function pensiunSetTahunBulanFromText(tahunId, bulanId, text) {
+  const s = String(text || '');
+  const thMatch = s.match(/(\d+)\s*tah/i);
+  const blMatch = s.match(/(\d+)\s*bul/i);
+  document.getElementById(tahunId).value = thMatch ? thMatch[1] : '';
+  document.getElementById(bulanId).value = blMatch ? blMatch[1] : '';
+}
+function pensiunTerapkanRiwayat() {
+  const r = pensiunLatestRiwayat;
+  if (!r) return;
+  document.getElementById('pensiun_jenisPensiun').value = r.jenis_pensiun || '';
+  pensiunToggleJenisPensiun();
+  document.getElementById('pensiun_tmpLhr').value = r.tmp_lhr || '';
+  if (r.tgl_lhr) document.getElementById('pensiun_tglLhr').value = r.tgl_lhr;
+  if (r.tmt_cpns) document.getElementById('pensiun_tmtCpns').value = r.tmt_cpns;
+  document.getElementById('pensiun_pangkat').value = r.pangkat || '';
+  document.getElementById('pensiun_golongan').value = r.golongan || '';
+  if (r.tmt_gol) document.getElementById('pensiun_tmtGol').value = r.tmt_gol;
+  document.getElementById('pensiun_jabatan').value = r.jabatan || '';
+  if (r.tmt_jab) document.getElementById('pensiun_tmtJab').value = r.tmt_jab;
+  if (r.tmt_pensiun) document.getElementById('pensiun_tmtPensiun').value = r.tmt_pensiun;
+  if (r.bulan_terakhir_bekerja) document.getElementById('pensiun_bulanTerakhirBekerja').value = r.bulan_terakhir_bekerja;
+  document.getElementById('pensiun_unitEsIi').value = r.unit_es_ii || '';
+  document.getElementById('pensiun_gajiPokok').value = r.gaji_pokok || '';
+  document.getElementById('pensiun_pendidikanPertama').value = r.pendidikan_pertama || '';
+  document.getElementById('pensiun_alamat').value = r.alamat || '';
+
+  pensiunSetTahunBulanFromText('pensiun_mkKpTahun', 'pensiun_mkKpBulan', r.mk_kp_terakhir);
+  pensiunSetTahunBulanFromText('pensiun_mkSebelumTahun', 'pensiun_mkSebelumBulan', r.mk_sebelum_cpns);
+  pensiunSetTahunBulanFromText('pensiun_cltnTahun', 'pensiun_cltnBulan', r.cltn);
+  pensiunSetTahunBulanFromText('pensiun_pmkTahun', 'pensiun_pmkBulan', r.pmk);
+
+  document.getElementById('pensiunPasanganContainer').innerHTML = '';
+  (r.pasangan || []).forEach(p => pensiunAddPasanganRow(p));
+  document.getElementById('pensiunAnakContainer').innerHTML = '';
+  (r.anak || []).forEach(a => pensiunAddAnakRow(a));
+
+  pensiunRunRealtimeCalculations();
+  showToast('success', 'Data riwayat berhasil diterapkan ke form.');
+}
+
+/* ---------- JENIS PENSIUN & AUTO TMT PENSIUN (REF: toggleJenisPensiunFields/calculateAutoTmtPensiun) ---------- */
+function pensiunToggleJenisPensiun() {
+  const type = document.getElementById('pensiun_jenisPensiun').value;
+  const wrap = document.getElementById('pensiun_tglPeristiwaWrap');
+  const label = document.getElementById('pensiun_tglPeristiwaLabel');
+  if (type === 'BUP' || !type) {
+    wrap.style.display = 'none';
+    document.getElementById('pensiun_tglPeristiwa').value = '';
+  } else {
+    wrap.style.display = 'block';
+    const labelMap = {
+      'Meninggal': 'Tanggal Wafat Resmi',
+      'Diberhentikan': 'Tanggal Dekrit Pemberhentian',
+      'Pengunduran Diri': 'Tanggal Surat Pengunduran Diri',
+      'Uzur': 'Tanggal Penetapan Uzur'
+    };
+    label.textContent = labelMap[type] || 'Tanggal Peristiwa';
+  }
+  pensiunCalculateAutoTmtPensiun();
+}
+function pensiunCalculateAutoTmtPensiun() {
+  const type = document.getElementById('pensiun_jenisPensiun').value;
+  const tglRaw = document.getElementById('pensiun_tglPeristiwa').value; // YYYY-MM-DD
+  if (!tglRaw || type === 'BUP') { pensiunRunRealtimeCalculations(); return; }
+
+  document.getElementById('pensiun_bulanTerakhirBekerja').value = tglRaw;
+
+  const parts = tglRaw.split('-').map(Number);
+  let nextMonth = parts[1] + 1, nextYear = parts[0];
+  if (nextMonth > 12) { nextMonth = 1; nextYear++; }
+  document.getElementById('pensiun_tmtPensiun').value = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+
+  pensiunRunRealtimeCalculations();
+}
+
+/* ---------- MASA KERJA REALTIME (REF: runRealtimeCalculations + helper parse/format) ---------- */
+function pensiunMonthsFromPair(tahunId, bulanId) {
+  const t = parseInt(document.getElementById(tahunId).value) || 0;
+  const b = parseInt(document.getElementById(bulanId).value) || 0;
+  return t * 12 + b;
+}
+function pensiunDateDiffMonths(dateStr1, dateStr2) {
+  if (!dateStr1 || !dateStr2) return 0;
+  const d1 = new Date(dateStr1 + 'T00:00:00'), d2 = new Date(dateStr2 + 'T00:00:00');
+  if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return 0;
+  let months = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
+  if (d2.getDate() < d1.getDate()) months -= 1;
+  return months <= 0 ? 0 : months;
+}
+function pensiunFormatMonths(totalMonths) {
+  if (totalMonths <= 0 || isNaN(totalMonths)) return '0 TAHUN 0 BULAN';
+  const y = Math.floor(totalMonths / 12);
+  const m = totalMonths % 12;
+  return `${y} TAHUN ${m} BULAN`;
+}
+function pensiunRunRealtimeCalculations() {
+  const tmtGol = document.getElementById('pensiun_tmtGol').value;
+  const tmtCpns = document.getElementById('pensiun_tmtCpns').value;
+  const tmtPensiun = document.getElementById('pensiun_tmtPensiun').value;
+  const bulanTerakhir = document.getElementById('pensiun_bulanTerakhirBekerja').value;
+
+  const mkKpBulan = pensiunMonthsFromPair('pensiun_mkKpTahun', 'pensiun_mkKpBulan');
+  const mkSebelumBulan = pensiunMonthsFromPair('pensiun_mkSebelumTahun', 'pensiun_mkSebelumBulan');
+  const cltnBulan = pensiunMonthsFromPair('pensiun_cltnTahun', 'pensiun_cltnBulan');
+  const pmkBulan = pensiunMonthsFromPair('pensiun_pmkTahun', 'pensiun_pmkBulan');
+
+  const netMkGol = (tmtGol && bulanTerakhir) ? pensiunDateDiffMonths(tmtGol, bulanTerakhir) + mkKpBulan : 0;
+  document.getElementById('pensiun_txtMkGolongan').textContent = pensiunFormatMonths(netMkGol);
+
+  const netMkPns = (tmtCpns && bulanTerakhir) ? pensiunDateDiffMonths(tmtCpns, bulanTerakhir) - cltnBulan + pmkBulan : 0;
+  document.getElementById('pensiun_txtMkPns').textContent = pensiunFormatMonths(netMkPns);
+
+  const netMkPensiun = (tmtCpns && tmtPensiun) ? pensiunDateDiffMonths(tmtCpns, tmtPensiun) + mkSebelumBulan - cltnBulan + pmkBulan : 0;
+  document.getElementById('pensiun_txtMkPensiun').textContent = pensiunFormatMonths(netMkPensiun);
+}
+
+/* ---------- RUPIAH & FOTO (REF: formatInputRupiah/processImageToBase64) ---------- */
+function pensiunFormatRupiah(el) {
+  const val = el.value.replace(/[^0-9]/g, '');
+  if (!val) return;
+  el.value = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val);
+}
+function pensiunProcessImageToBase64(el) {
+  const file = el.files[0];
+  const msg = document.getElementById('pensiun_fotoMsg');
+  if (!file) return;
+  if (file.size > 1024 * 1024) {
+    showToast('error', 'Ukuran foto melebihi 1 MB.');
+    el.value = '';
+    msg.style.display = 'none';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    pensiunFotoBase64String = e.target.result;
+    msg.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ---------- DATA KELUARGA: PASANGAN & ANAK (kartu entri, pola sama dgn Kenaikan Pangkat) ---------- */
+function pensiunAddPasanganRow(prefill) {
+  const container = document.getElementById('pensiunPasanganContainer');
+  if (container.children.length >= 2) { showToast('error', 'Maksimal 2 data pasangan.'); return; }
+  const card = document.createElement('div');
+  card.className = 'kp-entry-card';
+  card.innerHTML = `
+    <div class="kp-entry-header">
+      <span class="kp-entry-badge">Pasangan #${container.children.length + 1}</span>
+      <button type="button" class="kp-entry-remove" data-action="remove">🗑 Hapus</button>
+    </div>
+    <div class="grid-2 kp-grid">
+      <div class="stack-field"><label>NIK</label><input type="text" class="field-input" data-field="nik" /></div>
+      <div class="stack-field"><label>Nama Lengkap</label><input type="text" class="field-input" data-field="nama_pasangan" /></div>
+      <div class="stack-field"><label>Tanggal Lahir</label><input type="date" class="field-input" data-field="tgl_lahir_pasangan" /></div>
+      <div class="stack-field"><label>Tanggal Menikah</label><input type="date" class="field-input" data-field="tgl_kawin" /></div>
+      <div class="stack-field"><label>Tanggal Cerai/Meninggal Dunia</label><input type="date" class="field-input" data-field="tgl_cerai" /></div>
+      <div class="stack-field"><label>Istri/Suami Ke-</label><input type="number" min="1" class="field-input" data-field="keterangan_pasangan" /></div>
+    </div>`;
+  container.appendChild(card);
+  card.querySelector('[data-action="remove"]').addEventListener('click', () => {
+    card.remove();
+    Array.from(container.children).forEach((c, i) => { c.querySelector('.kp-entry-badge').textContent = 'Pasangan #' + (i + 1); });
+  });
+  if (prefill) {
+    Object.keys(prefill).forEach(k => {
+      const input = card.querySelector(`[data-field="${k}"]`);
+      if (input) input.value = prefill[k];
+    });
+  }
+}
+function pensiunCollectPasangan() {
+  return Array.from(document.querySelectorAll('#pensiunPasanganContainer .kp-entry-card')).map(card => ({
+    nik: card.querySelector('[data-field="nik"]').value,
+    nama_pasangan: card.querySelector('[data-field="nama_pasangan"]').value,
+    tgl_lahir_pasangan: card.querySelector('[data-field="tgl_lahir_pasangan"]').value,
+    tgl_kawin: card.querySelector('[data-field="tgl_kawin"]').value,
+    tgl_cerai: card.querySelector('[data-field="tgl_cerai"]').value,
+    keterangan_pasangan: card.querySelector('[data-field="keterangan_pasangan"]').value
+  }));
+}
+
+function pensiunAddAnakRow(prefill) {
+  const container = document.getElementById('pensiunAnakContainer');
+  if (container.children.length >= 5) { showToast('error', 'Maksimal 5 data anak.'); return; }
+  const card = document.createElement('div');
+  card.className = 'kp-entry-card';
+  card.innerHTML = `
+    <div class="kp-entry-header">
+      <span class="kp-entry-badge">Anak #${container.children.length + 1}</span>
+      <button type="button" class="kp-entry-remove" data-action="remove">🗑 Hapus</button>
+    </div>
+    <div class="grid-2 kp-grid">
+      <div class="stack-field"><label>NIK</label><input type="text" class="field-input" data-field="nik" /></div>
+      <div class="stack-field"><label>Nama Lengkap Anak</label><input type="text" class="field-input" data-field="nama_anak" /></div>
+      <div class="stack-field"><label>Tanggal Lahir</label><input type="date" class="field-input" data-field="tg_lahir_anak" /></div>
+      <div class="stack-field"><label>Nama Orang Tua Kandung</label><input type="text" class="field-input" data-field="nama_ortu" /></div>
+      <div class="stack-field">
+        <label>Hubungan Hukum</label>
+        <select class="field-input" data-field="keterangan_anak">
+          <option value="AK">AK (Anak Kandung Sah)</option>
+          <option value="AT">AT (Anak Tiri)</option>
+          <option value="AA">AA (Anak Angkat)</option>
+        </select>
+      </div>
+    </div>`;
+  container.appendChild(card);
+  card.querySelector('[data-action="remove"]').addEventListener('click', () => {
+    card.remove();
+    Array.from(container.children).forEach((c, i) => { c.querySelector('.kp-entry-badge').textContent = 'Anak #' + (i + 1); });
+  });
+  if (prefill) {
+    Object.keys(prefill).forEach(k => {
+      const input = card.querySelector(`[data-field="${k}"]`);
+      if (input) input.value = prefill[k];
+    });
+  }
+}
+function pensiunCollectAnak() {
+  return Array.from(document.querySelectorAll('#pensiunAnakContainer .kp-entry-card')).map(card => ({
+    nik: card.querySelector('[data-field="nik"]').value,
+    nama_anak: card.querySelector('[data-field="nama_anak"]').value,
+    tg_lahir_anak: card.querySelector('[data-field="tg_lahir_anak"]').value,
+    nama_ortu: card.querySelector('[data-field="nama_ortu"]').value,
+    keterangan_anak: card.querySelector('[data-field="keterangan_anak"]').value
+  }));
+}
+
+/* ---------- PAYLOAD & PREVIEW/GENERATE (REF: payload di executeFinalFormSubmission) ---------- */
+function pensiunBuildFormData() {
+  return {
+    isSaveActive: document.getElementById('pensiun_isSaveActive').checked,
+    jenis_pensiun: document.getElementById('pensiun_jenisPensiun').value,
+    nip: document.getElementById('pensiun_nip').value,
+    nama_lengkap: document.getElementById('pensiun_namaLengkap').value,
+    nama: document.getElementById('pensiun_nama').value,
+    tmp_lhr: document.getElementById('pensiun_tmpLhr').value,
+    tgl_lhr: document.getElementById('pensiun_tglLhr').value,
+    tmt_cpns: document.getElementById('pensiun_tmtCpns').value,
+    pangkat: document.getElementById('pensiun_pangkat').value,
+    golongan: document.getElementById('pensiun_golongan').value,
+    tmt_gol: document.getElementById('pensiun_tmtGol').value,
+    jabatan: document.getElementById('pensiun_jabatan').value,
+    tmt_jab: document.getElementById('pensiun_tmtJab').value,
+    tmt_pensiun: document.getElementById('pensiun_tmtPensiun').value,
+    bulan_terakhir_bekerja: document.getElementById('pensiun_bulanTerakhirBekerja').value,
+    unit_es_ii: document.getElementById('pensiun_unitEsIi').value,
+    gaji_pokok: document.getElementById('pensiun_gajiPokok').value,
+    mk_kp_terakhir: pensiunFormatMonths(pensiunMonthsFromPair('pensiun_mkKpTahun', 'pensiun_mkKpBulan')),
+    mk_sebelum_cpns: pensiunFormatMonths(pensiunMonthsFromPair('pensiun_mkSebelumTahun', 'pensiun_mkSebelumBulan')),
+    alamat: document.getElementById('pensiun_alamat').value,
+    pendidikan_pertama: document.getElementById('pensiun_pendidikanPertama').value,
+    cltn: pensiunFormatMonths(pensiunMonthsFromPair('pensiun_cltnTahun', 'pensiun_cltnBulan')),
+    pmk: pensiunFormatMonths(pensiunMonthsFromPair('pensiun_pmkTahun', 'pensiun_pmkBulan')),
+    fotoBase64: pensiunFotoBase64String,
+    mk_golongan: document.getElementById('pensiun_txtMkGolongan').textContent,
+    mk_pns: document.getElementById('pensiun_txtMkPns').textContent,
+    mk_pensiun: document.getElementById('pensiun_txtMkPensiun').textContent,
+    tgl_peristiwa_asli: document.getElementById('pensiun_tglPeristiwa').value,
+    nomor_super_tidak_hukdis_sedangberat: document.getElementById('pensiun_nomorSuperHukdis').value,
+    nomor_super_pidana: document.getElementById('pensiun_nomorSuperPidana').value,
+    pasangan: pensiunCollectPasangan(),
+    anak: pensiunCollectAnak()
+  };
+}
+
+function openPensiunResultModal(res, label) {
+  document.getElementById('modalTitle').textContent = 'Dokumen ' + label + ' Siap';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="padding:24px; text-align:center;">
+      <p style="margin-bottom:18px;">Dokumen ${label} berhasil dibuat sebagai Google Docs.</p>
+      <a class="btn btn-primary" style="text-decoration:none;" href="${res.docUrl}" target="_blank" rel="noopener">Buka Dokumen</a>
+    </div>`;
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+
+function pensiunRunPreviewDpcp() {
+  const fd = pensiunBuildFormData();
+  if (!fd.nip) { showToast('error', 'Pilih pegawai terlebih dahulu.'); return; }
+  showToast('info', 'Membuat preview DPCP...');
+  google.script.run
+    .withSuccessHandler(res => res.success ? openPreviewModal(res.previewUrl) : showToast('error', res.message))
+    .withFailureHandler(err => showToast('error', 'Gagal preview DPCP: ' + (err.message || err)))
+    .previewDpcpDocument(SESSION.token, fd);
+}
+function pensiunRunGenerateDpcp() {
+  const fd = pensiunBuildFormData();
+  if (!fd.nip) { showToast('error', 'Pilih pegawai terlebih dahulu.'); return; }
+  if (!fd.jenis_pensiun) { showToast('error', 'Jenis Pensiun wajib dipilih.'); return; }
+  showToast('info', 'Memproses dokumen DPCP...');
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) { showToast('success', res.message); openPensiunResultModal(res, 'DPCP'); }
+      else showToast('error', res.message);
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal generate DPCP: ' + (err.message || err)))
+    .generateDpcpDocument(SESSION.token, fd);
+}
+function pensiunRunPreviewSuper() {
+  const fd = pensiunBuildFormData();
+  if (!fd.nip) { showToast('error', 'Pilih pegawai terlebih dahulu.'); return; }
+  showToast('info', 'Membuat preview SUPER...');
+  google.script.run
+    .withSuccessHandler(res => res.success ? openPreviewModal(res.previewUrl) : showToast('error', res.message))
+    .withFailureHandler(err => showToast('error', 'Gagal preview SUPER: ' + (err.message || err)))
+    .previewSuperDocument(SESSION.token, fd);
+}
+function pensiunRunGenerateSuper() {
+  const fd = pensiunBuildFormData();
+  if (!fd.nip) { showToast('error', 'Pilih pegawai terlebih dahulu.'); return; }
+  showToast('info', 'Memproses dokumen SUPER...');
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) { showToast('success', res.message); openPensiunResultModal(res, 'SUPER'); }
+      else showToast('error', res.message);
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal generate SUPER: ' + (err.message || err)))
+    .generateSuperDocument(SESSION.token, fd);
+}
+
+/* ---------- BIND SEMUA EVENT MODUL PENSIUN ---------- */
+function bindPensiunForm() {
+  google.script.run
+    .withSuccessHandler(opts => populateSelect('pensiun_jenisPensiun', opts.jenisPensiun, { placeholder: 'Pilih Jenis Pensiun...' }))
+    .withFailureHandler(err => showToast('error', 'Gagal memuat opsi Pensiun: ' + (err.message || err)))
+    .getPensiunFormOptions();
+
+  setupAutocomplete('subjectPensiun_input', 'subjectPensiun_list', 'subjectPensiun_nip', onSelectPensiunEmployee);
+
+  document.getElementById('pensiunGoToFormBtn').addEventListener('click', () => {
+    if (SESSION.user.role === 'user') bukaModalAjukanUsulanPensiun();
+    else pensiunGoToFormState();
+  });
+  document.getElementById('pensiunBackToDashboard').addEventListener('click', pensiunBackToDashboardState);
+  document.getElementById('pensiunBackToUnit').addEventListener('click', () => {
+    document.getElementById('pensiunDashboardLevel1').style.display = 'grid';
+    document.getElementById('pensiunDashboardLevel2').style.display = 'none';
+  });
+
+  document.getElementById('pensiun_jenisPensiun').addEventListener('change', pensiunToggleJenisPensiun);
+  document.getElementById('pensiun_tglPeristiwa').addEventListener('change', pensiunCalculateAutoTmtPensiun);
+  ['pensiun_tmtGol', 'pensiun_tmtCpns', 'pensiun_tmtPensiun', 'pensiun_bulanTerakhirBekerja'].forEach(id => {
+    document.getElementById(id).addEventListener('input', pensiunRunRealtimeCalculations);
+  });
+  ['pensiun_mkKpTahun', 'pensiun_mkKpBulan', 'pensiun_mkSebelumTahun', 'pensiun_mkSebelumBulan',
+   'pensiun_cltnTahun', 'pensiun_cltnBulan', 'pensiun_pmkTahun', 'pensiun_pmkBulan'].forEach(id => {
+    document.getElementById(id).addEventListener('input', pensiunRunRealtimeCalculations);
+  });
+  document.getElementById('pensiun_gajiPokok').addEventListener('blur', e => pensiunFormatRupiah(e.target));
+  document.getElementById('pensiun_fotoUpload').addEventListener('change', e => pensiunProcessImageToBase64(e.target));
+
+  document.getElementById('pensiun_addPasangan').addEventListener('click', () => pensiunAddPasanganRow());
+  document.getElementById('pensiun_addAnak').addEventListener('click', () => pensiunAddAnakRow());
+
+  document.getElementById('pensiun_previewDpcpBtn').addEventListener('click', pensiunRunPreviewDpcp);
+  document.getElementById('pensiun_generateDpcpBtn').addEventListener('click', pensiunRunGenerateDpcp);
+  document.getElementById('pensiun_previewSuperBtn').addEventListener('click', pensiunRunPreviewSuper);
+  document.getElementById('pensiun_generateSuperBtn').addEventListener('click', pensiunRunGenerateSuper);
+}
+
+/* =====================================================================
+ * ALUR USULAN KENAIKAN PANGKAT (User -> Admin)
+ * REF: UsulanKPService.gs. Modal "Ajukan Usulan" memakai modal umum yang
+ * sama dipakai fitur preview/hasil lain (modalOverlay/modalTitle/modalBody).
+ * ===================================================================== */
+let usulanModalDaftar = []; // {nip, nama} pegawai yang ditambahkan di modal
+let usulanModalFileBase64 = '';
+
+function bukaModalAjukanUsulan() {
+  usulanModalDaftar = [];
+  usulanModalFileBase64 = '';
+  document.getElementById('modalTitle').textContent = 'Ajukan Usulan Kenaikan Pangkat';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="padding:22px;">
+      <div class="stack-field autocomplete-wrap">
+        <label class="kp-label">Cari &amp; Tambah Pegawai</label>
+        <input type="text" id="usulanModal_search" class="field-input" placeholder="Cari nama atau NIP..." autocomplete="off" />
+        <input type="hidden" id="usulanModal_searchNip" />
+        <div class="autocomplete-list" id="usulanModal_searchList"></div>
+      </div>
+      <div id="usulanModal_daftarPegawai" style="margin:14px 0; display:flex; flex-direction:column; gap:8px;"></div>
+      <div class="stack-field grid-full">
+        <label>Surat Pengantar (PDF/gambar, maks. 5 MB)</label>
+        <input type="file" id="usulanModal_file" accept=".pdf,.jpg,.jpeg,.png" />
+        <div class="helper-text" id="usulanModal_fileMsg" style="display:none;">✓ File dimuat.</div>
+      </div>
+      <button type="button" class="btn btn-primary" id="usulanModal_submitBtn" style="margin-top:18px; width:100%;">Ajukan Usulan</button>
+    </div>
+  `;
+  document.getElementById('modalOverlay').style.display = 'flex';
+  renderUsulanModalDaftar();
+
+  setupAutocompleteEl(
+    document.getElementById('usulanModal_search'),
+    document.getElementById('usulanModal_searchList'),
+    document.getElementById('usulanModal_searchNip'),
+    (nip, nama) => {
+      if (usulanModalDaftar.some(p => p.nip === nip)) { showToast('error', 'Pegawai ini sudah ada di daftar.'); return; }
+      usulanModalDaftar.push({ nip, nama });
+      document.getElementById('usulanModal_search').value = '';
+      document.getElementById('usulanModal_searchNip').value = '';
+      renderUsulanModalDaftar();
+    }
+  );
+
+  document.getElementById('usulanModal_file').addEventListener('change', e => {
+    const file = e.target.files[0];
+    const msg = document.getElementById('usulanModal_fileMsg');
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('error', 'Ukuran file melebihi 5 MB.');
+      e.target.value = ''; msg.style.display = 'none';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = ev => { usulanModalFileBase64 = ev.target.result; msg.style.display = 'block'; };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById('usulanModal_submitBtn').addEventListener('click', submitUsulanModal);
+}
+
+function renderUsulanModalDaftar() {
+  const el = document.getElementById('usulanModal_daftarPegawai');
+  if (!usulanModalDaftar.length) {
+    el.innerHTML = '<div class="helper-text">Belum ada pegawai ditambahkan.</div>';
+    return;
+  }
+  el.innerHTML = usulanModalDaftar.map((p, i) => `
+    <div class="ce-dashboard-list-item" style="cursor:default;">
+      <div class="cdli-name">${escapeHtml(p.nama)} <span class="cdli-meta">(NIP ${escapeHtml(p.nip)})</span></div>
+      <button type="button" class="kp-entry-remove" data-idx="${i}">🗑 Hapus</button>
+    </div>
+  `).join('');
+  el.querySelectorAll('[data-idx]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      usulanModalDaftar.splice(parseInt(btn.getAttribute('data-idx'), 10), 1);
+      renderUsulanModalDaftar();
+    });
+  });
+}
+
+function submitUsulanModal() {
+  if (!usulanModalDaftar.length) { showToast('error', 'Tambahkan minimal 1 pegawai.'); return; }
+  if (!usulanModalFileBase64) { showToast('error', 'Unggah surat pengantar terlebih dahulu.'); return; }
+
+  const fileInput = document.getElementById('usulanModal_file');
+  const namaFile = fileInput.files[0] ? fileInput.files[0].name : 'surat_pengantar';
+  const btn = document.getElementById('usulanModal_submitBtn');
+  setBtnLoading(btn, true, 'Mengirim...');
+
+  google.script.run
+    .withSuccessHandler(res => {
+      setBtnLoading(btn, false, 'Ajukan Usulan');
+      if (res.success) {
+        showToast('success', res.message);
+        document.getElementById('modalOverlay').style.display = 'none';
+      } else {
+        showToast('error', res.message);
+      }
+    })
+    .withFailureHandler(err => {
+      setBtnLoading(btn, false, 'Ajukan Usulan');
+      showToast('error', 'Gagal mengajukan usulan: ' + (err.message || err));
+    })
+    .ajukanUsulanKP(SESSION.token, {
+      daftarPegawai: usulanModalDaftar,
+      suratPengantarBase64: usulanModalFileBase64,
+      namaFileSuratPengantar: namaFile
+    });
+}
+
+/* ---------- STATUS USULAN SAYA (peran user) ---------- */
+function loadStatusUsulanSaya() {
+  const el = document.getElementById('statusUsulanList');
+  el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat...</div>';
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      if (!res.daftar.length) { el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Anda belum pernah mengajukan usulan.</div>'; return; }
+      el.innerHTML = res.daftar.map(u => `
+        <div class="ce-dashboard-list-item" style="cursor:default; flex-wrap:wrap;">
+          <div>
+            <div class="cdli-name">${escapeHtml(u.nama)} ${u.opsiASelesai ? '<span class="cdli-warn" style="background:#d1fae5; color:#065f46;">Opsi A ✓</span>' : ''}${u.opsiBSelesai ? ' <span class="cdli-warn" style="background:#d1fae5; color:#065f46;">Opsi B ✓</span>' : ''}</div>
+            <div class="cdli-meta">NIP ${escapeHtml(u.nip)} &middot; Diajukan ${escapeHtml(u.tanggalDiajukan)}</div>
+          </div>
+          <span class="cdli-badge">${escapeHtml(u.status)}</span>
+        </div>
+      `).join('');
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat status usulan: ' + (err.message || err)))
+    .getUsulanSayaForUser(SESSION.token);
+}
+
+/* ---------- USULAN MASUK (peran admin/super_admin) ---------- */
+function loadUsulanMasukBadge() {
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) return;
+      const badge = document.getElementById('usulanMasukBadge');
+      if (res.totalUsulanBaru > 0) {
+        badge.textContent = res.totalUsulanBaru;
+        badge.style.display = 'inline-block';
+      } else {
+        badge.style.display = 'none';
+      }
+    })
+    .withFailureHandler(() => {})
+    .getUsulanNotifikasiSummary(SESSION.token);
+}
+
+function loadUsulanMasukDashboard() {
+  const el = document.getElementById('usulanMasukLevel1');
+  el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat...</div>';
+  document.getElementById('usulanMasukLevel1').style.display = 'grid';
+  document.getElementById('usulanMasukLevel2').style.display = 'none';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      loadUsulanMasukBadge();
+      if (!res.daftarUnit.length) {
+        el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada usulan baru saat ini.</div>';
+        return;
+      }
+      el.innerHTML = res.daftarUnit.map(u => `
+        <button type="button" class="ce-dashboard-card" onclick="showUsulanMasukLevel2('${escapeHtml(u.unit).replace(/'/g, "\\'")}')">
+          <div class="cdc-title">${escapeHtml(u.unit)}</div>
+          <div class="cdc-count">${u.jumlah}</div>
+          <div class="cdc-sub">usulan baru</div>
+        </button>
+      `).join('');
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat usulan masuk: ' + (err.message || err)))
+    .getUsulanNotifikasiSummary(SESSION.token);
+}
+
+function showUsulanMasukLevel2(unit) {
+  document.getElementById('usulanMasukLevel1').style.display = 'none';
+  document.getElementById('usulanMasukLevel2').style.display = 'block';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      const listEl = document.getElementById('usulanMasukLevel2List');
+      if (!res.daftar.length) { listEl.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada data.</div>'; return; }
+      listEl.innerHTML = res.daftar.map(u => `
+        <div class="ce-dashboard-list-item" style="cursor:default; flex-wrap:wrap;">
+          <div>
+            <div class="cdli-name">${escapeHtml(u.nama)} ${u.opsiASelesai ? '<span class="cdli-warn" style="background:#d1fae5; color:#065f46;">Opsi A ✓</span>' : ''}${u.opsiBSelesai ? ' <span class="cdli-warn" style="background:#d1fae5; color:#065f46;">Opsi B ✓</span>' : ''}</div>
+            <div class="cdli-meta">NIP ${escapeHtml(u.nip)} &middot; Diajukan oleh ${escapeHtml(u.namaPengaju)} &middot; ${escapeHtml(u.tanggalDiajukan)}</div>
+            <div class="cdli-meta" style="margin-top:2px;">Status akhir baru muncul setelah Opsi A DAN Opsi B sama-sama diproses.</div>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            ${u.fileUrl ? `<a href="${u.fileUrl}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn">Lihat Surat</a>` : ''}
+            <button type="button" class="btn btn-outline kp-small-btn" data-nip="${escapeHtml(u.nip)}" data-nama="${escapeHtml(u.nama).replace(/"/g, '&quot;')}" data-action="proses-a">Proses Opsi A</button>
+            <button type="button" class="btn btn-primary kp-small-btn" data-nip="${escapeHtml(u.nip)}" data-nama="${escapeHtml(u.nama).replace(/"/g, '&quot;')}" data-action="proses-b">Proses Opsi B</button>
+          </div>
+        </div>
+      `).join('');
+
+      listEl.querySelectorAll('[data-action="proses-a"]').forEach(btn => {
+        btn.addEventListener('click', () => prosesUsulanKeOpsi(btn.getAttribute('data-nip'), btn.getAttribute('data-nama'), 'A'));
+      });
+      listEl.querySelectorAll('[data-action="proses-b"]').forEach(btn => {
+        btn.addEventListener('click', () => prosesUsulanKeOpsi(btn.getAttribute('data-nip'), btn.getAttribute('data-nama'), 'B'));
+      });
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat daftar usulan: ' + (err.message || err)))
+    .getUsulanListByUnit(SESSION.token, unit);
+
+  document.getElementById('usulanMasukBackBtn').onclick = loadUsulanMasukDashboard;
+}
+
+/**
+ * Admin pilih "Proses Opsi A/B" dari daftar Usulan Masuk -> lompat ke tab
+ * terkait & pre-fill kartu entri PERTAMA dengan pegawai itu (mekanisme
+ * SAMA persis dengan onSelectDocGenSubjectCard yang sudah ada). Status
+ * usulan akan otomatis ikut diperbarui oleh backend begitu admin benar-
+ * benar menekan "Generate" (lihat perbaruiStatusUsulanSetelahGenerate_) --
+ * TIDAK perlu penghubung id usulan eksplisit, cukup lewat kecocokan NIP.
+ */
+function prosesUsulanKeOpsi(nip, nama, opt) {
+  activateTab('kp', opt === 'A' ? 'tab-optA' : 'tab-optB');
+  const container = document.getElementById(opt === 'A' ? 'optA_entriesContainer' : 'optB_entriesContainer');
+  const firstCard = container.querySelector('.kp-entry-card');
+  if (!firstCard) return;
+
+  firstCard.querySelector('[data-field="subjectInput"]').value = `${nama} (${nip})`;
+  firstCard.querySelector('[data-field="subjectNip"]').value = nip;
+  onSelectDocGenSubjectCard(opt, firstCard, nip);
+  showToast('info', `${nama} dimuat ke Opsi ${opt}. Lengkapi data lalu klik Generate untuk memperbarui status usulannya.`);
+}
+
+/* =====================================================================
+ * ALUR USULAN PENSIUN (User -> Admin)
+ * REF: PensiunUsulanService.gs. Satu usulan = SATU pegawai + Jenis
+ * Pensiun + dokumen (surat pengantar wajib selalu, dokumen tambahan
+ * kondisional sesuai Jenis Pensiun -- lihat CONFIG.USULAN_PENSIUN_DOKUMEN_TAMBAHAN).
+ * ===================================================================== */
+let usulanPensiunFileUtamaBase64 = '';
+let usulanPensiunFileTambahan1Base64 = '';
+let usulanPensiunFileTambahan2Base64 = '';
+
+/** Helper umum: baca <input type="file"> jadi base64 data URL, validasi ukuran maks. 5 MB. */
+function handleFileInputBase64_(inputEl, onLoaded, msgElId) {
+  const file = inputEl.files[0];
+  const msg = msgElId ? document.getElementById(msgElId) : null;
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('error', 'Ukuran file melebihi 5 MB.');
+    inputEl.value = '';
+    if (msg) msg.style.display = 'none';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    onLoaded(e.target.result);
+    if (msg) msg.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+/**
+ * Buka modal Ajukan Usulan Pensiun. nip/nama OPSIONAL -- kalau diisi
+ * (dipanggil dari baris dashboard), field pencarian pegawai langsung
+ * terisi; kalau kosong (dipanggil dari tombol "Cari Pegawai Manual"),
+ * admin/user mengisi sendiri lewat pencarian di dalam modal.
+ */
+function bukaModalAjukanUsulanPensiun(nip, nama) {
+  usulanPensiunFileUtamaBase64 = '';
+  usulanPensiunFileTambahan1Base64 = '';
+  usulanPensiunFileTambahan2Base64 = '';
+
+  document.getElementById('modalTitle').textContent = 'Ajukan Usulan Pensiun';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="padding:22px;">
+      <div class="stack-field autocomplete-wrap">
+        <label class="kp-label">Pegawai yang Diajukan</label>
+        <input type="text" id="usulanPensiunModal_search" class="field-input" placeholder="Cari nama atau NIP..." autocomplete="off" value="${nama ? escapeHtml(nama) + ' (' + escapeHtml(nip) + ')' : ''}" />
+        <input type="hidden" id="usulanPensiunModal_nip" value="${nip || ''}" />
+        <div class="autocomplete-list" id="usulanPensiunModal_searchList"></div>
+      </div>
+      <div class="stack-field">
+        <label class="kp-label">Jenis Pensiun</label>
+        <select id="usulanPensiunModal_jenis" class="field-input"></select>
+      </div>
+      <div class="stack-field grid-full">
+        <label>Surat Pengantar (wajib)</label>
+        <input type="file" id="usulanPensiunModal_fileUtama" accept=".pdf,.jpg,.jpeg,.png" />
+        <div class="helper-text" id="usulanPensiunModal_fileUtamaMsg" style="display:none;">✓ File dimuat.</div>
+      </div>
+      <div id="usulanPensiunModal_dokumenTambahan"></div>
+      <button type="button" class="btn btn-primary" id="usulanPensiunModal_submitBtn" style="margin-top:18px; width:100%;">Ajukan Usulan</button>
+    </div>
+  `;
+  document.getElementById('modalOverlay').style.display = 'flex';
+
+  setupAutocompleteEl(
+    document.getElementById('usulanPensiunModal_search'),
+    document.getElementById('usulanPensiunModal_searchList'),
+    document.getElementById('usulanPensiunModal_nip'),
+    () => {}
+  );
+
+  google.script.run
+    .withSuccessHandler(opts => {
+      populateSelect('usulanPensiunModal_jenis', opts.jenisPensiun, { placeholder: 'Pilih Jenis Pensiun...' });
+      document.getElementById('usulanPensiunModal_jenis').addEventListener('change', renderDokumenTambahanUsulanPensiun);
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat opsi: ' + (err.message || err)))
+    .getPensiunFormOptions();
+
+  document.getElementById('usulanPensiunModal_fileUtama').addEventListener('change', e => {
+    handleFileInputBase64_(e.target, dataUrl => { usulanPensiunFileUtamaBase64 = dataUrl; }, 'usulanPensiunModal_fileUtamaMsg');
+  });
+
+  document.getElementById('usulanPensiunModal_submitBtn').addEventListener('click', submitUsulanPensiunModal);
+}
+
+/** Tampilkan input file dokumen tambahan sesuai Jenis Pensiun terpilih (REF: CONFIG.USULAN_PENSIUN_DOKUMEN_TAMBAHAN). */
+function renderDokumenTambahanUsulanPensiun() {
+  const jenis = document.getElementById('usulanPensiunModal_jenis').value;
+  const map = {
+    'BUP': [],
+    'Meninggal': ['Surat Bukti Kematian'],
+    'Uzur': ['Bukti Tes Kesehatan'],
+    'Pengunduran Diri': ['Surat Pernyataan Pengunduran Diri', 'Surat Pengantar Pimpinan Unit']
+  };
+  const dokumen = map[jenis] || [];
+  usulanPensiunFileTambahan1Base64 = '';
+  usulanPensiunFileTambahan2Base64 = '';
+
+  const el = document.getElementById('usulanPensiunModal_dokumenTambahan');
+  el.innerHTML = dokumen.map((label, i) => `
+    <div class="stack-field grid-full">
+      <label>${escapeHtml(label)} (wajib)</label>
+      <input type="file" id="usulanPensiunModal_fileTambahan${i + 1}" accept=".pdf,.jpg,.jpeg,.png" />
+      <div class="helper-text" id="usulanPensiunModal_fileTambahan${i + 1}Msg" style="display:none;">✓ File dimuat.</div>
+    </div>
+  `).join('');
+
+  dokumen.forEach((_, i) => {
+    document.getElementById(`usulanPensiunModal_fileTambahan${i + 1}`).addEventListener('change', e => {
+      handleFileInputBase64_(e.target, dataUrl => {
+        if (i === 0) usulanPensiunFileTambahan1Base64 = dataUrl;
+        else usulanPensiunFileTambahan2Base64 = dataUrl;
+      }, `usulanPensiunModal_fileTambahan${i + 1}Msg`);
+    });
+  });
+}
+
+function submitUsulanPensiunModal() {
+  const nip = document.getElementById('usulanPensiunModal_nip').value;
+  const searchVal = document.getElementById('usulanPensiunModal_search').value;
+  const nama = searchVal.replace(/\s*\([^)]*\)\s*$/, '').trim();
+  const jenis = document.getElementById('usulanPensiunModal_jenis').value;
+
+  if (!nip) { showToast('error', 'Pilih pegawai terlebih dahulu.'); return; }
+  if (!jenis) { showToast('error', 'Jenis Pensiun wajib dipilih.'); return; }
+  if (!usulanPensiunFileUtamaBase64) { showToast('error', 'Surat pengantar wajib diunggah.'); return; }
+
+  const fileUtamaInput = document.getElementById('usulanPensiunModal_fileUtama');
+  const fileTambahan1Input = document.getElementById('usulanPensiunModal_fileTambahan1');
+  const fileTambahan2Input = document.getElementById('usulanPensiunModal_fileTambahan2');
+
+  const btn = document.getElementById('usulanPensiunModal_submitBtn');
+  setBtnLoading(btn, true, 'Mengirim...');
+
+  google.script.run
+    .withSuccessHandler(res => {
+      setBtnLoading(btn, false, 'Ajukan Usulan');
+      if (res.success) { showToast('success', res.message); document.getElementById('modalOverlay').style.display = 'none'; }
+      else showToast('error', res.message);
+    })
+    .withFailureHandler(err => {
+      setBtnLoading(btn, false, 'Ajukan Usulan');
+      showToast('error', 'Gagal mengajukan usulan pensiun: ' + (err.message || err));
+    })
+    .ajukanUsulanPensiun(SESSION.token, {
+      nip: nip, nama: nama, jenisPensiun: jenis,
+      suratPengantarBase64: usulanPensiunFileUtamaBase64,
+      namaFileSuratPengantar: fileUtamaInput.files[0] ? fileUtamaInput.files[0].name : 'surat_pengantar',
+      fileTambahan1Base64: usulanPensiunFileTambahan1Base64,
+      namaFileTambahan1: (fileTambahan1Input && fileTambahan1Input.files[0]) ? fileTambahan1Input.files[0].name : '',
+      fileTambahan2Base64: usulanPensiunFileTambahan2Base64,
+      namaFileTambahan2: (fileTambahan2Input && fileTambahan2Input.files[0]) ? fileTambahan2Input.files[0].name : ''
+    });
+}
+
+/* ---------- STATUS USULAN PENSIUN SAYA (peran user) ---------- */
+function loadStatusUsulanPensiunSaya() {
+  const el = document.getElementById('statusUsulanPensiunList');
+  el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat...</div>';
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      if (!res.daftar.length) { el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Anda belum pernah mengajukan usulan pensiun.</div>'; return; }
+      el.innerHTML = res.daftar.map(u => `
+        <div class="ce-dashboard-list-item" style="cursor:default;">
+          <div>
+            <div class="cdli-name">${escapeHtml(u.nama)}</div>
+            <div class="cdli-meta">NIP ${escapeHtml(u.nip)} &middot; Jenis: ${escapeHtml(u.jenisPensiun)} &middot; Diajukan ${escapeHtml(u.tanggalDiajukan)}</div>
+          </div>
+          <span class="cdli-badge">${escapeHtml(u.status)}</span>
+        </div>
+      `).join('');
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat status usulan pensiun: ' + (err.message || err)))
+    .getUsulanPensiunSayaForUser(SESSION.token);
+}
+
+/* ---------- USULAN MASUK PENSIUN (peran admin/super_admin) ---------- */
+function loadUsulanMasukPensiunBadge() {
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) return;
+      const badge = document.getElementById('usulanMasukPensiunBadge');
+      if (res.totalUsulanBaru > 0) { badge.textContent = res.totalUsulanBaru; badge.style.display = 'inline-block'; }
+      else badge.style.display = 'none';
+    })
+    .withFailureHandler(() => {})
+    .getUsulanPensiunNotifikasiSummary(SESSION.token);
+}
+
+function loadUsulanMasukPensiunDashboard() {
+  const el = document.getElementById('usulanMasukPensiunLevel1');
+  el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat...</div>';
+  document.getElementById('usulanMasukPensiunLevel1').style.display = 'grid';
+  document.getElementById('usulanMasukPensiunLevel2').style.display = 'none';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      loadUsulanMasukPensiunBadge();
+      if (!res.daftarUnit.length) { el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada usulan pensiun baru.</div>'; return; }
+      el.innerHTML = res.daftarUnit.map(u => `
+        <button type="button" class="ce-dashboard-card" onclick="showUsulanMasukPensiunLevel2('${escapeHtml(u.unit).replace(/'/g, "\\'")}')">
+          <div class="cdc-title">${escapeHtml(u.unit)}</div>
+          <div class="cdc-count">${u.jumlah}</div>
+          <div class="cdc-sub">usulan baru</div>
+        </button>
+      `).join('');
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat usulan pensiun masuk: ' + (err.message || err)))
+    .getUsulanPensiunNotifikasiSummary(SESSION.token);
+}
+
+function showUsulanMasukPensiunLevel2(unit) {
+  document.getElementById('usulanMasukPensiunLevel1').style.display = 'none';
+  document.getElementById('usulanMasukPensiunLevel2').style.display = 'block';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      const listEl = document.getElementById('usulanMasukPensiunLevel2List');
+      if (!res.daftar.length) { listEl.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada data.</div>'; return; }
+      listEl.innerHTML = res.daftar.map(u => {
+        const dokumenLinks = [
+          u.fileUrl ? `<a href="${u.fileUrl}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn">Surat Pengantar</a>` : '',
+          u.fileTambahan1Url ? `<a href="${u.fileTambahan1Url}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn">${escapeHtml(u.fileTambahan1Label)}</a>` : '',
+          u.fileTambahan2Url ? `<a href="${u.fileTambahan2Url}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn">${escapeHtml(u.fileTambahan2Label)}</a>` : ''
+        ].filter(Boolean).join(' ');
+        return `
+        <div class="ce-dashboard-list-item" style="cursor:default; flex-wrap:wrap;">
+          <div>
+            <div class="cdli-name">${escapeHtml(u.nama)} ${u.dpcpSelesai ? '<span class="cdli-warn" style="background:#d1fae5; color:#065f46;">DPCP ✓</span>' : ''}${u.superSelesai ? ' <span class="cdli-warn" style="background:#d1fae5; color:#065f46;">SUPER ✓</span>' : ''}</div>
+            <div class="cdli-meta">NIP ${escapeHtml(u.nip)} &middot; Jenis: ${escapeHtml(u.jenisPensiun)} &middot; Diajukan oleh ${escapeHtml(u.namaPengaju)} &middot; ${escapeHtml(u.tanggalDiajukan)}</div>
+            <div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">${dokumenLinks}</div>
+          </div>
+          <button type="button" class="btn btn-primary kp-small-btn" data-nip="${escapeHtml(u.nip)}" data-nama="${escapeHtml(u.nama).replace(/"/g, '&quot;')}" data-action="proses-pensiun">Proses DPCP/SUPER</button>
+        </div>
+      `;
+      }).join('');
+
+      listEl.querySelectorAll('[data-action="proses-pensiun"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          // Admin/super_admin sudah pasti perannya (tab ini memang khusus
+          // mereka) -- onSelectPensiunEmployee tetap lanjut ke form DPCP
+          // lengkap seperti biasa (bukan modal usulan, itu khusus 'user').
+          onSelectPensiunEmployee(btn.getAttribute('data-nip'), btn.getAttribute('data-nama'));
+        });
+      });
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat daftar usulan pensiun: ' + (err.message || err)))
+    .getUsulanPensiunListByUnit(SESSION.token, unit);
+
+  document.getElementById('usulanMasukPensiunBackBtn').onclick = loadUsulanMasukPensiunDashboard;
+}
+
+/* =====================================================================
+ * MENU KONTRAK
+ * REF: KontrakGenerator.gs. Alur: pilih kategori (Tendik/Dosen) -> pilih
+ * jenis kontrak -> pilih mode (Usulan Baru/Perpanjangan, dilewati utk
+ * peran 'normal' -- langsung data sendiri) -> form -> Preview/Generate.
+ * ===================================================================== */
+let kontrakFormOptionsCache = null;
+let kontrakSelectedLayanan = '';
+let kontrakSelectedSubMenu = '';
+let kontrakSelectedMode = '';
+let kontrakOriginalNip = ''; // dipakai kalau nanti perlu deteksi "berubah" (belum dipakai saat ini)
+
+function bindKontrakForm() {
+  document.getElementById('kontrakBackToKategoriBtn').addEventListener('click', () => kontrakGoToState_('kategori'));
+  document.getElementById('kontrakBackToSubMenuBtn').addEventListener('click', () => kontrakGoToState_('subMenu'));
+  document.getElementById('kontrakBackToModeBtn').addEventListener('click', () => kontrakGoToState_('mode'));
+  document.getElementById('kontrakBackFromAksesBtn').addEventListener('click', () => kontrakGoToState_('kategori'));
+
+  // REF alur terkoreksi: "Kelola Akses Mandiri" khusus admin/super_admin,
+  // ditempatkan menonjol di awal (sebelum pilih kategori kontrak), TERPISAH
+  // dari proses membuat satu kontrak tertentu.
+  const aksesBtn = document.getElementById('kontrakKelolaAksesBtn');
+  if (SESSION.user.role === 'admin' || SESSION.user.role === 'super_admin') {
+    aksesBtn.style.display = 'inline-flex';
+    aksesBtn.addEventListener('click', () => { kontrakGoToState_('kelolaAkses'); loadKontrakAksesKategoriList(); });
+  }
+
+  document.getElementById('kontrak_pendidikan').addEventListener('input', updateKontrakBesaranUpahPreview_);
+  document.getElementById('kontrak_tmtTahun').addEventListener('change', () => {
+    // REF: begitu tahun TMT diisi, tahun TST otomatis mengikuti (tetap bisa diubah manual).
+    document.getElementById('kontrak_tstTahun').value = document.getElementById('kontrak_tmtTahun').value;
+  });
+
+  document.getElementById('kontrak_previewBtn').addEventListener('click', () => runKontrakPreviewGenerate('preview'));
+  document.getElementById('kontrak_generateBtn').addEventListener('click', () => runKontrakPreviewGenerate('generate'));
+
+  google.script.run
+    .withSuccessHandler(opts => { kontrakFormOptionsCache = opts; })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat opsi Kontrak: ' + (err.message || err)))
+    .getKontrakFormOptions();
+}
+
+/** REF: panel "Kelola Akses Mandiri per Kategori" -- daftar 5 kategori eligible, masing-masing dengan toggle ON/OFF. */
+function loadKontrakAksesKategoriList() {
+  const el = document.getElementById('kontrakAksesKategoriList');
+  el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat...</div>';
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      el.innerHTML = res.daftar.map(item => `
+        <div class="ce-dashboard-list-item" style="cursor:default;">
+          <div class="cdli-name">${escapeHtml(item.kategori)}</div>
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" data-kategori="${escapeHtml(item.kategori)}" ${item.diizinkan ? 'checked' : ''} style="width:auto;" />
+            <span>${item.diizinkan ? 'Diizinkan' : 'Tidak diizinkan'}</span>
+          </label>
+        </div>
+      `).join('');
+
+      el.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const kategori = cb.getAttribute('data-kategori');
+          google.script.run
+            .withSuccessHandler(res => {
+              if (res.success) { showToast('success', res.message); loadKontrakAksesKategoriList(); }
+              else { showToast('error', res.message); cb.checked = !cb.checked; }
+            })
+            .withFailureHandler(err => { showToast('error', 'Gagal mengubah akses: ' + (err.message || err)); cb.checked = !cb.checked; })
+            .aturAksesKontrakKategori(SESSION.token, kategori, cb.checked);
+        });
+      });
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat daftar kategori: ' + (err.message || err)))
+    .getSemuaStatusAksesKontrakKategori(SESSION.token);
+}
+
+function kontrakGoToState_(state) {
+  const idMap = { kategori: 'kontrakPilihKategoriState', subMenu: 'kontrakPilihSubMenuState', mode: 'kontrakPilihModeState', form: 'kontrakFormState', kelolaAkses: 'kontrakKelolaAksesState' };
+  Object.values(idMap).forEach(id => { document.getElementById(id).style.display = 'none'; });
+  document.getElementById(idMap[state]).style.display = 'block';
+}
+
+function pilihKategoriKontrak(layanan) {
+  kontrakSelectedLayanan = layanan;
+  const daftar = (layanan === 'Kontrak Tendik') ? kontrakFormOptionsCache.subMenuTendik : kontrakFormOptionsCache.subMenuDosen;
+  const grid = document.getElementById('kontrakSubMenuGrid');
+  grid.innerHTML = daftar.map(sub => `
+    <button type="button" class="ce-dashboard-card" onclick="pilihSubMenuKontrak('${escapeHtml(sub).replace(/'/g, "\\'")}')">
+      <div class="cdc-title">${escapeHtml(sub)}</div>
+    </button>
+  `).join('');
+  kontrakGoToState_('subMenu');
+}
+
+function pilihSubMenuKontrak(subMenu) {
+  kontrakSelectedSubMenu = subMenu;
+  // REF alur terkoreksi: peran 'normal' JUGA melihat pilihan Usulan
+  // Baru/Perpanjangan (tidak lagi auto-skip ke Perpanjangan) -- lihat
+  // pilihModeKontrak untuk bagaimana kedua mode ditangani utk peran ini.
+  kontrakGoToState_('mode');
+}
+
+function pilihModeKontrak(mode) {
+  kontrakSelectedMode = mode;
+  kontrakResetForm_();
+
+  const searchWrap = document.getElementById('kontrakSearchWrap');
+  const role = SESSION.user.role;
+
+  if (mode === 'baru') {
+    searchWrap.style.display = 'none';
+    if (role === 'normal') {
+      // REF alur terkoreksi: peran normal yang pilih "Usulan Baru" tetap
+      // TERKUNCI ke NIP diri sendiri (login menentukan siapa) -- hanya
+      // field LAIN yang diisi manual (mis. profil di Data Utama belum
+      // lengkap), bukan berarti bisa mengajukan atas nama orang lain.
+      document.getElementById('kontrak_nipManual').value = SESSION.user.nip;
+      document.getElementById('kontrak_nipManual').setAttribute('readonly', 'readonly');
+      document.getElementById('kontrak_namaLengkap').value = SESSION.user.nama || '';
+    } else {
+      document.getElementById('kontrak_nipManual').removeAttribute('readonly');
+    }
+  } else {
+    document.getElementById('kontrak_nipManual').setAttribute('readonly', 'readonly');
+    if (role === 'normal') {
+      searchWrap.style.display = 'none';
+      kontrakIsiFormDariPegawai_(SESSION.user.nip, SESSION.user.nama);
+    } else {
+      searchWrap.style.display = 'block';
+    }
+  }
+
+  populateSelect('kontrak_tmtBulan', kontrakFormOptionsCache.bulan, { placeholder: 'Bulan...', valueField: 'value', labelField: 'label' });
+  populateSelect('kontrak_tstBulan', kontrakFormOptionsCache.bulan, { placeholder: 'Bulan...', valueField: 'value', labelField: 'label' });
+  populateSelect('kontrak_tmtTahun', kontrakFormOptionsCache.tahun, { placeholder: 'Tahun...' });
+  populateSelect('kontrak_tstTahun', kontrakFormOptionsCache.tahun, { placeholder: 'Tahun...' });
+
+  // REF (konfirmasi Titto): Jangka Waktu Kontrak SEKARANG dihitung
+  // otomatis dari selisih TMT->TST (inklusif) begitu keempatnya terisi --
+  // bukan lagi dipilih terpisah lewat dropdown sendiri.
+  ['kontrak_tmtBulan', 'kontrak_tmtTahun', 'kontrak_tstBulan', 'kontrak_tstTahun'].forEach(id => {
+    document.getElementById(id).addEventListener('change', updateKontrakJangkaWaktuPreview_);
+  });
+
+  // Pencarian: peran 'user' diarahkan ke pencarian yang SUDAH dibatasi di
+  // server (searchEmployeesForKontrak, hanya pegawai kategori eligible);
+  // admin/super_admin memakai pencarian standar tanpa batasan.
+  const searchFn = (role === 'user') ? 'searchEmployeesForKontrak' : 'searchEmployees';
+  setupAutocompleteElCustom(
+    document.getElementById('kontrak_search'),
+    document.getElementById('kontrak_searchList'),
+    document.getElementById('kontrak_nip'),
+    (nip, nama) => kontrakIsiFormDariPegawai_(nip, nama),
+    searchFn
+  );
+
+  kontrakGoToState_('form');
+}
+
+function kontrakResetForm_() {
+  ['kontrak_search', 'kontrak_nip', 'kontrak_nipManual', 'kontrak_namaLengkap', 'kontrak_tmpLhr', 'kontrak_tglLhr',
+   'kontrak_pendidikan', 'kontrak_jurusan', 'kontrak_unitEsIi', 'kontrak_jabatan', 'kontrak_alamat',
+   'kontrak_nomorTelepon', 'kontrak_nomorSurat', 'kontrak_besaranUpah'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('kontrak_alamatMsg').textContent = '';
+}
+
+function kontrakIsiFormDariPegawai_(nip, nama) {
+  document.getElementById('kontrak_search').value = `${nama} (${nip})`;
+  document.getElementById('kontrak_nip').value = nip;
+  document.getElementById('kontrak_nipManual').value = nip;
+
+  google.script.run
+    .withSuccessHandler(emp => {
+      document.getElementById('kontrak_namaLengkap').value = emp.nama_lengkap || emp.nama || '';
+      document.getElementById('kontrak_tmpLhr').value = emp.tmp_lhr || '';
+      document.getElementById('kontrak_tglLhr').value = pensiunToDateInputValue(emp.tgl_lhr);
+      document.getElementById('kontrak_pendidikan').value = emp.pendidikan || '';
+      document.getElementById('kontrak_jurusan').value = emp.jurusan || '';
+      document.getElementById('kontrak_unitEsIi').value = emp.unit_es_ii || '';
+      document.getElementById('kontrak_jabatan').value = emp.jabatan || '';
+
+      const alamatMsg = document.getElementById('kontrak_alamatMsg');
+      if (emp.alamat) {
+        document.getElementById('kontrak_alamat').value = emp.alamat;
+        alamatMsg.textContent = 'Otomatis dari data utama, dapat diubah bila perlu.';
+      } else {
+        document.getElementById('kontrak_alamat').value = '';
+        alamatMsg.textContent = 'Data utama tidak memiliki Alamat untuk pegawai ini — wajib diisi manual.';
+      }
+      updateKontrakBesaranUpahPreview_();
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat data pegawai: ' + (err.message || err)))
+    .getEmployeeFullData(SESSION.token, nip);
+}
+
+/** Preview instan besaran_upah di sisi klien (server tetap yang menentukan nilai FINAL saat Preview/Generate). */
+function updateKontrakBesaranUpahPreview_() {
+  const pendidikan = document.getElementById('kontrak_pendidikan').value.trim().toUpperCase().replace(/[\s.\-]/g, '');
+  const msg = document.getElementById('kontrak_besaranUpahMsg');
+  let tier = null;
+  if (pendidikan === 'S2' || pendidikan === 'SP1') tier = 1;
+  else if (pendidikan === 'S3' || pendidikan === 'SP2') tier = 2;
+
+  if (tier === 1) {
+    document.getElementById('kontrak_besaranUpah').value = 'Rp 2.903.600,- (dua juta sembilan ratus tiga ribu enam ratus rupiah)';
+    msg.textContent = 'Otomatis dari Pendidikan (S2/Sp1).';
+  } else if (tier === 2) {
+    document.getElementById('kontrak_besaranUpah').value = 'Rp 3.026.400,- (tiga juta dua puluh enam ribu empat ratus rupiah)';
+    msg.textContent = 'Otomatis dari Pendidikan (S3/Sp2).';
+  } else {
+    document.getElementById('kontrak_besaranUpah').value = '';
+    msg.textContent = 'Pendidikan belum dikenali (harus S2/Sp1 atau S3/Sp2) — besaran upah tidak bisa dihitung otomatis.';
+  }
+}
+
+function kontrakBuildFormData_() {
+  return {
+    nip: document.getElementById('kontrak_nipManual').value,
+    nama_lengkap: document.getElementById('kontrak_namaLengkap').value,
+    tmp_lhr: document.getElementById('kontrak_tmpLhr').value,
+    tgl_lhr: document.getElementById('kontrak_tglLhr').value,
+    pendidikan: document.getElementById('kontrak_pendidikan').value,
+    jurusan: document.getElementById('kontrak_jurusan').value,
+    alamat: document.getElementById('kontrak_alamat').value,
+    unit_es_ii: document.getElementById('kontrak_unitEsIi').value,
+    jabatan: document.getElementById('kontrak_jabatan').value,
+    nomor_telepon: document.getElementById('kontrak_nomorTelepon').value,
+    nomor_surat_perjanjian: document.getElementById('kontrak_nomorSurat').value,
+    // REF (konfirmasi Titto): jangka_waktu_kontrak TIDAK lagi dikirim dari
+    // sini -- server menghitungnya sendiri dari tmt_bulan/tahun & tst_bulan/
+    // tahun di bawah, supaya nilai akhir di dokumen SELALU konsisten dengan
+    // TMT/TST yang benar-benar dipilih (bukan field terpisah yang bisa lupa disinkronkan).
+    tmt_bulan: document.getElementById('kontrak_tmtBulan').value,
+    tmt_tahun: document.getElementById('kontrak_tmtTahun').value,
+    tst_bulan: document.getElementById('kontrak_tstBulan').value,
+    tst_tahun: document.getElementById('kontrak_tstTahun').value
+  };
+}
+
+/** REF (konfirmasi Titto): tampilan LIVE Jangka Waktu Kontrak, dihitung dari selisih TMT->TST (inklusif). Server tetap yang menentukan nilai FINAL saat Preview/Generate. */
+function updateKontrakJangkaWaktuPreview_() {
+  const tb = parseInt(document.getElementById('kontrak_tmtBulan').value, 10);
+  const tt = parseInt(document.getElementById('kontrak_tmtTahun').value, 10);
+  const sb = parseInt(document.getElementById('kontrak_tstBulan').value, 10);
+  const st = parseInt(document.getElementById('kontrak_tstTahun').value, 10);
+  const target = document.getElementById('kontrak_jangkaWaktu');
+
+  if (!tb || !tt || !sb || !st) { target.value = ''; return; }
+
+  const selisihBulan = (st - tt) * 12 + (sb - tb) + 1;
+  if (selisihBulan <= 0) {
+    target.value = '';
+    showToast('error', 'TST Kontrak harus SETELAH atau SAMA DENGAN TMT Kontrak.');
+    return;
+  }
+  target.value = (selisihBulan === 12) ? '1 (satu) tahun' : `${selisihBulan} bulan`;
+}
+
+function runKontrakPreviewGenerate(mode) {
+  const formData = kontrakBuildFormData_();
+  if (!formData.nip) { showToast('error', 'NIP/NIK wajib diisi (cari pegawai, atau isi manual untuk usulan baru).'); return; }
+  if (!formData.nama_lengkap) { showToast('error', 'Nama Lengkap wajib diisi.'); return; }
+  if (!formData.alamat) { showToast('error', 'Alamat wajib diisi.'); return; }
+  if (!formData.tmt_bulan || !formData.tmt_tahun) { showToast('error', 'TMT Kontrak wajib dipilih lengkap.'); return; }
+  if (!formData.tst_bulan || !formData.tst_tahun) { showToast('error', 'TST Kontrak wajib dipilih lengkap.'); return; }
+  const selisihCek = (parseInt(formData.tst_tahun, 10) - parseInt(formData.tmt_tahun, 10)) * 12 + (parseInt(formData.tst_bulan, 10) - parseInt(formData.tmt_bulan, 10)) + 1;
+  if (selisihCek <= 0) { showToast('error', 'TST Kontrak harus SETELAH atau SAMA DENGAN TMT Kontrak.'); return; }
+
+  const payload = { layanan: kontrakSelectedLayanan, subMenu: kontrakSelectedSubMenu, formData: formData };
+
+  if (mode === 'preview') {
+    showToast('info', 'Membuat preview Kontrak...');
+    google.script.run
+      .withSuccessHandler(res => res.success ? openPreviewModal(res.previewUrl) : showToast('error', res.message))
+      .withFailureHandler(err => showToast('error', 'Gagal preview Kontrak: ' + (err.message || err)))
+      .previewKontrakDocument(SESSION.token, payload);
+    return;
+  }
+
+  const btn = document.getElementById('kontrak_generateBtn');
+  setBtnLoading(btn, true, 'Memproses...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setBtnLoading(btn, false, 'Generate');
+      if (!res.success) { showToast('error', res.message); return; }
+      showToast('success', res.message);
+      openKontrakResultModal(res);
+    })
+    .withFailureHandler(err => {
+      setBtnLoading(btn, false, 'Generate');
+      showToast('error', 'Gagal generate Kontrak: ' + (err.message || err));
+    })
+    .generateKontrakDocument(SESSION.token, payload);
+}
+
+/** REF (konfirmasi Titto): hasil generate Kontrak SELALU 2 file (Google Docs & PDF) -- tampilkan tautan keduanya. */
+function openKontrakResultModal(res) {
+  document.getElementById('modalTitle').textContent = 'Dokumen Kontrak Siap';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="padding:24px; text-align:center;">
+      <p style="margin-bottom:18px;">Dokumen Kontrak berhasil dibuat dalam 2 format, tersimpan di folder "Kontrak".</p>
+      <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+        <a class="btn btn-outline" style="text-decoration:none;" href="${res.docViewUrl}" target="_blank" rel="noopener">Buka Google Docs</a>
+        <a class="btn btn-primary" style="text-decoration:none;" href="${res.pdfDownloadUrl}" target="_blank" rel="noopener">Unduh PDF</a>
+      </div>
+    </div>`;
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+</script>

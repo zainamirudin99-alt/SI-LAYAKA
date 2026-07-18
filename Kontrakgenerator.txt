@@ -1,0 +1,331 @@
+/**
+ * =================================================================
+ * KONTRAKGENERATOR.GS  (MODUL BARU)
+ * Generate dokumen Kontrak/Perjanjian Kerja untuk Tenaga Kependidikan
+ * (Tendik) & Dosen. Berbeda dari Kenaikan Pangkat/Pensiun: TIDAK ada
+ * alur usulan+persetujuan bertahap -- User (untuk pegawai berstatus
+ * tertentu) dan Admin/Super Admin bisa langsung generate. Peran 'normal'
+ * bisa generate KONTRAK MEREKA SENDIRI SAJA, dan hanya setelah Admin
+ * mengizinkan lewat checkbox akses mandiri (lihat aturAksesKontrakMandiri).
+ *
+ * Template diunggah lewat menu Template seperti biasa, terdaftar sebagai
+ * DUA layanan terpisah "Kontrak Tendik" & "Kontrak Dosen" (lihat
+ * Config.gs) supaya sub-menu dengan nama sama ("Kontrak Penuh Waktu")
+ * di kedua sisi tidak bentrok satu sama lain.
+ * =================================================================
+ */
+
+/** REVISI: output Kontrak TIDAK di-uppercase lagi (beda dari DPCP) -- cukup rapikan spasi, case asli dipertahankan. */
+function kontrakGen_bersih_(str) { return str ? String(str).trim() : ''; }
+
+/** REF placeholder {{jangka_waktu_kontrak}}: 12 bulan -> "1 (satu) tahun", selainnya -> "N (terbilang) bulan". */
+function kontrakGen_jangkaWaktuTerbilang_(bulanStr) {
+  const n = parseInt(bulanStr, 10) || 0;
+  if (n <= 0) return '';
+  if (n === 12) return '1 (satu) tahun';
+  return `${n} (${terbilang_(n)}) bulan`;
+}
+
+/**
+ * REF (konfirmasi Titto): Jangka Waktu Kontrak SEKARANG dihitung otomatis
+ * dari selisih TMT->TST (INKLUSIF kedua ujungnya), BUKAN input terpisah.
+ * Contoh: TMT Juni 2026, TST Desember 2026 -> 7 bulan (Jun,Jul,...,Des).
+ * Dihitung di SERVER (bukan cuma client) supaya nilai final di dokumen
+ * SELALU konsisten dengan tanggal yang benar-benar dipilih, terlepas dari
+ * apa pun yang dikirim klien.
+ */
+function kontrakGen_hitungJangkaWaktuBulan_(tmtBulan, tmtTahun, tstBulan, tstTahun) {
+  const tb = parseInt(tmtBulan, 10), tt = parseInt(tmtTahun, 10);
+  const sb = parseInt(tstBulan, 10), st = parseInt(tstTahun, 10);
+  if (!tb || !tt || !sb || !st) return 0;
+  const selisih = (st - tt) * 12 + (sb - tb) + 1;
+  return selisih > 0 ? selisih : 0;
+}
+
+/** REF {{tmt_kontrak}}: SELALU tanggal 1, mis. "01 Januari 2026". */
+function kontrakGen_hitungTmtKontrak_(bulan, tahun) {
+  const b = parseInt(bulan, 10), t = parseInt(tahun, 10);
+  if (!b || !t) return '';
+  return `01 ${BULAN_ID[b - 1]} ${t}`;
+}
+
+/** REF {{tst_kontrak}}: SELALU tanggal terakhir bulan tsb, mis. "31 Maret 2026". */
+function kontrakGen_hitungTstKontrak_(bulan, tahun) {
+  const b = parseInt(bulan, 10), t = parseInt(tahun, 10);
+  if (!b || !t) return '';
+  const lastDay = new Date(t, b, 0).getDate(); // trik: tanggal-0 bulan berikutnya = tanggal terakhir bulan ini
+  return `${String(lastDay).padStart(2, '0')} ${BULAN_ID[b - 1]} ${t}`;
+}
+
+/**
+ * REF {{besaran_upah}}: tier berdasarkan PENDIDIKAN (S2/Sp1 -> tier1,
+ * S3/Sp2 -> tier2). Normalisasi TOLERAN spasi/titik/strip supaya
+ * "Sp. 1", "SP-1", "Sp 1" semua cocok sebagai "SP1". Return null bila
+ * pendidikan tidak dikenali -- pemanggil HARUS minta admin isi manual,
+ * bukan menebak.
+ */
+function kontrakGen_tierUpah_(pendidikan) {
+  const raw = String(pendidikan || '').trim().toUpperCase();
+  const compact = raw.replace(/[\s.\-]/g, '');
+  if (compact === 'S2' || compact === 'SP1' || /SPESIALIS\s*(1|I)\b/.test(raw)) return 'tier1';
+  if (compact === 'S3' || compact === 'SP2' || /SPESIALIS\s*(2|II)\b/.test(raw)) return 'tier2';
+  return null;
+}
+
+/** Teks lengkap {{besaran_upah}}, mis. "Rp 2.903.600,- (dua juta sembilan ratus tiga ribu enam ratus rupiah)". */
+function kontrakGen_besaranUpahText_(pendidikan) {
+  const tier = kontrakGen_tierUpah_(pendidikan);
+  if (!tier) return '';
+  const nominal = CONFIG.KONTRAK_UPAH_TIER[tier];
+  const rupiahFormatted = formatRupiah_(nominal).replace(/^Rp/, 'Rp ');
+  return `${rupiahFormatted},- (${terbilang_(nominal)} rupiah)`;
+}
+
+/**
+ * Bangun dataContext untuk dokumen Kontrak. formData berisi SEMUA field
+ * (baik auto-fill dari data pegawai maupun isian manual) -- lihat daftar
+ * placeholder di Glosarium (TemplateAdmin.gs).
+ */
+function kontrakGen_buildContext_(formData) {
+  formData = formData || {};
+  return {
+    nama_lengkap: kontrakGen_bersih_(formData.nama_lengkap),
+    nomor_surat_perjanjian: formData.nomor_surat_perjanjian || '', // REF: kosong bila tidak diinput
+    tmp_lhr: kontrakGen_bersih_(formData.tmp_lhr),
+    tgl_lhr: formatTanggalIndonesia_(formData.tgl_lhr) || '',
+    pendidikan: kontrakGen_bersih_(formData.pendidikan),
+    jurusan: kontrakGen_bersih_(formData.jurusan),
+    alamat: kontrakGen_bersih_(formData.alamat),
+    unit_es_ii: kontrakGen_bersih_(formData.unit_es_ii),
+    jabatan: kontrakGen_bersih_(formData.jabatan),
+    jangka_waktu_kontrak: kontrakGen_jangkaWaktuTerbilang_(
+      kontrakGen_hitungJangkaWaktuBulan_(formData.tmt_bulan, formData.tmt_tahun, formData.tst_bulan, formData.tst_tahun)
+    ),
+    tmt_kontrak: kontrakGen_hitungTmtKontrak_(formData.tmt_bulan, formData.tmt_tahun),
+    tst_kontrak: kontrakGen_hitungTstKontrak_(formData.tst_bulan, formData.tst_tahun),
+    tgl_buat: formatTanggalIndonesia_(new Date()) || '',
+    nip: formData.nip || '', // REF: usulan baru -> diisi manual NIK
+    nomor_telepon: formData.nomor_telepon || '',
+    besaran_upah: formData.besaran_upah_override || kontrakGen_besaranUpahText_(formData.pendidikan)
+  };
+}
+
+/** Opsi dropdown untuk form Kontrak: jangka waktu 1-12 bulan, daftar bulan, rentang tahun wajar. */
+function getKontrakFormOptions() {
+  const tahunSekarang = new Date().getFullYear();
+  const daftarTahun = [];
+  for (let t = tahunSekarang - 1; t <= tahunSekarang + 3; t++) daftarTahun.push(t);
+  return {
+    jangkaWaktuBulan: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    bulan: CONFIG.BULAN_LIST,
+    tahun: daftarTahun,
+    jenisPegEligible: CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE,
+    subMenuTendik: CONFIG.LAYANAN_LIST['Kontrak Tendik'],
+    subMenuDosen: CONFIG.LAYANAN_LIST['Kontrak Dosen']
+  };
+}
+
+/* ------------------------------------------------------------------
+ * AKSES KONTRAK MANDIRI -- REVISI (konfirmasi Titto): per KATEGORI
+ * status kepegawaian (jenis_peg), BUKAN per pegawai/NIP. Admin
+ * mengizinkan/mencabut akses utk SELURUH pegawai berkategori sama
+ * sekaligus (mis. semua "Tenaga Profesional"), bukan satu per satu.
+ * Sheet terpisah, SATU baris per kategori yang pernah diubah -- baris
+ * TERAKHIR untuk satu kategori yang berlaku (pola sama dgn User Roles).
+ * ------------------------------------------------------------------ */
+const KONTRAK_AKSES_SHEET_NAME = 'Akses Kontrak Mandiri';
+const KONTRAK_AKSES_HEADERS = ['Jenis Peg (Kategori)', 'Diizinkan', 'Diubah Oleh NIP', 'Tanggal Diubah'];
+
+function ensureKontrakAksesSheet_() {
+  const ss = getSpreadsheet_();
+  let sheet = ss.getSheetByName(KONTRAK_AKSES_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(KONTRAK_AKSES_SHEET_NAME);
+    sheet.appendRow(KONTRAK_AKSES_HEADERS);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+/** Peta SEMUA kategori -> status diizinkan saat ini (baris terakhir per kategori yang menang). */
+function getPetaAksesKontrakKategori_() {
+  const sheet = ensureKontrakAksesSheet_();
+  const values = sheet.getDataRange().getValues();
+  const peta = {};
+  for (let i = 1; i < values.length; i++) {
+    const kategori = String(values[i][0] || '').trim();
+    if (!kategori) continue;
+    peta[kategori] = values[i][1] === true || String(values[i][1]).toUpperCase() === 'TRUE';
+  }
+  return peta;
+}
+
+function isKategoriKontrakDiizinkan_(jenisPeg) {
+  const peta = getPetaAksesKontrakKategori_();
+  return !!peta[String(jenisPeg || '').trim()];
+}
+
+/** Dipanggil Admin/Super Admin untuk izinkan/cabut akses mandiri SATU KATEGORI status kepegawaian sekaligus. */
+function aturAksesKontrakKategori(sessionToken, jenisPeg, diizinkan) {
+  const pemroses = requireRole_(sessionToken, ['admin', 'super_admin']);
+  try {
+    if (CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE.indexOf(jenisPeg) === -1) {
+      return { success: false, message: 'Kategori status kepegawaian tidak dikenali.' };
+    }
+    const sheet = ensureKontrakAksesSheet_();
+    sheet.appendRow([jenisPeg, !!diizinkan, pemroses.nip, new Date()]);
+    return { success: true, message: `Akses mandiri untuk kategori "${jenisPeg}" ${diizinkan ? 'diberikan' : 'dicabut'}.` };
+  } catch (err) {
+    return { success: false, message: 'Gagal mengubah akses kontrak mandiri: ' + err.message };
+  }
+}
+
+/** REF: panel "Kelola Akses Mandiri" Admin -- semua kategori eligible + status terkininya, utk ditampilkan sebagai daftar toggle. */
+function getSemuaStatusAksesKontrakKategori(sessionToken) {
+  requireRole_(sessionToken, ['admin', 'super_admin']);
+  try {
+    const peta = getPetaAksesKontrakKategori_();
+    const daftar = CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE.map(kategori => ({
+      kategori: kategori,
+      diizinkan: !!peta[kategori]
+    }));
+    return { success: true, daftar: daftar };
+  } catch (err) {
+    return { success: false, message: 'Gagal memuat status akses kontrak: ' + err.message };
+  }
+}
+
+/** Dipanggil client (peran 'normal') untuk cek apakah dirinya diizinkan + termasuk jenis_peg eligible. */
+function getStatusAksesKontrakSaya(sessionToken) {
+  const employee = requireSession_(sessionToken);
+  try {
+    const jenisPegSaya = String(employee.jenis_peg || '').trim();
+    const eligible = CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE.some(j => j.toLowerCase() === jenisPegSaya.toLowerCase());
+    // REVISI (konfirmasi Titto): dicek per KATEGORI (jenis_peg), bukan per NIP --
+    // begitu admin mengizinkan satu kategori, SEMUA pegawai kategori itu ikut terbuka.
+    const kategoriCocok = CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE.find(j => j.toLowerCase() === jenisPegSaya.toLowerCase());
+    const diizinkan = eligible && isKategoriKontrakDiizinkan_(kategoriCocok);
+    return { success: true, eligible: eligible, diizinkan: diizinkan, jenisPeg: jenisPegSaya };
+  } catch (err) {
+    return { success: false, message: 'Gagal memeriksa akses Kontrak: ' + err.message };
+  }
+}
+
+/**
+ * Cari pegawai untuk Menu Kontrak. Peran 'user' HANYA melihat pegawai
+ * dengan jenis_peg termasuk KONTRAK_JENIS_PEG_ELIGIBLE; admin/super_admin
+ * bebas mencari siapa saja (sama seperti pencarian di modul lain).
+ */
+function searchEmployeesForKontrak(sessionToken, query) {
+  const employee = requireRole_(sessionToken, ['user', 'admin', 'super_admin']);
+  const role = getUserRole_(employee.nip);
+  const hasil = searchEmployees(sessionToken, query); // REUSE pencarian yang sudah ada
+
+  if (role === 'user') {
+    const employees = getAllEmployees_();
+    const eligibleNip = {};
+    employees.forEach(e => {
+      const jp = String(e.jenis_peg || '').trim().toLowerCase();
+      if (CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE.some(j => j.toLowerCase() === jp)) eligibleNip[String(e.nip).trim()] = true;
+    });
+    return hasil.filter(r => eligibleNip[String(r.nip).trim()]);
+  }
+  return hasil;
+}
+
+/** Preview dokumen Kontrak (sementara, tidak disimpan permanen). */
+function previewKontrakDocument(sessionToken, payload) {
+  requireRole_(sessionToken, ['normal', 'user', 'admin', 'super_admin']);
+  try {
+    const { layanan, subMenu, formData } = payload;
+    if (!layanan || !subMenu) return { success: false, message: 'Jenis Kontrak belum dipilih.' };
+    if (kontrakGen_hitungJangkaWaktuBulan_(formData.tmt_bulan, formData.tmt_tahun, formData.tst_bulan, formData.tst_tahun) <= 0) {
+      return { success: false, message: 'TMT/TST Kontrak belum lengkap, atau TST lebih awal dari TMT.' };
+    }
+
+    const templates = getTemplatesForService(sessionToken, layanan, subMenu);
+    if (!templates.length) return { success: false, message: `Template "${subMenu}" (${layanan}) belum terdaftar. Tambahkan di menu Template.` };
+
+    const dataContext = kontrakGen_buildContext_(formData);
+    const tempName = '[PREVIEW] Kontrak - ' + sanitizeFileName_(dataContext.nama_lengkap || 'pegawai') + ' - ' + new Date().getTime();
+
+    const copyFile = renderTemplateCopy_(templates[0].fileId, dataContext, tempName);
+    return {
+      success: true,
+      previewUrl: `https://docs.google.com/document/d/${copyFile.getId()}/preview`,
+      tempFileId: copyFile.getId()
+    };
+  } catch (err) {
+    return { success: false, message: 'Gagal membuat preview Kontrak: ' + err.message };
+  }
+}
+
+/**
+ * Generate dokumen Kontrak -- REVISI (konfirmasi Titto): menghasilkan
+ * DUA file sekaligus, Google Docs DAN PDF, keduanya disimpan di folder
+ * khusus "Kontrak" (terpisah dari Kenaikan Pangkat/Pensiun). Guard akses:
+ * - admin/super_admin: selalu boleh.
+ * - user: boleh, TAPI hanya utk NIP yang jenis_peg-nya eligible (dicek ulang
+ *   di server, tidak percaya begitu saja pada UI).
+ * - normal: boleh HANYA untuk NIP dirinya sendiri, DAN hanya kalau kategori
+ *   status kepegawaiannya sudah diizinkan admin (isAksesKontrakDiizinkan_).
+ */
+function generateKontrakDocument(sessionToken, payload) {
+  const employee = requireRole_(sessionToken, ['normal', 'user', 'admin', 'super_admin']);
+  try {
+    const role = getUserRole_(employee.nip);
+    const { layanan, subMenu, formData } = payload;
+
+    if (role === 'normal') {
+      if (String(formData.nip || '').trim() !== String(employee.nip).trim()) {
+        return { success: false, message: 'Anda hanya bisa membuat kontrak untuk diri sendiri.' };
+      }
+      const akses = getStatusAksesKontrakSaya(sessionToken);
+      if (!akses.success || !akses.eligible || !akses.diizinkan) {
+        return { success: false, message: 'Kategori status kepegawaian Anda belum diizinkan Admin untuk membuat kontrak sendiri.' };
+      }
+    } else if (role === 'user') {
+      const targetEmp = getAllEmployees_().find(e => String(e.nip || '').trim() === String(formData.nip || '').trim());
+      const jp = String((targetEmp && targetEmp.jenis_peg) || '').trim().toLowerCase();
+      const eligible = CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE.some(j => j.toLowerCase() === jp);
+      if (!eligible) return { success: false, message: 'Pegawai ini tidak termasuk kategori yang boleh diajukan akun User.' };
+    }
+    // admin/super_admin: tidak ada pembatasan tambahan.
+
+    if (!layanan || !subMenu) return { success: false, message: 'Jenis Kontrak belum dipilih.' };
+    if (kontrakGen_hitungJangkaWaktuBulan_(formData.tmt_bulan, formData.tmt_tahun, formData.tst_bulan, formData.tst_tahun) <= 0) {
+      return { success: false, message: 'TMT/TST Kontrak belum lengkap, atau TST lebih awal dari TMT.' };
+    }
+    const templates = getTemplatesForService(sessionToken, layanan, subMenu);
+    if (!templates.length) return { success: false, message: `Template "${subMenu}" (${layanan}) belum terdaftar. Tambahkan di menu Template.` };
+
+    const dataContext = kontrakGen_buildContext_(formData);
+    const namaUtama = dataContext.nama_lengkap || 'PEGAWAI';
+    const fileName = sanitizeFileName_(`Kontrak_${subMenu}_${namaUtama}`);
+
+    const docCopy = renderTemplateCopy_(templates[0].fileId, dataContext, fileName);
+
+    // Folder khusus "Kontrak" -- Google Docs & PDF disimpan BERSAMA di sini.
+    const outputFolder = getOrCreateOutputSubfolder_('Kontrak');
+    pindahFileKeFolder_(docCopy, outputFolder);
+
+    // PDF dibuat dari Docs yang SAMA (bukan menggantikannya) -- kedua file
+    // tetap ada sesuai permintaan Titto.
+    const pdfBlob = docCopy.getAs('application/pdf');
+    pdfBlob.setName(fileName + '.pdf');
+    const pdfFile = outputFolder.createFile(pdfBlob);
+
+    return {
+      success: true,
+      message: 'Dokumen Kontrak berhasil dibuat (Google Docs & PDF).',
+      docFileId: docCopy.getId(),
+      docViewUrl: docCopy.getUrl(),
+      pdfFileId: pdfFile.getId(),
+      pdfFileName: fileName + '.pdf',
+      pdfDownloadUrl: `https://drive.google.com/uc?export=download&id=${pdfFile.getId()}`,
+      pdfViewUrl: pdfFile.getUrl()
+    };
+  } catch (err) {
+    return { success: false, message: 'Gagal generate dokumen Kontrak: ' + err.message };
+  }
+}

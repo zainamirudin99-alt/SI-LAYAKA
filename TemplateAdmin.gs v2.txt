@@ -1,0 +1,204 @@
+/**
+ * =================================================================
+ * TEMPLATEADMIN.GS
+ * Modul "Template" pada menu utama: registrasi template dokumen
+ * Word/Google Docs dari link Drive, disimpan pada sheet "Templates"
+ * (dibuat otomatis bila belum ada) di spreadsheet yang sama dengan
+ * "Data Utama".
+ * =================================================================
+ */
+
+const TEMPLATE_HEADERS = ['ID', 'Judul', 'FileId', 'Layanan', 'SubMenu', 'DibuatPada'];
+
+/** Pastikan sheet "Templates" ada, buat beserta header bila belum. */
+function ensureTemplatesSheet_() {
+  const ss = getSpreadsheet_();
+  let sheet = ss.getSheetByName(CONFIG.SHEET_TEMPLATES);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.SHEET_TEMPLATES);
+    sheet.appendRow(TEMPLATE_HEADERS);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+/**
+ * Tambah template baru. Input `driveLink` boleh berupa URL Drive/Docs
+ * lengkap ATAU file ID mentah.
+ */
+function addTemplate(sessionToken, data) {
+  requireRole_(sessionToken, ['admin', 'super_admin']);
+  try {
+    const { driveLink, judul, layanan, subMenu } = data;
+    const fileId = extractDriveFileId_(driveLink);
+    if (!fileId) return { success: false, message: 'Link Google Drive tidak valid.' };
+
+    // Verifikasi file benar-benar bisa diakses
+    let file;
+    try {
+      file = DriveApp.getFileById(fileId);
+    } catch (e) {
+      return { success: false, message: 'File tidak ditemukan atau tidak ada akses. Pastikan berbagi sudah benar.' };
+    }
+
+    if (!judul || !layanan || !subMenu) {
+      return { success: false, message: 'Judul, Layanan, dan Sub-menu wajib diisi.' };
+    }
+
+    const sheet = ensureTemplatesSheet_();
+    const id = Utilities.getUuid();
+    sheet.appendRow([id, judul, fileId, layanan, subMenu, new Date()]);
+
+    return { success: true, message: `Template "${judul}" berhasil ditambahkan.`, id: id };
+  } catch (err) {
+    return { success: false, message: 'Gagal menambah template: ' + err.message };
+  }
+}
+
+/** Daftar seluruh template terdaftar (untuk halaman manajemen Template). */
+function getAllTemplates(sessionToken) {
+  requireSession_(sessionToken);
+  const sheet = ensureTemplatesSheet_();
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return [];
+
+  const rows = [];
+  for (let i = 1; i < values.length; i++) {
+    const r = values[i];
+    if (!r[0]) continue;
+    rows.push({
+      id: r[0], judul: r[1], fileId: r[2], layanan: r[3], subMenu: r[4],
+      dibuatPada: r[5] instanceof Date ? r[5].toISOString() : String(r[5] || '')
+    });
+  }
+  return rows;
+}
+
+/**
+ * Ambil template yang cocok untuk kombinasi Layanan + SubMenu tertentu
+ * (dipakai modul Kenaikan Pangkat untuk menentukan template mana yang
+ * dipakai saat tombol Preview/Generate ditekan).
+ */
+function getTemplatesForService(sessionToken, layanan, subMenu) {
+  requireSession_(sessionToken);
+  return getAllTemplates(sessionToken).filter(t => t.layanan === layanan && t.subMenu === subMenu);
+}
+
+/** Hapus template dari registry (tidak menghapus file Drive aslinya). */
+function deleteTemplate(sessionToken, templateId) {
+  requireRole_(sessionToken, ['admin', 'super_admin']);
+  const sheet = ensureTemplatesSheet_();
+  const values = sheet.getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    if (values[i][0] === templateId) {
+      sheet.deleteRow(i + 1);
+      return { success: true, message: 'Template dihapus.' };
+    }
+  }
+  return { success: false, message: 'Template tidak ditemukan.' };
+}
+
+/** Daftar Layanan & SubMenu yang tersedia (untuk dropdown form Template). */
+function getLayananOptions() {
+  return CONFIG.LAYANAN_LIST;
+}
+
+/**
+ * Daftar tag yang tersedia untuk dipakai di template dokumen — dipakai
+ * halaman "Glosarium Tag" (menu "Menu Lainnya"). Digabung dari header
+ * sheet "Data Utama" (otomatis) + field turunan DocGen (dihitung backend,
+ * tidak ada di spreadsheet) + referensi kemampuan mesin (statis).
+ */
+function getGlosariumTag(sessionToken) {
+  requireSession_(sessionToken);
+
+  const sheet = getDataUtamaSheet_();
+  const lastCol = sheet.getLastColumn();
+  const headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+
+  const tagDariSpreadsheet = headerRow
+    .filter(h => String(h || '').trim() !== '')
+    .map(h => ({ label: String(h).trim(), tag: '{{' + normalizeHeaderKey_(h) + '}}' }));
+
+  const tagTurunan = [
+    { label: 'AK Konversi Tahunan', tag: '{{ak_konversi_tahunan}}', ket: 'Khusus dokumen Opsi A' },
+    { label: 'Baris Penilaian per Tahun', tag: '{{#penilaian}} {{tahun_penilaian}} {{predikat_skp}} {{ak_konversi_tahun}} {{/penilaian}}', ket: 'Khusus dokumen Opsi B — bentuk {#..}/{/..} (kurung tunggal) juga tetap didukung' },
+    { label: 'AK Integrasi Didapat', tag: '{{ak_integrasi_didapat}}', ket: 'Khusus dokumen Opsi B' },
+    { label: 'Total AK Konversi Integrasi', tag: '{{total_ak_konversi_integrasi}}', ket: 'Khusus dokumen Opsi B' },
+    { label: 'Nilai Lama Diakui', tag: '{{nilai_lama_diakui}}', ket: 'Khusus dokumen Opsi B' },
+    { label: 'Total Konversi Baru', tag: '{{total_konversi_baru}}', ket: 'Khusus dokumen Opsi B' },
+    { label: 'Nilai dari Ijazah', tag: '{{hitung_ijazah}}', ket: 'Khusus dokumen Opsi B' },
+    { label: 'Total AK Baru', tag: '{{total_ak_baru}}', ket: 'Khusus dokumen Opsi B' },
+    { label: 'Total Jumlah AK', tag: '{{total_jumlah_ak}}', ket: 'Khusus dokumen Opsi B' },
+    { label: 'Rekomendasi', tag: '{{rekomendasi}}', ket: 'Khusus dokumen Opsi B — atau hitung ulang manual di template pakai variabel "set", lihat contoh di bawah' },
+    {
+      label: 'Jabatan (dropdown)',
+      tag: '{{ jabatan[' + CONFIG.JABATAN_FUNGSIONAL_LIST.join(', ') + '] }}',
+      ket: 'Opsi A & B — otomatis dari data utama (data pegawai), admin bisa override manual saat isi form; hasil generate & rekomendasi mengikuti pilihan ini'
+    },
+    {
+      label: 'Golongan (dropdown)',
+      tag: '{{ golongan[' + CONFIG.GOLONGAN_PILIHAN.join(', ') + '] }}',
+      ket: 'Opsi A & B — otomatis dari data pegawai, admin bisa override manual saat isi form (termasuk varian Set.)'
+    }
+  ];
+
+  const tagPensiun = [
+    { label: 'Nama Lengkap (DPCP)', tag: '{{nama_lengkap}}', ket: 'Huruf besar semua' },
+    { label: 'Nama Panggilan (DPCP)', tag: '{{nama}}', ket: 'Huruf besar semua' },
+    { label: 'NIP', tag: '{{nip}}' },
+    { label: 'Tempat Lahir', tag: '{{tmp_lhr}}' },
+    { label: 'Tanggal Lahir', tag: '{{tgl_lhr}}' },
+    { label: 'TMT Pengangkatan (CPNS)', tag: '{{tmt_pengangkat}}' },
+    { label: 'Golongan', tag: '{{golongan}}' },
+    { label: 'Pangkat (gabungan)', tag: '{{pangkat}}', ket: 'Format "PANGKAT/GOLONGAN/TMT GOLONGAN"' },
+    { label: 'TMT Golongan', tag: '{{tmt_gol}}' },
+    { label: 'Jabatan', tag: '{{jabatan}}' },
+    { label: 'TMT Jabatan', tag: '{{tmt_jab}}' },
+    { label: 'TMT Pensiun', tag: '{{tmt_pensiun}}' },
+    { label: 'Unit Kerja', tag: '{{unit_es_ii}} atau {{unit_kerja}}', ket: 'Dua tag ini nilainya selalu sama' },
+    { label: 'Gaji Pokok', tag: '{{gaji_pokok}}' },
+    { label: 'Masa Kerja KP Terakhir', tag: '{{mk_kp_terakhir}}', ket: 'Format "X TAHUN X BULAN"' },
+    { label: 'Masa Kerja Golongan', tag: '{{mk_golongan}}', ket: 'Dihitung otomatis oleh sistem, format "X TAHUN X BULAN"' },
+    { label: 'Masa Kerja PNS', tag: '{{mk_pns}}', ket: 'Dihitung otomatis oleh sistem' },
+    { label: 'Masa Kerja Pensiun', tag: '{{mk_pensiun}}', ket: 'Dihitung otomatis oleh sistem' },
+    { label: 'Alamat', tag: '{{alamat}}' },
+    { label: 'Pendidikan Pertama', tag: '{{pendidikan_pertama}}' },
+    { label: 'CLTN', tag: '{{cltn}}', ket: 'Format "X TAHUN X BULAN"' },
+    { label: 'PMK', tag: '{{pmk}}', ket: 'Format "X TAHUN X BULAN"' },
+    { label: 'Akhir TMT Kerja', tag: '{{akhir_tmt_kerja}}', ket: 'BUP: sama dengan TMT Pensiun. Meninggal/Diberhentikan: tanggal peristiwa yang diinput manual' },
+    { label: 'Bulan Terakhir Bekerja', tag: '{{bulan_terakhir_bekerja}}' },
+    { label: 'Jenis Pensiun 1/2/3', tag: '{{jenis_pensiun1}} {{jenis_pensiun2}} {{jenis_pensiun3}}', ket: 'Otomatis mengikuti pilihan Jenis Pensiun (BUP/Meninggal/Diberhentikan) di form' },
+    { label: 'Nama & NIP Penanda Tangan', tag: '{{nama_ttd}} {{nip_ttd}}', ket: 'BUP/Diberhentikan: pegawai sendiri. Meninggal: pasangan pertama' },
+    { label: 'Tanggal Buat Surat', tag: '{{tgl_buat}}', ket: 'Otomatis tanggal hari ini' },
+    { label: 'Foto Pegawai', tag: '{{foto}}', ket: 'Diganti gambar dari unggahan form (bukan teks) -- kosongkan otomatis bila tidak ada foto diunggah' },
+    { label: 'Data Pasangan (baris dinamis)', tag: '{{#pasangan}} {{no}} {{nik}} {{nama_pasangan}} {{tgl_lahir_pasangan}} {{tgl_kawin}} {{tgl_cerai}} {{keterangan_pasangan}} {{/pasangan}}', ket: 'Boleh diletakkan di dalam tabel bersarang (nested table); baris kosong "-" otomatis bila tidak ada data' },
+    { label: 'Data Anak (baris dinamis)', tag: '{{#anak}} {{no}} {{nik}} {{nama_anak}} {{tg_lahir_anak}} {{nama_ortu}} {{keterangan_anak}} {{/anak}}', ket: 'Sama seperti Data Pasangan' },
+    { label: 'Nomor Surat Tidak Hukdis (SUPER)', tag: '{{nomor_super_tidak_hukdis_sedangberat}}', ket: 'Khusus dokumen SUPER' },
+    { label: 'Nomor Surat Tidak Pidana (SUPER)', tag: '{{nomor_super_pidana}}', ket: 'Khusus dokumen SUPER' },
+    { label: 'Tanggal SUPER', tag: '{{tanggal_super}}', ket: 'Khusus dokumen SUPER -- format biasa (bukan huruf besar), mis. "15 Juli 2026"' }
+  ];
+
+  return {
+    tagSpreadsheet: tagDariSpreadsheet,
+    tagTurunan: tagTurunan,
+    tagPensiun: tagPensiun,
+    referensiFormula: [
+      { label: 'Matematika', contoh: '{{ a + b * c }}' },
+      { label: 'Terbilang', contoh: '{{ nominal | terbilang }}' },
+      { label: 'Rupiah', contoh: '{{ nominal | rupiah }}' },
+      { label: 'Huruf besar / kecil', contoh: '{{ jabatan | upper }}  {{ jabatan | lower }}' },
+      { label: 'Masa Kerja (Thn)', contoh: '{{ diff_years(tmt, today) }}' },
+      { label: 'Masa Kerja (Bln)', contoh: '{{ diff_months(tmt, sk) }}' },
+      { label: 'Nama Bulan -> Angka', contoh: '{{ bulan_ke_angka(bulan_selesai_penilaian) }}' },
+      { label: 'Dropdown (Pilihan)', contoh: '{{ tag[Opsi1, Opsi2] }}' },
+      { label: 'Loop Baris Tabel', contoh: '{{#nama_loop}} ... {{/nama_loop}}', ket: 'Boleh di tabel bersarang (nested table), lihat "Data Pasangan/Anak" di atas' },
+      { label: 'Logika (ternary)', contoh: "{{ a > b ? 'X' : 'Y' }}" },
+      { label: 'Logika (DAN / ATAU)', contoh: '{{ a > b && c == d }}   {{ a || b }}' },
+      { label: 'Variabel turunan ("set")', contoh: '{{ set total = a + b }}{{ total }}' },
+      { label: 'Jumlahkan field dari loop', contoh: "{{ sum(nama_loop, 'field') }}" },
+      { label: 'Angka aman (hindari kosong/NaN)', contoh: '{{ num(ekspresi) }}' }
+    ],
+    catatan: 'Cetak beberapa data sekaligus dalam SATU file (Kenaikan Pangkat): pakai tombol "+ Tambah Data" pada Opsi A / Opsi B untuk menambah entri, lalu Preview/Generate seperti biasa — hasilnya digabung otomatis (dipisah per halaman) dalam satu dokumen/PDF. Variabel "set nama = ekspresi" ditulis SEBELUM tag {{nama}} yang memakainya menurut urutan teks dokumen, dan nilainya tetap berlaku untuk seluruh dokumen (termasuk halaman berikutnya). Dokumen Pensiun (DPCP/SUPER) TIDAK memakai rumus "set"/ternary di template sama sekali — seluruh nilai (termasuk Masa Kerja & Jenis Pensiun) sudah dihitung penuh oleh sistem sebelum mengisi placeholder, dan hasil akhirnya tetap berupa Google Docs (bukan PDF).'
+  };
+}

@@ -1,0 +1,219 @@
+/**
+ * =================================================================
+ * PENSIUNUSULANSERVICE.GS  (MODUL BARU)
+ * Alur: User cek dashboard Pensiun -> ajukan usulan (SATU pegawai +
+ * Jenis Pensiun + surat pengantar + dokumen tambahan sesuai jenisnya)
+ * -> Admin lihat notifikasi per unit -> Admin buat DPCP dan SUPER
+ * (mekanisme generate yang SUDAH ADA, TIDAK diubah) -> begitu KEDUA
+ * dokumen itu sukses, status usulan otomatis diperbarui ke notifikasi
+ * akhir (SIASN/SK).
+ *
+ * Beda dari Usulan KP: satu usulan Pensiun = SATU pegawai saja (bukan
+ * batch beberapa pegawai), dan status akhir baru muncul setelah DUA
+ * dokumen (DPCP + SUPER) sama-sama sukses dibuat -- bukan cuma satu.
+ * =================================================================
+ */
+
+const USULAN_PENSIUN_SHEET_NAME = 'Usulan Pensiun';
+const USULAN_PENSIUN_HEADERS = [
+  'ID', 'NIP', 'Nama', 'Unit', 'Jenis Pensiun',
+  'Diajukan Oleh NIP', 'Nama Pengaju', 'Tanggal Diajukan',
+  'File Surat Pengantar', 'File Tambahan 1 URL', 'File Tambahan 1 Label',
+  'File Tambahan 2 URL', 'File Tambahan 2 Label',
+  'Status', 'DPCP Selesai Pada', 'SUPER Selesai Pada', 'Diproses Oleh NIP'
+];
+const USULAN_PENSIUN_STATUS_DIAJUKAN = 'Diajukan';
+
+function ensureUsulanPensiunSheet_() {
+  const ss = getSpreadsheet_();
+  let sheet = ss.getSheetByName(USULAN_PENSIUN_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(USULAN_PENSIUN_SHEET_NAME);
+    sheet.appendRow(USULAN_PENSIUN_HEADERS);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function getAllUsulanPensiun_() {
+  const sheet = ensureUsulanPensiunSheet_();
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return [];
+
+  const keys = ['id', 'nip', 'nama', 'unit', 'jenisPensiun', 'diajukanOlehNip', 'namaPengaju',
+    'tanggalDiajukan', 'fileUrl', 'fileTambahan1Url', 'fileTambahan1Label',
+    'fileTambahan2Url', 'fileTambahan2Label', 'status', 'dpcpSelesaiPada', 'superSelesaiPada', 'diprosesOlehNip'];
+  const rows = [];
+  for (let i = 1; i < values.length; i++) {
+    if (!values[i][0]) continue;
+    const obj = { _rowIndex: i + 1 };
+    keys.forEach((k, idx) => { obj[k] = values[i][idx]; });
+    rows.push(obj);
+  }
+  return rows;
+}
+
+/** Folder Drive khusus lampiran usulan Pensiun (dibuat otomatis, terpisah dari lampiran Usulan KP). */
+function getFolderLampiranUsulanPensiun_() {
+  const outputFolder = DriveApp.getFolderById(CONFIG.OUTPUT_FOLDER_ID);
+  const namaFolder = 'Lampiran Usulan Pensiun';
+  const existing = outputFolder.getFoldersByName(namaFolder);
+  if (existing.hasNext()) return existing.next();
+  return outputFolder.createFolder(namaFolder);
+}
+
+function simpanLampiranUsulanPensiun_(base64DataUrl, namaFileAsli) {
+  if (!base64DataUrl) return '';
+  const splitData = base64DataUrl.split(',');
+  const contentType = (splitData[0].match(/:(.*?);/) || [, 'application/octet-stream'])[1];
+  const rawBase64 = splitData[1];
+  const blob = Utilities.newBlob(Utilities.base64Decode(rawBase64), contentType, namaFileAsli || 'lampiran');
+  const file = getFolderLampiranUsulanPensiun_().createFile(blob);
+  return file.getUrl();
+}
+
+/**
+ * REF: tombol "Usulan" di dashboard Pensiun (peran user/admin/super_admin).
+ * @param {Object} payload {
+ *   nip, nama, jenisPensiun,
+ *   suratPengantarBase64, namaFileSuratPengantar,       // WAJIB untuk semua jenis
+ *   fileTambahan1Base64, namaFileTambahan1,              // wajib/tidak tergantung jenisPensiun
+ *   fileTambahan2Base64, namaFileTambahan2               // hanya dipakai utk "Pengunduran Diri"
+ * }
+ */
+function ajukanUsulanPensiun(sessionToken, payload) {
+  const pengaju = requireRole_(sessionToken, ['user', 'admin', 'super_admin']);
+  try {
+    if (!payload.nip || !payload.nama) return { success: false, message: 'Pilih pegawai yang akan diusulkan terlebih dahulu.' };
+    if (!payload.jenisPensiun) return { success: false, message: 'Jenis Pensiun wajib dipilih.' };
+    if (!payload.suratPengantarBase64) return { success: false, message: 'Surat pengantar wajib diunggah.' };
+
+    const dokumenWajib = CONFIG.USULAN_PENSIUN_DOKUMEN_TAMBAHAN[payload.jenisPensiun] || [];
+    if (dokumenWajib.length >= 1 && !payload.fileTambahan1Base64) {
+      return { success: false, message: `Dokumen "${dokumenWajib[0]}" wajib diunggah untuk Jenis Pensiun ini.` };
+    }
+    if (dokumenWajib.length >= 2 && !payload.fileTambahan2Base64) {
+      return { success: false, message: `Dokumen "${dokumenWajib[1]}" wajib diunggah untuk Jenis Pensiun ini.` };
+    }
+
+    const fileUrl = simpanLampiranUsulanPensiun_(payload.suratPengantarBase64, payload.namaFileSuratPengantar);
+    const fileTambahan1Url = payload.fileTambahan1Base64 ? simpanLampiranUsulanPensiun_(payload.fileTambahan1Base64, payload.namaFileTambahan1) : '';
+    const fileTambahan2Url = payload.fileTambahan2Base64 ? simpanLampiranUsulanPensiun_(payload.fileTambahan2Base64, payload.namaFileTambahan2) : '';
+
+    const employees = getAllEmployees_();
+    const emp = employees.find(e => String(e.nip || '').trim() === String(payload.nip).trim());
+
+    const sheet = ensureUsulanPensiunSheet_();
+    sheet.appendRow([
+      Utilities.getUuid(), payload.nip, payload.nama, (emp && emp.unit_es_ii) || '',
+      payload.jenisPensiun, pengaju.nip, pengaju.nama_lengkap || pengaju.nama || '', new Date(),
+      fileUrl, fileTambahan1Url, dokumenWajib[0] || '', fileTambahan2Url, dokumenWajib[1] || '',
+      USULAN_PENSIUN_STATUS_DIAJUKAN, '', '', ''
+    ]);
+
+    return { success: true, message: `Usulan pensiun untuk ${payload.nama} berhasil diajukan.` };
+  } catch (err) {
+    return { success: false, message: 'Gagal mengajukan usulan pensiun: ' + err.message };
+  }
+}
+
+/** REF: notifikasi dashboard Admin -- jumlah usulan Pensiun berstatus "Diajukan", per Unit. */
+function getUsulanPensiunNotifikasiSummary(sessionToken) {
+  requireRole_(sessionToken, ['admin', 'super_admin']);
+  try {
+    const semua = getAllUsulanPensiun_().filter(u => u.status === USULAN_PENSIUN_STATUS_DIAJUKAN);
+    const perUnit = {};
+    semua.forEach(u => {
+      const unit = String(u.unit || '(Tanpa Unit)').trim() || '(Tanpa Unit)';
+      perUnit[unit] = (perUnit[unit] || 0) + 1;
+    });
+    const daftarUnit = Object.keys(perUnit).sort().map(unit => ({ unit, jumlah: perUnit[unit] }));
+    return { success: true, totalUsulanBaru: semua.length, daftarUnit: daftarUnit };
+  } catch (err) {
+    return { success: false, message: 'Gagal memuat notifikasi usulan pensiun: ' + err.message };
+  }
+}
+
+/** REF: daftar nama yang diusulkan pensiun untuk SATU unit. */
+function getUsulanPensiunListByUnit(sessionToken, unit) {
+  requireRole_(sessionToken, ['admin', 'super_admin']);
+  try {
+    const daftar = getAllUsulanPensiun_()
+      .filter(u => u.status === USULAN_PENSIUN_STATUS_DIAJUKAN)
+      .filter(u => (String(u.unit || '(Tanpa Unit)').trim() || '(Tanpa Unit)') === unit)
+      .map(u => ({
+        nip: u.nip, nama: u.nama, jenisPensiun: u.jenisPensiun,
+        namaPengaju: u.namaPengaju,
+        tanggalDiajukan: formatTanggalIndonesia_(u.tanggalDiajukan),
+        fileUrl: u.fileUrl,
+        fileTambahan1Url: u.fileTambahan1Url, fileTambahan1Label: u.fileTambahan1Label,
+        fileTambahan2Url: u.fileTambahan2Url, fileTambahan2Label: u.fileTambahan2Label,
+        dpcpSelesai: !!u.dpcpSelesaiPada, superSelesai: !!u.superSelesaiPada
+      }))
+      .sort((a, b) => String(a.nama).localeCompare(String(b.nama)));
+    return { success: true, daftar: daftar };
+  } catch (err) {
+    return { success: false, message: 'Gagal memuat daftar usulan pensiun: ' + err.message };
+  }
+}
+
+/** REF: "User bisa melihat status usulan" -- seluruh usulan pensiun yang PERNAH diajukan user ybs. */
+function getUsulanPensiunSayaForUser(sessionToken) {
+  const pengguna = requireRole_(sessionToken, ['user', 'admin', 'super_admin']);
+  try {
+    const daftar = getAllUsulanPensiun_()
+      .filter(u => String(u.diajukanOlehNip || '').trim() === String(pengguna.nip).trim())
+      .map(u => ({
+        nip: u.nip, nama: u.nama, jenisPensiun: u.jenisPensiun,
+        tanggalDiajukan: formatTanggalIndonesia_(u.tanggalDiajukan),
+        status: u.status
+      }))
+      .sort((a, b) => new Date(b.tanggalDiajukan) - new Date(a.tanggalDiajukan));
+    return { success: true, daftar: daftar };
+  } catch (err) {
+    return { success: false, message: 'Gagal memuat status usulan pensiun Anda: ' + err.message };
+  }
+}
+
+/**
+ * Dipanggil OTOMATIS dari PensiunGenerator.gs setelah generateDpcpDocument()
+ * ATAU generateSuperDocument() SUKSES. Menandai dokumen yang baru selesai
+ * (dpcp/super) untuk baris usulan yang cocok NIP-nya (bila ada & masih
+ * "Diajukan"), lalu BARU mengubah status ke notifikasi akhir begitu KEDUA
+ * dokumen (DPCP dan SUPER) sudah tercatat selesai -- sesuai spesifikasi
+ * "setelah admin selesai memproses DPCP DAN SUPER".
+ * @param {string} nip
+ * @param {'dpcp'|'super'} jenisDokumen
+ * @param {string} diprosesOlehNip
+ */
+function tandaiDokumenPensiunSelesai_(nip, jenisDokumen, diprosesOlehNip) {
+  try {
+    const sheet = ensureUsulanPensiunSheet_();
+    const values = sheet.getDataRange().getValues();
+    const now = new Date();
+    const employees = getAllEmployees_();
+
+    for (let i = 1; i < values.length; i++) {
+      const nipBaris = String(values[i][1] || '').trim();
+      const statusBaris = values[i][13];
+      if (statusBaris !== USULAN_PENSIUN_STATUS_DIAJUKAN) continue;
+      if (nipBaris !== String(nip).trim()) continue;
+
+      const kolomTanda = jenisDokumen === 'dpcp' ? 15 : 16; // 1-based: O=DPCP Selesai Pada, P=SUPER Selesai Pada
+      sheet.getRange(i + 1, kolomTanda).setValue(now);
+
+      const dpcpSelesai = jenisDokumen === 'dpcp' ? true : !!values[i][14];
+      const superSelesai = jenisDokumen === 'super' ? true : !!values[i][15];
+
+      if (dpcpSelesai && superSelesai) {
+        const emp = employees.find(e => String(e.nip || '').trim() === nipBaris);
+        const notifAkhir = tentukanNotifStatusAkhir_(emp && emp.status_kepegawaian); // REUSE dari UsulanKPService.gs
+        sheet.getRange(i + 1, 14, 1, 1).setValue(notifAkhir); // kolom N = Status
+        sheet.getRange(i + 1, 17).setValue(diprosesOlehNip); // kolom Q = Diproses Oleh NIP
+      }
+      return; // NIP unik per baris "Diajukan" aktif, cukup satu baris yang cocok
+    }
+  } catch (err) {
+    Logger.log('Gagal menandai dokumen pensiun selesai: ' + err.message);
+  }
+}

@@ -1,0 +1,313 @@
+/**
+ * =================================================================
+ * DOCGEN.GS  (MODUL BARU — sesuai dokumen "Pemisahan Mesin Aplikasi
+ * vs Rumus Generate Dokumen")
+ *
+ * PRINSIP UTAMA:
+ * Mesin aplikasi yang sudah ada (EligibilityService.gs: hitungAkKonversiTahunan_,
+ * hitungPengurangan_, cekEligible_, dst.) TIDAK DISENTUH sama sekali oleh
+ * file ini. Rumus di sini dipakai saat proses generate/preview dokumen
+ * (dipanggil dari DocumentGenerator.gs) sebagai NILAI FALLBACK/CADANGAN,
+ * memakai tabel referensi & formula yang meniru isi template Word
+ * (AK_Konversi_tahunan.docx & AK_Kumulatif_KP.docx).
+ *
+ * PEMBARUAN PENTING (mengikuti perbaikan TemplateEngine.gs):
+ * Sejak TemplateEngine.gs bisa membaca rumus "set" di dalam template
+ * Google Docs itu sendiri, template AK_Kumulatif_KP.docx MENGHITUNG
+ * ULANG seluruh angka ini dari data mentah (golongan, jabatan, dst.)
+ * lewat rumus "set" miliknya sendiri, lalu menimpa nilai fallback di
+ * bawah ini dengan hasilnya — jadi field turunan di file ini sekarang
+ * berfungsi sebagai JARING PENGAMAN (dipakai hanya jika template yang
+ * dipasang TIDAK punya rumus "set" untuk field tsb), bukan lagi satu-
+ * satunya sumber angka. Nilai dari kedua jalur ini seharusnya SAMA
+ * persis karena memakai rumus & tabel referensi yang sama; kalau admin
+ * mengedit rumus di dalam template Google Docs, hasil akhir dokumen
+ * akan MENGIKUTI template (karena diproses lebih akhir), sesuai
+ * ekspektasi seorang admin yang mengedit template secara manual.
+ *
+ * Angka yang tampil di layar "Check Eligible" (dari mesin lama) dan angka
+ * pada dokumen resmi (dari file ini + template) BOLEH berbeda — ini memang
+ * disengaja: mesin lama untuk estimasi cepat di layar, jalur ini untuk
+ * rumus baku sesuai format Surat Keputusan.
+ *
+ * Semua fungsi & konstanta di file ini diberi prefix "docGen_" / "DOCGEN_"
+ * agar tidak pernah tertukar/terpanggil tidak sengaja dari alur mesin lama.
+ * =================================================================
+ */
+
+// ------------------------------------------------------------------
+// TABEL REFERENSI KHUSUS DOCGEN (terpisah dari CONFIG di Config.gs)
+// ------------------------------------------------------------------
+
+const DOCGEN_KOEFISIEN_JABATAN = {
+  'Pengajar': 12.5, 'Asisten Ahli': 12.5, 'Lektor': 25, 'Lektor Kepala': 37.5, 'Guru Besar': 50
+};
+
+const DOCGEN_AK_DASAR_SEHARUSNYA = {
+  'III/b': 150, 'III/c': 200, 'III/d': 200,
+  'IV/a': 400, 'IV/b': 400, 'IV/c': 400, 'IV/d': 850, 'IV/e': 850,
+  'Set. III/b': 150, 'Set. III/c': 200, 'Set. III/d': 200,
+  'Set. IV/a': 400, 'Set. IV/b': 400, 'Set. IV/c': 400, 'Set. IV/d': 850, 'Set. IV/e': 850
+};
+
+const DOCGEN_NILAI_LAMA_GOLONGAN = {
+  'III/a': 0, 'III/b': 0, 'III/c': 0, 'III/d': 100,
+  'IV/a': 0, 'IV/b': 150, 'IV/c': 300, 'IV/d': 0, 'IV/e': 200,
+  'Set. III/a': 0, 'Set. III/b': 0, 'Set. III/c': 0, 'Set. III/d': 100,
+  'Set. IV/a': 0, 'Set. IV/b': 150, 'Set. IV/c': 300, 'Set. IV/d': 0, 'Set. IV/e': 200
+};
+
+const DOCGEN_KEBUTUHAN_AK_GOLONGAN = {
+  'III/a': 50, 'III/b': 50, 'III/c': 100, 'III/d': 100,
+  'IV/a': 150, 'IV/b': 150, 'IV/c': 150, 'IV/d': 200, 'IV/e': 0,
+  'Set. III/a': 50, 'Set. III/b': 50, 'Set. III/c': 100, 'Set. III/d': 100,
+  'Set. IV/a': 150, 'Set. IV/b': 150, 'Set. IV/c': 150, 'Set. IV/d': 200, 'Set. IV/e': 0
+};
+
+const DOCGEN_KEBUTUHAN_NAIK_JABATAN = {
+  'Pengajar': 12.5, 'Asisten Ahli': 50, 'Lektor': 200, 'Lektor Kepala': 450, 'Guru Besar': ''
+};
+
+const DOCGEN_JABATAN_TUJUAN = {
+  'Pengajar': 'ASISTEN AHLI', 'Asisten Ahli': 'LEKTOR',
+  'Lektor': 'LEKTOR KEPALA', 'Lektor Kepala': 'GURU BESAR'
+};
+
+const DOCGEN_PANGKAT_TUJUAN = {
+  'III/a': 'PENATA MUDA TK. I / III/B', 'III/b': 'PENATA / III/C',
+  'III/c': 'PENATA TK. I / III/D', 'III/d': 'PEMBINA / IV/A',
+  'IV/a': 'PEMBINA TK. I / IV/B', 'IV/b': 'PEMBINA UTAMA MUDA / IV/C',
+  'IV/c': 'PEMBINA UTAMA MADYA / IV/D', 'IV/d': 'PEMBINA UTAMA / IV/E', 'IV/e': '',
+  // CATATAN: varian "Set. ..." di bawah ini ditambahkan mengikuti pola yang
+  // sama (prefix "SETARA") supaya golongan "Set." tidak menghasilkan teks
+  // "undefined" di dokumen. Mohon CEK ulang kecocokan teksnya dengan wording
+  // asli pada template AK_Kumulatif_KP.docx, lalu sesuaikan bila berbeda.
+  'Set. III/a': 'SETARA PENATA MUDA TK. I / III/B', 'Set. III/b': 'SETARA PENATA / III/C',
+  'Set. III/c': 'SETARA PENATA TK. I / III/D', 'Set. III/d': 'SETARA PEMBINA / IV/A',
+  'Set. IV/a': 'SETARA PEMBINA TK. I / IV/B', 'Set. IV/b': 'SETARA PEMBINA UTAMA MUDA / IV/C',
+  'Set. IV/c': 'SETARA PEMBINA UTAMA MADYA / IV/D', 'Set. IV/d': 'SETARA PEMBINA UTAMA / IV/E',
+  'Set. IV/e': ''
+};
+
+// Predikat SKP versi DocGen HANYA 2 kategori (sesuai isi docx), BEDA dari
+// CONFIG.PREDIKAT_SKP_LIST (5 kategori) yang dipakai mesin di Check Eligible.
+const DOCGEN_PREDIKAT_SKP_LIST = ['Baik', 'Sangat Baik'];
+
+// ------------------------------------------------------------------
+// FUNGSI KALKULASI KHUSUS DOCGEN (rumus dari prompt_appscript_revisi_v2.md,
+// disalin apa adanya — TIDAK memakai/mengubah rumus di EligibilityService.gs)
+// ------------------------------------------------------------------
+
+function docGen_presentasePredikat(predikatSkp) {
+  return predikatSkp === 'Baik' ? 1 : 1.5;
+}
+
+function docGen_hitungAkKonversiTahunan(predikatSkp, jabatan, bulanAwal, bulanAkhir) {
+  const koefisien = DOCGEN_KOEFISIEN_JABATAN[jabatan];
+  if (koefisien === undefined) return 0;
+  const bm = Number(bulanAwal), ba = Number(bulanAkhir);
+  if (!bm || !ba) return 0;
+
+  const jumlahBulan = (ba - bm + 1) / 12;
+  return jumlahBulan * koefisien * docGen_presentasePredikat(predikatSkp);
+}
+
+function docGen_akIntegrasiDidapat(jumlahAkSaatIntegrasi, angkaDasarSaatIntegrasi) {
+  return (Number(jumlahAkSaatIntegrasi) || 0) - (Number(angkaDasarSaatIntegrasi) || 0);
+}
+
+function docGen_totalAkKonversiIntegrasi(akIntegrasiDidapat, daftarPenilaianTahunan) {
+  const totalKonversi = (daftarPenilaianTahunan || []).reduce((sum, r) =>
+    sum + docGen_hitungAkKonversiTahunan(r.predikat, r.jabatan, r.bulanAwal, r.bulanAkhir), 0);
+  return (Number(akIntegrasiDidapat) || 0) + totalKonversi;
+}
+
+function docGen_nilaiLamaDiakui(golonganSekarang, angkaDasarSaatIntegrasi) {
+  const akDasarSeharusnya = DOCGEN_AK_DASAR_SEHARUSNYA[golonganSekarang] || 0;
+  const nilaiLama = DOCGEN_NILAI_LAMA_GOLONGAN[golonganSekarang] || 0;
+  const angkaDasar = Number(angkaDasarSaatIntegrasi) || 0;
+  return akDasarSeharusnya > angkaDasar
+    ? (akDasarSeharusnya - angkaDasar) + nilaiLama
+    : nilaiLama;
+}
+
+function docGen_totalKonversiBaru(totalAkKonversiIntegrasi, nilaiLamaDiakui) {
+  return (Number(totalAkKonversiIntegrasi) || 0) - (Number(nilaiLamaDiakui) || 0);
+}
+
+function docGen_hitungIjazah(adaIjazahBaruSetelah2023, golonganSekarang) {
+  if (adaIjazahBaruSetelah2023 !== 'Ada') return '';
+  return (DOCGEN_KEBUTUHAN_AK_GOLONGAN[golonganSekarang] || 0) * 0.25;
+}
+
+function docGen_totalAkBaru(totalKonversiBaru, hitungIjazah) {
+  return Number(totalKonversiBaru) + Number(hitungIjazah || 0);
+}
+
+function docGen_totalJumlahAk(nilaiLamaDiakui, totalKonversiBaru, hitungIjazah) {
+  return Number(nilaiLamaDiakui) + Number(totalKonversiBaru) + Number(hitungIjazah || 0);
+}
+
+function docGen_hitungRekomendasi(jabatan, golongan, totalAkBaru, totalJumlahAk) {
+  const mentok = jabatan === 'Guru Besar' && (golongan === 'IV/e' || golongan === 'Set. IV/e');
+  if (mentok) return 'TIDAK DAPAT DIPERTIMBANGKAN UNTUK KENAIKAN PANGKAT/JENJANG SETINGKAT LEBIH TINGGI';
+
+  const cukupPangkat = (totalAkBaru - (DOCGEN_KEBUTUHAN_AK_GOLONGAN[golongan] || 0)) >= 0;
+  const kebutuhanJabatan = DOCGEN_KEBUTUHAN_NAIK_JABATAN[jabatan];
+  const cukupJabatan = kebutuhanJabatan === '' || kebutuhanJabatan === undefined
+    ? false
+    : (totalJumlahAk - kebutuhanJabatan) >= 0;
+
+  const jabatanTujuan = DOCGEN_JABATAN_TUJUAN[jabatan] || '';
+  const pangkatTujuan = DOCGEN_PANGKAT_TUJUAN[golongan] || '';
+
+  if (cukupPangkat && cukupJabatan) {
+    return `DAPAT DIPERTIMBANGKAN UNTUK KENAIKAN PANGKAT/JENJANG JABATAN SETINGKAT LEBIH TINGGI MENJADI ${jabatanTujuan} PANGKAT/GOLONGAN RUANG ${pangkatTujuan}`;
+  }
+  if (cukupPangkat && !cukupJabatan) {
+    return `DAPAT DIPERTIMBANGKAN UNTUK KENAIKAN PANGKAT SETINGKAT LEBIH TINGGI MENJADI ${pangkatTujuan}`;
+  }
+  if (!cukupPangkat && cukupJabatan) {
+    return `DAPAT DIPERTIMBANGKAN UNTUK KENAIKAN JENJANG JABATAN SETINGKAT LEBIH TINGGI MENJADI ${jabatanTujuan}`;
+  }
+  return 'TIDAK DAPAT DIPERTIMBANGKAN UNTUK KENAIKAN PANGKAT/JENJANG SETINGKAT LEBIH TINGGI';
+}
+
+// ------------------------------------------------------------------
+// HELPER & JEMBATAN (wiring) KE DocumentGenerator.gs
+// ------------------------------------------------------------------
+
+/**
+ * Form Opsi A & Opsi B mengirim nama bulan (mis. "Januari"), bukan angka,
+ * karena field itu juga dipakai sebagai teks tampilan pada surat. Fungsi ini
+ * mengubahnya jadi angka 1-12 untuk kebutuhan kalkulasi DocGen, memakai
+ * CONFIG.BULAN_LIST yang sudah ada (dipakai bersama, bukan bagian dari mesin).
+ */
+function docGen_bulanNamaKeAngka_(namaBulan) {
+  const found = (CONFIG.BULAN_LIST || []).find(b => b.label === namaBulan);
+  if (found) return found.value;
+  const n = Number(namaBulan);
+  return isNaN(n) ? 0 : n;
+}
+
+function docGen_bulatkan_(n) {
+  return Math.round((Number(n) || 0) * 100) / 100;
+}
+
+/**
+ * Bangun field-field turunan KHUSUS DocGen berdasarkan data pegawai (sheet)
+ * + data form yang sudah diisi user di Opsi A / Opsi B, TANPA meminta input
+ * ulang apa pun. Dipanggil dari buildDataContext_ di DocumentGenerator.gs,
+ * hasilnya digabung ke dataContext sehingga template Word bisa memakai tag
+ * seperti {{total_ak_baru}} atau {{rekomendasi}} — DAN, bila template punya
+ * rumus "set" sendiri untuk field yang sama, rumus template itulah yang
+ * akan dipakai (lihat catatan pembaruan di kepala file ini).
+ *
+ * @param {Object} employee    Data pegawai lengkap (hasil getEmployeeFullData)
+ * @param {Object} formData    Data form Opsi A / Opsi B dari client
+ * @param {string} subLayanan  'AK Konversi Tahunan' | 'AK Konversi Kumulatif'
+ */
+function docGen_buildDerivedFields_(employee, formData, subLayanan) {
+  formData = formData || {};
+  // Jabatan bisa di-override manual lewat form Opsi A/B (dropdown baru:
+  // Asisten Ahli / Lektor / Lektor Kepala / Guru Besar); kalau admin tidak
+  // memilih apa pun, jatuh balik ke jabatan pegawai dari spreadsheet (data
+  // utama) seperti sebelumnya. Pola ini SAMA persis dengan override golongan
+  // di bawah ini — sebelum perbaikan ini, jabatan TIDAK punya jalur override
+  // sama sekali (selalu ambil dari data utama apa adanya).
+  const jabatan = formData.jabatan || employee.jabatan;
+  // Golongan bisa di-override manual lewat form Opsi A/B (termasuk varian
+  // "Set."); kalau admin tidak memilih apa pun, jatuh balik ke golongan
+  // pegawai dari spreadsheet seperti sebelumnya.
+  const golongan = formData.golongan || employee.golongan;
+
+  if (subLayanan === 'AK Konversi Tahunan') {
+    const bulanAwal = docGen_bulanNamaKeAngka_(formData.bulan_awal_penilaian);
+    const bulanAkhir = docGen_bulanNamaKeAngka_(formData.bulan_selesai_penilaian);
+    const akKonversiTahunan = docGen_hitungAkKonversiTahunan(formData.predikat_skp, jabatan, bulanAwal, bulanAkhir);
+
+    return {
+      ak_konversi_tahunan: docGen_bulatkan_(akKonversiTahunan)
+    };
+  }
+
+  if (subLayanan === 'AK Konversi Kumulatif') {
+    const daftarPenilaianTahunan = (formData.data_massal || []).map(row => ({
+      predikat: row.predikat_skp,
+      jabatan: jabatan,
+      bulanAwal: docGen_bulanNamaKeAngka_(row.bulan_awal_penilaian),
+      bulanAkhir: docGen_bulanNamaKeAngka_(row.bulan_selesai_penilaian)
+    }));
+
+    // Baris siap-tampil untuk loop {{#penilaian}} / {#penilaian} di template.
+    // Key array HARUS "penilaian" (bukan "data_massal") agar cocok dengan
+    // tag loop di dalam dokumen Google Docs.
+    //
+    // PENTING (perbaikan): baris ini WAJIB tetap membawa field MENTAH
+    // (tahun_penilaian, bulan_awal_penilaian, bulan_selesai_penilaian,
+    // predikat_skp) apa adanya — BUKAN cuma versi hasil hitung — karena
+    // rumus "set ak_konversi_didapat = ..." DI DALAM template sendiri
+    // membaca field mentah ini per baris. Sebelumnya field ini terlewat
+    // ikut dikirim sehingga rumus template selalu menghasilkan kosong/NaN.
+    // "ak_konversi_tahun" tetap disertakan sebagai nilai fallback bila
+    // template TIDAK punya rumus "set" sendiri untuk baris tsb.
+    const penilaianUntukTemplate = (formData.data_massal || []).map(row => {
+      const bulanAwal = docGen_bulanNamaKeAngka_(row.bulan_awal_penilaian);
+      const bulanAkhir = docGen_bulanNamaKeAngka_(row.bulan_selesai_penilaian);
+      return {
+        tahun_penilaian: row.tahun_penilaian,
+        bulan_awal_penilaian: row.bulan_awal_penilaian,
+        bulan_selesai_penilaian: row.bulan_selesai_penilaian,
+        predikat_skp: row.predikat_skp,
+        ak_konversi_tahun: docGen_bulatkan_(
+          docGen_hitungAkKonversiTahunan(row.predikat_skp, jabatan, bulanAwal, bulanAkhir)
+        ),
+        // Alias fallback: sebagian template menyebut field ini
+        // "ak_konversi_didapat" (bukan "ak_konversi_tahun"). Diisi sama
+        // persis di sini; kalau template punya rumus "set" sendiri untuk
+        // nama ini, nilai berikut akan TERTIMPA oleh hasil rumus template
+        // (yang dihitung dari bulan_awal_penilaian/bulan_selesai_penilaian
+        // mentah di atas) — jadi tetap konsisten.
+        ak_konversi_didapat: docGen_bulatkan_(
+          docGen_hitungAkKonversiTahunan(row.predikat_skp, jabatan, bulanAwal, bulanAkhir)
+        )
+      };
+    });
+
+    const jumlahAkSaatIntegrasi = Number(formData.jumlah_angka_kredit_diperoleh) || 0;
+    const angkaDasarSaatIntegrasi = Number(formData.angka_dasar_saat_integrasi) || 0;
+
+    const akIntegrasiDidapat = docGen_akIntegrasiDidapat(jumlahAkSaatIntegrasi, angkaDasarSaatIntegrasi);
+    const totalAkKonversiIntegrasi = docGen_totalAkKonversiIntegrasi(akIntegrasiDidapat, daftarPenilaianTahunan);
+    const nilaiLamaDiakui = docGen_nilaiLamaDiakui(golongan, angkaDasarSaatIntegrasi);
+    const totalKonversiBaru = docGen_totalKonversiBaru(totalAkKonversiIntegrasi, nilaiLamaDiakui);
+    const hitungIjazah = docGen_hitungIjazah(formData.ada_ijazah_baru_2023, golongan);
+    const totalAkBaru = docGen_totalAkBaru(totalKonversiBaru, hitungIjazah);
+    const totalJumlahAk = docGen_totalJumlahAk(nilaiLamaDiakui, totalKonversiBaru, hitungIjazah);
+    const rekomendasi = docGen_hitungRekomendasi(jabatan, golongan, totalAkBaru, totalJumlahAk);
+
+    return {
+      penilaian: penilaianUntukTemplate,   // dipakai loop {{#penilaian}} / {#penilaian} di template
+      ak_integrasi_didapat: docGen_bulatkan_(akIntegrasiDidapat),
+      total_ak_konversi_integrasi: docGen_bulatkan_(totalAkKonversiIntegrasi),
+      nilai_lama_diakui: docGen_bulatkan_(nilaiLamaDiakui),
+      total_konversi_baru: docGen_bulatkan_(totalKonversiBaru),
+      hitung_ijazah: hitungIjazah === '' ? '' : docGen_bulatkan_(hitungIjazah),
+      total_ak_baru: docGen_bulatkan_(totalAkBaru),
+      total_jumlah_ak: docGen_bulatkan_(totalJumlahAk),
+      rekomendasi: rekomendasi
+    };
+  }
+
+  // subLayanan lain (di luar Kenaikan Pangkat, mis. layanan generik masa
+  // depan yang didaftarkan lewat menu Template) -> tidak ada tambahan field.
+  return {};
+}
+
+/** Opsi dropdown khusus DocGen (dipakai form Opsi A & baris Penilaian Opsi B). */
+function getDocGenFormOptions() {
+  return {
+    predikat: DOCGEN_PREDIKAT_SKP_LIST,
+    ijazahBaru: CONFIG.IJAZAH_BARU_2023_LIST
+  };
+}

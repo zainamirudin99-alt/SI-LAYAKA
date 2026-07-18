@@ -1,0 +1,14 @@
+{
+  "name": "simpeg-vercel",
+  "version": "1.0.0",
+  "description": "Sistem Layanan Administrasi Kepegawaian — deployed on Vercel with Supabase",
+  "private": true,
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "jsonwebtoken": "^9.0.2",
+    "uuid": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

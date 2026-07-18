@@ -1,0 +1,78 @@
+/**
+ * =================================================================
+ * PENSIUNDASHBOARDSERVICE.GS  (MODUL BARU)
+ * Dashboard awal menu Pensiun > DPCP, SEBELUM memilih pegawai:
+ * menampilkan pegawai yang akan pensiun (TMT PENSIUN BUP) kurang dari
+ * CONFIG.PENSIUN_DASHBOARD_AMBANG_TAHUN (default 1 tahun) dari hari
+ * ini, dikelompokkan per Unit/Fakultas (unit_es_ii).
+ *
+ * Flow: Dashboard Unit -> klik Unit -> Daftar Pegawai -> pilih pegawai
+ * -> pre-fill form DPCP (lihat JavaScriptClient.html).
+ * =================================================================
+ */
+
+/**
+ * Sisa hari menuju TMT Pensiun BUP seorang pegawai, dihitung dari hari
+ * ini. Negatif berarti TMT-nya sudah lewat (tidak dianggap "akan
+ * pensiun" lagi -- lihat isAkanPensiun_).
+ */
+function sisaHariMenujuPensiun_(tmtPensiunBup) {
+  return diffDays_(new Date(), tmtPensiunBup);
+}
+
+/** Apakah seorang pegawai "akan pensiun" dalam ambang batas dashboard (default < 1 tahun, dan belum lewat). */
+function isAkanPensiun_(employee) {
+  if (!employee.tmt_pensiun_bup) return false;
+  const sisaHari = sisaHariMenujuPensiun_(employee.tmt_pensiun_bup);
+  const ambangHari = CONFIG.PENSIUN_DASHBOARD_AMBANG_TAHUN * 365;
+  return sisaHari >= 0 && sisaHari <= ambangHari;
+}
+
+/** Ringkasan dashboard: jumlah pegawai akan pensiun per Unit/Fakultas. */
+function getPensiunDashboardSummary(sessionToken) {
+  requireSession_(sessionToken);
+  try {
+    const employees = getAllEmployees_();
+    const perUnit = {};
+
+    employees.forEach(emp => {
+      if (!isAkanPensiun_(emp)) return;
+      const unit = String(emp.unit_es_ii || '(Tanpa Unit)').trim() || '(Tanpa Unit)';
+      perUnit[unit] = (perUnit[unit] || 0) + 1;
+    });
+
+    const daftarUnit = Object.keys(perUnit).sort().map(unit => ({ unit: unit, jumlah: perUnit[unit] }));
+
+    return {
+      success: true,
+      ambangTahun: CONFIG.PENSIUN_DASHBOARD_AMBANG_TAHUN,
+      daftarUnit: daftarUnit
+    };
+  } catch (err) {
+    return { success: false, message: 'Gagal memuat dashboard pensiun: ' + err.message };
+  }
+}
+
+/** Daftar pegawai akan pensiun untuk SATU unit (drill-down dashboard -> pilih pegawai). */
+function getPensiunEligibleList(sessionToken, unit) {
+  requireSession_(sessionToken);
+  try {
+    const employees = getAllEmployees_();
+
+    const daftar = employees
+      .filter(emp => isAkanPensiun_(emp))
+      .filter(emp => (String(emp.unit_es_ii || '(Tanpa Unit)').trim() || '(Tanpa Unit)') === unit)
+      .map(emp => ({
+        nip: emp.nip,
+        nama: emp.nama_lengkap || emp.nama,
+        jabatan: emp.jabatan,
+        tmtPensiunBup: formatTanggalIndonesia_(emp.tmt_pensiun_bup),
+        sisaHari: sisaHariMenujuPensiun_(emp.tmt_pensiun_bup)
+      }))
+      .sort((a, b) => a.sisaHari - b.sisaHari); // paling dekat pensiun di atas
+
+    return { success: true, daftar: daftar };
+  } catch (err) {
+    return { success: false, message: 'Gagal memuat daftar pegawai akan pensiun: ' + err.message };
+  }
+}

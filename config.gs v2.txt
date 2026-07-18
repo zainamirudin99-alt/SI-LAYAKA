@@ -1,0 +1,287 @@
+/**
+ * =================================================================
+ * CONFIG.GS
+ * Konfigurasi terpusat aplikasi. Ubah nilai di sini jika ID
+ * spreadsheet / folder Drive berubah — TIDAK PERLU mengubah file
+ * lain manapun.
+ * =================================================================
+ */
+
+const CONFIG = {
+  // ID Spreadsheet sumber data pegawai
+  SPREADSHEET_ID: '1fn9Nugfola-a6RPF3jyAM0L3SHQjThSC7cBX--dXtuA',
+
+  // Nama sheet berisi data utama pegawai
+  SHEET_DATA_UTAMA: 'Data Utama',
+
+  // Nama sheet registry template (dibuat otomatis jika belum ada)
+  SHEET_TEMPLATES: 'Templates',
+
+  // Folder Drive tujuan penyimpanan PDF hasil generate
+  OUTPUT_FOLDER_ID: '1zf8u-yXjhDcuzwyFiv7Xz7eYBNDZ85k3',
+
+  // Lama sesi login tersimpan di cache (detik) - 6 jam
+  SESSION_TTL_SECONDS: 6 * 60 * 60,
+
+  // Prefix khusus NIP yang harus diabaikan (baik saat validasi login
+  // maupun saat menghitung password) bila STATUS KEPEGAWAIAN = STATUS_NON_ASN_LABEL
+  NIP_IGNORED_PREFIX: 'H.7.',
+  STATUS_NON_ASN_LABEL: 'Pegawai Undip Non ASN',
+
+  // Jumlah digit awal (dari NIP yang sudah dibersihkan dari karakter
+  // non-angka) yang dipakai sebagai password default.
+  PASSWORD_DIGIT_LENGTH: 8,
+
+  // Daftar layanan & sub-menu yang tersedia (dipakai Template Manager)
+  LAYANAN_LIST: {
+    'Kenaikan Pangkat': ['AK Konversi Tahunan', 'AK Konversi Kumulatif'],
+    'Pensiun': ['DPCP', 'SUPER'],
+    // Kontrak Tendik & Kontrak Dosen DIPISAH sebagai layanan tersendiri
+    // (bukan satu "Kontrak" dengan 7 sub-menu) supaya nama sub-menu yang
+    // SAMA di kedua sisi ("Kontrak Penuh Waktu", "Kontrak Paruh Waktu")
+    // tetap bisa punya template BERBEDA tanpa bentrok -- getTemplatesForService
+    // sudah memfilter berdasarkan (layanan, subMenu) sekaligus, jadi tidak
+    // perlu perubahan apa pun di TemplateAdmin.gs.
+    // CATATAN: daftar Tendik di sini memakai "KDRP" (sesuai daftar link
+    // template yang Anda berikan) -- deskripsi menu Anda sempat menyebut
+    // "Tenaga Kontrak Penghargaan" utk Tendik juga, yang tampaknya salah
+    // ketik (harusnya "KDRP", karena "Tenaga Kontrak Penghargaan" sudah
+    // dipakai di daftar Dosen). PERLU DIKONFIRMASI Titto.
+    'Kontrak Tendik': ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'KDRP', 'Tenaga Profesional'],
+    'Kontrak Dosen': ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan']
+  },
+
+  // Kolom-kolom yang dianggap "tanggal" dan wajib diformat ke Indonesia
+  // otomatis apabila nama kolom (tag) diawali salah satu prefix berikut.
+  DATE_TAG_PREFIXES: ['tgl_', 'tmt_'],
+
+  // ------------------------------------------------------------------
+  // REFERENSI PERHITUNGAN ANGKA KREDIT (modul "Check Eligible")
+  // ------------------------------------------------------------------
+
+  // Urutan golongan lengkap I/a s.d. IV/e, dipakai untuk menghitung
+  // berapa tingkat yang dilewati saat konversi golongan. JANGAN tambahkan
+  // varian "Set." di sini — urutan ini dipakai untuk index-lookup tingkat
+  // golongan (hitungPengurangan_), yang harus tetap 1 tingkat = 1 entri.
+  GOLONGAN_URUTAN: [
+    'I/a', 'I/b', 'I/c', 'I/d',
+    'II/a', 'II/b', 'II/c', 'II/d',
+    'III/a', 'III/b', 'III/c', 'III/d',
+    'IV/a', 'IV/b', 'IV/c', 'IV/d', 'IV/e'
+  ],
+
+  // Daftar golongan untuk PILIHAN DI DROPDOWN saja (Check Eligible - Golongan
+  // Saat Integrasi, Opsi A, Opsi B) — beda dari GOLONGAN_URUTAN di atas.
+  // Berisi golongan biasa I/a-IV/e DITAMBAH varian "Set." (golongan setara,
+  // dipakai staf jalur setara) I/a-IV/e. "Set. X" selalu bernilai identik
+  // dengan "X" di seluruh tabel referensi DocGen.gs (lihat DOCGEN_AK_DASAR_SEHARUSNYA
+  // dkk.) — jangan dipakai untuk index-lookup tingkat golongan (hitungPengurangan_),
+  // pakai GOLONGAN_URUTAN untuk itu (nilai "Set." dinormalisasi/di-strip di sana).
+  GOLONGAN_PILIHAN: [
+    'I/a', 'I/b', 'I/c', 'I/d',
+    'II/a', 'II/b', 'II/c', 'II/d',
+    'III/a', 'III/b', 'III/c', 'III/d',
+    'IV/a', 'IV/b', 'IV/c', 'IV/d', 'IV/e',
+    'Set. I/a', 'Set. I/b', 'Set. I/c', 'Set. I/d',
+    'Set. II/a', 'Set. II/b', 'Set. II/c', 'Set. II/d',
+    'Set. III/a', 'Set. III/b', 'Set. III/c', 'Set. III/d',
+    'Set. IV/a', 'Set. IV/b', 'Set. IV/c', 'Set. IV/d', 'Set. IV/e'
+  ],
+
+  JABATAN_FUNGSIONAL_LIST: ['Asisten Ahli', 'Lektor', 'Lektor Kepala', 'Guru Besar'],
+
+  PREDIKAT_SKP_LIST: ['Sangat Baik', 'Baik', 'Butuh Perbaikan', 'Kurang', 'Sangat Kurang'],
+
+  BULAN_LIST: [
+    { value: 1, label: 'Januari' }, { value: 2, label: 'Februari' }, { value: 3, label: 'Maret' },
+    { value: 4, label: 'April' }, { value: 5, label: 'Mei' }, { value: 6, label: 'Juni' },
+    { value: 7, label: 'Juli' }, { value: 8, label: 'Agustus' }, { value: 9, label: 'September' },
+    { value: 10, label: 'Oktober' }, { value: 11, label: 'November' }, { value: 12, label: 'Desember' }
+  ],
+
+  // a) Presentase nilai berdasarkan Predikat Kinerja (SKP)
+  PRESENTASE_PREDIKAT: {
+    'Sangat Baik': 1.5, 'Baik': 1, 'Butuh Perbaikan': 0.75, 'Kurang': 0.5, 'Sangat Kurang': 0.25
+  },
+
+  // b) Koefisien berdasarkan Jabatan Fungsional
+  KOEFISIEN_JABATAN: {
+    'Asisten Ahli': 12.5, 'Lektor': 25, 'Lektor Kepala': 37.5, 'Guru Besar': 50
+  },
+
+  // c) Kebutuhan Angka Kredit berdasarkan Golongan (cakupan fungsional dosen: III/a - IV/e)
+  KEBUTUHAN_AK_GOLONGAN: {
+    'III/a': 50, 'III/b': 50, 'III/c': 100, 'III/d': 100,
+    'IV/a': 150, 'IV/b': 150, 'IV/c': 150, 'IV/d': 200, 'IV/e': 0
+  },
+
+  // d) Pengurangan per satu tingkat kenaikan golongan (golongan integrasi -> golongan sekarang)
+  // CATATAN REVISI: nilai 'IV/c' diubah dari 150 -> 300, sesuai rumus baru
+  // (integrasi IV/b -> golongan sekarang IV/c = pengurangan 300). Karena
+  // hitungPengurangan_ menjumlahkan tiap tingkat yang dilewati, perubahan ini
+  // turut memengaruhi kombinasi lain yang berakhir/melewati IV/c (mis. dari
+  // IV/a atau III/d ke IV/c), bukan hanya pasangan IV/b -> IV/c saja.
+  PENGURANGAN_GOLONGAN: {
+    'III/b': 50, 'III/c': 50, 'III/d': 100, 'IV/a': 200,
+    'IV/b': 150, 'IV/c': 300, 'IV/d': 450, 'IV/e': 200
+  },
+
+  // Faktor pengali "nilai pendidikan baru" terhadap Kebutuhan AK golongan
+  // (dipakai saat "Ada Ijazah Baru Setelah 2023" = 'Ada')
+  FAKTOR_NILAI_PENDIDIKAN: 0.25,
+
+  // Opsi dropdown "Ada Ijazah Baru Setelah 2023" — dipakai bersama oleh
+  // Check Eligible (EligibilityService.gs) & Opsi B (DocGen.gs) supaya
+  // aturan & pilihannya selalu konsisten di kedua tempat.
+  IJAZAH_BARU_2023_LIST: ['Ada', 'Tidak'],
+
+  // ------------------------------------------------------------------
+  // DASHBOARD ELIGIBLE KENAIKAN PANGKAT (menu Kenaikan Pangkat > Check
+  // Eligible) — MODUL BARU, terpisah dari mesin Angka Kredit di atas.
+  // Dashboard ini murni skrining berbasis MASA KERJA (TMT golongan),
+  // bukan penghitungan Angka Kredit. Mesin AK di atas TETAP dipakai
+  // apa adanya ketika admin memilih satu nama Dosen dari daftar hasil
+  // skrining ini (lihat PromosiDashboardService.gs).
+  // ------------------------------------------------------------------
+
+  // Jabatan fungsional TENDIK dengan syarat masa kerja 2 tahun (SAMA
+  // dengan Dosen). Tendik yang jabatannya TIDAK ada di daftar ini
+  // otomatis dianggap "Tendik Non Jabatan Fungsional" (syarat 4 tahun).
+  // Dosen memakai JABATAN_FUNGSIONAL_LIST yang sudah ada di atas — TIDAK
+  // diduplikasi di sini supaya satu-satunya sumber kebenaran (single
+  // source of truth) tetap di satu tempat.
+  TENDIK_JABATAN_FUNGSIONAL_LIST: [
+    'Analis Data dan Informasi', 'Analis Sistem Informasi', 'Analis SDM Aparatur',
+    'Apoteker', 'Arsiparis', 'Asisten Apoteker', 'Bidan', 'Dokter', 'Elektromedis',
+    'Fisioterapis', 'Nutrisionis', 'Ortotis Prostetis', 'Perawat', 'Perawat Gigi',
+    'Perekam Medis', 'Pranata Laboratorium Kesehatan', 'Psikolog Klinis', 'Pustakawan',
+    'Radiografer', 'Sanitarian', 'Terapis Gigi dan Mulut', 'Terapis Okupasi',
+    'Terapis Wicara', 'Pranata Laboratorium Pendidikan', 'Pranata Komputer', 'Statistisi',
+    'Analis Kebijakan', 'Perencana', 'Pranata Hubungan Masyarakat', 'Pranata SDM Aparatur',
+    'Analis Pengelolaan Keuangan APBN', 'Pranata Keuangan APBN', 'Pengelola Pengadaan Barang/Jasa'
+  ],
+
+  // Syarat minimal masa kerja (TMT golongan -> TMT target kenaikan) per
+  // kategori pegawai, dalam tahun.
+  MASA_KERJA_MINIMAL: {
+    dosen: 2,
+    tendik_jabatan_fungsional: 2,
+    tendik_non_jabatan_fungsional: 4
+  },
+
+  // Golongan TERTINGGI yang bisa dicapai seorang Dosen pada jabatan
+  // fungsionalnya SAAT INI (kenaikan golongan REGULER dalam jabatan yang
+  // sama -- bukan kenaikan jabatan). Begitu golongan sekarang sudah
+  // mencapai batas ini, TIDAK eligible lagi lewat skrining ini walau
+  // syarat masa kerja terpenuhi (perlu naik JABATAN dulu, proses terpisah
+  // di luar cakupan dashboard ini).
+  JABATAN_GOLONGAN_TERTINGGI: {
+    'Asisten Ahli': 'III/b',
+    'Lektor': 'III/d',
+    'Lektor Kepala': 'IV/c',
+    'Guru Besar': 'IV/e'
+  },
+
+  // Rentang golongan "Kenaikan Pangkat Reguler" berdasarkan Tingkat
+  // Pendidikan -- berlaku untuk Tendik NON Jabatan Fungsional (PNS yang
+  // tidak memegang jabatan fungsional tertentu, naik pangkat murni
+  // berdasarkan pendidikan & masa kerja). `min` tidak dipakai untuk
+  // skrining eligible (hanya `max` -- batas atas golongan reguler),
+  // disimpan untuk referensi/dokumentasi lengkap.
+  // CATATAN: key di sini harus cocok dengan isi kolom PENDIDIKAN di sheet
+  // "Data Utama" SETELAH dinormalisasi oleh pendidikanTier_() -- lihat
+  // PromosiDashboardService.gs untuk daftar variasi penulisan yang dikenali.
+  PENDIDIKAN_GOLONGAN_REGULER: {
+    'SD': { min: 'I/a', max: 'I/d' },
+    'SMP': { min: 'I/c', max: 'I/d' },
+    'SMA/SMK': { min: 'II/a', max: 'III/d' },
+    'D-I': { min: 'II/b', max: 'III/d' },
+    'D-II': { min: 'II/c', max: 'III/d' },
+    'D-III': { min: 'II/c', max: 'III/d' },
+    'D-IV/S-1': { min: 'III/a', max: 'III/d' },
+    'S-2': { min: 'III/b', max: 'III/d' },
+    'S-3': { min: 'III/c', max: 'III/d' }
+  },
+
+  // ------------------------------------------------------------------
+  // MODUL PENSIUN — DPCP & SUPER
+  // ------------------------------------------------------------------
+
+  // Ambang batas "akan pensiun" untuk dashboard awal menu Pensiun >
+  // DPCP (dikelompokkan per unit/fakultas).
+  PENSIUN_DASHBOARD_AMBANG_TAHUN: 1,
+
+  // REVISI: awalnya hanya BUP/Meninggal/Diberhentikan (dari kode referensi
+  // DPCP). Alur usulan Pensiun memakai istilah berbeda ("Pengunduran Diri",
+  // "Uzur") yang TIDAK sepenuhnya sama dengan "Diberhentikan" -- keduanya
+  // ditambahkan di sini (bukan mengganti yang lama) supaya Admin tetap
+  // punya semua pilihan saat membuat DPCP. Teks jp1/jp2/jp3 untuk 2 opsi
+  // baru ini ada di pensiunGen_hitungJenisPensiunFields_ (PensiunGenerator.gs)
+  // -- PERLU DIVERIFIKASI Titto, karena saya tidak punya rujukan resmi
+  // untuk redaksi hukum persis yang dipakai kampus Anda.
+  JENIS_PENSIUN_LIST: ['BUP', 'Meninggal', 'Diberhentikan', 'Pengunduran Diri', 'Uzur'],
+
+  // ------------------------------------------------------------------
+  // ALUR USULAN PENSIUN (User -> Admin) -- dokumen tambahan wajib per
+  // Jenis Pensiun, sesuai spesifikasi. 'BUP' tidak butuh dokumen tambahan
+  // di luar surat pengantar standar (selalu wajib, lihat UsulanPensiunService.gs).
+  // ------------------------------------------------------------------
+  USULAN_PENSIUN_DOKUMEN_TAMBAHAN: {
+    'BUP': [],
+    'Meninggal': ['Surat Bukti Kematian'],
+    'Uzur': ['Bukti Tes Kesehatan'],
+    'Pengunduran Diri': ['Surat Pernyataan Pengunduran Diri', 'Surat Pengantar Pimpinan Unit']
+  },
+
+  // ------------------------------------------------------------------
+  // MENU KONTRAK
+  // ------------------------------------------------------------------
+  // Nilai kolom JENIS PEG (jenis_peg) di Data Utama yang berhak mengakses
+  // Menu Kontrak untuk diri sendiri (peran 'normal', setelah diizinkan
+  // admin) maupun yang bisa diajukan peran 'user'. Pencocokan case-
+  // insensitive & toleran spasi (lihat cariOpsiCocok_ pola yang sama).
+  KONTRAK_JENIS_PEG_ELIGIBLE: ['Tenaga Profesional', 'Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan', 'KDRP'],
+
+  // Besaran upah (angka murni -- teks rupiah & terbilang dihitung otomatis
+  // lewat formatRupiah_/terbilang_ yang sudah ada, BUKAN teks hardcode,
+  // supaya konsisten & gampang diubah kalau nominal berubah nanti).
+  KONTRAK_UPAH_TIER: {
+    tier1: 2903600, // Pendidikan S2 / Sp1
+    tier2: 3026400  // Pendidikan S3 / Sp2
+  },
+
+  // ------------------------------------------------------------------
+  // SISTEM PERAN (ROLE) & HAK AKSES
+  // ------------------------------------------------------------------
+  // 4 peran, dari paling terbatas ke paling luas:
+  //   'normal'      - hanya lihat data diri sendiri, tidak ada menu lain
+  //   'user'        - Check Eligible / dashboard Pensiun + ajukan usulan
+  //                   (tidak bisa Opsi A/B, tidak bisa generate DPCP/SUPER)
+  //   'admin'       - proses penuh (Opsi A/B, generate DPCP/SUPER, dsb.)
+  //   'super_admin' - sama seperti admin + Menu Perubahan Status Akun
+  ROLE_LIST: ['normal', 'user', 'admin', 'super_admin'],
+
+  // Seed SATU KALI (ditulis ke sheet "User Roles" saat sheet itu pertama
+  // kali dibuat -- bukan dievaluasi ulang setiap saat, supaya perubahan
+  // manual Super Admin lewat Menu Perubahan Status Akun tidak tertimpa
+  // lagi oleh aturan default ini di kemudian hari).
+  SEED_SUPER_ADMIN_NIP: '200103310225061024',
+  SEED_ADMIN_UNIT_ES_II: 'Direktorat Sumber Daya Manusia',
+
+  // Field data diri yang boleh dilihat akun berperan 'normal' (tampilan
+  // "Profil Saya" -- satu-satunya yang mereka lihat, tidak ada menu lain).
+  PROFIL_NORMAL_FIELDS: ['nama_lengkap', 'tgl_lhr', 'golongan', 'status_kepegawaian', 'status_bekerja', 'jabatan', 'tmt_pensiun_bup'],
+
+  // ------------------------------------------------------------------
+  // ALUR USULAN KENAIKAN PANGKAT (User -> Admin)
+  // ------------------------------------------------------------------
+  // Kata kunci (dicek sebagai substring pada kolom STATUS KEPEGAWAIAN,
+  // case-insensitive) yang menentukan notifikasi status akhir usulan
+  // SETELAH admin selesai generate Opsi A/B: cocok salah satu kata kunci
+  // di sini -> "Siap diusulkan ke-SIASN"; selain itu (termasuk "Pegawai
+  // Tetap Undip"/Non ASN) -> "Sedang dibuatkan SK". SESUAIKAN daftar ini
+  // kalau istilah di sheet Anda berbeda.
+  USULAN_KP_KATA_KUNCI_PNS: ['pns'],
+  USULAN_KP_NOTIF_SIASN: 'Siap diusulkan ke-SIASN',
+  USULAN_KP_NOTIF_SK: 'Sedang dibuatkan SK'
+};

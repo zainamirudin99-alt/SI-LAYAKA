@@ -1,0 +1,315 @@
+/**
+ * =================================================================
+ * DOCUMENTGENERATOR.GS
+ * Menggabungkan data pegawai + data form ke dalam template Google
+ * Docs, lalu menghasilkan PREVIEW (embed) atau file PDF FINAL
+ * tersimpan otomatis ke folder Drive output.
+ *
+ * PEMBARUAN (fitur "copy/tambah data" Opsi A & B):
+ * previewDocument() dan generateDocument() sekarang menerima payload
+ * berbentuk BANYAK entri sekaligus (payload.entries = array), sehingga
+ * beberapa isian Opsi A/B (mis. 2 pegawai atau 2 periode berbeda) bisa
+ * digabung jadi SATU dokumen/PDF akhir (satu entri = satu "halaman"
+ * hasil render template, digabung berurutan dengan page break).
+ * Payload lama (formData + targetNip tunggal) TETAP didukung untuk
+ * kompatibilitas ke belakang — otomatis diperlakukan sebagai 1 entri.
+ * =================================================================
+ */
+
+/**
+ * Membangun dataContext gabungan: data pegawai (dari sheet) + data form
+ * (dari input pengguna) + field turunan khusus DocGen (lihat DocGen.gs).
+ *
+ * Field turunan (mis. total_ak_baru, rekomendasi) DIHITUNG oleh
+ * docGen_buildDerivedFields_ di DocGen.gs sebagai NILAI FALLBACK — kalau
+ * template Google Docs yang dipakai punya rumus "set" sendiri untuk field
+ * yang sama, hasil rumus template itulah yang dipakai (diproses TemplateEngine
+ * setelah dataContext ini disiapkan). TIDAK memakai/mengubah mesin di
+ * EligibilityService.gs. Angka pada dokumen resmi hasil generate karenanya
+ * bisa berbeda dari angka estimasi di halaman Check Eligible; ini memang
+ * disengaja (lihat catatan di DocGen.gs).
+ *
+ * ALIAS NAMA FIELD: form Opsi B (JavaScriptClient.html) memakai nama field
+ * pendek untuk sebagian input (mis. "jumlah_angka_kredit_diperoleh",
+ * "ada_ijazah_baru_2023"), sedangkan tag di dalam template Google Docs
+ * memakai nama panjang ("jumlah_angka_kredit_yang_diperoleh_saat_integrasi",
+ * "ada_ijazah_baru_setelah_2023"). Tanpa alias ini, rumus "set" di dalam
+ * template membaca nilai undefined/NaN meski form sudah diisi lengkap.
+ * Kedua nama sengaja disediakan sekaligus di sini supaya template BOLEH
+ * memakai nama pendek ATAU panjang, dan form tidak perlu diubah.
+ *
+ * @param {Object} employee
+ * @param {Object} formData
+ * @param {string} [subLayanan]  'AK Konversi Tahunan' | 'AK Konversi Kumulatif' | lainnya
+ */
+function buildDataContext_(employee, formData, subLayanan) {
+  formData = formData || {};
+  const derived = docGen_buildDerivedFields_(employee, formData, subLayanan);
+
+  const alias = {};
+  if (formData.jumlah_angka_kredit_diperoleh !== undefined) {
+    alias.jumlah_angka_kredit_yang_diperoleh_saat_integrasi = formData.jumlah_angka_kredit_diperoleh;
+  }
+  if (formData.ada_ijazah_baru_2023 !== undefined) {
+    alias.ada_ijazah_baru_setelah_2023 = formData.ada_ijazah_baru_2023;
+  }
+
+  const ctx = Object.assign({}, employee, formData, alias, derived);
+  // "today" tersedia otomatis lewat resolveIdentifier_, tidak perlu disuntik di sini.
+  return ctx;
+}
+
+/**
+ * Salin template Google Docs berdasarkan file ID, isi seluruh tag,
+ * lalu kembalikan objek Document yang sudah ter-render (belum di-trash).
+ * @param {string} templateFileId
+ * @param {Object} dataContext
+ * @param {string} tempName
+ * @param {Function} [preProcessFn]  Opsional: (doc, dataContext) => void,
+ *   dijalankan SEBELUM tag {{..}} diisi (dipakai mis. oleh modul Pensiun
+ *   untuk menyisipkan foto ke {{foto}} sebelum tag itu "dihabiskan" oleh
+ *   pass evaluasi umum). Tidak dipakai oleh Kenaikan Pangkat -- default
+ *   tanpa efek apa pun bila tidak diisi.
+ */
+function renderTemplateCopy_(templateFileId, dataContext, tempName, preProcessFn) {
+  const templateFile = DriveApp.getFileById(templateFileId);
+  const copy = templateFile.makeCopy(tempName);
+  const doc = DocumentApp.openById(copy.getId());
+  const body = doc.getBody();
+
+  if (preProcessFn) preProcessFn(doc, dataContext);
+
+  renderDocumentBody_(body, dataContext);
+  // Proses juga header & footer bila ada tag di sana
+  const header = doc.getHeader();
+  if (header) renderDocumentBody_(header, dataContext);
+  const footer = doc.getFooter();
+  if (footer) renderDocumentBody_(footer, dataContext);
+
+  doc.saveAndClose();
+  return copy; // File Drive
+}
+
+/**
+ * Susun payload menjadi daftar entri siap-render: masing-masing berisi
+ * {employee, dataContext}. Menerima BAIK payload.entries (array — fitur
+ * "copy/tambah data") MAUPUN payload.formData + payload.targetNip tunggal
+ * (kompatibel dengan pemanggilan versi lama).
+ * @param {string} sessionToken
+ * @param {Object} employeeSession  Data pegawai pemilik sesi (fallback bila targetNip kosong)
+ * @param {Object} payload          { templateFileId, subLayanan, entries? , formData?, targetNip? }
+ */
+function buildEntriesContexts_(sessionToken, employeeSession, payload) {
+  const rawEntries = (Array.isArray(payload.entries) && payload.entries.length)
+    ? payload.entries
+    : [{ formData: payload.formData, targetNip: payload.targetNip }];
+
+  return rawEntries
+    .filter(e => e && e.formData)
+    .map(e => {
+      const employee = e.targetNip
+        ? getEmployeeFullData(sessionToken, e.targetNip)
+        : employeeSession;
+      return {
+        employee: employee,
+        dataContext: buildDataContext_(employee, e.formData || {}, payload.subLayanan)
+      };
+    });
+}
+
+/**
+ * Gabungkan hasil render SATU template untuk beberapa entri menjadi SATU
+ * dokumen Google Docs (dipisah page break per entri), lalu kembalikan file
+ * Drive-nya (BELUM dikonversi PDF — dipakai baik untuk preview maupun
+ * generate final). Header/footer dokumen gabungan mengikuti entri PERTAMA
+ * saja (konvensi surat yang dicetak berkelanjutan dalam satu file).
+ */
+function renderMultiEntryDocument_(templateFileId, entries, tempName) {
+  const templateFile = DriveApp.getFileById(templateFileId);
+
+  // Entri pertama = dokumen utama yang menampung SEMUA entri.
+  const mainCopy = templateFile.makeCopy(tempName);
+  const mainDoc = DocumentApp.openById(mainCopy.getId());
+  renderDocumentBody_(mainDoc.getBody(), entries[0].dataContext);
+  const mainHeader = mainDoc.getHeader();
+  if (mainHeader) renderDocumentBody_(mainHeader, entries[0].dataContext);
+  const mainFooter = mainDoc.getFooter();
+  if (mainFooter) renderDocumentBody_(mainFooter, entries[0].dataContext);
+
+  // Entri ke-2 dst: render template SEKALI LAGI di salinan sementara
+  // terpisah (supaya variabel "set" antar-entri tidak saling tertukar),
+  // lalu gabungkan hasilnya (dengan page break) ke dokumen utama, baru
+  // salinan sementara tsb dibuang.
+  for (let i = 1; i < entries.length; i++) {
+    const extraCopy = templateFile.makeCopy(tempName + ' (bagian ' + (i + 1) + ')');
+    const extraDoc = DocumentApp.openById(extraCopy.getId());
+    renderDocumentBody_(extraDoc.getBody(), entries[i].dataContext);
+
+    mainDoc.getBody().appendPageBreak();
+    appendBodyContent_(mainDoc.getBody(), extraDoc.getBody());
+
+    extraDoc.saveAndClose();
+    extraCopy.setTrashed(true);
+  }
+
+  mainDoc.saveAndClose();
+  return mainCopy;
+}
+
+/**
+ * Salin seluruh isi sourceBody ke akhir targetBody, elemen demi elemen,
+ * mempertahankan jenis elemen (paragraf, tabel, daftar, dsb). Dipakai
+ * untuk menggabungkan beberapa hasil render template (fitur multi-entri
+ * Opsi A/B) menjadi SATU dokumen/file akhir.
+ */
+function appendBodyContent_(targetBody, sourceBody) {
+  const total = sourceBody.getNumChildren();
+  for (let i = 0; i < total; i++) {
+    appendElementByType_(targetBody, sourceBody.getChild(i));
+  }
+}
+
+function appendElementByType_(targetBody, el) {
+  const type = el.getType();
+  switch (type) {
+    case DocumentApp.ElementType.PARAGRAPH:
+      targetBody.appendParagraph(el.copy());
+      break;
+    case DocumentApp.ElementType.TABLE:
+      targetBody.appendTable(el.copy());
+      break;
+    case DocumentApp.ElementType.LIST_ITEM:
+      targetBody.appendListItem(el.copy());
+      break;
+    case DocumentApp.ElementType.INLINE_IMAGE:
+      targetBody.appendImage(el.copy());
+      break;
+    case DocumentApp.ElementType.HORIZONTAL_RULE:
+      targetBody.appendHorizontalRule();
+      break;
+    case DocumentApp.ElementType.PAGE_BREAK:
+      targetBody.appendPageBreak();
+      break;
+    default:
+      // Tipe elemen lain (jarang dipakai di template surat) — dilewati
+      // dengan aman agar proses gabung tidak gagal total.
+      break;
+  }
+}
+
+/**
+ * PREVIEW: menghasilkan salinan sementara (bisa berisi >1 entri digabung)
+ * dan mengembalikan URL embed (iframe) untuk ditampilkan di frontend.
+ */
+function previewDocument(sessionToken, payload) {
+  const employeeSession = requireRole_(sessionToken, ['admin', 'super_admin']);
+  try {
+    if (!payload.templateFileId) return { success: false, message: 'Template belum dipilih.' };
+
+    const entries = buildEntriesContexts_(sessionToken, employeeSession, payload);
+    if (!entries.length) return { success: false, message: 'Data isian kosong — minimal 1 entri diperlukan.' };
+
+    const namaAcuan = entries[0].employee.nama_lengkap || entries[0].employee.nama || 'pegawai';
+    const tempName = '[PREVIEW] ' + sanitizeFileName_(namaAcuan) +
+      (entries.length > 1 ? ` (+${entries.length - 1} lainnya)` : '') + ' - ' + new Date().getTime();
+
+    const copyFile = renderMultiEntryDocument_(payload.templateFileId, entries, tempName);
+
+    return {
+      success: true,
+      previewUrl: `https://docs.google.com/document/d/${copyFile.getId()}/preview`,
+      tempFileId: copyFile.getId(),
+      jumlahEntri: entries.length
+    };
+  } catch (err) {
+    return { success: false, message: 'Gagal membuat preview: ' + err.message };
+  }
+}
+
+/**
+ * GENERATE: render dokumen final (bisa berisi >1 entri digabung dalam
+ * satu file), konversi ke PDF, simpan otomatis ke folder Drive output,
+ * hapus file Docs sementara, kembalikan link download langsung ke frontend.
+ */
+function generateDocument(sessionToken, payload) {
+  const employeeSession = requireRole_(sessionToken, ['admin', 'super_admin']);
+  try {
+    if (!payload.templateFileId) return { success: false, message: 'Template belum dipilih.' };
+
+    const entries = buildEntriesContexts_(sessionToken, employeeSession, payload);
+    if (!entries.length) return { success: false, message: 'Data isian kosong — minimal 1 entri diperlukan.' };
+
+    const namaUtama = entries[0].employee.nama_lengkap || entries[0].employee.nama || 'pegawai';
+    const fileNameBase = entries.length > 1
+      ? `${namaUtama}-dkk-${entries.length}data-${payload.subLayanan}`
+      : `${namaUtama}-${entries[0].employee.nip}-${payload.subLayanan}`;
+    const fileName = sanitizeFileName_(fileNameBase);
+
+    const docCopy = renderMultiEntryDocument_(payload.templateFileId, entries, fileName);
+
+    // REVISI (konfirmasi Titto): output KP sekarang Google Docs, BUKAN
+    // PDF -- disimpan di folder khusus "Kenaikan Pangkat" (terpisah dari
+    // Pensiun/Kontrak).
+    const outputFolder = getOrCreateOutputSubfolder_('Kenaikan Pangkat');
+    pindahFileKeFolder_(docCopy, outputFolder);
+
+    // REVISI (konfirmasi Titto): status usulan KP baru berubah ke
+    // notifikasi akhir setelah KEDUA Opsi A DAN Opsi B selesai diproses
+    // untuk NIP yang sama (pola sama seperti DPCP+SUPER Pensiun) --
+    // bukan lagi cukup salah satu opsi saja.
+    const nipYangDigenerate = entries.map(e => String(e.employee.nip || '').trim());
+    nipYangDigenerate.forEach(nip => tandaiOpsiUsulanKpSelesai_(nip, payload.subLayanan, employeeSession.nip));
+
+    return {
+      success: true,
+      message: entries.length > 1
+        ? `Dokumen berhasil dibuat (${entries.length} data digabung dalam satu file).`
+        : 'Dokumen berhasil dibuat.',
+      fileId: docCopy.getId(),
+      fileName: fileName,
+      viewUrl: docCopy.getUrl(),
+      jumlahEntri: entries.length
+    };
+  } catch (err) {
+    return { success: false, message: 'Gagal generate dokumen: ' + err.message };
+  }
+}
+
+/**
+ * ENTRY POINT WEB APP: Menerima request rpc dari Vercel
+ * untuk meng-generate / preview Google Docs.
+ */
+function doPost(e) {
+  try {
+    const postData = JSON.parse(e.postData.contents);
+    const method = postData.method;
+    const params = postData.params || [];
+    
+    // Daftar fungsi yang diijinkan dipanggil oleh Vercel
+    const allowedMethods = ['previewDocument', 'generateDocument'];
+    if (allowedMethods.indexOf(method) === -1) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        message: 'Fungsi "' + method + '" tidak diijinkan untuk diakses secara remote.'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    const fn = this[method];
+    if (typeof fn !== 'function') {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        message: 'Fungsi "' + method + '" tidak ditemukan di Apps Script.'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    const result = fn.apply(null, params);
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      message: 'Error internal Apps Script: ' + err.message
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}

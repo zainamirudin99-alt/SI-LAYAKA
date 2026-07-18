@@ -1,0 +1,597 @@
+/**
+ * =================================================================
+ * PENSIUNGENERATOR.GS  (MODUL BARU)
+ * Generate dokumen DPCP (Data Perseorangan Calon Penerima pensiun) dan
+ * SUPER (Surat Pernyataan Pensiun).
+ *
+ * Logika (rumus masa kerja, aturan jenis pensiun, konvensi dash pada
+ * data keluarga, dst.) DIPORTING APA ADANYA dari kode referensi yang
+ * diberikan (codegs_v6.txt / index_v7.txt) -- lihat komentar "REF:" di
+ * tiap fungsi untuk menandai bagian mana yang jadi rujukan. Yang BEDA
+ * dari referensi hanyalah CARA template diisi: referensi memakai
+ * body.replaceText() manual + fillRepeatingTableRows() sendiri, di sini
+ * memakai TemplateEngine.gs & mekanisme Template/Glosarium yang sudah
+ * ada supaya konsisten dengan modul Kenaikan Pangkat (template tetap
+ * diunggah lewat menu Template, placeholder {{#pasangan}}/{{#anak}}
+ * memakai mekanisme loop tabel yang SAMA persis -- termasuk tabel
+ * bersarang, lihat findAllTablesRecursive_ di TemplateEngine.gs).
+ *
+ * Berbeda dari Kenaikan Pangkat (yang template-nya BOLEH berisi rumus
+ * "set"/ternary sendiri), template DPCP & SUPER TIDAK memakai rumus
+ * apa pun -- seluruh nilai (termasuk mk_golongan/mk_pns/mk_pensiun,
+ * jenis_pensiun1/2/3, dsb.) SUDAH DIHITUNG PENUH di sini sebelum
+ * diserahkan ke TemplateEngine, persis seperti referensi. Template
+ * hanya berfungsi sebagai media penggantian placeholder.
+ * =================================================================
+ */
+
+/** REF: toUpper() */
+function pensiunGen_upper_(str) {
+  return str ? String(str).toUpperCase().trim() : '';
+}
+
+/** REF: formatTanggalIndonesia() -- versi UPPERCASE, dipakai seluruh tanggal DPCP. */
+function pensiunGen_tanggalUpper_(value) {
+  const formatted = formatTanggalIndonesia_(value);
+  return formatted ? formatted.toUpperCase() : '';
+}
+
+/** REF: formatTanggalIndonesiaBiasa() -- versi BUKAN uppercase, khusus {{tanggal_super}}. */
+function pensiunGen_tanggalBiasa_(value) {
+  return formatTanggalIndonesia_(value) || '';
+}
+
+/** REF: dash() -- "-" bila kosong. */
+function pensiunGen_dash_(val) {
+  const s = (val !== null && val !== undefined) ? String(val).trim() : '';
+  return s === '' ? '-' : s;
+}
+
+/** REF: toUpperOrDash() */
+function pensiunGen_upperOrDash_(val) {
+  const s = pensiunGen_upper_(val);
+  return s === '' ? '-' : s;
+}
+
+/** REF: formatTanggalOrDash() */
+function pensiunGen_tanggalOrDash_(val) {
+  if (!val || String(val).trim() === '') return '-';
+  const r = pensiunGen_tanggalUpper_(val);
+  return r === '' ? '-' : r;
+}
+
+/**
+ * REF: buildFamilyRows() -- susun array baris keluarga siap-cetak:
+ * - baris yang seluruh field-nya kosong DIBUANG (tidak dicetak jadi baris)
+ * - baris yang terisi sebagian -> field kosong otomatis "-"
+ * - kalau TIDAK ADA data sama sekali -> 1 baris dash ("-") semua field
+ * - kolom "no" otomatis berurutan 1,2,3,... sesuai baris yang tercetak
+ */
+function pensiunGen_buildFamilyRows_(rawArray, fieldNames, dateFields, upperFields) {
+  const filtered = (rawArray || []).filter(item => {
+    if (!item) return false;
+    return fieldNames.some(f => item[f] !== null && item[f] !== undefined && String(item[f]).trim() !== '');
+  });
+
+  if (filtered.length === 0) {
+    const dashRow = { no: '-' };
+    fieldNames.forEach(f => { dashRow[f] = '-'; });
+    return [dashRow];
+  }
+
+  return filtered.map((item, idx) => {
+    const row = { no: String(idx + 1) };
+    fieldNames.forEach(f => {
+      const val = item[f];
+      if (dateFields.indexOf(f) !== -1) row[f] = pensiunGen_tanggalOrDash_(val);
+      else if (upperFields.indexOf(f) !== -1) row[f] = pensiunGen_upperOrDash_(val);
+      else row[f] = pensiunGen_dash_(val);
+    });
+    return row;
+  });
+}
+
+// REF: PASANGAN_FIELDS / ANAK_FIELDS / *_DATE_FIELDS / *_UPPER_FIELDS
+// Nama field APA ADANYA dari referensi (tanpa kurung {{ }}) -- harus
+// cocok persis dengan tag di dalam template Google Docs DPCP.
+const PENSIUN_PASANGAN_FIELDS = ['nik', 'nama_pasangan', 'tgl_lahir_pasangan', 'tgl_kawin', 'tgl_cerai', 'keterangan_pasangan'];
+const PENSIUN_ANAK_FIELDS = ['nik', 'nama_anak', 'tg_lahir_anak', 'nama_ortu', 'keterangan_anak'];
+const PENSIUN_PASANGAN_DATE_FIELDS = ['tgl_lahir_pasangan', 'tgl_kawin', 'tgl_cerai'];
+const PENSIUN_ANAK_DATE_FIELDS = ['tg_lahir_anak'];
+const PENSIUN_PASANGAN_UPPER_FIELDS = ['nama_pasangan'];
+const PENSIUN_ANAK_UPPER_FIELDS = ['nama_anak', 'nama_ortu'];
+
+/**
+ * REF: bagian "Variabel jenis pensiun" + "{{akhir_tmt_kerja}}" di dalam
+ * generateDPCPDocument(). Dipisah jadi fungsi sendiri di sini supaya
+ * bisa diuji terpisah.
+ */
+function pensiunGen_hitungJenisPensiunFields_(formData) {
+  let jp1 = '', jp2 = '', jp3 = '', namaTtd = '', nipTtd = '';
+
+  if (formData.jenis_pensiun === 'BUP') {
+    jp1 = 'BUP';
+    jp2 = 'MENCAPAI BATAS USIA PENSIUN';
+    jp3 = 'PEGAWAI NEGERI SIPIL YANG BERSANGKUTAN';
+    namaTtd = pensiunGen_upper_(formData.nama_lengkap);
+    nipTtd = formData.nip ? 'NIP. ' + formData.nip : '';
+  } else if (formData.jenis_pensiun === 'Meninggal') {
+    jp1 = 'MENINGGAL';
+    jp2 = 'AKAN DIBERHENTIKAN/YANG MENINGGAL DUNIA, TEWAS, ATAU HILANG';
+    jp3 = 'SUAMI/ISTRI PNS YANG BERSANGKUTAN';
+    // REF: nama/NIK penanda tangan = pasangan pertama pada kasus Meninggal.
+    // Referensi membaca formData.nama_suami_istri_1/nik_suami_istri_1
+    // (field bernomor tetap dari form lama). Di sini payload.pasangan[0]
+    // adalah sumber yang SAMA (array pasangan yang sama dikirim frontend) --
+    // jadi kalau field bernomor lama tidak dikirim, jatuh balik ke situ.
+    const pasangan1 = (formData.pasangan && formData.pasangan[0]) || {};
+    namaTtd = pensiunGen_upper_(formData.nama_suami_istri_1 || pasangan1.nama_pasangan);
+    const nikTtd = formData.nik_suami_istri_1 || pasangan1.nik;
+    nipTtd = nikTtd ? 'NIK. ' + nikTtd : '';
+  } else if (formData.jenis_pensiun === 'Diberhentikan') {
+    jp1 = 'DIBERHENTIKAN';
+    jp2 = 'AKAN DIBERHENTIKAN/YANG MENINGGAL DUNIA, TEWAS, ATAU HILANG';
+    jp3 = 'PEGAWAI NEGERI SIPIL YANG BERSANGKUTAN';
+    namaTtd = pensiunGen_upper_(formData.nama_lengkap);
+    nipTtd = formData.nip ? 'NIP. ' + formData.nip : '';
+  } else if (formData.jenis_pensiun === 'Pengunduran Diri') {
+    // BELUM DIVERIFIKASI Titto -- redaksi tebakan terbaik, SAMAKAN dengan
+    // format SK resmi Anda sebelum dipakai produksi sungguhan.
+    jp1 = 'PENGUNDURAN DIRI';
+    jp2 = 'MENGAJUKAN PERMINTAAN SENDIRI';
+    jp3 = 'PEGAWAI NEGERI SIPIL YANG BERSANGKUTAN';
+    namaTtd = pensiunGen_upper_(formData.nama_lengkap);
+    nipTtd = formData.nip ? 'NIP. ' + formData.nip : '';
+  } else if (formData.jenis_pensiun === 'Uzur') {
+    // BELUM DIVERIFIKASI Titto -- redaksi tebakan terbaik, SAMAKAN dengan
+    // format SK resmi Anda sebelum dipakai produksi sungguhan.
+    jp1 = 'UZUR';
+    jp2 = 'TIDAK CAKAP JASMANI DAN/ATAU ROHANI';
+    jp3 = 'PEGAWAI NEGERI SIPIL YANG BERSANGKUTAN';
+    namaTtd = pensiunGen_upper_(formData.nama_lengkap);
+    nipTtd = formData.nip ? 'NIP. ' + formData.nip : '';
+  }
+
+  // REF: {{akhir_tmt_kerja}}
+  // - BUP                                       : sama dengan tmt_pensiun
+  // - Meninggal/Diberhentikan/Pengunduran Diri/Uzur : pakai tgl_peristiwa_asli
+  //   (tanggal peristiwa input manual)
+  let akhirTmtKerja;
+  if (formData.jenis_pensiun === 'BUP') {
+    akhirTmtKerja = pensiunGen_tanggalUpper_(formData.tmt_pensiun);
+  } else {
+    akhirTmtKerja = pensiunGen_tanggalUpper_(formData.tgl_peristiwa_asli || formData.bulan_terakhir_bekerja || formData.tmt_pensiun);
+  }
+
+  return { jp1, jp2, jp3, namaTtd, nipTtd, akhirTmtKerja };
+}
+
+/**
+ * Bangun dataContext siap-render untuk dokumen DPCP dari formData yang
+ * dikirim frontend (lihat payload di JavaScriptClient.html -- field-nya
+ * SAMA persis dengan payload referensi index_v7.txt). Tag di template
+ * yang didukung: lihat daftar di TemplateAdmin.gs (Glosarium > Pensiun).
+ */
+function pensiunGen_buildDpcpContext_(formData) {
+  formData = formData || {};
+
+  const fmtTmtGol = pensiunGen_tanggalUpper_(formData.tmt_gol);
+  const pangkatGabungan = `${pensiunGen_upper_(formData.pangkat)}/${pensiunGen_upper_(formData.golongan)}/${fmtTmtGol}`;
+  const jenisPensiunFields = pensiunGen_hitungJenisPensiunFields_(formData);
+
+  const ctx = {
+    nip: formData.nip || '',
+    nama_lengkap: pensiunGen_upper_(formData.nama_lengkap),
+    nama: pensiunGen_upper_(formData.nama),
+    tmp_lhr: pensiunGen_upper_(formData.tmp_lhr),
+    tgl_lhr: pensiunGen_tanggalUpper_(formData.tgl_lhr),
+    tmt_pengangkat: pensiunGen_tanggalUpper_(formData.tmt_cpns),
+    golongan: pensiunGen_upper_(formData.golongan),
+    pangkat: pangkatGabungan,
+    tmt_gol: fmtTmtGol,
+    jabatan: pensiunGen_upper_(formData.jabatan),
+    tmt_jab: pensiunGen_tanggalUpper_(formData.tmt_jab),
+    tmt_pensiun: pensiunGen_tanggalUpper_(formData.tmt_pensiun),
+    unit_es_ii: pensiunGen_upper_(formData.unit_es_ii),
+    unit_kerja: pensiunGen_upper_(formData.unit_es_ii),
+    gaji_pokok: formData.gaji_pokok || '',
+    mk_kp_terakhir: pensiunGen_upper_(formData.mk_kp_terakhir) || '0 TAHUN 0 BULAN',
+    mk_golongan: pensiunGen_upper_(formData.mk_golongan),
+    mk_pns: pensiunGen_upper_(formData.mk_pns),
+    mk_pensiun: pensiunGen_upper_(formData.mk_pensiun),
+    alamat: pensiunGen_upper_(formData.alamat),
+    pendidikan_pertama: pensiunGen_upper_(formData.pendidikan_pertama),
+    cltn: pensiunGen_upper_(formData.cltn) || '0 TAHUN 0 BULAN',
+    pmk: pensiunGen_upper_(formData.pmk) || '0 TAHUN 0 BULAN',
+    akhir_tmt_kerja: jenisPensiunFields.akhirTmtKerja,
+    bulan_terakhir_bekerja: pensiunGen_tanggalUpper_(formData.bulan_terakhir_bekerja),
+    jenis_pensiun1: jenisPensiunFields.jp1,
+    jenis_pensiun2: jenisPensiunFields.jp2,
+    jenis_pensiun3: jenisPensiunFields.jp3,
+    nama_ttd: jenisPensiunFields.namaTtd,
+    nip_ttd: jenisPensiunFields.nipTtd,
+    tgl_buat: pensiunGen_tanggalUpper_(new Date()),
+
+    pasangan: pensiunGen_buildFamilyRows_(formData.pasangan, PENSIUN_PASANGAN_FIELDS, PENSIUN_PASANGAN_DATE_FIELDS, PENSIUN_PASANGAN_UPPER_FIELDS),
+    anak: pensiunGen_buildFamilyRows_(formData.anak, PENSIUN_ANAK_FIELDS, PENSIUN_ANAK_DATE_FIELDS, PENSIUN_ANAK_UPPER_FIELDS)
+  };
+
+  // fotoBase64 diteruskan apa adanya (bukan untuk dicetak sebagai teks --
+  // ditangani khusus oleh pensiunGen_insertFoto_ SEBELUM tag lain diisi).
+  ctx._fotoBase64 = formData.fotoBase64 || '';
+
+  return ctx;
+}
+
+/**
+ * REF: bagian "PROSES FOTO" di generateDPCPDocument(). Dipanggil sebagai
+ * preProcessFn oleh renderTemplateCopy_ SEBELUM tag {{..}} lain diisi,
+ * supaya literal "{{foto}}" masih ada untuk dicari lewat findText() --
+ * kalau dijalankan SESUDAH pass tag umum, tag itu sudah keburu diganti
+ * string kosong (foto dianggap identifier biasa yang tidak dikenal).
+ */
+function pensiunGen_insertFoto_(doc, dataContext) {
+  const body = doc.getBody();
+  const fotoBase64 = dataContext._fotoBase64;
+
+  if (!fotoBase64) {
+    body.replaceText('\\{\\{\\s*foto\\s*\\}\\}', '');
+    return;
+  }
+
+  const found = body.findText('{{foto}}') || body.findText('{{ foto }}');
+  if (!found) return; // template tidak punya placeholder foto -- lewati diam-diam
+
+  const textObj = found.getElement();
+  const textString = textObj.getText();
+  const parentParagraph = textObj.getParent().asParagraph();
+
+  try {
+    const splitData = fotoBase64.split(',');
+    const contentType = splitData[0].match(/:(.*?);/)[1];
+    const rawBase64 = splitData[1];
+    const imageBlob = Utilities.newBlob(Utilities.base64Decode(rawBase64), contentType, 'foto_pegawai.jpg');
+
+    const inlineImage = parentParagraph.appendInlineImage(imageBlob);
+    inlineImage.setWidth(120);
+    inlineImage.setHeight(160);
+
+    textObj.setText(textString.replace('{{foto}}', '').replace('{{ foto }}', ''));
+  } catch (imgErr) {
+    textObj.setText(textString.replace('{{foto}}', '[Gagal Memproses Gambar]').replace('{{ foto }}', '[Gagal Memproses Gambar]'));
+  }
+}
+
+/**
+ * REF: bagian "SIMPAN KE SPREADSHEET" di generateDPCPDocument() --
+ * sheet "Save data" (dibuat otomatis bila belum ada), dipakai fitur
+ * "gunakan data generate sebelumnya" (pensiunGen_getLatestSavedData_).
+ */
+const PENSIUN_SAVE_SHEET_NAME = 'Save data';
+const PENSIUN_SAVE_HEADERS = [
+  'Timestamp', 'Jenis Pensiun', 'NIP', 'Nama Lengkap', 'Nama Panggilan',
+  'Tempat Lahir', 'Tanggal Lahir', 'TMT CPNS', 'Pangkat', 'Golongan',
+  'TMT Golongan', 'Jabatan', 'TMT Jabatan', 'TMT Pensiun', 'Bulan Terakhir Bekerja',
+  'Unit Kerja', 'Gaji Pokok', 'MK KP Terakhir', 'MK Sebelum CPNS', 'CLTN', 'PMK',
+  'Pendidikan Pertama', 'Alamat',
+  'NIK Pasangan 1', 'Nama Pasangan 1', 'Tgl Lahir Pasangan 1', 'Tgl Nikah Pasangan 1', 'Tgl Cerai/MD Pasangan 1', 'Istri Ke-1',
+  'NIK Pasangan 2', 'Nama Pasangan 2', 'Tgl Lahir Pasangan 2', 'Tgl Nikah Pasangan 2', 'Tgl Cerai/MD Pasangan 2', 'Istri Ke-2',
+  'NIK Anak 1', 'Nama Anak 1', 'Tgl Lahir Anak 1', 'Nama Ortu Anak 1', 'Ket Anak 1',
+  'NIK Anak 2', 'Nama Anak 2', 'Tgl Lahir Anak 2', 'Nama Ortu Anak 2', 'Ket Anak 2',
+  'NIK Anak 3', 'Nama Anak 3', 'Tgl Lahir Anak 3', 'Nama Ortu Anak 3', 'Ket Anak 3',
+  'NIK Anak 4', 'Nama Anak 4', 'Tgl Lahir Anak 4', 'Nama Ortu Anak 4', 'Ket Anak 4',
+  'NIK Anak 5', 'Nama Anak 5', 'Tgl Lahir Anak 5', 'Nama Ortu Anak 5', 'Ket Anak 5'
+];
+
+function pensiunGen_ensureSaveSheet_() {
+  const ss = getSpreadsheet_();
+  let sheet = ss.getSheetByName(PENSIUN_SAVE_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(PENSIUN_SAVE_SHEET_NAME);
+    sheet.appendRow(PENSIUN_SAVE_HEADERS);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+/** REF: generateAnakRows() -- 5 slot anak tetap (dash bila kosong), khusus untuk baris log spreadsheet. */
+function pensiunGen_anakLogValues_(anakArray) {
+  const rows = [];
+  const arr = anakArray || [];
+  for (let i = 0; i < 5; i++) {
+    const item = arr[i] || {};
+    const useDash = PENSIUN_ANAK_FIELDS.some(f => item[f] && String(item[f]).trim() !== '');
+    const d = v => (useDash ? pensiunGen_dash_(v) : (v || ''));
+    const du = v => (useDash ? pensiunGen_upperOrDash_(v) : pensiunGen_upper_(v));
+    rows.push(d(item.nik), du(item.nama_anak), d(item.tg_lahir_anak), du(item.nama_ortu), d(item.keterangan_anak));
+  }
+  return rows;
+}
+
+function pensiunGen_saveLog_(formData) {
+  const sheet = pensiunGen_ensureSaveSheet_();
+
+  const pasanganLog = formData.pasangan || [];
+  const pas1 = pasanganLog[0] || {};
+  const pas2 = pasanganLog[1] || {};
+  const useDashP1 = PENSIUN_PASANGAN_FIELDS.some(f => pas1[f] && String(pas1[f]).trim() !== '');
+  const useDashP2 = PENSIUN_PASANGAN_FIELDS.some(f => pas2[f] && String(pas2[f]).trim() !== '');
+  const dP1 = v => (useDashP1 ? pensiunGen_dash_(v) : (v || ''));
+  const dP2 = v => (useDashP2 ? pensiunGen_dash_(v) : (v || ''));
+  const dP1u = v => (useDashP1 ? pensiunGen_upperOrDash_(v) : pensiunGen_upper_(v));
+  const dP2u = v => (useDashP2 ? pensiunGen_upperOrDash_(v) : pensiunGen_upper_(v));
+
+  const row = [
+    new Date(),
+    formData.jenis_pensiun || '',
+    formData.nip || '',
+    pensiunGen_upper_(formData.nama_lengkap),
+    pensiunGen_upper_(formData.nama),
+    pensiunGen_upper_(formData.tmp_lhr),
+    formData.tgl_lhr || '',
+    formData.tmt_cpns || '',
+    pensiunGen_upper_(formData.pangkat),
+    pensiunGen_upper_(formData.golongan),
+    formData.tmt_gol || '',
+    pensiunGen_upper_(formData.jabatan),
+    formData.tmt_jab || '',
+    formData.tmt_pensiun || '',
+    formData.bulan_terakhir_bekerja || '',
+    pensiunGen_upper_(formData.unit_es_ii),
+    formData.gaji_pokok || '',
+    formData.mk_kp_terakhir || '',
+    formData.mk_sebelum_cpns || '',
+    formData.cltn || '',
+    formData.pmk || '',
+    pensiunGen_upper_(formData.pendidikan_pertama),
+    pensiunGen_upper_(formData.alamat),
+
+    dP1(pas1.nik), dP1u(pas1.nama_pasangan), dP1(pas1.tgl_lahir_pasangan), dP1(pas1.tgl_kawin), dP1(pas1.tgl_cerai), dP1(pas1.keterangan_pasangan),
+    dP2(pas2.nik), dP2u(pas2.nama_pasangan), dP2(pas2.tgl_lahir_pasangan), dP2(pas2.tgl_kawin), dP2(pas2.tgl_cerai), dP2(pas2.keterangan_pasangan),
+
+    ...pensiunGen_anakLogValues_(formData.anak)
+  ];
+
+  sheet.appendRow(row);
+}
+
+/**
+ * REF: getLatestSavedGenerateData() -- ambil histori generate TERAKHIR
+ * seorang pegawai dari sheet "Save data" untuk fitur "gunakan data
+ * generate sebelumnya" di form DPCP. Return null bila belum pernah ada.
+ */
+function pensiunGen_getLatestSavedData_(nip) {
+  if (!nip) return null;
+  const ss = getSpreadsheet_();
+  const sheet = ss.getSheetByName(PENSIUN_SAVE_SHEET_NAME);
+  if (!sheet) return null;
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return null;
+  const headers = data[0];
+  const idxNip = headers.indexOf('NIP');
+  if (idxNip === -1) return null;
+
+  let lastRow = null;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][idxNip] || '').trim() === String(nip).trim()) lastRow = data[i];
+  }
+  if (!lastRow) return null;
+
+  function col(headerName) {
+    const idx = headers.indexOf(headerName);
+    if (idx === -1) return '';
+    const val = lastRow[idx];
+    if (val instanceof Date) return formatDateYMD_(val);
+    return (val === null || val === undefined) ? '' : String(val);
+  }
+  function cleanVal(v) { return (v === '-') ? '' : v; }
+
+  function pasanganFromCols(suffix) {
+    const nik = cleanVal(col(`NIK Pasangan ${suffix}`));
+    const nama = cleanVal(col(`Nama Pasangan ${suffix}`));
+    const tglLahir = cleanVal(col(`Tgl Lahir Pasangan ${suffix}`));
+    const tglNikah = cleanVal(col(`Tgl Nikah Pasangan ${suffix}`));
+    const tglCerai = cleanVal(col(`Tgl Cerai/MD Pasangan ${suffix}`));
+    const ket = cleanVal(col(`Istri Ke-${suffix}`));
+    const hasValue = [nik, nama, tglLahir, tglNikah, tglCerai, ket].some(v => v && String(v).trim() !== '');
+    if (!hasValue) return null;
+    return { nik, nama_pasangan: nama, tgl_lahir_pasangan: tglLahir, tgl_kawin: tglNikah, tgl_cerai: tglCerai, keterangan_pasangan: ket };
+  }
+  function anakFromCols(suffix) {
+    const nik = cleanVal(col(`NIK Anak ${suffix}`));
+    const nama = cleanVal(col(`Nama Anak ${suffix}`));
+    const tglLahir = cleanVal(col(`Tgl Lahir Anak ${suffix}`));
+    const namaOrtu = cleanVal(col(`Nama Ortu Anak ${suffix}`));
+    const ket = cleanVal(col(`Ket Anak ${suffix}`));
+    const hasValue = [nik, nama, tglLahir, namaOrtu, ket].some(v => v && String(v).trim() !== '');
+    if (!hasValue) return null;
+    return { nik, nama_anak: nama, tg_lahir_anak: tglLahir, nama_ortu: namaOrtu, keterangan_anak: ket };
+  }
+
+  return {
+    jenis_pensiun: col('Jenis Pensiun'),
+    nip: col('NIP'),
+    nama_lengkap: col('Nama Lengkap'),
+    nama: col('Nama Panggilan'),
+    tmp_lhr: col('Tempat Lahir'),
+    tgl_lhr: col('Tanggal Lahir'),
+    tmt_cpns: col('TMT CPNS'),
+    pangkat: col('Pangkat'),
+    golongan: col('Golongan'),
+    tmt_gol: col('TMT Golongan'),
+    jabatan: col('Jabatan'),
+    tmt_jab: col('TMT Jabatan'),
+    tmt_pensiun: col('TMT Pensiun'),
+    bulan_terakhir_bekerja: col('Bulan Terakhir Bekerja'),
+    unit_es_ii: col('Unit Kerja'),
+    gaji_pokok: col('Gaji Pokok'),
+    mk_kp_terakhir: col('MK KP Terakhir'),
+    mk_sebelum_cpns: col('MK Sebelum CPNS'),
+    cltn: col('CLTN'),
+    pmk: col('PMK'),
+    pendidikan_pertama: col('Pendidikan Pertama'),
+    alamat: col('Alamat'),
+    pasangan: [1, 2].map(pasanganFromCols).filter(v => !!v),
+    anak: [1, 2, 3, 4, 5].map(anakFromCols).filter(v => !!v)
+  };
+}
+
+/** Dipanggil dari client untuk fitur "gunakan data generate sebelumnya". */
+function getLatestSavedGenerateData(sessionToken, nip) {
+  requireSession_(sessionToken);
+  return pensiunGen_getLatestSavedData_(nip);
+}
+
+/**
+ * Pindahkan file Drive ke folder tujuan (REF: output DPCP/SUPER tetap
+ * Google Docs, disimpan di TARGET_FOLDER_ID -- bukan diexport PDF seperti
+ * Kenaikan Pangkat). Pakai cara klasik add/removeFile supaya kompatibel
+ * di semua versi Apps Script (tidak bergantung pada File.moveTo()).
+ */
+/** REVISI: dipindahkan ke Utils.gs sebagai pindahFileKeFolder_ (dipakai bersama KP/Pensiun/Kontrak). */
+
+/** PREVIEW DPCP -- embed sementara, TIDAK disimpan permanen, TIDAK ditulis ke "Save data". */
+function previewDpcpDocument(sessionToken, formData) {
+  requireRole_(sessionToken, ['admin', 'super_admin']);
+  try {
+    const templates = getTemplatesForService(sessionToken, 'Pensiun', 'DPCP');
+    if (!templates.length) return { success: false, message: 'Template DPCP belum terdaftar. Tambahkan di menu Template.' };
+
+    const dataContext = pensiunGen_buildDpcpContext_(formData);
+    const tempName = '[PREVIEW] DPCP - ' + sanitizeFileName_(dataContext.nama_lengkap || 'pegawai') + ' - ' + new Date().getTime();
+
+    const copyFile = renderTemplateCopy_(templates[0].fileId, dataContext, tempName, pensiunGen_insertFoto_);
+
+    return {
+      success: true,
+      previewUrl: `https://docs.google.com/document/d/${copyFile.getId()}/preview`,
+      tempFileId: copyFile.getId()
+    };
+  } catch (err) {
+    return { success: false, message: 'Gagal membuat preview DPCP: ' + err.message };
+  }
+}
+
+/**
+ * GENERATE DPCP -- REF: output akhir TETAP Google Docs (bukan PDF),
+ * disimpan ke TARGET_FOLDER_ID (di sini: CONFIG.OUTPUT_FOLDER_ID, folder
+ * output yang sama dipakai seluruh sistem). Jika formData.isSaveActive,
+ * turut menulis baris log ke sheet "Save data" (REF: bagian SIMPAN KE
+ * SPREADSHEET).
+ */
+function generateDpcpDocument(sessionToken, formData) {
+  const pemroses = requireRole_(sessionToken, ['admin', 'super_admin']);
+  try {
+    const templates = getTemplatesForService(sessionToken, 'Pensiun', 'DPCP');
+    if (!templates.length) return { success: false, message: 'Template DPCP belum terdaftar. Tambahkan di menu Template.' };
+
+    const dataContext = pensiunGen_buildDpcpContext_(formData);
+    const namaUtama = dataContext.nama_lengkap || 'PEGAWAI';
+    const fileName = sanitizeFileName_(`DPCP_${namaUtama}`);
+
+    const docCopy = renderTemplateCopy_(templates[0].fileId, dataContext, fileName, pensiunGen_insertFoto_);
+
+    // REVISI: folder khusus "Pensiun" (terpisah dari Kenaikan Pangkat/Kontrak).
+    const outputFolder = getOrCreateOutputSubfolder_('Pensiun');
+    pindahFileKeFolder_(docCopy, outputFolder);
+
+    if (formData.isSaveActive) {
+      pensiunGen_saveLog_(formData);
+    }
+
+    // Kalau NIP ini berasal dari usulan Pensiun yang masih "Diajukan",
+    // tandai DPCP selesai -- status baru berubah ke notif akhir begitu
+    // SUPER juga selesai (lihat PensiunUsulanService.gs).
+    if (formData.nip) tandaiDokumenPensiunSelesai_(formData.nip, 'dpcp', pemroses.nip);
+
+    return {
+      success: true,
+      message: 'Dokumen DPCP berhasil dibuat' + (formData.isSaveActive ? ' & record database berhasil dicatat.' : '.'),
+      docUrl: docCopy.getUrl(),
+      viewUrl: docCopy.getUrl()
+    };
+  } catch (err) {
+    return { success: false, message: 'Gagal generate dokumen DPCP: ' + err.message };
+  }
+}
+
+/**
+ * Bangun dataContext untuk dokumen SUPER. REF: CATATAN mapping {{pangkat}}
+ * -- template SUPER tidak punya placeholder {{golongan}} terpisah, jadi
+ * dipakai format gabungan "PANGKAT/GOLONGAN/TMT GOLONGAN" sama seperti
+ * konvensi {{pangkat}} di DPCP. Beda dari DPCP, nilai SUPER TIDAK
+ * di-uppercase -- ditulis persis sesuai isian sistem.
+ */
+function pensiunGen_buildSuperContext_(formData) {
+  formData = formData || {};
+  const fmtTmtGol = pensiunGen_tanggalBiasa_(formData.tmt_gol);
+  const pangkatGabungan = `${formData.pangkat || ''}/${formData.golongan || ''}/${fmtTmtGol}`;
+
+  return {
+    nomor_super_tidak_hukdis_sedangberat: formData.nomor_super_tidak_hukdis_sedangberat || '',
+    nama_lengkap: formData.nama_lengkap || '',
+    nip: formData.nip || '',
+    pangkat: pangkatGabungan,
+    jabatan: formData.jabatan || '',
+    tanggal_super: pensiunGen_tanggalBiasa_(new Date()),
+    nomor_super_pidana: formData.nomor_super_pidana || ''
+  };
+}
+
+/** Opsi dropdown untuk form DPCP (Jenis Pensiun). */
+function getPensiunFormOptions() {
+  return {
+    jenisPensiun: CONFIG.JENIS_PENSIUN_LIST
+  };
+}
+
+function previewSuperDocument(sessionToken, formData) {
+  requireRole_(sessionToken, ['admin', 'super_admin']);
+  try {
+    const templates = getTemplatesForService(sessionToken, 'Pensiun', 'SUPER');
+    if (!templates.length) return { success: false, message: 'Template SUPER belum terdaftar. Tambahkan di menu Template.' };
+
+    const dataContext = pensiunGen_buildSuperContext_(formData);
+    const tempName = '[PREVIEW] SUPER - ' + sanitizeFileName_(dataContext.nama_lengkap || 'pegawai') + ' - ' + new Date().getTime();
+
+    const copyFile = renderTemplateCopy_(templates[0].fileId, dataContext, tempName);
+
+    return {
+      success: true,
+      previewUrl: `https://docs.google.com/document/d/${copyFile.getId()}/preview`,
+      tempFileId: copyFile.getId()
+    };
+  } catch (err) {
+    return { success: false, message: 'Gagal membuat preview SUPER: ' + err.message };
+  }
+}
+
+function generateSuperDocument(sessionToken, formData) {
+  const pemroses = requireRole_(sessionToken, ['admin', 'super_admin']);
+  try {
+    const templates = getTemplatesForService(sessionToken, 'Pensiun', 'SUPER');
+    if (!templates.length) return { success: false, message: 'Template SUPER belum terdaftar. Tambahkan di menu Template.' };
+
+    const dataContext = pensiunGen_buildSuperContext_(formData);
+    const namaUtama = dataContext.nama_lengkap || 'PEGAWAI';
+    const fileName = sanitizeFileName_(`SUPER_${namaUtama}`);
+
+    const docCopy = renderTemplateCopy_(templates[0].fileId, dataContext, fileName);
+
+    // REVISI: folder khusus "Pensiun" (terpisah dari Kenaikan Pangkat/Kontrak).
+    const outputFolder = getOrCreateOutputSubfolder_('Pensiun');
+    pindahFileKeFolder_(docCopy, outputFolder);
+
+    if (formData.nip) tandaiDokumenPensiunSelesai_(formData.nip, 'super', pemroses.nip);
+
+    return {
+      success: true,
+      message: 'Dokumen SUPER berhasil dibuat.',
+      docUrl: docCopy.getUrl(),
+      viewUrl: docCopy.getUrl()
+    };
+  } catch (err) {
+    return { success: false, message: 'Gagal generate dokumen SUPER: ' + err.message };
+  }
+}

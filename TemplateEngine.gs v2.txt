@@ -1,0 +1,860 @@
+/**
+ * =================================================================
+ * TEMPLATEENGINE.GS
+ * Mesin parsing tag placeholder {{ ekspresi }} pada dokumen Google
+ * Docs. Mendukung:
+ *   - Variabel biasa           {{ nama }}
+ *   - Auto-format tanggal      {{ tgl_lhr }} / {{ tmt_jab }} -> "17 Agustus 1998"
+ *   - Matematika dasar         {{ a + b * c }}
+ *   - Perbandingan & ternary   {{ a > b ? 'X' : 'Y' }}
+ *   - Logika                  {{ a && b }}  {{ a || b }}  {{ !a }}
+ *   - Filter                   {{ nominal | rupiah }}  {{ nominal | terbilang }}
+ *                              {{ jabatan | upper }}  {{ jabatan | lower }}
+ *   - Fungsi tanggal           {{ diff_years(tmt, today) }}, {{ diff_months(tmt, sk) }}
+ *   - Variabel turunan "set"   {{ set nama = ekspresi }}  (case-insensitive:
+ *                              set/Set/SET), tidak mencetak apa pun — nilainya
+ *                              dipakai lewat referensi {{ nama }} berikutnya
+ *                              di manapun dalam dokumen yang sama.
+ *   - Fungsi agregat loop      {{ sum(nama_loop, 'field') }}
+ *   - Konversi angka aman      {{ num(ekspresi) }}  ("" / kosong -> 0)
+ *   - Nama bulan -> angka      {{ bulan_ke_angka(nama_bulan) }}
+ *   - Loop baris tabel dinamis {#nama_loop} ... {/nama_loop}   ATAU
+ *                              {{#nama_loop}} ... {{/nama_loop}}  (KEDUANYA
+ *                              didukung — dokumen boleh pakai salah satu)
+ *
+ * CATATAN DESAIN:
+ * Karena template ditulis oleh admin (bukan input bebas end-user),
+ * evaluator ekspresi custom di bawah ini AMAN dipakai (bukan eval()
+ * JS mentah) — hanya mendukung tokenizer/grammar terbatas yang
+ * didefinisikan sendiri, tidak bisa dipakai untuk menjalankan kode
+ * arbitrer.
+ *
+ * VARIABEL "SET" & URUTAN DOKUMEN:
+ * Nilai "set" disimpan langsung ke dataContext yang SAMA dipakai
+ * sepanjang render satu dokumen, sehingga {{set x = ...}} yang
+ * muncul lebih dulu dalam urutan teks dokumen akan tersedia untuk
+ * tag {{x}} (atau ekspresi lain yang memakai x) di bagian manapun
+ * SETELAHNYA — termasuk di halaman/section berikutnya dalam
+ * dokumen yang sama. Tulis rumus "set" SEBELUM tag yang memakainya.
+ * Di dalam baris loop tabel, nilai "set" juga dituliskan balik ke
+ * item baris tsb (lihat fillRowPlaceholders_) supaya bisa dipakai
+ * oleh sum(nama_loop, 'field') di luar loop.
+ *
+ * PEMBARUAN PENTING — DETEKSI LOOP TABEL DIPERKUAT:
+ * Deteksi marker pembuka/penutup loop ({{#nama}}/{{/nama}}) SEBELUMNYA
+ * hanya mengecek sel PERTAMA dan TERAKHIR pada sebuah baris. Ini gagal
+ * pada tabel hasil impor .docx dengan sel gabungan (colspan) dari Word,
+ * karena indeks sel yang benar-benar berisi marker bisa bergeser saat
+ * Google Docs membaca ulang struktur tabelnya. Akibatnya baris loop
+ * nyata (mis. baris "Penilaian" per tahun) tidak pernah terdeteksi,
+ * baris tidak digandakan, dan marker mentahnya jatuh ke pass evaluasi
+ * umum lalu tercetak sebagai teks "[ERROR:#nama]" di dokumen hasil
+ * generate. Sekarang SELURUH sel dalam baris dipindai (lihat
+ * findLoopMarkersInRow_), bukan cuma sel pertama/terakhir — jadi
+ * deteksi ini tahan terhadap pergeseran indeks akibat sel gabungan.
+ *
+ * PENTING — LOOP HANYA DIDUKUNG DI DALAM TABEL:
+ * processTableLoops_ dengan SENGAJA hanya memindai TABEL sebagai anak
+ * langsung body — loop yang ditaruh di paragraf biasa (mis. membungkus
+ * SELURUH isi dokumen memakai {{#data_massal}}...{{/data_massal}}) TIDAK
+ * PERNAH diproses, berapa pun benarnya nama/datanya. Ini keputusan desain
+ * yang disengaja (loop di seluruh isi dokumen jauh lebih rapuh untuk
+ * didukung dengan aman dibanding loop baris tabel) — jangan menaruh tag
+ * loop di luar tabel. Fitur "gabungkan beberapa entri jadi satu file"
+ * sudah ditangani di level kode (DocumentGenerator.gs, fitur "+ Tambah
+ * Data" Opsi A/B), BUKAN di dalam template. Simbol "^" (inverted section,
+ * mis. {{^isLast}}) juga TIDAK didukung sama sekali. TemplateScanner.gs
+ * akan menandai kedua pola ini sebagai masalah nyata saat "Baca Rumus
+ * dari Template" dijalankan.
+ * =================================================================
+ */
+
+const TAG_REGEX = /\{\{\s*([^{}]+?)\s*\}\}/g;
+const SET_EXPR_REGEX = /^set\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$/i;
+
+/**
+ * Titik masuk utama: proses seluruh isi dokumen (body) dengan
+ * dataContext yang berisi gabungan data pegawai + data form.
+ * @param {GoogleAppsScript.Document.Body} body
+ * @param {Object} dataContext
+ */
+function renderDocumentBody_(body, dataContext) {
+  // 1) Proses loop tabel dinamis dahulu (agar tag di dalamnya baru
+  //    diproses setelah baris digandakan sesuai jumlah data). Mendukung
+  //    LEBIH DARI SATU loop berbeda dalam dokumen yang sama.
+  processTableLoops_(body, dataContext);
+
+  // 2) Isi tag {{..}} di SETIAP SEL TABEL langsung di sel itu sendiri
+  //    (clear + tulis ulang SATU paragraf bersih), BUKAN lewat
+  //    body.replaceText() global seperti sebelumnya. Termasuk tabel
+  //    yang bersarang di dalam sel tabel lain (lihat findAllTablesRecursive_).
+  //
+  //    ALASAN PENTING: rumus panjang di template (mis. rumus golongan
+  //    yang ditulis 18-21 baris terpisah demi keterbacaan saat mengedit)
+  //    tersimpan sebagai BANYAK paragraf terpisah DALAM SATU SEL.
+  //    body.replaceText() cuma mengosongkan TEKS pada tiap paragraf yang
+  //    cocok, tapi PARAGRAF KOSONGNYA TETAP ADA -- baris tabel jadi tetap
+  //    setinggi rumus mentahnya (belasan baris kosong) walau hasil akhir
+  //    yang tercetak cuma satu angka pendek ("850"), sehingga tabel & 
+  //    jumlah halaman dokumen membengkak. Dengan clear()+appendParagraph()
+  //    di level sel, seluruh paragraf sisa itu ikut terhapus dan diganti
+  //    SATU paragraf berisi hasil akhir saja -- tinggi baris otomatis
+  //    mengikuti PANJANG HASIL, bukan panjang rumus mentahnya.
+  //
+  //    Sel yang sudah diisi lewat loop (langkah 1, via fillRowPlaceholders_)
+  //    otomatis dilewati di sini karena sudah tidak ada "{{" tersisa.
+  findAllTablesRecursive_(body).forEach(table => renderTableCellsInPlace_(table, dataContext));
+
+  // 3) Sisa tag {{..}} pada PARAGRAF BIASA (luar tabel -- heading, baris
+  //    tanda tangan, dst.) diisi lewat body.replaceText() seperti semula.
+  //    Ini aman karena paragraf biasa di luar tabel tidak ditulis sebagai
+  //    rumus multi-baris, jadi tidak kena masalah sisa-paragraf-kosong.
+  const fullText = body.getText();
+  const found = [];
+  const seen = {};
+  let m;
+  TAG_REGEX.lastIndex = 0;
+  while ((m = TAG_REGEX.exec(fullText)) !== null) {
+    const key = m[1];
+    if (!seen[key]) { seen[key] = true; found.push(key); }
+  }
+
+  found.forEach(rawExpr => {
+    let value;
+    try {
+      value = evaluateAndFormat_(rawExpr, dataContext);
+    } catch (e) {
+      value = `[ERROR:${rawExpr}]`;
+    }
+    const pattern = '\\{\\{\\s*' + escapeRegex_(rawExpr) + '\\s*\\}\\}';
+    body.replaceText(pattern, escapeReplacement_(value));
+  });
+}
+
+/** Isi tag {{..}} di setiap sel sebuah tabel, sel per sel (lihat renderCellTextInPlace_). */
+function renderTableCellsInPlace_(table, dataContext) {
+  for (let r = 0; r < table.getNumRows(); r++) {
+    const row = table.getRow(r);
+    for (let c = 0; c < row.getNumCells(); c++) {
+      const cell = row.getCell(c);
+      // Sel yang berisi tabel BERSARANG dilewati di sini -- clear() akan
+      // menghapus tabel anaknya. Tabel bersarang itu diproses SENDIRI
+      // (findAllTablesRecursive_ sudah menemukannya sebagai tabel terpisah).
+      if (cellHasNestedTable_(cell)) continue;
+      renderCellTextInPlace_(cell, dataContext);
+    }
+  }
+}
+
+/** Apakah SATU sel tabel memuat tabel lain langsung di dalamnya? */
+function cellHasNestedTable_(cell) {
+  const n = cell.getNumChildren ? cell.getNumChildren() : 0;
+  for (let i = 0; i < n; i++) {
+    if (cell.getChild(i).getType() === DocumentApp.ElementType.TABLE) return true;
+  }
+  return false;
+}
+
+/**
+ * Evaluasi semua tag {{..}} pada teks SATU sel tabel.
+ *
+ * DUA PERILAKU BERBEDA tergantung JUMLAH PARAGRAF di dalam sel:
+ * - Sel dengan BANYAK paragraf (> AMBANG_PARAGRAF_FORMULA, kasus rumus AK
+ *   Konversi yang sengaja ditulis 15-21 baris terpisah demi keterbacaan
+ *   saat mengedit template): di-COLLAPSE jadi SATU paragraf hasil akhir
+ *   saja -- lihat penjelasan lengkap di renderDocumentBody_.
+ * - Sel dengan SEDIKIT paragraf (kasus umum: label di satu baris, nilai
+ *   {{tag}} di baris berikutnya, mis. layout "Nama :" / "{{nama_lengkap}}"):
+ *   tag diisi LANGSUNG DI DALAM paragraf masing-masing, TANPA menggabungkan
+ *   paragraf sama sekali. Ini PENTING -- kalau ikut di-collapse, hasil
+ *   cell.getText() menyatukan semua paragraf jadi satu string dengan "\n"
+ *   di antaranya, lalu cell.appendParagraph() menuliskannya kembali sebagai
+ *   SATU paragraf berisi "\n" literal -- inilah sumber "enter tambahan"
+ *   yang muncul di antara label dan nilai pada dokumen hasil generate,
+ *   padahal template aslinya sudah rapi (REVISI setelah dilaporkan Titto).
+ */
+function renderCellTextInPlace_(cell, dataContext) {
+  const originalText = cell.getText();
+  if (originalText.indexOf('{{') === -1) return; // tidak ada tag -> lewati, hemat proses
+
+  const AMBANG_PARAGRAF_FORMULA = 5;
+  const numAnak = cell.getNumChildren();
+
+  if (numAnak > AMBANG_PARAGRAF_FORMULA) {
+    // --- Sel rumus multi-baris: collapse ke SATU paragraf (perilaku lama, dipertahankan). ---
+    let newText = originalText;
+    let m;
+    TAG_REGEX.lastIndex = 0;
+    while ((m = TAG_REGEX.exec(originalText)) !== null) {
+      const rawExpr = m[1];
+      let value;
+      try {
+        value = evaluateAndFormat_(rawExpr, dataContext);
+      } catch (e) {
+        value = `[ERROR:${rawExpr}]`;
+      }
+      newText = newText.split(m[0]).join(value);
+    }
+    if (newText !== originalText) {
+      cell.clear();
+      cell.appendParagraph(newText);
+    }
+    return;
+  }
+
+  // --- Sel biasa (label+nilai, dsb.): isi tag PER PARAGRAF, struktur baris
+  // template dipertahankan PERSIS -- tidak ada paragraf yang digabung/dihapus. ---
+  for (let i = 0; i < numAnak; i++) {
+    const child = cell.getChild(i);
+    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    const paragraph = child.asParagraph();
+    const paraText = paragraph.getText();
+    if (paraText.indexOf('{{') === -1) continue; // paragraf tanpa tag (mis. "Nama :") -- JANGAN disentuh
+
+    let newParaText = paraText;
+    let m2;
+    TAG_REGEX.lastIndex = 0;
+    while ((m2 = TAG_REGEX.exec(paraText)) !== null) {
+      const rawExpr = m2[1];
+      let value;
+      try {
+        value = evaluateAndFormat_(rawExpr, dataContext);
+      } catch (e) {
+        value = `[ERROR:${rawExpr}]`;
+      }
+      newParaText = newParaText.split(m2[0]).join(value);
+    }
+    if (newParaText !== paraText) {
+      paragraph.setText(newParaText);
+    }
+  }
+}
+
+/** Normalisasi kutip "keriting" hasil autocorrect Word/Docs jadi kutip lurus. */
+function normalizeSmartQuotes_(str) {
+  return String(str)
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'");
+}
+
+/** Deteksi "set nama = ekspresi" (case-insensitive), kembalikan null bila bukan. */
+function parseSetExpr_(expr) {
+  const m = expr.match(SET_EXPR_REGEX);
+  if (!m) return null;
+  return { varName: m[1], rhsExpr: m[2] };
+}
+
+/**
+ * Evaluasi satu ekspresi tag menjadi string akhir siap-cetak,
+ * termasuk aturan auto-format tanggal untuk variabel tunggal
+ * berawalan tgl_/tmt_, dan penanganan variabel turunan "set".
+ */
+function evaluateAndFormat_(rawExpr, dataContext) {
+  const expr = normalizeSmartQuotes_(rawExpr).trim();
+
+  // Variabel turunan: "set nama = ekspresi" -> simpan ke dataContext,
+  // tag ini sendiri TIDAK mencetak apa pun.
+  const setInfo = parseSetExpr_(expr);
+  if (setInfo) {
+    let value;
+    try {
+      value = evaluateExpression_(setInfo.rhsExpr, dataContext);
+    } catch (e) {
+      value = 0; // gagal hitung -> jangan gagalkan seluruh dokumen, default 0
+    }
+    dataContext[setInfo.varName] = value;
+    return '';
+  }
+
+  // Pisahkan filter (|) di level teratas (di luar tanda kutip/kurung)
+  const segments = splitTopLevel_(expr, '|');
+  const mainExpr = segments[0].trim();
+  const filters = segments.slice(1).map(s => s.trim());
+
+  // Kasus khusus: ekspresi hanyalah satu identifier -> berlaku aturan
+  // auto-format tanggal jika key diawali tgl_ / tmt_, dan TIDAK ada filter.
+  const isBareIdentifier = /^[A-Za-z_][A-Za-z0-9_]*$/.test(mainExpr);
+  if (isBareIdentifier && filters.length === 0) {
+    const isDateField = CONFIG.DATE_TAG_PREFIXES.some(p => mainExpr.indexOf(p) === 0);
+    const raw = dataContext[mainExpr];
+    if (isDateField) return formatTanggalIndonesia_(raw);
+    return raw === undefined || raw === null ? '' : String(raw);
+  }
+
+  // Dukungan tag dropdown "identifier[Opsi1, Opsi2, ...]". Bagian [ ... ]
+  // murni petunjuk pilihan untuk admin saat menyunting template (content-
+  // control manual di Google Docs) — tidak dievaluasi sebagai ekspresi,
+  // cukup diabaikan, lalu tag diperlakukan seperti identifier biasa
+  // (termasuk aturan auto-format tanggal).
+  const dropdownMatch = mainExpr.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*\[[^\]]*\]$/);
+  if (dropdownMatch && filters.length === 0) {
+    const key = dropdownMatch[1];
+    const isDateField = CONFIG.DATE_TAG_PREFIXES.some(p => key.indexOf(p) === 0);
+    const raw = dataContext[key];
+    if (isDateField) return formatTanggalIndonesia_(raw);
+    return raw === undefined || raw === null ? '' : String(raw);
+  }
+
+  let result = evaluateExpression_(mainExpr, dataContext);
+
+  for (const f of filters) {
+    result = applyFilter_(f, result);
+  }
+  return result === undefined || result === null ? '' : String(result);
+}
+
+function applyFilter_(filterName, value) {
+  switch (filterName) {
+    case 'terbilang': return terbilang_(value);
+    case 'rupiah': return formatRupiah_(value);
+    case 'tanggal': return formatTanggalIndonesia_(value);
+    case 'upper': return String(value === undefined || value === null ? '' : value).toUpperCase();
+    case 'lower': return String(value === undefined || value === null ? '' : value).toLowerCase();
+    default: return value;
+  }
+}
+
+/** Pisahkan string di karakter pemisah tertentu, mengabaikan yang berada dalam kutip/kurung. */
+function splitTopLevel_(str, sep) {
+  const out = [];
+  let depth = 0, quoteChar = null, current = '';
+  for (let i = 0; i < str.length; i++) {
+    const c = str[i];
+    if (c === "'" || c === '"') {
+      if (!quoteChar) quoteChar = c;
+      else if (quoteChar === c) quoteChar = null;
+    }
+    if (!quoteChar) {
+      if (c === '(') depth++;
+      if (c === ')') depth--;
+    }
+    if (c === sep && depth === 0 && !quoteChar) {
+      out.push(current);
+      current = '';
+    } else {
+      current += c;
+    }
+  }
+  out.push(current);
+  return out;
+}
+
+/* ---------------------------------------------------------------
+ * EVALUATOR EKSPRESI (tokenizer + recursive-descent parser)
+ *  * Mendukung: angka, string 'x' atau "x", identifier, today, + - * / %,
+ * perbandingan > < >= <= == !=, logika && || !, ternary a ? b : c,
+ * tanda kurung, pemanggilan fungsi diff_years(a,b) / diff_months(a,b) /
+ * diff_days(a,b) / sum(loop,'field') / num(x) / bulan_ke_angka(nama).
+ * Prioritas (rendah -> tinggi): ternary, ||, &&, perbandingan,
+ * tambah/kurang, kali/bagi/modulo, unary (- / !), primary.
+ * ------------------------------------------------------------- */
+function evaluateExpression_(expr, dataContext) {
+  const tokens = tokenize_(expr);
+  let pos = 0;
+
+  function peek() { return tokens[pos]; }
+  function next() { return tokens[pos++]; }
+
+  function parseTernary() {
+    const cond = parseLogicalOr();
+    if (peek() && peek().type === 'op' && peek().value === '?') {
+      next();
+      const whenTrue = parseTernary();
+      if (!(peek() && peek().value === ':')) throw new Error('Ternary tanpa ":"');
+      next();
+      const whenFalse = parseTernary();
+      return cond ? whenTrue : whenFalse;
+    }
+    return cond;
+  }
+
+  function parseLogicalOr() {
+    let left = parseLogicalAnd();
+    while (peek() && peek().type === 'op' && peek().value === '||') {
+      next();
+      const right = parseLogicalAnd();
+      left = left || right;
+    }
+    return left;
+  }
+
+  function parseLogicalAnd() {
+    let left = parseComparison();
+    while (peek() && peek().type === 'op' && peek().value === '&&') {
+      next();
+      const right = parseComparison();
+      left = left && right;
+    }
+    return left;
+  }
+
+  function parseComparison() {
+    let left = parseAdditive();
+    while (peek() && peek().type === 'op' && ['>', '<', '>=', '<=', '==', '!='].includes(peek().value)) {
+      const op = next().value;
+      const right = parseAdditive();
+      switch (op) {
+        case '>': left = left > right; break;
+        case '<': left = left < right; break;
+        case '>=': left = left >= right; break;
+        case '<=': left = left <= right; break;
+        case '==': left = left == right; break;
+        case '!=': left = left != right; break;
+      }
+    }
+    return left;
+  }
+
+  function parseAdditive() {
+    let left = parseMultiplicative();
+    while (peek() && peek().type === 'op' && (peek().value === '+' || peek().value === '-')) {
+      const op = next().value;
+      const right = parseMultiplicative();
+      left = op === '+' ? (typeof left === 'string' || typeof right === 'string' ? String(left) + String(right) : left + right) : left - right;
+    }
+    return left;
+  }
+
+  function parseMultiplicative() {
+    let left = parseUnary();
+    while (peek() && peek().type === 'op' && ['*', '/', '%'].includes(peek().value)) {
+      const op = next().value;
+      const right = parseUnary();
+      if (op === '*') left = left * right;
+      else if (op === '/') left = right === 0 ? 0 : left / right;
+      else left = left % right;
+    }
+    return left;
+  }
+
+  function parseUnary() {
+    if (peek() && peek().type === 'op' && peek().value === '-') {
+      next();
+      return -parseUnary();
+    }
+    if (peek() && peek().type === 'op' && peek().value === '!') {
+      next();
+      return !parseUnary();
+    }
+    return parsePrimary();
+  }
+
+  function parsePrimary() {
+    const t = peek();
+    if (!t) throw new Error('Ekspresi tidak lengkap');
+
+    if (t.type === 'number') { next(); return t.value; }
+    if (t.type === 'string') { next(); return t.value; }
+
+    if (t.type === 'lparen') {
+      next();
+      const val = parseTernary();
+      if (!(peek() && peek().type === 'rparen')) throw new Error('Kurung tidak seimbang');
+      next();
+      return val;
+    }
+
+    if (t.type === 'ident') {
+      next();
+      // Pemanggilan fungsi?
+      if (peek() && peek().type === 'lparen') {
+        next(); // consume (
+        const args = [];
+        if (!(peek() && peek().type === 'rparen')) {
+          args.push(parseTernary());
+          while (peek() && peek().type === 'comma') {
+            next();
+            args.push(parseTernary());
+          }
+        }
+        if (!(peek() && peek().type === 'rparen')) throw new Error('Argumen fungsi tidak lengkap');
+        next();
+        return callFunction_(t.value, args);
+      }
+      // Variabel biasa / "today"
+      return resolveIdentifier_(t.value, dataContext);
+    }
+
+    throw new Error('Token tidak dikenal: ' + JSON.stringify(t));
+  }
+
+  const result = parseTernary();
+  return result;
+}
+
+function resolveIdentifier_(name, dataContext) {
+  if (name === 'today') return new Date();
+  const val = dataContext[name];
+  // Jika field tanggal dipakai dalam ekspresi (mis. argumen fungsi diff_*),
+  // kembalikan sebagai Date object mentah agar bisa dihitung, BUKAN string.
+  const isDateField = CONFIG.DATE_TAG_PREFIXES.some(p => name.indexOf(p) === 0);
+  if (isDateField) {
+    const d = toDate_(val);
+    return d || val;
+  }
+  return val;
+}
+
+/** Konversi aman ke angka: "", null, undefined, atau non-angka -> 0. */
+function templateNum_(v) {
+  if (v === '' || v === null || v === undefined) return 0;
+  const n = Number(v);
+  return isNaN(n) ? 0 : n;
+}
+
+/** Jumlahkan field tertentu dari seluruh item array loop (mis. hasil {#nama_loop}). */
+function templateSum_(arr, fieldName) {
+  if (!Array.isArray(arr)) return 0;
+  return arr.reduce((s, item) => s + templateNum_(item && item[fieldName]), 0);
+}
+
+/** Nama bulan Indonesia (atau angka yang sudah berupa angka) -> angka 1-12. */
+function templateBulanKeAngka_(namaBulan) {
+  if (typeof namaBulan === 'number') return namaBulan;
+  const idx = BULAN_ID.findIndex(b => b.toLowerCase() === String(namaBulan || '').trim().toLowerCase());
+  if (idx !== -1) return idx + 1;
+  const n = Number(namaBulan);
+  return isNaN(n) ? 0 : n;
+}
+
+function callFunction_(fnName, args) {
+  switch (fnName) {
+    case 'diff_years': return diffYears_(args[0], args[1]);
+    case 'diff_months': return diffMonths_(args[0], args[1]);
+    case 'diff_days': return diffDays_(args[0], args[1]);
+    case 'terbilang': return terbilang_(args[0]);
+    case 'rupiah': return formatRupiah_(args[0]);
+    case 'tanggal': return formatTanggalIndonesia_(args[0]);
+    case 'sum': return templateSum_(args[0], args[1]);
+    case 'num': return templateNum_(args[0]);
+    case 'bulan_ke_angka': return templateBulanKeAngka_(args[0]);
+    default: throw new Error('Fungsi tidak dikenal: ' + fnName);
+  }
+}
+
+function tokenize_(expr) {
+  const tokens = [];
+  let i = 0;
+  const s = expr;
+
+  while (i < s.length) {
+    const c = s[i];
+
+    if (/\s/.test(c)) { i++; continue; }
+
+    if (c === "'" || c === '"') {
+      const quoteChar = c;
+      let j = i + 1, str = '';
+      while (j < s.length && s[j] !== quoteChar) { str += s[j]; j++; }
+      tokens.push({ type: 'string', value: str });
+      i = j + 1;
+      continue;
+    }
+
+    if (/[0-9]/.test(c)) {
+      let j = i, num = '';
+      while (j < s.length && /[0-9.]/.test(s[j])) { num += s[j]; j++; }
+      tokens.push({ type: 'number', value: parseFloat(num) });
+      i = j;
+      continue;
+    }
+
+    if (/[A-Za-z_]/.test(c)) {
+      let j = i, id = '';
+      while (j < s.length && /[A-Za-z0-9_]/.test(s[j])) { id += s[j]; j++; }
+      tokens.push({ type: 'ident', value: id });
+      i = j;
+      continue;
+    }
+
+    if (c === '(') { tokens.push({ type: 'lparen' }); i++; continue; }
+    if (c === ')') { tokens.push({ type: 'rparen' }); i++; continue; }
+    if (c === ',') { tokens.push({ type: 'comma' }); i++; continue; }
+
+    // Operator dua-karakter dulu (>=, <=, ==, !=, &&, ||)
+    const two = s.substr(i, 2);
+    if (['>=', '<=', '==', '!=', '&&', '||'].includes(two)) {
+      tokens.push({ type: 'op', value: two });
+      i += 2;
+      continue;
+    }
+
+    if ('+-*/%<>?:!'.indexOf(c) !== -1) {
+      tokens.push({ type: 'op', value: c });
+      i++;
+      continue;
+    }
+
+    throw new Error('Karakter tidak dikenal dalam ekspresi: ' + c);
+  }
+  return tokens;
+}
+
+/* ---------------------------------------------------------------
+ * LOOP TABEL DINAMIS: {#tag} ... {/tag}   ATAU   {{#tag}} ... {{/tag}}
+ * Konvensi template: satu baris tabel berisi tag pembuka pada sel
+ * pertama dan tag penutup pada sel terakhir baris yang sama. Baris
+ * tsb dianggap "baris template" dan akan digandakan sebanyak
+ * dataContext[tag].length, dengan setiap salinan diisi placeholder
+ * dari item array + context global. Mendukung LEBIH DARI SATU loop
+ * berbeda dalam tabel/dokumen yang sama (di-scan ulang setelah
+ * setiap loop diproses, karena struktur baris berubah).
+ * ------------------------------------------------------------- */
+function processTableLoops_(body, dataContext) {
+  findAllTablesRecursive_(body).forEach(table => {
+    // Tabel pembungkus/layout (yang salah satu selnya berisi tabel LAIN)
+    // dilewati -- loop yang sebenarnya ada di tabel bersarangnya, bukan
+    // di tabel pembungkus ini. Tanpa pengecualian ini, getText() yang
+    // bersifat rekursif bisa membuat tabel pembungkus ikut "terbaca"
+    // mengandung {{#nama}} padahal tag itu ada di tabel anak.
+    if (tableHasNestedTable_(table)) return;
+    processTableLoopInTable_(table, dataContext);
+  });
+}
+
+/**
+ * Kumpulkan SEMUA tabel dalam sebuah container (body, atau sel tabel),
+ * TERMASUK tabel yang bersarang di dalam sel tabel lain (di kedalaman
+ * berapa pun). Dipakai supaya loop {{#nama}}...{{/nama}} tetap terdeteksi
+ * walau template menaruhnya di dalam tabel kecil yang dibungkus tabel
+ * layout yang lebih besar (pola umum di template surat kompleks, mis.
+ * DPCP dengan tabel "Data Keluarga" bersarang).
+ */
+function findAllTablesRecursive_(container) {
+  const result = [];
+  const numChildren = container.getNumChildren ? container.getNumChildren() : 0;
+  for (let i = 0; i < numChildren; i++) {
+    const child = container.getChild(i);
+    if (child.getType() !== DocumentApp.ElementType.TABLE) continue;
+    const table = child.asTable();
+    result.push(table);
+    for (let r = 0; r < table.getNumRows(); r++) {
+      const row = table.getRow(r);
+      for (let c = 0; c < row.getNumCells(); c++) {
+        result.push.apply(result, findAllTablesRecursive_(row.getCell(c)));
+      }
+    }
+  }
+  return result;
+}
+
+/** Apakah sebuah tabel punya tabel LAIN bersarang di salah satu selnya (tabel pembungkus/layout)? */
+function tableHasNestedTable_(table) {
+  for (let r = 0; r < table.getNumRows(); r++) {
+    const row = table.getRow(r);
+    for (let c = 0; c < row.getNumCells(); c++) {
+      const cell = row.getCell(c);
+      const n = cell.getNumChildren ? cell.getNumChildren() : 0;
+      for (let i = 0; i < n; i++) {
+        if (cell.getChild(i).getType() === DocumentApp.ElementType.TABLE) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** Cocokkan marker pembuka loop di teks sel: {{#nama}} (utama) atau {#nama} (lama, tetap didukung). */
+function matchLoopOpen_(text) {
+  let m = text.match(/\{\{#(\w+)\}\}/);
+  if (m) return { name: m[1], full: m[0] };
+  m = text.match(/\{#(\w+)\}/);
+  if (m) return { name: m[1], full: m[0] };
+  return null;
+}
+/** Cocokkan marker penutup loop di teks sel: {{/nama}} (utama) atau {/nama} (lama, tetap didukung). */
+function matchLoopClose_(text) {
+  let m = text.match(/\{\{\/(\w+)\}\}/);
+  if (m) return { name: m[1], full: m[0] };
+  m = text.match(/\{\/(\w+)\}/);
+  if (m) return { name: m[1], full: m[0] };
+  return null;
+}
+
+/**
+ * Cari marker pembuka & penutup loop DI SEL MANAPUN dalam satu baris — BUKAN
+ * cuma sel pertama/terakhir. PERBAIKAN PENTING: versi sebelumnya hanya
+ * mengecek row.getCell(0) dan row.getCell(numCells-1), dengan asumsi marker
+ * loop selalu ada tepat di sel pertama & terakhir baris. Asumsi ini gagal
+ * pada tabel dengan sel gabungan (colspan) hasil impor .docx -> Google Docs,
+ * di mana indeks sel yang sebenarnya berisi marker bisa bergeser. Akibatnya
+ * baris loop nyata (mis. {{#penilaian}}...{{/penilaian}}) tidak terdeteksi
+ * sama sekali, baris tidak digandakan, dan marker mentah jatuh ke pass
+ * evaluasi umum lalu tercetak sebagai [ERROR:#penilaian] / [ERROR:/penilaian]
+ * di dokumen hasil generate. Dengan memindai SELURUH sel, deteksi ini tahan
+ * terhadap pergeseran indeks akibat sel gabungan.
+ */
+function findLoopMarkersInRow_(row) {
+  const numCells = row.getNumCells();
+  let openInfo = null, closeInfo = null;
+  for (let c = 0; c < numCells; c++) {
+    const text = row.getCell(c).getText();
+    if (!openInfo) {
+      const oi = matchLoopOpen_(text);
+      if (oi) openInfo = oi;
+    }
+    const ci = matchLoopClose_(text);
+    if (ci) closeInfo = ci; // simpan kemunculan TERAKHIR yang ditemukan
+  }
+  if (openInfo && closeInfo && openInfo.name === closeInfo.name) {
+    return { openInfo: openInfo, closeInfo: closeInfo };
+  }
+  return null;
+}
+
+function processTableLoopInTable_(table, dataContext) {
+  let again = true;
+  while (again) {
+    again = false;
+    const numRows = table.getNumRows();
+    for (let r = 0; r < numRows; r++) {
+      const row = table.getRow(r);
+      if (row.getNumCells() === 0) continue;
+
+      const found = findLoopMarkersInRow_(row);
+      if (found) {
+        processOneLoopRow_(table, row, r, found.openInfo, found.closeInfo, dataContext);
+        again = true; // struktur tabel berubah -> mulai scan ulang dari baris awal
+        break;
+      }
+    }
+  }
+}
+
+function processOneLoopRow_(table, row, r, openInfo, closeInfo, dataContext) {
+  const loopName = openInfo.name;
+  const items = dataContext[loopName];
+
+  if (Array.isArray(items) && items.length > 0) {
+    items.forEach((item, i) => {
+      const targetIndex = r + 1 + i;
+      // Table API tidak punya "insertAt" untuk row hasil copy langsung
+      // ke posisi tengah, sehingga baris ditambahkan dulu di akhir lalu
+      // dipindah (hapus + sisipkan ulang) ke index yang benar.
+      table.appendTableRow(row.copy());
+      const lastIndex = table.getNumRows() - 1;
+      if (lastIndex !== targetIndex) {
+        const detached = table.getRow(lastIndex).copy();
+        table.removeRow(lastIndex);
+        table.insertTableRow(targetIndex, detached);
+      }
+      const merged = Object.assign({}, dataContext, item, { no: i + 1 });
+      fillRowPlaceholders_(table.getRow(targetIndex), merged, openInfo, closeInfo, item);
+    });
+  }
+  // Hapus baris template asli (markernya) — baik ada data maupun tidak.
+  table.removeRow(r);
+}
+
+/**
+ * Bersihkan marker pembuka/penutup loop dan isi tag {{..}} pada satu baris
+ * hasil clone. Nilai yang dihasilkan tag "set" DITULIS BALIK ke `item`
+ * (elemen array asli di dataContext[loopName]) supaya bisa dipakai oleh
+ * sum(nama_loop, 'field') di luar loop.
+ *
+ * PERBAIKAN: marker pembuka/penutup TIDAK LAGI diasumsikan ada persis di
+ * sel pertama/terakhir (lihat findLoopMarkersInRow_) — setiap sel dipindai,
+ * dan tag yang PERSIS berupa marker loop (mis. "#penilaian" / "/penilaian")
+ * langsung dikosongkan di sini, TANPA dilempar ke evaluateAndFormat_ (yang
+ * akan gagal parse karena "#"/"/" bukan awal ekspresi valid dan sebelumnya
+ * bocor sebagai teks "[ERROR:#penilaian]" di dokumen hasil generate).
+ */
+function fillRowPlaceholders_(row, mergedContext, openInfo, closeInfo, item) {
+  const numCells = row.getNumCells();
+  const openMarkerExpr = '#' + openInfo.name;   // bentuk rawExpr persis seperti ditangkap TAG_REGEX untuk {{#nama}}
+  const closeMarkerExpr = '/' + closeInfo.name; // bentuk rawExpr persis seperti ditangkap TAG_REGEX untuk {{/nama}}
+
+  for (let c = 0; c < numCells; c++) {
+    const cell = row.getCell(c);
+    const cellText = cell.getText();
+    let newText = cellText;
+
+    // 1) Isi semua tag {{ekspresi}} bergaya kurung-ganda di sel ini.
+    let m;
+    TAG_REGEX.lastIndex = 0;
+    while ((m = TAG_REGEX.exec(cellText)) !== null) {
+      const rawExpr = m[1];
+      let value;
+      if (rawExpr === openMarkerExpr || rawExpr === closeMarkerExpr) {
+        value = ''; // marker loop itu sendiri -> tidak dicetak, bukan ekspresi
+      } else {
+        try { value = evaluateAndFormat_(rawExpr, mergedContext); } catch (e) { value = ''; }
+        // "set nama = ekspresi" -> tulis balik ke item ASLI (bukan cuma
+        // mergedContext) supaya sum(nama_loop, 'field') di luar loop bisa
+        // membacanya dari dataContext[loopName][i].
+        const setInfo = parseSetExpr_(normalizeSmartQuotes_(rawExpr).trim());
+        if (setInfo && item) {
+          item[setInfo.varName] = mergedContext[setInfo.varName];
+        }
+      }
+      newText = newText.split(m[0]).join(value);
+    }
+
+    // 2) Bersihkan juga marker gaya kurung-tunggal lama {#nama}/{/nama},
+    //    yang tidak tertangkap TAG_REGEX (butuh kurung ganda).
+    newText = newText.split(openInfo.full).join('').split(closeInfo.full).join('');
+
+    if (newText !== cellText) {
+      cell.clear();
+      cell.appendParagraph(newText);
+    }
+  }
+}
+
+/**
+ * ALAT DIAGNOSTIK — jalankan manual dari editor Apps Script (pilih fungsi
+ * ini di dropdown "Run", lalu lihat hasilnya di View > Logs / Executions).
+ * TIDAK dipanggil dari alur generate dokumen biasa — murni untuk membantu
+ * menelusuri kalau ada laporan "masih error" meski TemplateEngine.gs sudah
+ * ditimpa, supaya kita lihat struktur sel SEBENARNYA di template LIVE Anda
+ * (bukan asumsi dari file referensi), termasuk memverifikasi versi kode
+ * yang benar-benar berjalan.
+ *
+ * @param {string} templateFileId  ID file Google Docs template (yang sama
+ *   dipakai di kolom "File ID" saat daftar template di menu Template).
+ */
+function debugScanLoopRows_(templateFileId) {
+  Logger.log('=== VERSI ENGINE: findLoopMarkersInRow_ ada? ' +
+    (typeof findLoopMarkersInRow_ === 'function') + ' (harus TRUE — kalau FALSE, ' +
+    'file TemplateEngine.gs yang berjalan BUKAN versi terbaru) ===');
+
+  const file = DriveApp.getFileById(templateFileId);
+  const copy = file.makeCopy('__debug_scan_temp__' + new Date().getTime());
+  try {
+    const doc = DocumentApp.openById(copy.getId());
+    const body = doc.getBody();
+    const numChildren = body.getNumChildren();
+
+    for (let idx = 0; idx < numChildren; idx++) {
+      const child = body.getChild(idx);
+      if (child.getType() !== DocumentApp.ElementType.TABLE) continue;
+      const table = child.asTable();
+      Logger.log('--- Tabel #' + idx + ': ' + table.getNumRows() + ' baris ---');
+
+      for (let r = 0; r < table.getNumRows(); r++) {
+        const row = table.getRow(r);
+        const numCells = row.getNumCells();
+        let rowText = '';
+        for (let c = 0; c < numCells; c++) {
+          let cellText;
+          try {
+            cellText = row.getCell(c).getText();
+          } catch (e) {
+            cellText = '[GAGAL BACA SEL: ' + e.message + ']';
+          }
+          rowText += cellText.substring(0, 30).replace(/\n/g, '\u21b5');
+          if (c < numCells - 1) rowText += ' || ';
+        }
+        // Hanya log baris yang mengandung tag loop, supaya output tidak kebanjiran.
+        if (/\{\{?[#/^]\w+\}?\}/.test(rowText)) {
+          Logger.log('Baris ' + r + ' (' + numCells + ' sel): ' + rowText);
+          const found = findLoopMarkersInRow_(row);
+          Logger.log('  -> findLoopMarkersInRow_ hasil: ' +
+            (found ? ('KETEMU, nama="' + found.openInfo.name + '"') : 'TIDAK KETEMU (ini bug kalau baris di atas jelas ada #nama & /nama)'));
+        }
+      }
+    }
+  } finally {
+    copy.setTrashed(true); // bersihkan file sementara
+  }
+  Logger.log('=== Selesai. Salin semua log di atas dan kirim ke Claude kalau masih ada yang aneh. ===');
+}

@@ -1,0 +1,247 @@
+/**
+ * =================================================================
+ * DATASERVICE.GS
+ * Seluruh akses baca ke sheet "Data Utama". Header baris pertama
+ * di sheet OTOMATIS menjadi nama tag (dinormalisasi ke snake_case:
+ * huruf kecil, spasi -> underscore), sehingga admin cukup menambah
+ * kolom baru di sheet untuk menambah tag baru yang bisa langsung
+ * dipakai di template ({{nama_kolom}}) tanpa perlu mengubah kode.
+ *
+ * Struktur kolom yang DIASUMSIKAN ada di sheet "Data Utama" (A s.d. AL),
+ * beserta key hasil normalisasi otomatisnya:
+ *
+ *   A  NO                          -> no
+ *   B  NIP                         -> nip
+ *   C  KARPEG                      -> karpeg
+ *   D  NIDN                        -> nidn
+ *   E  NUPTK                       -> nuptk
+ *   F  NAMA LENGKAP                -> nama_lengkap   (dipakai search + login)
+ *   G  NAMA                        -> nama           (dipakai search)
+ *   H  NAMA PADA UPACARA           -> nama_pada_upacara
+ *   I  TMP LHR                     -> tmp_lhr
+ *   J  TGL LHR                     -> tgl_lhr         (auto-format tanggal)
+ *   K  JNS KEL                     -> jns_kel
+ *   L  AGAMA                       -> agama
+ *   M  STATUS MENIKAH              -> status_menikah
+ *   N  TMT PENGANGKATAN            -> tmt_pengangkatan (auto-format tanggal)
+ *   O  GOLONGAN                    -> golongan         (auto-fill Check Eligible)
+ *   P  PANGKAT                     -> pangkat
+ *   Q  TMT GOL                     -> tmt_gol           (auto-format tanggal)
+ *   R  JABATAN                     -> jabatan           (auto-fill Check Eligible)
+ *   S  JENIS JAB                   -> jenis_jab
+ *   T  TMT JAB                     -> tmt_jab           (auto-format tanggal)
+ *   U  KUM                         -> kum               (Kebutuhan KUM Pendidikan)
+ *   V  TMT KUM                     -> tmt_kum           (auto-format tanggal)
+ *   W  PENDIDIKAN                  -> pendidikan
+ *   X  JURUSAN                     -> jurusan
+ *   Y  THN LULUS                   -> thn_lulus
+ *   Z  KEPAKARAN                   -> kepakaran
+ *   AA STATUS BEKERJA              -> status_bekerja
+ *   AB TMT STATUS BEKERJA          -> tmt_status_bekerja (auto-format tanggal)
+ *   AC AKHIR TMT STATUS BEKERJA    -> akhir_tmt_status_bekerja (auto-format tanggal)
+ *   AD JENIS PEG                   -> jenis_peg
+ *   AE STATUS KEPEGAWAIAN          -> status_kepegawaian (untuk aturan prefix H.7.)
+ *   AF TMT PENSIUN BUP             -> tmt_pensiun_bup    (auto-format tanggal)
+ *   AG UNIT ES II                  -> unit_es_ii
+ *   AH UNIT ES III                 -> unit_es_iii
+ *   AI UNIT ES IV                  -> unit_es_iv
+ *   AJ TMT AWAL BEKERJA DI UNDIP   -> tmt_awal_bekerja_di_undip (auto-format tanggal)
+ *   AK JALUR MASUK                 -> jalur_masuk
+ *   AL KETERANGAN                  -> keterangan
+ *
+ * Kolom WAJIB ada untuk login & pencarian: nip, nama_lengkap, nama,
+ * status_kepegawaian.
+ * =================================================================
+ */
+
+/** Cache in-memory per eksekusi agar sheet tidak dibaca berkali-kali. */
+let _dataUtamaCache_ = null;
+
+function getSpreadsheet_() {
+  return SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+}
+
+function getDataUtamaSheet_() {
+  const ss = getSpreadsheet_();
+  const sheet = ss.getSheetByName(CONFIG.SHEET_DATA_UTAMA);
+  if (!sheet) {
+    throw new Error(`Sheet "${CONFIG.SHEET_DATA_UTAMA}" tidak ditemukan di spreadsheet.`);
+  }
+  return sheet;
+}
+
+/**
+ * Membaca seluruh baris "Data Utama" menjadi array of object,
+ * key mengikuti header (dinormalisasi). Di-cache di memori selama
+ * satu eksekusi backend (bukan lintas request).
+ */
+function getAllEmployees_() {
+  if (_dataUtamaCache_) return _dataUtamaCache_;
+
+  const sheet = getDataUtamaSheet_();
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return [];
+
+  const headers = values[0].map(normalizeHeaderKey_);
+  const rows = [];
+
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    // Lewati baris kosong (NIP/Nama kosong)
+    if (row.every(cell => cell === '' || cell === null)) continue;
+
+    const obj = {};
+    headers.forEach((key, idx) => {
+      if (key) obj[key] = row[idx];
+    });
+    obj._rowIndex = i + 1; // 1-based, untuk keperluan lain bila diperlukan
+    rows.push(obj);
+  }
+
+  _dataUtamaCache_ = rows;
+  return rows;
+}
+
+/**
+ * Normalisasi NIP untuk pencocokan login/pencarian:
+ * memotong prefix "H.7." bila STATUS KEPEGAWAIAN = CONFIG.STATUS_NON_ASN_LABEL.
+ * Aturan berlaku dua arah (baik nilai dari sheet maupun input user)
+ * supaya user boleh login dengan atau tanpa mengetik prefix tsb.
+ */
+function normalizeNipForMatch_(nip, statusKepegawaian) {
+  let n = String(nip || '').trim();
+  const isNonAsn = String(statusKepegawaian || '').trim() === CONFIG.STATUS_NON_ASN_LABEL;
+
+  if (isNonAsn && n.startsWith(CONFIG.NIP_IGNORED_PREFIX)) {
+    n = n.substring(CONFIG.NIP_IGNORED_PREFIX.length);
+  }
+  return n.trim();
+}
+
+/**
+ * Cari satu pegawai berdasarkan NIP (menerapkan aturan prefix H.7.).
+ * Dipakai oleh AuthService.
+ */
+function findEmployeeByNip_(inputNip) {
+  const employees = getAllEmployees_();
+  const inputTrimmed = String(inputNip || '').trim();
+
+  for (const emp of employees) {
+    const sheetNip = String(emp.nip || '').trim();
+    const status = emp.status_kepegawaian;
+
+    // Bandingkan langsung, atau setelah prefix H.7. dinormalisasi
+    // dari salah satu / kedua sisi.
+    const normSheet = normalizeNipForMatch_(sheetNip, status);
+    const normInput = normalizeNipForMatch_(inputTrimmed, status);
+
+    if (
+      sheetNip === inputTrimmed ||
+      normSheet === normInput ||
+      normSheet === inputTrimmed ||
+      normInput === sheetNip
+    ) {
+      return emp;
+    }
+  }
+  return null;
+}
+
+/**
+ * Pencarian autocomplete pegawai berdasarkan nama (NAMA LENGKAP atau NAMA)
+ * atau NIP. Membutuhkan token sesi valid (harus sudah login).
+ * Mengembalikan maksimal 20 hasil ringkas {nip, nama}.
+ */
+function searchEmployees(sessionToken, query) {
+  requireSession_(sessionToken); // lempar error jika sesi tidak valid
+
+  const q = String(query || '').trim().toLowerCase();
+  if (q.length < 1) return [];
+
+  const employees = getAllEmployees_();
+  const results = [];
+
+  for (const emp of employees) {
+    const nip = String(emp.nip || '');
+    const namaLengkap = String(emp.nama_lengkap || '');
+    const nama = String(emp.nama || '');
+    const matches =
+      namaLengkap.toLowerCase().indexOf(q) !== -1 ||
+      nama.toLowerCase().indexOf(q) !== -1 ||
+      nip.toLowerCase().indexOf(q) !== -1;
+
+    if (matches) {
+      results.push({ nip: nip, nama: namaLengkap || nama });
+      if (results.length >= 20) break;
+    }
+  }
+  return results;
+}
+
+/**
+ * Tambahkan baris pegawai baru ke sheet "Data Utama" untuk keperluan
+ * REGISTRASI MANDIRI (self-registration) saat NIP belum ada di data.
+ * Hanya mengisi kolom: NIP, NAMA LENGKAP, NAMA, dan UNIT ES II (dipakai
+ * sebagai field "Unit Kerja" manual). Kolom lain dibiarkan kosong dan
+ * bisa dilengkapi kemudian oleh admin di sheet.
+ *
+ * Kolom dicari berdasarkan HEADER baris pertama (dinormalisasi), jadi
+ * tetap aman walau urutan kolom di sheet berubah.
+ */
+function appendNewEmployee_(nip, namaLengkap, unitKerja) {
+  const sheet = getDataUtamaSheet_();
+  const lastCol = sheet.getLastColumn();
+  const headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const keys = headerRow.map(normalizeHeaderKey_);
+
+  const newRow = new Array(lastCol).fill('');
+  function setByKey(key, value) {
+    const idx = keys.indexOf(key);
+    if (idx !== -1) newRow[idx] = value;
+  }
+
+  setByKey('nip', nip);
+  setByKey('nama_lengkap', namaLengkap);
+  setByKey('nama', namaLengkap);
+  setByKey('unit_es_ii', unitKerja);
+
+  sheet.appendRow(newRow);
+
+  _dataUtamaCache_ = null;
+}
+
+/**
+ * Ambil seluruh data satu pegawai (semua kolom/tag) berdasarkan NIP persis.
+ * Dipakai saat form memilih "Target Employee" untuk pre-fill / generate dokumen.
+ */
+function getEmployeeFullData(sessionToken, nip) {
+  requireSession_(sessionToken);
+  const employees = getAllEmployees_();
+  const found = employees.find(e => String(e.nip || '').trim() === String(nip || '').trim());
+  if (!found) throw new Error('Data pegawai dengan NIP tersebut tidak ditemukan.');
+
+  // Jangan kirim field internal ke client
+  const clean = Object.assign({}, found);
+  delete clean._rowIndex;
+  return clean;
+}
+
+/**
+ * Data diri TERBATAS untuk akun berperan 'normal' (tampilan "Profil
+ * Saya" -- satu-satunya yang mereka lihat). Hanya field yang ada di
+ * CONFIG.PROFIL_NORMAL_FIELDS yang dikembalikan, apa pun perannya --
+ * dipakai juga sebagai referensi tampilan ringkas di peran lain bila
+ * diperlukan, TANPA membocorkan seluruh kolom Data Utama.
+ */
+function getProfilSaya(sessionToken) {
+  const employee = requireSession_(sessionToken);
+  const profil = {};
+  CONFIG.PROFIL_NORMAL_FIELDS.forEach(field => {
+    let value = employee[field];
+    if (field.indexOf('tgl_') === 0 || field.indexOf('tmt_') === 0) {
+      value = formatTanggalIndonesia_(value) || '';
+    }
+    profil[field] = value || '';
+  });
+  return { success: true, profil: profil };
+}

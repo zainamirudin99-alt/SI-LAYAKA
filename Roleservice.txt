@@ -1,0 +1,182 @@
+/**
+ * =================================================================
+ * ROLESERVICE.GS  (MODUL BARU)
+ * Peran (role) disimpan di sheet TERPISAH "User Roles" (bukan di
+ * "Data Utama") supaya data HR mentah tidak bercampur dengan status
+ * aplikasi, dan supaya ada jejak audit (siapa mengubah, kapan).
+ *
+ * Seed AWAL (NIP Super Admin & unit yang jadi Admin) HANYA ditulis SATU
+ * KALI saat sheet "User Roles" pertama kali dibuat oleh sistem. Setelah
+ * itu, satu-satunya cara mengubah peran adalah lewat Menu Perubahan
+ * Status Akun (Super Admin) -- supaya perubahan itu tidak pernah
+ * tertimpa lagi oleh aturan default berbasis unit.
+ * =================================================================
+ */
+
+const ROLES_SHEET_NAME = 'User Roles';
+const ROLES_HEADERS = ['NIP', 'Nama', 'Role', 'Diubah Oleh', 'Tanggal Diubah'];
+
+let _rolesCache_ = null; // cache in-memory per eksekusi, sama pola dengan _dataUtamaCache_
+
+function ensureRolesSheet_() {
+  const ss = getSpreadsheet_();
+  let sheet = ss.getSheetByName(ROLES_SHEET_NAME);
+  if (sheet) return sheet;
+
+  // Baru dibuat -- lakukan seed SATU KALI di sini.
+  sheet = ss.insertSheet(ROLES_SHEET_NAME);
+  sheet.appendRow(ROLES_HEADERS);
+  sheet.setFrozenRows(1);
+
+  const employees = getAllEmployees_();
+  const now = new Date();
+  const seedRows = [];
+
+  employees.forEach(emp => {
+    const nip = String(emp.nip || '').trim();
+    if (!nip) return;
+
+    if (nip === CONFIG.SEED_SUPER_ADMIN_NIP) {
+      seedRows.push([nip, emp.nama_lengkap || emp.nama || '', 'super_admin', 'SISTEM (seed awal)', now]);
+    } else if (String(emp.unit_es_ii || '').trim() === CONFIG.SEED_ADMIN_UNIT_ES_II) {
+      seedRows.push([nip, emp.nama_lengkap || emp.nama || '', 'admin', 'SISTEM (seed awal)', now]);
+    }
+  });
+
+  if (seedRows.length) {
+    sheet.getRange(2, 1, seedRows.length, ROLES_HEADERS.length).setValues(seedRows);
+  }
+
+  return sheet;
+}
+
+/** Baca seluruh baris "User Roles" jadi map NIP -> {role, nama, diubahOleh, tanggalDiubah}. Di-cache per eksekusi. */
+function getAllRoles_() {
+  if (_rolesCache_) return _rolesCache_;
+
+  const sheet = ensureRolesSheet_();
+  const values = sheet.getDataRange().getValues();
+  const map = {};
+
+  for (let i = 1; i < values.length; i++) {
+    const nip = String(values[i][0] || '').trim();
+    if (!nip) continue;
+    map[nip] = {
+      nip: nip,
+      nama: values[i][1] || '',
+      role: String(values[i][2] || '').trim() || 'normal',
+      diubahOleh: values[i][3] || '',
+      tanggalDiubah: values[i][4] || ''
+    };
+  }
+
+  _rolesCache_ = map;
+  return map;
+}
+
+/**
+ * Peran satu NIP. Default 'normal' bila tidak ada baris eksplisit di
+ * sheet "User Roles" sama sekali (pegawai baru / belum pernah diatur).
+ */
+function getUserRole_(nip) {
+  const map = getAllRoles_();
+  const entry = map[String(nip || '').trim()];
+  return entry ? entry.role : 'normal';
+}
+
+/**
+ * Simpan/perbarui peran satu NIP. Menulis baris baru kalau NIP belum
+ * ada di sheet, atau menimpa baris yang sudah ada.
+ */
+function setUserRole_(nip, role, diubahOlehNip) {
+  const sheet = ensureRolesSheet_();
+  const values = sheet.getDataRange().getValues();
+  const nipTarget = String(nip || '').trim();
+
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0] || '').trim() === nipTarget) {
+      sheet.getRange(i + 1, 3, 1, 3).setValues([[role, diubahOlehNip, new Date()]]);
+      _rolesCache_ = null; // invalidate cache
+      return;
+    }
+  }
+
+  // Belum ada baris untuk NIP ini -- ambil nama dari Data Utama kalau ada.
+  const emp = getAllEmployees_().find(e => String(e.nip || '').trim() === nipTarget);
+  sheet.appendRow([nipTarget, (emp && (emp.nama_lengkap || emp.nama)) || '', role, diubahOlehNip, new Date()]);
+  _rolesCache_ = null;
+}
+
+/**
+ * Dipanggil dari AuthService.gs (login/register/validateSession) untuk
+ * melengkapi objek user yang dikirim ke client dengan field "role".
+ */
+function lampirkanRole_(safeUser) {
+  safeUser.role = getUserRole_(safeUser.nip);
+  return safeUser;
+}
+
+/** Guard: lempar Error kalau peran sesi TIDAK termasuk salah satu peran yang diizinkan. */
+function requireRole_(sessionToken, peranDiizinkan) {
+  const employee = requireSession_(sessionToken);
+  const role = getUserRole_(employee.nip);
+  if (peranDiizinkan.indexOf(role) === -1) {
+    throw new Error('Anda tidak memiliki hak akses untuk aksi ini.');
+  }
+  return employee;
+}
+
+/**
+ * REF Menu Perubahan Status Akun (khusus Super Admin): daftar SEMUA
+ * pegawai beserta peran mereka saat ini, untuk dipilih & diubah.
+ */
+function getAllUserRolesForAdmin(sessionToken) {
+  requireRole_(sessionToken, ['super_admin']);
+  try {
+    const employees = getAllEmployees_();
+    const rolesMap = getAllRoles_();
+
+    const daftar = employees
+      .filter(emp => String(emp.nip || '').trim())
+      .map(emp => {
+        const nip = String(emp.nip).trim();
+        const entry = rolesMap[nip];
+        return {
+          nip: nip,
+          nama: emp.nama_lengkap || emp.nama || '',
+          unitEsIi: emp.unit_es_ii || '',
+          role: entry ? entry.role : 'normal'
+        };
+      })
+      .sort((a, b) => String(a.nama).localeCompare(String(b.nama)));
+
+    return { success: true, daftar: daftar };
+  } catch (err) {
+    return { success: false, message: 'Gagal memuat daftar akun: ' + err.message };
+  }
+}
+
+/**
+ * REF Menu Perubahan Status Akun: ubah peran satu NIP. Super Admin hanya
+ * boleh mengubah dari/ke 'normal', 'user', 'admin' -- TIDAK bisa
+ * mengangkat atau menurunkan sesama/diri sendiri dari/ke 'super_admin'
+ * lewat menu ini (sesuai spesifikasi: "mengubah dari normal/user MENJADI
+ * admin"), untuk mencegah eskalasi hak akses tak sengaja lewat UI.
+ */
+function ubahPeranAkun(sessionToken, targetNip, peranBaru) {
+  const pemanggil = requireRole_(sessionToken, ['super_admin']);
+  try {
+    if (['normal', 'user', 'admin'].indexOf(peranBaru) === -1) {
+      return { success: false, message: 'Peran tujuan tidak valid. Hanya bisa mengubah ke normal/user/admin lewat menu ini.' };
+    }
+    const targetSaatIni = getUserRole_(targetNip);
+    if (targetSaatIni === 'super_admin') {
+      return { success: false, message: 'Tidak bisa mengubah peran Super Admin lewat menu ini.' };
+    }
+
+    setUserRole_(targetNip, peranBaru, pemanggil.nip);
+    return { success: true, message: `Peran berhasil diubah menjadi "${peranBaru}".` };
+  } catch (err) {
+    return { success: false, message: 'Gagal mengubah peran: ' + err.message };
+  }
+}

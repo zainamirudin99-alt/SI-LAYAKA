@@ -1,0 +1,175 @@
+/**
+ * =================================================================
+ * AUTHSERVICE.GS
+ * Autentikasi login (NIP + tanggal lahir) dan manajemen sesi
+ * menggunakan CacheService (server-side, tidak bisa dipalsukan
+ * dari client karena token bersifat acak & disimpan di server).
+ * =================================================================
+ */
+
+/**
+ * Hitung password default dari NIP:
+ * - Bila STATUS KEPEGAWAIAN = CONFIG.STATUS_NON_ASN_LABEL dan NIP diawali
+ *   CONFIG.NIP_IGNORED_PREFIX ("H.7."), prefix tsb dibuang dahulu.
+ * - Password = N digit angka PERTAMA (CONFIG.PASSWORD_DIGIT_LENGTH) dari
+ *   sisa NIP setelah karakter non-angka dibuang.
+ *   Contoh: NIP "198303312001031001" -> password "19830331"
+ *   Contoh: NIP "H.7.20010331xxxx" (Non ASN) -> "20010331xxxx" -> "20010331"
+ */
+function extractPassword_(nip, statusKepegawaian) {
+  let nipBersih = String(nip || '').trim();
+
+  const isNonAsn = String(statusKepegawaian || '').trim() === CONFIG.STATUS_NON_ASN_LABEL;
+  if (isNonAsn && nipBersih.startsWith(CONFIG.NIP_IGNORED_PREFIX)) {
+    nipBersih = nipBersih.substring(CONFIG.NIP_IGNORED_PREFIX.length);
+  }
+
+  const hanyaAngka = nipBersih.replace(/\D/g, '');
+  return hanyaAngka.substring(0, CONFIG.PASSWORD_DIGIT_LENGTH);
+}
+
+/**
+ * Login utama. Dipanggil dari client via google.script.run.login(nip, password).
+ * @param {string} nip       Username = NIP pegawai (boleh dengan/tanpa prefix H.7.)
+ * @param {string} password  Wajib N digit angka pertama dari NIP (lihat extractPassword_)
+ * @return {{success:boolean, message:string, token:string, user:Object}}
+ */
+function login(nip, password) {
+  try {
+    if (!nip || !password) {
+      return { success: false, message: 'NIP dan password wajib diisi.' };
+    }
+
+    const employee = findEmployeeByNip_(nip);
+    if (!employee) {
+      return { success: false, message: 'NIP tidak ditemukan.' };
+    }
+
+    const passwordValid = extractPassword_(employee.nip, employee.status_kepegawaian);
+    const inputTrimmed = String(password).trim();
+
+    if (!passwordValid || inputTrimmed !== passwordValid) {
+      return { success: false, message: `Password salah. Gunakan ${CONFIG.PASSWORD_DIGIT_LENGTH} digit pertama dari NIP.` };
+    }
+
+    // Buat token sesi acak, simpan data pegawai di cache server (BUKAN di client)
+    const token = Utilities.getUuid();
+    const cache = CacheService.getScriptCache();
+    cache.put('session_' + token, JSON.stringify(employee), CONFIG.SESSION_TTL_SECONDS);
+
+    // Data yang aman dikirim ke client (tampilan saja)
+    const safeUser = lampirkanRole_({
+      nip: employee.nip,
+      nama: employee.nama_lengkap || employee.nama,
+      jabatan: employee.jabatan || '',
+      status_kepegawaian: employee.status_kepegawaian || ''
+    });
+
+    return { success: true, message: 'Login berhasil.', token: token, user: safeUser };
+  } catch (err) {
+    return { success: false, message: 'Terjadi kesalahan server: ' + err.message };
+  }
+}
+
+/**
+ * Registrasi mandiri. Dipanggil dari client via
+ * google.script.run.register(nama, nip, unitKerja) saat NIP pegawai
+ * BELUM ada di sheet "Data Utama". Password TIDAK diinput manual —
+ * selalu otomatis N digit angka pertama dari NIP (sama seperti login),
+ * supaya konsisten dengan skema password default di seluruh aplikasi.
+ *
+ * @param {string} nama       Nama lengkap pegawai baru
+ * @param {string} nip        NIP pegawai baru (dipakai sebagai username)
+ * @param {string} unitKerja  Unit kerja, diisi manual (belum tentu ada di sheet)
+ * @return {{success:boolean, message:string, token:string, user:Object}}
+ */
+function register(nama, nip, unitKerja) {
+  try {
+    const namaTrim = String(nama || '').trim();
+    const nipTrim = String(nip || '').trim();
+    const unitTrim = String(unitKerja || '').trim();
+
+    if (!namaTrim || !nipTrim || !unitTrim) {
+      return { success: false, message: 'Nama, NIP, dan Unit Kerja wajib diisi.' };
+    }
+
+    const angkaNip = nipTrim.replace(/\D/g, '');
+    if (angkaNip.length < CONFIG.PASSWORD_DIGIT_LENGTH) {
+      return { success: false, message: `NIP harus berisi minimal ${CONFIG.PASSWORD_DIGIT_LENGTH} digit angka.` };
+    }
+
+    const existing = findEmployeeByNip_(nipTrim);
+    if (existing) {
+      return { success: false, message: 'NIP sudah terdaftar. Silakan langsung Masuk (login).' };
+    }
+
+    appendNewEmployee_(nipTrim, namaTrim, unitTrim);
+
+    // Ambil kembali data yang baru saja ditambahkan (cache sudah di-invalidate)
+    const employee = findEmployeeByNip_(nipTrim);
+    if (!employee) {
+      return { success: false, message: 'Registrasi tersimpan, tetapi gagal memuat sesi. Silakan Masuk (login) secara manual.' };
+    }
+
+    // Langsung buat sesi (auto-login) setelah registrasi berhasil
+    const token = Utilities.getUuid();
+    const cache = CacheService.getScriptCache();
+    cache.put('session_' + token, JSON.stringify(employee), CONFIG.SESSION_TTL_SECONDS);
+
+    const safeUser = lampirkanRole_({
+      nip: employee.nip,
+      nama: employee.nama_lengkap || employee.nama,
+      jabatan: employee.jabatan || '',
+      status_kepegawaian: employee.status_kepegawaian || ''
+    });
+
+    const passwordDefault = extractPassword_(employee.nip, employee.status_kepegawaian);
+
+    return {
+      success: true,
+      message: `Registrasi berhasil. Password Anda: ${passwordDefault} (${CONFIG.PASSWORD_DIGIT_LENGTH} digit pertama NIP).`,
+      token: token,
+      user: safeUser
+    };
+  } catch (err) {
+    return { success: false, message: 'Terjadi kesalahan server: ' + err.message };
+  }
+}
+
+/** Logout: hapus sesi dari cache. */
+function logout(sessionToken) {
+  if (!sessionToken) return { success: true };
+  CacheService.getScriptCache().remove('session_' + sessionToken);
+  return { success: true };
+}
+
+/**
+ * Validasi token sesi. Melempar Error bila tidak valid/kedaluwarsa
+ * (dipakai sebagai guard di semua fungsi backend yang butuh login).
+ * @return {Object} data pegawai lengkap dari cache
+ */
+function requireSession_(sessionToken) {
+  if (!sessionToken) throw new Error('Sesi tidak ditemukan. Silakan login kembali.');
+  const cache = CacheService.getScriptCache();
+  const raw = cache.get('session_' + sessionToken);
+  if (!raw) throw new Error('Sesi telah berakhir. Silakan login kembali.');
+  return JSON.parse(raw);
+}
+
+/** Dipanggil client untuk cek apakah sesi masih valid setelah reload. */
+function validateSession(sessionToken) {
+  try {
+    const emp = requireSession_(sessionToken);
+    return {
+      valid: true,
+      user: lampirkanRole_({
+        nip: emp.nip,
+        nama: emp.nama_lengkap || emp.nama,
+        jabatan: emp.jabatan || '',
+        status_kepegawaian: emp.status_kepegawaian || ''
+      })
+    };
+  } catch (err) {
+    return { valid: false, message: err.message };
+  }
+}

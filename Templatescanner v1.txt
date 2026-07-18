@@ -1,0 +1,259 @@
+/**
+ * =================================================================
+ * TEMPLATESCANNER.GS
+ * "Baca Rumus dari Template" — memindai tag/rumus yang BENAR-BENAR
+ * ada di dalam sebuah file template, dari salah satu sumber:
+ *   - Link Google Drive (Google Docs native ATAU file .docx mentah)
+ *   - Upload file .docx langsung dari komputer
+ *
+ * Berbeda dari getGlosariumTag() (TemplateAdmin.gs) yang menampilkan
+ * daftar tag yang TERSEDIA (dari spreadsheet + field turunan DocGen),
+ * fungsi di sini membaca isi FILE TEMPLATE itu sendiri, lalu menandai
+ * pola bermasalah (fungsi tak dikenal, kutip keriting yang belum
+ * dinormalisasi, dsb.) supaya ketahuan SEBELUM dipakai generate dokumen.
+ *
+ * CATATAN SETUP WAJIB (di Apps Script Editor):
+ *   Services (ikon +) -> tambahkan "Drive API" versi v3 (Advanced
+ *   Google Service). Tanpa ini, convertBlobToGoogleDoc_() akan error
+ *   "Drive is not defined". Lihat juga appsscript.json (enabledAdvancedServices).
+ *   Advanced Service ini juga perlu diaktifkan sekali di Google Cloud
+ *   Console project yang terhubung ke script (link-nya muncul otomatis
+ *   di dialog "Services" saat menambahkan Drive API).
+ *
+ * CATATAN: extractDriveFileId_() TIDAK didefinisikan ulang di sini —
+ * fungsi itu sudah ada di Utils.gs dan dipakai bersama TemplateAdmin.gs.
+ * Mendeklarasikan ulang const/function dengan nama sama di file .gs lain
+ * akan membuat seluruh project gagal compile (SyntaxError: Identifier
+ * '...' has already been declared).
+ *
+ * PEMBARUAN (mengikuti perbaikan TemplateEngine.gs):
+ *   - Loop {#nama} DAN {{#nama}} kini SAMA-SAMA didukung mesin — jadi
+ *     keduanya diklasifikasikan sebagai valid, bukan "bermasalah" lagi.
+ *   - Fungsi sum(), num(), bulan_ke_angka() kini dikenali mesin.
+ *   - Kutip keriting (“ ” ‘ ’) kini DINORMALISASI otomatis oleh mesin,
+ *     jadi tidak lagi fatal — namun tetap ditandai sebagai saran rapikan,
+ *     karena tetap lebih aman ditulis pakai kutip lurus (" ').
+ * =================================================================
+ */
+
+const KNOWN_FUNCTIONS_ = [
+  'diff_years', 'diff_months', 'diff_days', 'terbilang', 'rupiah', 'tanggal',
+  'sum', 'num', 'bulan_ke_angka'
+];
+
+/**
+ * Entry point dipanggil dari menu Template: baca tag/rumus yang BENAR-BENAR
+ * ada di dalam file template, dari salah satu sumber berikut:
+ *   payload = { sourceType: 'gdrive', driveUrl: string }
+ *   payload = { sourceType: 'upload', fileName: string, fileBase64: string }
+ */
+function scanTemplateFormulas(sessionToken, payload) {
+  requireSession_(sessionToken);
+
+  const resolved = resolveScannableDocument_(payload);
+  try {
+    return extractTagsFromDocument_(resolved.doc);
+  } finally {
+    // Bersihkan file Google Doc sementara hasil konversi (kalau ada),
+    // supaya tidak menumpuk file "temp" di Drive admin.
+    if (resolved.cleanupFileId) {
+      try { DriveApp.getFileById(resolved.cleanupFileId).setTrashed(true); } catch (e) { /* abaikan */ }
+    }
+  }
+}
+
+/**
+ * Mengubah payload (link Drive ATAU upload docx) jadi objek Document
+ * Apps Script yang siap dipindai.
+ */
+function resolveScannableDocument_(payload) {
+  if (payload.sourceType === 'gdrive') {
+    const fileId = extractDriveFileId_(payload.driveUrl);
+    if (!fileId) throw new Error('Link Google Drive tidak valid atau ID file tidak ditemukan.');
+
+    const file = DriveApp.getFileById(fileId);
+    const mime = file.getMimeType();
+
+    if (mime === MimeType.GOOGLE_DOCS) {
+      // Sudah Google Docs native, langsung buka.
+      return { doc: DocumentApp.openById(fileId), cleanupFileId: null };
+    }
+    // Link mengarah ke file .docx mentah yang tersimpan di Drive → konversi dulu.
+    const converted = convertBlobToGoogleDoc_(file.getBlob(), file.getName());
+    return { doc: DocumentApp.openById(converted.getId()), cleanupFileId: converted.getId() };
+  }
+
+  if (payload.sourceType === 'upload') {
+    const blob = Utilities.newBlob(
+      Utilities.base64Decode(payload.fileBase64),
+      MimeType.MICROSOFT_WORD,
+      payload.fileName || 'template-upload.docx'
+    );
+    const converted = convertBlobToGoogleDoc_(blob, payload.fileName || 'Template Upload');
+    return { doc: DocumentApp.openById(converted.getId()), cleanupFileId: converted.getId() };
+  }
+
+  throw new Error('sourceType tidak dikenali: ' + payload.sourceType);
+}
+
+/** Konversi Blob (.docx) menjadi Google Doc sementara lewat Advanced Drive Service. */
+function convertBlobToGoogleDoc_(blob, displayName) {
+  const resource = {
+    name: '[TEMP-SCAN] ' + displayName,
+    mimeType: MimeType.GOOGLE_DOCS
+  };
+  const file = Drive.Files.create(resource, blob, { fields: 'id' });
+  return DriveApp.getFileById(file.id);
+}
+
+/**
+ * Memindai seluruh isi dokumen (paragraf DAN tabel — karena tag loop selalu
+ * ada di dalam sel tabel) lalu mengelompokkan tag yang ditemukan, termasuk
+ * menandai pola yang diketahui bermasalah.
+ *
+ * Kategori hasil:
+ *   - tagNilai          : {{ ekspresi biasa }}
+ *   - tagSetVariable    : {{ set nama = ekspresi }}  (variabel turunan)
+ *   - tagLoopValid      : {#nama} / {/nama} / {{#nama}} / {{/nama}} — SEMUA
+ *                         bentuk ini didukung mesin sejak pembaruan ini.
+ *   - tagLoopBermasalah : {{^nama}}  (inverted section — TIDAK didukung)
+ *   - tagDropdown       : identifier[Opsi1, Opsi2]
+ *   - issues            : daftar masalah/saran spesifik (fungsi tak
+ *                         dikenal, kutip keriting, "set" tidak konsisten,
+ *                         konvensi penamaan tag, kontrol "^" tak dikenal)
+ */
+function extractTagsFromDocument_(doc) {
+  const body = doc.getBody();
+  let gabungan = body.getText();
+  let teksParagrafSaja = ''; // KHUSUS paragraf body di LUAR tabel — dipakai untuk
+                              // mendeteksi loop yang ditaruh di tempat yang tidak
+                              // pernah diproses mesin (lihat pengecekan di bawah).
+
+  const numChildren = body.getNumChildren();
+  for (let i = 0; i < numChildren; i++) {
+    const child = body.getChild(i);
+    if (child.getType() === DocumentApp.ElementType.TABLE) {
+      const table = child.asTable();
+      for (let r = 0; r < table.getNumRows(); r++) {
+        const row = table.getRow(r);
+        for (let c = 0; c < row.getNumCells(); c++) {
+          gabungan += '\n' + row.getCell(c).getText();
+        }
+      }
+    } else {
+      teksParagrafSaja += '\n' + child.getText();
+    }
+  }
+
+  const SMART_QUOTES_RE = /[\u201C\u201D\u2018\u2019]/;
+
+  const tagNilai = new Set();          // {{ ... }}
+  const tagSetVariable = new Set();    // {{ set nama = ekspresi }}
+  const tagLoopValid = new Set();      // {#nama}/{/nama} atau {{#nama}}/{{/nama}} — keduanya valid
+  const tagLoopBermasalah = new Set(); // {{^nama}} (inverted section, tidak didukung)
+  const tagDropdown = new Set();       // identifier[Opsi1, Opsi2]
+  const issues = [];
+
+  (gabungan.match(/\{\{[^{}]+\}\}/g) || []).forEach(raw => {
+    const inner = raw.slice(2, -2).trim();
+
+    // Kutip keriting hasil autocorrect Word — mesin SUDAH menormalisasi ini
+    // otomatis, tapi tetap disarankan dirapikan memakai kutip lurus.
+    if (SMART_QUOTES_RE.test(inner)) {
+      issues.push({
+        type: 'kutip_pintar',
+        detail: 'Tanda kutip di rumus ini pakai kutip "keriting" (\u201C \u201D / \u2018 \u2019) hasil autocorrect Word. Mesin sudah otomatis menormalisasi ini jadi kutip lurus saat generate, jadi TIDAK fatal — tapi tetap disarankan diketik ulang pakai kutip lurus (" atau \') supaya lebih mudah dibaca & di-edit ulang.',
+        snippet: raw
+      });
+    }
+
+    // Sintaks variabel turunan "set nama = ekspresi"
+    const setMatch = inner.match(/^(set|Set|SET)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=/);
+    if (setMatch) {
+      const keyword = setMatch[1];
+      const varName = setMatch[2];
+      tagSetVariable.add(varName);
+      if (keyword !== 'set') {
+        issues.push({
+          type: 'info_set_case',
+          detail: `Variabel turunan "${varName}" ditulis "${keyword} ..." — mesin sekarang mengenali "set"/"Set"/"SET" tanpa membedakan huruf besar-kecil, jadi ini AMAN, hanya info supaya konsisten dengan tag "set" lain.`,
+          snippet: raw
+        });
+      }
+    } else {
+      tagNilai.add(inner);
+
+      if (/^[A-Za-z_][A-Za-z0-9_]*\s*\[[^\]]*\]$/.test(inner)) {
+        tagDropdown.add(inner);
+      }
+
+      // Tag polos (identifier tunggal) yang tidak snake_case huruf kecil
+      if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(inner) && !/^[a-z][a-z0-9_]*$/.test(inner)) {
+        issues.push({
+          type: 'konvensi_penamaan',
+          detail: `Tag "{{${inner}}}" tidak huruf kecil semua (snake_case) seperti tag lain — rawan gagal mapping kalau data context memakai huruf kecil semua.`,
+          snippet: raw
+        });
+      }
+    }
+
+    (inner.match(/([A-Za-z_][A-Za-z0-9_]*)\s*\(/g) || []).forEach(fm => {
+      const fnName = fm.replace('(', '').trim();
+      if (!KNOWN_FUNCTIONS_.includes(fnName)) {
+        issues.push({
+          type: 'fungsi_tidak_dikenal',
+          detail: `Fungsi "${fnName}()" tidak dikenali mesin (yang didukung: ${KNOWN_FUNCTIONS_.join(', ')}).`,
+          snippet: raw
+        });
+      }
+    });
+  });
+
+  // Loop kurung tunggal {#nama} / {/nama} — lookaround supaya tidak ke-match
+  // sebagai substring dari bentuk kurung ganda {{#nama}}.
+  (gabungan.match(/(?<!\{)\{#(\w+)\}(?!\})/g) || []).forEach(m => tagLoopValid.add(m));
+  (gabungan.match(/(?<!\{)\{\/(\w+)\}(?!\})/g) || []).forEach(m => tagLoopValid.add(m));
+
+  // Loop kurung ganda {{#nama}} / {{/nama}} — SEKARANG JUGA VALID (didukung mesin).
+  (gabungan.match(/\{\{#(\w+)\}\}/g) || []).forEach(m => tagLoopValid.add(m));
+  (gabungan.match(/\{\{\/(\w+)\}\}/g) || []).forEach(m => tagLoopValid.add(m));
+
+  // Simbol "^" (inverted section) — TIDAK didukung mesin, satu-satunya
+  // pola loop yang masih ditandai sebagai masalah nyata.
+  (gabungan.match(/\{\{\^(\w+)\}\}/g) || []).forEach(m => {
+    tagLoopBermasalah.add(m);
+    issues.push({
+      type: 'kontrol_negasi_tidak_dikenal',
+      detail: `Tag "${m}" pakai simbol "^" (inverted section) — struktur ini tidak didukung TemplateEngine.gs. Gunakan ternary ({{ kondisi ? 'ya' : 'tidak' }}) sebagai gantinya.`,
+      snippet: m
+    });
+  });
+
+  // Loop ({{#nama}}, {#nama}, {{^nama}}, dst.) yang ditemukan DI LUAR TABEL
+  // (langsung di paragraf body) — mesin HANYA memproses loop yang ada di
+  // DALAM SEL TABEL (processTableLoops_ cuma memindai tabel, tidak pernah
+  // menyentuh paragraf biasa). Loop semacam ini TIDAK PERNAH akan berjalan
+  // walau namanya benar dan datanya lengkap, dan sisa marker mentahnya akan
+  // jatuh ke pass evaluasi umum lalu tercetak sebagai teks "[ERROR:...]" di
+  // dokumen hasil generate — persis kasus yang membuat pratinjau berantakan.
+  const loopDiLuarTabel = new Set();
+  (teksParagrafSaja.match(/\{\{[#/^]\w+\}\}/g) || []).forEach(m => loopDiLuarTabel.add(m));
+  (teksParagrafSaja.match(/(?<!\{)\{[#/]\w+\}(?!\})/g) || []).forEach(m => loopDiLuarTabel.add(m));
+  if (loopDiLuarTabel.size > 0) {
+    issues.push({
+      type: 'loop_di_luar_tabel',
+      detail: `Tag loop ${Array.from(loopDiLuarTabel).join(', ')} ditemukan di PARAGRAF BIASA, bukan di dalam sel tabel. TemplateEngine.gs dengan sengaja HANYA memproses loop di dalam tabel (loop di seluruh isi dokumen terlalu rapuh untuk didukung dengan aman) — tag ini TIDAK akan pernah berfungsi di posisi ini, berapa pun benarnya nama/datanya, dan bisa membuat halaman dokumen berantakan (mis. patah halaman ganda yang tidak diinginkan). Hapus tag ini dari paragraf; jika perlu menggabungkan beberapa entri jadi satu file, pakai fitur "+ Tambah Data" di Opsi A/B yang sudah menangani ini di level kode, bukan di dalam template.`,
+      snippet: Array.from(loopDiLuarTabel).join(' ... ')
+    });
+  }
+
+  return {
+    tagNilai: Array.from(tagNilai).sort(),
+    tagSetVariable: Array.from(tagSetVariable).sort(),
+    tagLoopBenar: Array.from(tagLoopValid).sort(),
+    tagLoopBermasalah: Array.from(tagLoopBermasalah).sort(),
+    tagDropdown: Array.from(tagDropdown).sort(),
+    issues: issues,
+    totalTagDitemukan: tagNilai.size + tagSetVariable.size + tagLoopValid.size + tagLoopBermasalah.size
+  };
+}

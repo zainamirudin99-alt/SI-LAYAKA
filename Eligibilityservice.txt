@@ -1,0 +1,184 @@
+/**
+ * =================================================================
+ * ELIGIBILITYSERVICE.GS  (MODUL BARU)
+ * Mesin kalkulasi Angka Kredit & pengecekan status eligible untuk
+ * Kenaikan Pangkat dosen, dijalankan pada halaman "Check Eligible"
+ * SEBELUM user memilih Opsi A (AK Konversi Tahunan) atau Opsi B
+ * (AK Konversi Kumulatif).
+ *
+ * Seluruh tabel referensi (presentase predikat, koefisien jabatan,
+ * kebutuhan AK per golongan, pengurangan per tingkat golongan) ada
+ * di Config.gs supaya mudah diubah tanpa menyentuh logika ini.
+ * =================================================================
+ */
+
+/**
+ * AK konversi tahunan untuk SATU baris penilaian SKP.
+ * jumlahBulan dihitung inklusif (bulanAkhir - bulanMulai + 1).
+ */
+function hitungAkKonversiTahunan_(predikat, jabatan, bulanMulai, bulanAkhir) {
+  const presentase = CONFIG.PRESENTASE_PREDIKAT[predikat];
+  const koefisienDasar = CONFIG.KOEFISIEN_JABATAN[jabatan];
+
+  if (presentase === undefined || koefisienDasar === undefined) return 0;
+
+  const bm = Number(bulanMulai), ba = Number(bulanAkhir);
+  if (!bm || !ba || ba < bm) return 0;
+
+  const jumlahBulan = ba - bm + 1;
+  const koefisien = koefisienDasar * (jumlahBulan / 12);
+
+  return presentase * koefisien;
+}
+
+/**
+ * Total pengurangan akibat kenaikan golongan dari golongan saat
+ * integrasi ke golongan sekarang (menjumlahkan seluruh tingkat yang dilewati).
+ * Varian "Set." (golongan setara) dinormalisasi ke golongan dasarnya
+ * sebelum index-lookup, karena "Set. X" selalu setara tingkat dengan "X"
+ * (lihat catatan GOLONGAN_PILIHAN di Config.gs).
+ */
+function normalisasiGolongan_(golongan) {
+  return String(golongan || '').replace(/^Set\.\s*/i, '').trim();
+}
+
+function hitungPengurangan_(golonganIntegrasi, golonganSekarang) {
+  const urutan = CONFIG.GOLONGAN_URUTAN;
+  const idxIntegrasi = urutan.indexOf(normalisasiGolongan_(golonganIntegrasi));
+  const idxSekarang = urutan.indexOf(normalisasiGolongan_(golonganSekarang));
+
+  if (idxIntegrasi === -1 || idxSekarang === -1 || idxSekarang <= idxIntegrasi) return 0;
+
+  let total = 0;
+  for (let i = idxIntegrasi + 1; i <= idxSekarang; i++) {
+    total += CONFIG.PENGURANGAN_GOLONGAN[urutan[i]] || 0;
+  }
+  return total;
+}
+
+/**
+ * Nilai pendidikan baru dari ijazah setelah 2023: HANYA berlaku bila
+ * "Ada Ijazah Baru Setelah 2023" = 'Ada'. Nilainya 25% (FAKTOR_NILAI_PENDIDIKAN)
+ * dari kebutuhan AK naik pangkat golongan SEKARANG (tujuan kenaikan), BUKAN
+ * lagi dari kolom KUM pegawai. Contoh: naik ke IV/c, kebutuhan 150 -> nilai
+ * pendidikan 37.5. Bila 'Tidak' (atau tidak diisi), nilainya 0.
+ */
+function hitungNilaiPendidikanBaru_(adaIjazahBaru2023, golonganSekarang) {
+  if (adaIjazahBaru2023 !== 'Ada') return 0;
+  const kebutuhanGolongan = CONFIG.KEBUTUHAN_AK_GOLONGAN[normalisasiGolongan_(golonganSekarang)] || 0;
+  return kebutuhanGolongan * CONFIG.FAKTOR_NILAI_PENDIDIKAN;
+}
+
+/**
+ * Total AK Akhir = AK Integrasi + total AK konversi seluruh baris SKP
+ *                  + nilai pendidikan baru - pengurangan golongan.
+ * @param {number} akIntegrasi
+ * @param {Array}  daftarPredikatSkp  [{predikat, bulanMulai, bulanAkhir}, ...]
+ * @param {string} golonganIntegrasi
+ * @param {string} golonganSekarang
+ * @param {string} jabatan
+ * @param {string} adaIjazahBaru2023  'Ada' | 'Tidak' — dropdown Check Eligible
+ */
+function hitungTotalAkAkhir_(akIntegrasi, daftarPredikatSkp, golonganIntegrasi, golonganSekarang, jabatan, adaIjazahBaru2023) {
+  const totalAkKonversi = (daftarPredikatSkp || []).reduce((sum, row) =>
+    sum + hitungAkKonversiTahunan_(row.predikat, jabatan, row.bulanMulai, row.bulanAkhir), 0);
+
+  const nilaiPendidikanBaru = hitungNilaiPendidikanBaru_(adaIjazahBaru2023, golonganSekarang);
+  const pengurangan = hitungPengurangan_(golonganIntegrasi, golonganSekarang);
+
+  const totalAkAkhir = (Number(akIntegrasi) || 0) + totalAkKonversi + nilaiPendidikanBaru - pengurangan;
+
+  return {
+    totalAkAkhir: totalAkAkhir,
+    rincian: {
+      akIntegrasi: Number(akIntegrasi) || 0,
+      totalAkKonversi: totalAkKonversi,
+      nilaiPendidikanBaru: nilaiPendidikanBaru,
+      pengurangan: pengurangan
+    }
+  };
+}
+
+/** Status eligible berdasarkan golongan sekarang & total AK akhir. */
+function cekEligible_(golonganSekarang, totalAkAkhir) {
+  const kebutuhan = CONFIG.KEBUTUHAN_AK_GOLONGAN[normalisasiGolongan_(golonganSekarang)];
+  if (kebutuhan === undefined) {
+    return { status: 'Di luar cakupan', kebutuhan: null, message: 'Golongan di luar cakupan jabatan fungsional dosen.' };
+  }
+  const eligible = totalAkAkhir > kebutuhan;
+  return {
+    status: eligible ? 'Eligible' : 'Belum Eligible',
+    kebutuhan: kebutuhan,
+    message: eligible
+      ? `Total AK Akhir (${totalAkAkhir.toFixed(2)}) melebihi kebutuhan (${kebutuhan}).`
+      : `Total AK Akhir (${totalAkAkhir.toFixed(2)}) belum memenuhi kebutuhan (${kebutuhan}).`
+  };
+}
+
+/**
+ * Fungsi utama dipanggil dari client (halaman "Check Eligible").
+ * @param {string} sessionToken
+ * @param {Object} payload {
+ *   targetNip: string,
+ *   golongan: string,                // hasil edit dropdown (default dari data pegawai)
+ *   jabatan: string,                 // hasil edit dropdown (default dari data pegawai)
+ *   akIntegrasi: number,
+ *   golonganIntegrasi: string,       // dropdown I/a - IV/e
+ *   adaIjazahBaru2023: string,       // dropdown 'Ada' | 'Tidak'
+ *   daftarPredikatSkp: [{ tahun, predikat, bulanMulai, bulanAkhir }, ...],
+ *   tmt_gol: string (opsional),      // TMT Golongan (baru) -- HANYA dikirim kalau Golongan diubah dari data utama
+ *   tmt_jab: string (opsional)       // TMT Jabatan (baru) -- HANYA dikirim kalau Jabatan diubah dari data utama
+ * }
+ */
+function checkEligibility(sessionToken, payload) {
+  requireSession_(sessionToken);
+  try {
+    const { targetNip, jabatan, akIntegrasi, golonganIntegrasi, adaIjazahBaru2023, daftarPredikatSkp, golongan, tmt_gol, tmt_jab } = payload;
+
+    if (!targetNip) return { success: false, message: 'Pilih pegawai (Search Nama) terlebih dahulu.' };
+    if (!jabatan) return { success: false, message: 'Jabatan wajib dipilih.' };
+    if (!golonganIntegrasi) return { success: false, message: 'Golongan Saat Integrasi wajib dipilih.' };
+    if (!adaIjazahBaru2023) return { success: false, message: 'Ada Ijazah Baru Setelah 2023 wajib dipilih.' };
+
+    const employee = getEmployeeFullData(sessionToken, targetNip);
+    // "golongan" bisa di-override manual lewat dropdown Golongan (saat ini)
+    // -- pola SAMA seperti "jabatan" yang memang sudah overridable di sini
+    // sejak awal. Kalau admin tidak memilih apa pun, jatuh balik ke golongan
+    // pegawai dari data utama seperti sebelumnya.
+    const golonganSekarang = golongan || employee.golongan;
+
+    const hasil = hitungTotalAkAkhir_(
+      akIntegrasi, daftarPredikatSkp, golonganIntegrasi, golonganSekarang, jabatan, adaIjazahBaru2023
+    );
+    const eligibility = cekEligible_(golonganSekarang, hasil.totalAkAkhir);
+
+    return {
+      success: true,
+      nip: employee.nip,
+      nama: employee.nama_lengkap || employee.nama,
+      golonganSekarang: golonganSekarang,
+      jabatan: jabatan,
+      // tmt_gol/tmt_jab diteruskan apa adanya (kalau ada) supaya tombol
+      // "Lanjut ke Opsi A/B" bisa membawa override ini ke kartu entri
+      // Kenaikan Pangkat tanpa admin perlu mengetik ulang.
+      tmtGolonganBaru: tmt_gol || '',
+      tmtJabatanBaru: tmt_jab || '',
+      totalAkAkhir: Math.round(hasil.totalAkAkhir * 100) / 100,
+      rincian: hasil.rincian,
+      eligibility: eligibility
+    };
+  } catch (err) {
+    return { success: false, message: 'Gagal menghitung eligibility: ' + err.message };
+  }
+}
+
+/** Opsi dropdown untuk form Check Eligible (golongan, jabatan, predikat, bulan). */
+function getEligibilityFormOptions() {
+  return {
+    golongan: CONFIG.GOLONGAN_PILIHAN,
+    jabatan: CONFIG.JABATAN_FUNGSIONAL_LIST,
+    predikat: CONFIG.PREDIKAT_SKP_LIST,
+    bulan: CONFIG.BULAN_LIST,
+    ijazahBaru: CONFIG.IJAZAH_BARU_2023_LIST
+  };
+}
