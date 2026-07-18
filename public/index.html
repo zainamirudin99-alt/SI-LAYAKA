@@ -1456,23 +1456,24 @@ const google = {
                 };
               }
               return async function(...args) {
+                let _rpcData;
                 try {
                   const response = await fetch('/api/rpc', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ method: builderProp, params: args })
                   });
-                  const data = await response.json();
-                  if (response.ok) {
-                    if (successHandler) successHandler(data);
-                  } else {
-                    if (failureHandler) failureHandler(data.message || 'Server error');
+                  _rpcData = await response.json();
+                  if (!response.ok) {
+                    if (failureHandler) failureHandler(_rpcData.message || 'Server error');
+                    return;
                   }
                 } catch (err) {
                   if (failureHandler) failureHandler(err.message || err);
+                  return;
                 }
+                if (successHandler) successHandler(_rpcData);
               };
-            }
           });
         };
 
@@ -1699,6 +1700,15 @@ function showApp() {
   document.getElementById('sidebarUserRole').textContent = SESSION.user.jabatan || SESSION.user.status_kepegawaian || '-';
   terapkanBatasanPeran_();
   if (SESSION.user.role !== 'normal') loadTemplateList();
+  // Tampilkan tombol Kelola Akses Mandiri setelah login (bindKontrakForm dipanggil sebelum login)
+  const _aksesBtn = document.getElementById('kontrakKelolaAksesBtn');
+  if (_aksesBtn && (SESSION.user.role === 'admin' || SESSION.user.role === 'super_admin')) {
+    _aksesBtn.style.display = 'inline-flex';
+    if (!_aksesBtn._kontrakBound) {
+      _aksesBtn._kontrakBound = true;
+      _aksesBtn.addEventListener('click', () => { kontrakGoToState_('kelolaAkses'); loadKontrakAksesKategoriList(); });
+    }
+  }
 }
 
 /**
@@ -4174,7 +4184,7 @@ function bindKontrakForm() {
   // ditempatkan menonjol di awal (sebelum pilih kategori kontrak), TERPISAH
   // dari proses membuat satu kontrak tertentu.
   const aksesBtn = document.getElementById('kontrakKelolaAksesBtn');
-  if (SESSION.user.role === 'admin' || SESSION.user.role === 'super_admin') {
+  if (SESSION.user && (SESSION.user.role === 'admin' || SESSION.user.role === 'super_admin')) {
     aksesBtn.style.display = 'inline-flex';
     aksesBtn.addEventListener('click', () => { kontrakGoToState_('kelolaAkses'); loadKontrakAksesKategoriList(); });
   }
