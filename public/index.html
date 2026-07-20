@@ -1932,7 +1932,13 @@ function showApp() {
   document.getElementById('sidebarUserName').textContent = SESSION.user.nama || SESSION.user.nip;
   document.getElementById('sidebarUserRole').textContent = SESSION.user.jabatan || SESSION.user.status_kepegawaian || '-';
   terapkanBatasanPeran_();
-  if (SESSION.user.role !== 'normal') loadTemplateList();
+  if (SESSION.user.role !== 'normal') {
+    loadTemplateList();
+    loadServiceTemplates('Kenaikan Pangkat', 'AK Konversi Tahunan', 'optA_templateSelect');
+    loadServiceTemplates('Kenaikan Pangkat', 'AK Konversi Kumulatif', 'optB_templateSelect');
+    loadServiceTemplates('Pensiun', 'DPCP', 'pensiun_dpcpTemplateSelect');
+    loadServiceTemplates('Pensiun', 'SUPER', 'pensiun_superTemplateSelect');
+  }
 }
 
 /**
@@ -2671,9 +2677,6 @@ function bindKenaikanPangkatForms() {
 
   addOptAEntry(); // entri pertama default
   addOptBEntry(); // entri pertama default
-
-  loadServiceTemplates('Kenaikan Pangkat', 'AK Konversi Tahunan', 'optA_templateSelect');
-  loadServiceTemplates('Kenaikan Pangkat', 'AK Konversi Kumulatif', 'optB_templateSelect');
 
   document.getElementById('optA_previewBtn').addEventListener('click', () => handlePreviewGenerate('A', 'preview'));
   document.getElementById('optA_generateBtn').addEventListener('click', () => handlePreviewGenerate('A', 'generate'));
@@ -4214,9 +4217,6 @@ function bindPensiunForm() {
   document.getElementById('pensiun_generateDpcpBtn').addEventListener('click', pensiunRunGenerateDpcp);
   document.getElementById('pensiun_previewSuperBtn').addEventListener('click', pensiunRunPreviewSuper);
   document.getElementById('pensiun_generateSuperBtn').addEventListener('click', pensiunRunGenerateSuper);
-
-  loadServiceTemplates('Pensiun', 'DPCP', 'pensiun_dpcpTemplateSelect');
-  loadServiceTemplates('Pensiun', 'SUPER', 'pensiun_superTemplateSelect');
 }
 
 /* =====================================================================
