@@ -652,10 +652,26 @@ function docxRenderTemplate(templateBuffer, dataCtx) {
   const doc = new Docxtemplater(zip, {
     paragraphLoop: true,
     linebreaks: true,
-    parser: customParser
+    parser: customParser,
+    delimiters: {
+      start: '{{',
+      end: '}}'
+    }
   });
 
-  doc.render(dataCtx);
+  try {
+    doc.render(dataCtx);
+  } catch (error) {
+    if (error.properties && error.properties.errors instanceof Array) {
+      const messages = error.properties.errors.map(err => {
+        const expl = err.properties?.explanation || '';
+        const tag = err.properties?.xtag || '';
+        return `${err.message}${expl ? ' (' + expl + ')' : ''}${tag ? ' di tag: "' + tag + '"' : ''}`;
+      }).join('\n');
+      throw new Error(`Kesalahan Parsing Template Word (Multi Error):\n${messages}`);
+    }
+    throw error;
+  }
 
   return doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
