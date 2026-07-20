@@ -4,6 +4,9 @@
   <base target="_top">
   <meta charset="UTF-8">
   <?!= include('Stylesheet'); ?>
+  <!-- Libraries for Word template previewing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.1.15/dist/docx-preview.min.js"></script>
 </head>
 <body class="theme-light">
 
