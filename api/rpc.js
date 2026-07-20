@@ -1663,6 +1663,9 @@ const methods = {
       // Untuk admin/super_admin: GDocs/PDF sesuai output GAS
       await db.from('usulan_kontrak').update({ perjanjian_dibuat: true, diproses_oleh_nip: decoded.nip, status: 'Selesai' }).eq('id', usulanId);
       return { success: true, fileId: gasResult.fileId, viewUrl: gasResult.viewUrl, fileName: gasResult.fileName, message: gasResult.message, outputType: 'gdocs' };
+    } catch (err) {
+      return { success: false, message: 'Gagal generate kontrak: ' + err.message };
+    }
   },
 
   async previewDocumentVercel([token, payload]) {
