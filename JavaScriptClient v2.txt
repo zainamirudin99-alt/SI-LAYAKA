@@ -1609,37 +1609,6 @@ function closeModal() {
 }
 
 /* ------------------------- TEMPLATE MANAGER ------------------------- */
-function bindTemplateManagerForm() {
-  const layananSel = document.getElementById('tplLayanan');
-  const subMenuSel = document.getElementById('tplSubMenu');
-
-  google.script.run.withSuccessHandler(opts => {
-    layananSel.innerHTML = '<option value="">Pilih Layanan...</option>' +
-      Object.keys(opts).map(l => `<option value="${l}">${l}</option>`).join('');
-  }).getLayananOptions();
-
-  layananSel.addEventListener('change', () => {
-    google.script.run.withSuccessHandler(opts => {
-      const subs = opts[layananSel.value] || [];
-      subMenuSel.innerHTML = '<option value="">Pilih Sub-menu...</option>' + subs.map(s => `<option value="${s}">${s}</option>`).join('');
-    }).getLayananOptions();
-  });
-
-  document.getElementById('templateForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const btn = document.getElementById('tplSubmitBtn');
-    setBtnLoading(btn, true, 'Menyimpan...');
-
-    const payload = {
-      driveLink: val('tplDriveLink'),
-      judul: val('tplJudul'),
-      layanan: val('tplLayanan'),
-      subMenu: val('tplSubMenu')
-    };
-
-    google.script.run
-      .withSuccessHandler(res => {
-        setBtnLoading(btn, false, 'Simpan Template');
 function toggleTplTipeInput() {
   const tipe = document.querySelector('input[name="tplTipe"]:checked')?.value || 'gdocs';
   document.getElementById('tplGdocsInputWrapper').style.display = tipe === 'gdocs' ? '' : 'none';
