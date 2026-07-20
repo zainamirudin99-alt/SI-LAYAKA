@@ -1694,7 +1694,7 @@ const methods = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           method: 'generateKontrakFromUsulan',
-          params: [shortId, templateRef, {
+          params: [shortId, tmplRow?.file_id || templateRef, {
             nip: usulan.nip,
             nama: usulan.nama,
             tahun: usulan.tahun,
@@ -2243,6 +2243,37 @@ module.exports = async (req, res) => {
         // with a short UUID and send the decoded user data as `remoteSession`
         // so that Apps Script can inject it into its CacheService on the fly.
         let proxiedParams = params.slice(); // shallow copy
+        
+        // Resolve GDocs template UUID to real Google Drive file ID if passed to Apps Script
+        if (['previewDocument', 'generateDocument', 'generateKontrakFromUsulan'].includes(method)) {
+          const payload = proxiedParams[1];
+          if (payload && typeof payload === 'object') {
+            const tId = payload.templateFileId || payload.templateId;
+            if (tId && typeof tId === 'string' && tId.length > 10) {
+              try {
+                const db = getDb();
+                const { data: tmpl } = await db.from('templates').select('file_id').eq('id', tId).maybeSingle();
+                if (tmpl && tmpl.file_id) {
+                  payload.templateFileId = tmpl.file_id;
+                  if (payload.templateId) payload.templateId = tmpl.file_id;
+                }
+              } catch (dbErr) {
+                console.warn('[rpc proxy] failed to resolve GDocs template UUID:', dbErr.message);
+              }
+            }
+          } else if (typeof proxiedParams[1] === 'string' && proxiedParams[1].length > 10) {
+            try {
+              const db = getDb();
+              const { data: tmpl } = await db.from('templates').select('file_id').eq('id', proxiedParams[1]).maybeSingle();
+              if (tmpl && tmpl.file_id) {
+                proxiedParams[1] = tmpl.file_id;
+              }
+            } catch (dbErr) {
+              console.warn('[rpc proxy] failed to resolve GDocs template parameter UUID:', dbErr.message);
+            }
+          }
+        }
+
         let remoteSession = null;
 
         const firstParam = proxiedParams[0];
