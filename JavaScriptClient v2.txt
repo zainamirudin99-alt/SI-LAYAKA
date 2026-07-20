@@ -3764,5 +3764,4 @@ function generateKontrakFromUsulanAdmin(usulanId) {
     })
     .generateKontrakFromUsulanVercel(SESSION.token, templateRef, usulanId);
 }
-}
 </script>
