@@ -81,8 +81,12 @@ CREATE TABLE IF NOT EXISTS templates (
   file_id     TEXT NOT NULL,
   layanan     TEXT NOT NULL,
   sub_menu    TEXT NOT NULL,
+  tipe        TEXT NOT NULL DEFAULT 'gdocs',
   dibuat_pada TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Safe for existing installations as well as new databases.
+ALTER TABLE templates ADD COLUMN IF NOT EXISTS tipe TEXT DEFAULT 'gdocs';
 
 CREATE INDEX IF NOT EXISTS idx_templates_layanan ON templates(layanan, sub_menu);
 

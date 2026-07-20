@@ -462,6 +462,7 @@ function previewDpcpDocument(sessionToken, formData) {
     const tempName = '[PREVIEW] DPCP - ' + sanitizeFileName_(dataContext.nama_lengkap || 'pegawai') + ' - ' + new Date().getTime();
 
     const copyFile = renderTemplateCopy_(templates[0].fileId, dataContext, tempName, pensiunGen_insertFoto_);
+    try { copyFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) { Logger.log('Share err: '+e.message); }
 
     return {
       success: true,
@@ -493,8 +494,9 @@ function generateDpcpDocument(sessionToken, formData) {
     const docCopy = renderTemplateCopy_(templates[0].fileId, dataContext, fileName, pensiunGen_insertFoto_);
 
     // REVISI: folder khusus "Pensiun" (terpisah dari Kenaikan Pangkat/Kontrak).
-    const outputFolder = getOrCreateOutputSubfolder_('Pensiun');
+    const outputFolder = DriveApp.getFolderById(CONFIG.FOLDER_PENSIUN_OUTPUT);
     pindahFileKeFolder_(docCopy, outputFolder);
+    try { docCopy.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) { Logger.log('Share err: '+e.message); }
 
     if (formData.isSaveActive) {
       pensiunGen_saveLog_(formData);
@@ -556,6 +558,7 @@ function previewSuperDocument(sessionToken, formData) {
     const tempName = '[PREVIEW] SUPER - ' + sanitizeFileName_(dataContext.nama_lengkap || 'pegawai') + ' - ' + new Date().getTime();
 
     const copyFile = renderTemplateCopy_(templates[0].fileId, dataContext, tempName);
+    try { copyFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) { Logger.log('Share err: '+e.message); }
 
     return {
       success: true,
@@ -580,8 +583,9 @@ function generateSuperDocument(sessionToken, formData) {
     const docCopy = renderTemplateCopy_(templates[0].fileId, dataContext, fileName);
 
     // REVISI: folder khusus "Pensiun" (terpisah dari Kenaikan Pangkat/Kontrak).
-    const outputFolder = getOrCreateOutputSubfolder_('Pensiun');
+    const outputFolder = DriveApp.getFolderById(CONFIG.FOLDER_PENSIUN_OUTPUT);
     pindahFileKeFolder_(docCopy, outputFolder);
+    try { docCopy.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) { Logger.log('Share err: '+e.message); }
 
     if (formData.nip) tandaiDokumenPensiunSelesai_(formData.nip, 'super', pemroses.nip);
 

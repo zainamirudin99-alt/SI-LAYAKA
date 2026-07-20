@@ -215,6 +215,15 @@ function previewDocument(sessionToken, payload) {
 
     const copyFile = renderMultiEntryDocument_(payload.templateFileId, entries, tempName);
 
+    // Otomatis buka akses "siapapun yang punya link bisa melihat" agar
+    // iframe preview langsung tampil tanpa dialog "Request Access".
+    try {
+      copyFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (shareErr) {
+      Logger.log('Gagal set sharing preview: ' + shareErr.message);
+      // Tetap lanjut — preview mungkin masih bisa dibuka jika user sudah login Google.
+    }
+
     return {
       success: true,
       previewUrl: `https://docs.google.com/document/d/${copyFile.getId()}/preview`,
@@ -225,6 +234,7 @@ function previewDocument(sessionToken, payload) {
     return { success: false, message: 'Gagal membuat preview: ' + err.message };
   }
 }
+
 
 /**
  * GENERATE: render dokumen final (bisa berisi >1 entri digabung dalam
@@ -247,18 +257,32 @@ function generateDocument(sessionToken, payload) {
 
     const docCopy = renderMultiEntryDocument_(payload.templateFileId, entries, fileName);
 
-    // REVISI (konfirmasi Titto): output KP sekarang Google Docs, BUKAN
-    // PDF -- disimpan di folder khusus "Kenaikan Pangkat" (terpisah dari
-    // Pensiun/Kontrak).
-    const outputFolder = getOrCreateOutputSubfolder_('Kenaikan Pangkat');
+    // ── ROUTING OUTPUT FOLDER berdasarkan layanan ──────────────────────
+    // Kenaikan Pangkat → FOLDER_KP_OUTPUT (tetap Google Docs, bukan PDF)
+    // Pensiun (DPCP/SUPER) → FOLDER_PENSIUN_OUTPUT
+    // Kontrak Tendik/Dosen → FOLDER_KONTRAK_ROOT / sub-folder tahun
+    const layanan = String(payload.layanan || '').trim();
+    let outputFolder;
+    if (layanan === 'Pensiun') {
+      outputFolder = DriveApp.getFolderById(CONFIG.FOLDER_PENSIUN_OUTPUT);
+    } else if (layanan === 'Kontrak Tendik' || layanan === 'Kontrak Dosen') {
+      const tahun = String(new Date().getFullYear());
+      const rootKontrak = DriveApp.getFolderById(CONFIG.FOLDER_KONTRAK_ROOT);
+      const existing = rootKontrak.getFoldersByName(tahun);
+      outputFolder = existing.hasNext() ? existing.next() : rootKontrak.createFolder(tahun);
+    } else {
+      // Default: Kenaikan Pangkat → FOLDER_KP_OUTPUT
+      outputFolder = DriveApp.getFolderById(CONFIG.FOLDER_KP_OUTPUT);
+    }
     pindahFileKeFolder_(docCopy, outputFolder);
+    try { docCopy.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) { Logger.log('Share err: '+e.message); }
+    // ───────────────────────────────────────────────────────────────────
 
-    // REVISI (konfirmasi Titto): status usulan KP baru berubah ke
-    // notifikasi akhir setelah KEDUA Opsi A DAN Opsi B selesai diproses
-    // untuk NIP yang sama (pola sama seperti DPCP+SUPER Pensiun) --
-    // bukan lagi cukup salah satu opsi saja.
-    const nipYangDigenerate = entries.map(e => String(e.employee.nip || '').trim());
-    nipYangDigenerate.forEach(nip => tandaiOpsiUsulanKpSelesai_(nip, payload.subLayanan, employeeSession.nip));
+    // Tandai progres usulan KP (hanya relevan untuk Kenaikan Pangkat)
+    if (!layanan || layanan === 'Kenaikan Pangkat') {
+      const nipYangDigenerate = entries.map(e => String(e.employee.nip || '').trim());
+      nipYangDigenerate.forEach(nip => tandaiOpsiUsulanKpSelesai_(nip, payload.subLayanan, employeeSession.nip));
+    }
 
     return {
       success: true,
@@ -276,6 +300,130 @@ function generateDocument(sessionToken, payload) {
 }
 
 /**
+ * Terima upload Base64 lampiran usulan kontrak dari Vercel → simpan ke
+ * sub-folder tahun di FOLDER_KONTRAK_ROOT → kembalikan URL file Drive.
+ * Dipanggil oleh ajukanUsulanKontrak di rpc.js melalui doPost.
+ */
+function ajukanUsulanKontrakDrive(sessionId, payload) {
+  try {
+    const tahun = String(payload.tahun || new Date().getFullYear());
+    const nip   = String(payload.nip || 'unknown').replace(/[^a-zA-Z0-9]/g, '');
+    const nama  = sanitizeFileName_(String(payload.nama || 'pegawai').substring(0, 40));
+
+    // Cari / buat sub-folder tahun di dalam root kontrak
+    const rootKontrak = DriveApp.getFolderById(CONFIG.FOLDER_KONTRAK_ROOT);
+    const tahunIter = rootKontrak.getFoldersByName(tahun);
+    const tahunFolder = tahunIter.hasNext() ? tahunIter.next() : rootKontrak.createFolder(tahun);
+
+    // Cari / buat sub-folder pegawai (NIP - Nama) di dalam tahun
+    const pegawaiKey = nip + ' - ' + nama;
+    const pegIter = tahunFolder.getFoldersByName(pegawaiKey);
+    const pegawaiFolder = pegIter.hasNext() ? pegIter.next() : tahunFolder.createFolder(pegawaiKey);
+
+    // Helper: simpan satu file Base64 ke folder
+    function simpanBase64_(base64, namaFile, mimeType) {
+      if (!base64) return '';
+      try {
+        const decoded = Utilities.newBlob(
+          Utilities.base64Decode(base64.replace(/^data:[^;]+;base64,/, '')),
+          mimeType || 'application/octet-stream',
+          namaFile
+        );
+        const file = pegawaiFolder.createFile(decoded);
+        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        return file.getUrl();
+      } catch (e) {
+        Logger.log('Gagal simpan ' + namaFile + ': ' + e.message);
+        return '';
+      }
+    }
+
+    function guessMime_(namaFile) {
+      const ext = String(namaFile || '').split('.').pop().toLowerCase();
+      const map = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+                    png: 'image/png', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
+      return map[ext] || 'application/octet-stream';
+    }
+
+    const urls = {};
+    const files = [
+      { key: 'ktp',           base64: payload.ktpBase64,            nama: payload.ktpNama || 'KTP.pdf' },
+      { key: 'kk',            base64: payload.kkBase64,             nama: payload.kkNama || 'KK.pdf' },
+      { key: 'pas_foto',      base64: payload.pasFotoBase64,        nama: payload.pasFotoNama || 'PasFoto.jpg' },
+      { key: 'ijazah',        base64: payload.ijazahBase64,         nama: payload.ijazahNama || 'Ijazah.pdf' },
+      { key: 'surat_pengantar', base64: payload.suratPengantarBase64, nama: payload.suratPengantarNama || 'SuratPengantar.pdf' },
+      { key: 'surat_lamaran', base64: payload.suratLamaranBase64,   nama: payload.suratLamaranNama || 'SuratLamaran.pdf' },
+      { key: 'sim_ab',        base64: payload.simAbBase64,          nama: payload.simAbNama || 'SIM_AB.pdf' },
+      { key: 'str_aktif',     base64: payload.strAktifBase64,       nama: payload.strAktifNama || 'STR_Aktif.pdf' },
+      { key: 'keterangan_sehat', base64: payload.ketSehatBase64,    nama: payload.ketSehatNama || 'KeteranganSehat.pdf' }
+    ];
+
+    files.forEach(f => {
+      if (f.base64) {
+        urls[f.key] = simpanBase64_(f.base64, f.nama, guessMime_(f.nama));
+      }
+    });
+
+    return { success: true, urls: urls, folderUrl: pegawaiFolder.getUrl() };
+  } catch (err) {
+    return { success: false, message: 'GAS Error: ' + err.message };
+  }
+}
+
+/**
+ * Admin generate kontrak final dari usulan yang SUDAH disetujui
+ * (semua lampiran approved). Simpan ke folder tahun di FOLDER_KONTRAK_ROOT.
+ */
+function generateKontrakFromUsulan(sessionToken, templateFileId, usulanData) {
+  const adminSession = requireRole_(sessionToken, ['admin', 'super_admin']);
+  try {
+    if (!usulanData) return { success: false, message: 'Data usulan tidak tersedia.' };
+
+    let fileId = templateFileId;
+    if (!fileId) {
+      const templates = getTemplatesForService(sessionToken, usulanData.layanan, usulanData.sub_menu);
+      if (!templates.length) return { success: false, message: `Template "${usulanData.sub_menu}" (${usulanData.layanan}) belum terdaftar.` };
+      fileId = templates[0].fileId;
+    }
+
+    // Ambil data pegawai dari sheet berdasarkan NIP
+    const nip = String(usulanData.nip || '').trim();
+    let employee = {};
+    try { employee = getEmployeeFullData(sessionToken, nip) || {}; } catch (e) { /* best effort */ }
+
+    const formData = Object.assign({}, usulanData.form_data || {}, {
+      tahun_kontrak: usulanData.tahun,
+      jenis_usulan: usulanData.jenis_usulan,
+      evaluasi_kinerja: usulanData.evaluasi_kinerja,
+      layanan: usulanData.layanan,
+      sub_menu: usulanData.sub_menu
+    });
+    const dataContext = buildDataContext_(employee, formData, usulanData.sub_menu);
+
+    const namaFile = sanitizeFileName_(String(nip + '-' + (employee.nama_lengkap || usulanData.nama || 'kontrak') + '-' + (usulanData.tahun || '')));
+    const docCopy = renderTemplateCopy_(fileId, dataContext, namaFile);
+
+    // Simpan ke folder tahun di root kontrak
+    const tahun = String(usulanData.tahun || new Date().getFullYear());
+    const rootKontrak = DriveApp.getFolderById(CONFIG.FOLDER_KONTRAK_ROOT);
+    const tahunIter = rootKontrak.getFoldersByName(tahun);
+    const tahunFolder = tahunIter.hasNext() ? tahunIter.next() : rootKontrak.createFolder(tahun);
+    pindahFileKeFolder_(docCopy, tahunFolder);
+    try { docCopy.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) { Logger.log('Share err: '+e.message); }
+
+    return {
+      success: true,
+      fileId: docCopy.getId(),
+      fileName: namaFile,
+      viewUrl: docCopy.getUrl(),
+      message: 'Perjanjian Kontrak berhasil dibuat.'
+    };
+  } catch (err) {
+    return { success: false, message: 'Gagal generate kontrak: ' + err.message };
+  }
+}
+
+/**
  * ENTRY POINT WEB APP: Menerima request rpc dari Vercel
  * untuk meng-generate / preview Google Docs.
  */
@@ -284,16 +432,25 @@ function doPost(e) {
     const postData = JSON.parse(e.postData.contents);
     const method = postData.method;
     const params = postData.params || [];
-    
-    // Daftar fungsi yang diijinkan dipanggil oleh Vercel
-    const allowedMethods = ['previewDocument', 'generateDocument'];
-    if (allowedMethods.indexOf(method) === -1) {
-      return ContentService.createTextOutput(JSON.stringify({
-        success: false,
-        message: 'Fungsi "' + method + '" tidak diijinkan untuk diakses secara remote.'
-      })).setMimeType(ContentService.MimeType.JSON);
+
+    // ── Injeksi session dari Vercel ──────────────────────────────────────
+    // Vercel mengganti JWT panjang (>250 char) dengan UUID pendek agar aman
+    // sebagai key CacheService. Data user yang sudah diverifikasi dikirim
+    // via field "remoteSession" dan di-inject ke sini sebelum fungsi dipakai.
+    if (postData.remoteSession && postData.remoteSession.id && postData.remoteSession.data) {
+      try {
+        const cache = CacheService.getScriptCache();
+        const key   = 'session_' + postData.remoteSession.id;
+        const value = JSON.stringify(postData.remoteSession.data);
+        cache.put(key, value, 300); // 5 menit, cukup untuk durasi 1 request
+      } catch (cacheErr) {
+        // Jangan hentikan eksekusi hanya karena CacheService gagal;
+        // fungsi yang butuh sesi akan melempar error sendiri jika diperlukan.
+        Logger.log('Gagal inject remoteSession ke cache: ' + cacheErr.message);
+      }
     }
-    
+    // ────────────────────────────────────────────────────────────────────
+
     const fn = this[method];
     if (typeof fn !== 'function') {
       return ContentService.createTextOutput(JSON.stringify({
@@ -312,4 +469,4 @@ function doPost(e) {
       message: 'Error internal Apps Script: ' + err.message
     })).setMimeType(ContentService.MimeType.JSON);
   }
-}
+}

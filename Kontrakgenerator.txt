@@ -250,6 +250,7 @@ function previewKontrakDocument(sessionToken, payload) {
     const tempName = '[PREVIEW] Kontrak - ' + sanitizeFileName_(dataContext.nama_lengkap || 'pegawai') + ' - ' + new Date().getTime();
 
     const copyFile = renderTemplateCopy_(templates[0].fileId, dataContext, tempName);
+    try { copyFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) { Logger.log('Share err: '+e.message); }
     return {
       success: true,
       previewUrl: `https://docs.google.com/document/d/${copyFile.getId()}/preview`,
@@ -305,15 +306,20 @@ function generateKontrakDocument(sessionToken, payload) {
 
     const docCopy = renderTemplateCopy_(templates[0].fileId, dataContext, fileName);
 
-    // Folder khusus "Kontrak" -- Google Docs & PDF disimpan BERSAMA di sini.
-    const outputFolder = getOrCreateOutputSubfolder_('Kontrak');
+    // Folder khusus "Kontrak" -- Google Docs & PDF disimpan BERSAMA di sini (di dalam sub-folder tahun)
+    const tahun = String(new Date().getFullYear());
+    const rootKontrak = DriveApp.getFolderById(CONFIG.FOLDER_KONTRAK_ROOT);
+    const existing = rootKontrak.getFoldersByName(tahun);
+    const outputFolder = existing.hasNext() ? existing.next() : rootKontrak.createFolder(tahun);
     pindahFileKeFolder_(docCopy, outputFolder);
+    try { docCopy.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) { Logger.log('Share err doc: '+e.message); }
 
     // PDF dibuat dari Docs yang SAMA (bukan menggantikannya) -- kedua file
     // tetap ada sesuai permintaan Titto.
     const pdfBlob = docCopy.getAs('application/pdf');
     pdfBlob.setName(fileName + '.pdf');
     const pdfFile = outputFolder.createFile(pdfBlob);
+    try { pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) { Logger.log('Share err pdf: '+e.message); }
 
     return {
       success: true,

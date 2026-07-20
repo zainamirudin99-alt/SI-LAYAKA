@@ -95,7 +95,7 @@ function renderDocumentBody_(body, dataContext) {
   //    body.replaceText() cuma mengosongkan TEKS pada tiap paragraf yang
   //    cocok, tapi PARAGRAF KOSONGNYA TETAP ADA -- baris tabel jadi tetap
   //    setinggi rumus mentahnya (belasan baris kosong) walau hasil akhir
-  //    yang tercetak cuma satu angka pendek ("850"), sehingga tabel & 
+  //    yang tercetak cuma satu angka pendek ("850"), sehingga tabel &
   //    jumlah halaman dokumen membengkak. Dengan clear()+appendParagraph()
   //    di level sel, seluruh paragraf sisa itu ikut terhapus dan diganti
   //    SATU paragraf berisi hasil akhir saja -- tinggi baris otomatis
@@ -129,6 +129,11 @@ function renderDocumentBody_(body, dataContext) {
     const pattern = '\\{\\{\\s*' + escapeRegex_(rawExpr) + '\\s*\\}\\}';
     body.replaceText(pattern, escapeReplacement_(value));
   });
+
+  // 4) Auto-fit tinggi baris tabel: setelah semua konten terisi, pastikan
+  //    setiap baris tabel tidak lebih tinggi dari isinya (minimumHeight = 0
+  //    membuat Google Docs menyesuaikan tinggi baris ke konten aktual).
+  findAllTablesRecursive_(body).forEach(table => autoFitTableRows_(table));
 }
 
 /** Isi tag {{..}} di setiap sel sebuah tabel, sel per sel (lihat renderCellTextInPlace_). */
@@ -296,6 +301,17 @@ function evaluateAndFormat_(rawExpr, dataContext) {
   }
 
   let result = evaluateExpression_(mainExpr, dataContext);
+
+  // Auto-ceiling ke 2 desimal: jika hasil adalah angka dengan lebih dari
+  // 2 angka di belakang koma, bulatkan ke atas ke tepat 2 desimal.
+  // Contoh: 314.0275 → 314.03  |  25.1 → 25.1 (tidak berubah)
+  // Diterapkan SEBELUM filter agar filter 'rupiah'/'terbilang' menerima
+  // nilai yang sudah dibulatkan.
+  if (typeof result === 'number' && isFinite(result) && !Number.isInteger(result)) {
+    const factor = 100;
+    const ceiled = Math.ceil(Math.round(result * factor * 1e9) / 1e9) / factor;
+    if (ceiled !== result) result = ceiled;
+  }
 
   for (const f of filters) {
     result = applyFilter_(f, result);
@@ -651,6 +667,30 @@ function tableHasNestedTable_(table) {
     }
   }
   return false;
+}
+
+/**
+ * Auto-fit tinggi baris tabel: set minimumHeight = 0 pada setiap baris
+ * sehingga Google Docs menyesuaikan tinggi baris ke konten aktual — baris
+ * tidak lagi membengkak karena sisa paragraf kosong dari rumus template.
+ *
+ * Catatan: Apps Script DocumentApp TIDAK menyediakan API untuk mengatur
+ * lebar kolom (setColumnWidth hanya ada di Spreadsheet). Lebar kolom
+ * mengikuti template seperti aslinya.
+ */
+function autoFitTableRows_(table) {
+  try {
+    for (let r = 0; r < table.getNumRows(); r++) {
+      try {
+        table.getRow(r).setMinimumHeight(0);
+      } catch (rowErr) {
+        // Lewati baris yang tidak bisa diatur tanpa menghentikan proses.
+      }
+    }
+  } catch (e) {
+    // Jangan gagalkan dokumen hanya karena auto-fit baris tidak bisa dijalankan.
+    Logger.log('autoFitTableRows_ gagal: ' + e.message);
+  }
 }
 
 /** Cocokkan marker pembuka loop di teks sel: {{#nama}} (utama) atau {#nama} (lama, tetap didukung). */

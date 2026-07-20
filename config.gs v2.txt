@@ -20,6 +20,13 @@ const CONFIG = {
   // Folder Drive tujuan penyimpanan PDF hasil generate
   OUTPUT_FOLDER_ID: '1zf8u-yXjhDcuzwyFiv7Xz7eYBNDZ85k3',
 
+  // Google Drive folders for specific services
+  FOLDER_KP_OUTPUT: '1zf8u-yXjhDcuzwyFiv7Xz7eYBNDZ85k3',
+  FOLDER_KP_LAMPIRAN: '1BrMjMWkJN8D_EmOJTMsgNwARwXxapp8M',
+  FOLDER_PENSIUN_OUTPUT: '10Cu3SmYJyy8lcLX2-KpIjB5qVEU1ynPu',
+  FOLDER_PENSIUN_LAMPIRAN: '1ko75RjljybXg6tLqpXdOH1Im8rjlUFTd',
+  FOLDER_KONTRAK_ROOT: '1uCTUJ2qfrBeyjFEwsufFKuZuQO1MaYQi',
+
   // Lama sesi login tersimpan di cache (detik) - 6 jam
   SESSION_TTL_SECONDS: 6 * 60 * 60,
 

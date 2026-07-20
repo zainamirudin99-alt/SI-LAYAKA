@@ -282,6 +282,16 @@ function terapkanBatasanPeran_() {
       : 'Cari Pegawai Manual / Isi Form DPCP';
   }
 
+  // Tampilkan/sembunyikan tombol Kelola Akses & Admin Tabs sesuai peran
+  const kontrakKelolaAksesBtn = document.getElementById('kontrakKelolaAksesBtn');
+  if (kontrakKelolaAksesBtn) {
+    kontrakKelolaAksesBtn.style.display = (role === 'admin' || role === 'super_admin') ? 'inline-flex' : 'none';
+  }
+  const kontrakAdminTabs = document.getElementById('kontrakAdminTabs');
+  if (kontrakAdminTabs) {
+    kontrakAdminTabs.style.display = (role === 'admin' || role === 'super_admin') ? 'flex' : 'none';
+  }
+
   // Arahkan ke view default sesuai peran.
   document.querySelectorAll('.nav-item[data-view]').forEach(i => i.classList.remove('active'));
   document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
@@ -409,6 +419,7 @@ function bindSidebarNav() {
       if (view === 'template') loadGlosariumTag();
       if (view === 'pensiun') loadPensiunDashboardOnce();
       if (view === 'peran-akun') loadPeranAkunList();
+      if (view === 'kontrak') initKontrakViewForUser();
     });
   });
   document.getElementById('logoutBtn').addEventListener('click', logoutUser);
@@ -2669,10 +2680,11 @@ function bindKontrakForm() {
   // ditempatkan menonjol di awal (sebelum pilih kategori kontrak), TERPISAH
   // dari proses membuat satu kontrak tertentu.
   const aksesBtn = document.getElementById('kontrakKelolaAksesBtn');
-  if (SESSION.user.role === 'admin' || SESSION.user.role === 'super_admin') {
-    aksesBtn.style.display = 'inline-flex';
+  if (aksesBtn) {
     aksesBtn.addEventListener('click', () => { kontrakGoToState_('kelolaAkses'); loadKontrakAksesKategoriList(); });
   }
+
+  initKontrakTabs(); // Inisialisasi tab review/buat kontrak untuk admin
 
   document.getElementById('kontrak_pendidikan').addEventListener('input', updateKontrakBesaranUpahPreview_);
   document.getElementById('kontrak_tmtTahun').addEventListener('change', () => {
@@ -2701,7 +2713,7 @@ function loadKontrakAksesKategoriList() {
           <div class="cdli-name">${escapeHtml(item.kategori)}</div>
           <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
             <input type="checkbox" data-kategori="${escapeHtml(item.kategori)}" ${item.diizinkan ? 'checked' : ''} style="width:auto;" />
-            <span>${item.diizinkan ? 'Diizinkan' : 'Tidak diizinkan'}</span>
+            <span style="font-weight:500; color:${item.diizinkan ? '#4caf50' : '#888'};">${item.diizinkan ? 'Diberikan Izin' : 'Tidak Diizinkan'}</span>
           </label>
         </div>
       `).join('');
@@ -2709,13 +2721,28 @@ function loadKontrakAksesKategoriList() {
       el.querySelectorAll('input[type="checkbox"]').forEach(cb => {
         cb.addEventListener('change', () => {
           const kategori = cb.getAttribute('data-kategori');
+          const span = cb.nextElementSibling;
+          const nowChecked = cb.checked;
+          // Immediately update label to reflect new state
+          span.textContent = nowChecked ? 'Diberikan Izin' : 'Tidak Diizinkan';
+          span.style.color = nowChecked ? '#4caf50' : '#888';
           google.script.run
             .withSuccessHandler(res => {
               if (res.success) { showToast('success', res.message); loadKontrakAksesKategoriList(); }
-              else { showToast('error', res.message); cb.checked = !cb.checked; }
+              else {
+                cb.checked = !nowChecked;
+                span.textContent = !nowChecked ? 'Diberikan Izin' : 'Tidak Diizinkan';
+                span.style.color = !nowChecked ? '#4caf50' : '#888';
+                showToast('error', res.message);
+              }
             })
-            .withFailureHandler(err => { showToast('error', 'Gagal mengubah akses: ' + (err.message || err)); cb.checked = !cb.checked; })
-            .aturAksesKontrakKategori(SESSION.token, kategori, cb.checked);
+            .withFailureHandler(err => {
+              cb.checked = !nowChecked;
+              span.textContent = !nowChecked ? 'Diberikan Izin' : 'Tidak Diizinkan';
+              span.style.color = !nowChecked ? '#4caf50' : '#888';
+              showToast('error', 'Gagal mengubah akses: ' + (err.message || err));
+            })
+            .aturAksesKontrakKategori(SESSION.token, kategori, nowChecked);
         });
       });
     })
@@ -2957,5 +2984,511 @@ function openKontrakResultModal(res) {
       </div>
     </div>`;
   document.getElementById('modalOverlay').style.display = 'flex';
+}
+
+/* ------------------------- KONTRAK USER PROPOSAL & ADMIN REVIEW ------------------------- */
+
+function initKontrakTabs() {
+  const tabs = document.querySelectorAll('[data-kontrak-tab]');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const target = tab.getAttribute('data-kontrak-tab');
+      if (target === 'buat') {
+        document.getElementById('kontrakAdminDirectSection').style.display = 'block';
+        document.getElementById('kontrakAdminReviewSection').style.display = 'none';
+      } else {
+        document.getElementById('kontrakAdminDirectSection').style.display = 'none';
+        document.getElementById('kontrakAdminReviewSection').style.display = 'block';
+        loadKontrakReviewUnits();
+      }
+    });
+  });
+}
+
+function initKontrakViewForUser() {
+  const role = SESSION.user.role || 'normal';
+  const isAdmin = (role === 'admin' || role === 'super_admin');
+  
+  const adminTabs = document.getElementById('kontrakAdminTabs');
+  const adminDirectSec = document.getElementById('kontrakAdminDirectSection');
+  const adminReviewSec = document.getElementById('kontrakAdminReviewSection');
+  const userPropSec = document.getElementById('kontrakUserProposalSection');
+  
+  if (isAdmin) {
+    if (adminTabs) adminTabs.style.display = 'flex';
+    if (adminDirectSec) adminDirectSec.style.display = 'block';
+    if (adminReviewSec) adminReviewSec.style.display = 'none';
+    if (userPropSec) userPropSec.style.display = 'none';
+    
+    // Set active tab to 'buat'
+    const tabs = document.querySelectorAll('[data-kontrak-tab]');
+    tabs.forEach(t => {
+      if (t.getAttribute('data-kontrak-tab') === 'buat') t.classList.add('active');
+      else t.classList.remove('active');
+    });
+    
+    loadKontrakReviewBadge();
+  } else {
+    if (adminTabs) adminTabs.style.display = 'none';
+    if (adminDirectSec) adminDirectSec.style.display = 'none';
+    if (adminReviewSec) adminReviewSec.style.display = 'none';
+    if (userPropSec) userPropSec.style.display = 'block';
+    
+    loadUsulanKontrakSaya();
+  }
+}
+
+function toggleEvaluasiKinerjaUser() {
+  const jenis = document.getElementById('kontrakUser_jenisUsulan').value;
+  const wrap = document.getElementById('kontrakUser_evaluasiWrap');
+  if (wrap) {
+    wrap.style.display = (jenis === 'Perpanjangan') ? 'block' : 'none';
+  }
+}
+
+function onKontrakUserLayananChange() {
+  const layanan = document.getElementById('kontrakUser_layanan').value;
+  const subMenuSelect = document.getElementById('kontrakUser_subMenu');
+  if (!subMenuSelect) return;
+  
+  if (!layanan) {
+    subMenuSelect.innerHTML = '<option value="">Pilih Kategori Pegawai Dahulu...</option>';
+    return;
+  }
+  
+  const list = (layanan === 'Kontrak Tendik') 
+    ? (kontrakFormOptionsCache.subMenuTendik || []) 
+    : (kontrakFormOptionsCache.subMenuDosen || []);
+    
+  subMenuSelect.innerHTML = list.map(item => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join('');
+}
+
+// Check medical keywords
+function isJabatanMedis(jabatan) {
+  const medKeywords = ["dokter", "perawat", "bidan", "apoteker", "perekam", "radiografer", "sanitarian", "psikolog", "fisioterapis", "nutrisionis", "terapis", "medis"];
+  const job = String(jabatan || '').toLowerCase();
+  return medKeywords.some(kw => job.includes(kw));
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+  });
+}
+
+async function submitUsulanKontrak(e) {
+  e.preventDefault();
+  const btn = document.getElementById('kontrakUser_submitBtn');
+  setBtnLoading(btn, true, 'Mengajukan...');
+  
+  try {
+    const nip = document.getElementById('kontrakUser_nip').value;
+    const nama = document.getElementById('kontrakUser_nama').value;
+    const unit = document.getElementById('kontrakUser_unit').value;
+    const email = document.getElementById('kontrakUser_email').value;
+    const tahun = document.getElementById('kontrakUser_tahun').value;
+    const jenis_usulan = document.getElementById('kontrakUser_jenisUsulan').value;
+    const evaluasi_kinerja = (jenis_usulan === 'Perpanjangan') ? document.getElementById('kontrakUser_evaluasiKinerja').value : '';
+    const layanan = document.getElementById('kontrakUser_layanan').value;
+    const sub_menu = document.getElementById('kontrakUser_subMenu').value;
+    
+    // File elements
+    const ktpInput = document.getElementById('kontrakUser_file_ktp');
+    const kkInput = document.getElementById('kontrakUser_file_kk');
+    const pasFotoInput = document.getElementById('kontrakUser_file_pas_foto');
+    const ijazahInput = document.getElementById('kontrakUser_file_ijazah');
+    const suratPengantarInput = document.getElementById('kontrakUser_file_surat_pengantar');
+    const suratLamaranInput = document.getElementById('kontrakUser_file_surat_lamaran');
+    const ketSehatInput = document.getElementById('kontrakUser_file_ket_sehat');
+    const simInput = document.getElementById('kontrakUser_file_sim');
+    const strInput = document.getElementById('kontrakUser_file_str');
+    
+    const payload = {
+      nip, nama, unit, email, tahun, jenis_usulan, evaluasi_kinerja, layanan, sub_menu,
+      form_data: {
+        nip, nama_lengkap: nama, unit_es_ii: unit, jabatan: document.getElementById('kontrakUser_jabatan').value, email
+      }
+    };
+    
+    // Read files
+    if (ktpInput.files.length) {
+      payload.ktpBase64 = await fileToBase64(ktpInput.files[0]);
+      payload.ktpNama = ktpInput.files[0].name;
+    }
+    if (kkInput.files.length) {
+      payload.kkBase64 = await fileToBase64(kkInput.files[0]);
+      payload.kkNama = kkInput.files[0].name;
+    }
+    if (pasFotoInput.files.length) {
+      payload.pasFotoBase64 = await fileToBase64(pasFotoInput.files[0]);
+      payload.pasFotoNama = pasFotoInput.files[0].name;
+    }
+    if (ijazahInput.files.length) {
+      payload.ijazahBase64 = await fileToBase64(ijazahInput.files[0]);
+      payload.ijazahNama = ijazahInput.files[0].name;
+    }
+    if (suratPengantarInput.files.length) {
+      payload.suratPengantarBase64 = await fileToBase64(suratPengantarInput.files[0]);
+      payload.suratPengantarNama = suratPengantarInput.files[0].name;
+    }
+    if (suratLamaranInput.files.length) {
+      payload.suratLamaranBase64 = await fileToBase64(suratLamaranInput.files[0]);
+      payload.suratLamaranNama = suratLamaranInput.files[0].name;
+    }
+    if (ketSehatInput.files.length) {
+      payload.ketSehatBase64 = await fileToBase64(ketSehatInput.files[0]);
+      payload.ketSehatNama = ketSehatInput.files[0].name;
+    }
+    if (simInput && simInput.files.length) {
+      payload.simAbBase64 = await fileToBase64(simInput.files[0]);
+      payload.simAbNama = simInput.files[0].name;
+    }
+    if (strInput && strInput.files.length) {
+      payload.strAktifBase64 = await fileToBase64(strInput.files[0]);
+      payload.strAktifNama = strInput.files[0].name;
+    }
+    
+    google.script.run
+      .withSuccessHandler(res => {
+        setBtnLoading(btn, false, 'Ajukan Usulan');
+        if (res.success) {
+          showToast('success', res.message);
+          loadUsulanKontrakSaya();
+        } else {
+          showToast('error', res.message);
+        }
+      })
+      .withFailureHandler(err => {
+        setBtnLoading(btn, false, 'Ajukan Usulan');
+        showToast('error', 'Gagal mengajukan usulan: ' + (err.message || err));
+      })
+      .ajukanUsulanKontrak(SESSION.token, payload);
+      
+  } catch (err) {
+    setBtnLoading(btn, false, 'Ajukan Usulan');
+    showToast('error', 'Gagal memproses file: ' + err.message);
+  }
+}
+
+function loadUsulanKontrakSaya() {
+  const statusState = document.getElementById('kontrakUserStatusState');
+  const formState = document.getElementById('kontrakUserFormState');
+  
+  statusState.style.display = 'none';
+  formState.style.display = 'none';
+  
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      
+      if (!res.usulan) {
+        // Show Form
+        formState.style.display = 'block';
+        document.getElementById('kontrakUser_nip').value = SESSION.user.nip || '';
+        document.getElementById('kontrakUser_nama').value = SESSION.user.nama || SESSION.user.nama_lengkap || '';
+        document.getElementById('kontrakUser_unit').value = SESSION.user.unit_es_ii || SESSION.user.unit || '';
+        document.getElementById('kontrakUser_jabatan').value = SESSION.user.jabatan || '';
+        document.getElementById('kontrakUser_email').value = SESSION.user.email || '';
+        document.getElementById('kontrakUser_tahun').value = new Date().getFullYear();
+        
+        // Sim & Str wraps
+        const isDriver = String(SESSION.user.jabatan || '').toLowerCase().includes('pengemudi');
+        const isMedis = isJabatanMedis(SESSION.user.jabatan);
+        
+        const simWrap = document.getElementById('kontrakUser_simWrap');
+        const simInput = document.getElementById('kontrakUser_file_sim');
+        if (simWrap) {
+          simWrap.style.display = isDriver ? 'block' : 'none';
+          if (simInput) {
+            if (isDriver) simInput.setAttribute('required', 'required');
+            else simInput.removeAttribute('required');
+          }
+        }
+        
+        const strWrap = document.getElementById('kontrakUser_strWrap');
+        const strInput = document.getElementById('kontrakUser_file_str');
+        if (strWrap) {
+          strWrap.style.display = isMedis ? 'block' : 'none';
+          if (strInput) {
+            if (isMedis) strInput.setAttribute('required', 'required');
+            else strInput.removeAttribute('required');
+          }
+        }
+        
+        // Reset file inputs
+        document.getElementById('kontrakUserForm').reset();
+        document.getElementById('kontrakUser_nip').value = SESSION.user.nip || '';
+        document.getElementById('kontrakUser_nama').value = SESSION.user.nama || SESSION.user.nama_lengkap || '';
+        document.getElementById('kontrakUser_unit').value = SESSION.user.unit_es_ii || SESSION.user.unit || '';
+        document.getElementById('kontrakUser_jabatan').value = SESSION.user.jabatan || '';
+        document.getElementById('kontrakUser_email').value = SESSION.user.email || '';
+        document.getElementById('kontrakUser_tahun').value = new Date().getFullYear();
+        toggleEvaluasiKinerjaUser();
+        onKontrakUserLayananChange();
+      } else {
+        // Show Status
+        statusState.style.display = 'block';
+        const card = document.getElementById('kontrakUserStatusCard');
+        
+        let statusBadge = `<span class="badge" style="background:#ff9800; color:#fff; padding:3px 8px; border-radius:4px;">Diajukan</span>`;
+        if (res.usulan.status === 'Disetujui') {
+          statusBadge = `<span class="badge" style="background:#4caf50; color:#fff; padding:3px 8px; border-radius:4px;">Disetujui (Siap Generate)</span>`;
+        } else if (res.usulan.status === 'Selesai' || res.usulan.perjanjian_dibuat) {
+          statusBadge = `<span class="badge" style="background:#2196f3; color:#fff; padding:3px 8px; border-radius:4px;">Selesai (Perjanjian Dibuat)</span>`;
+        }
+        
+        let generateBtnHtml = '';
+        if (res.usulan.status === 'Disetujui' && !res.usulan.perjanjian_dibuat) {
+          generateBtnHtml = `
+            <div style="margin-top:20px; text-align:center;">
+              <button class="btn btn-primary" id="kontrakUser_genBtn" onclick="generateKontrakUserSelf('${res.usulan.id}')">Buat Dokumen Perjanjian Kerja Final</button>
+            </div>`;
+        }
+        
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:10px; margin-bottom:14px;">
+            <div><strong>Tahun Kontrak:</strong> ${escapeHtml(res.usulan.tahun)}</div>
+            <div>${statusBadge}</div>
+          </div>
+          <div class="grid-2" style="font-size:14px; gap:10px; margin-bottom:20px;">
+            <div><strong>NIP:</strong> ${escapeHtml(SESSION.user.nip)}</div>
+            <div><strong>Nama:</strong> ${escapeHtml(SESSION.user.nama || SESSION.user.nama_lengkap)}</div>
+            <div><strong>Jenis Usulan:</strong> ${escapeHtml(res.usulan.jenis_usulan)}</div>
+            <div><strong>Tanggal Diajukan:</strong> ${escapeHtml(res.usulan.tanggal_diajukan)}</div>
+            <div><strong>Kategori:</strong> ${escapeHtml(res.usulan.layanan)}</div>
+            <div><strong>Jenis Kontrak:</strong> ${escapeHtml(res.usulan.sub_menu)}</div>
+          </div>
+          
+          <h4 style="border-bottom:1px solid #eee; padding-bottom:6px; margin-bottom:10px;">Status Persetujuan Lampiran</h4>
+          <div class="ce-dashboard-list" style="gap:8px;">
+            ${res.usulan.lampiran.map(l => {
+              const label = l.key.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+              const icon = l.approved ? `<span style="color:#4caf50; font-weight:bold;">✅ Disetujui</span>` : `<span style="color:#ff9800; font-weight:bold;">⏳ Menunggu Review</span>`;
+              return `
+                <div class="ce-dashboard-list-item" style="cursor:default; display:flex; justify-content:space-between; align-items:center; padding:10px 14px;">
+                  <div>
+                    <a href="${l.url}" target="_blank" style="text-decoration:none; color:#1957b3; font-weight:500;">📄 ${label}</a>
+                  </div>
+                  <div>${icon}</div>
+                </div>`;
+            }).join('')}
+          </div>
+          ${generateBtnHtml}
+        `;
+      }
+    })
+    .getUsulanKontrakSaya(SESSION.token);
+}
+
+function generateKontrakUserSelf(usulanId) {
+  const btn = document.getElementById('kontrakUser_genBtn');
+  setBtnLoading(btn, true, 'Memproses...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setBtnLoading(btn, false, 'Buat Dokumen Perjanjian Kerja Final');
+      if (res.success) {
+        showToast('success', res.message);
+        loadUsulanKontrakSaya();
+        openKontrakResultModal({ docViewUrl: res.viewUrl, pdfDownloadUrl: `https://drive.google.com/uc?export=download&id=${res.fileId}` });
+      } else {
+        showToast('error', res.message);
+      }
+    })
+    .withFailureHandler(err => {
+      setBtnLoading(btn, false, 'Buat Dokumen Perjanjian Kerja Final');
+      showToast('error', 'Gagal membuat kontrak: ' + (err.message || err));
+    })
+    .generateKontrakFromUsulanVercel(SESSION.token, '', usulanId);
+}
+
+// --- ADMIN REVIEW FUNCTIONS ---
+
+function loadKontrakReviewBadge() {
+  google.script.run
+    .withSuccessHandler(res => {
+      const badge = document.getElementById('kontrakReviewBadge');
+      if (badge) {
+        if (res.success && res.totalUsulanBaru > 0) {
+          badge.textContent = res.totalUsulanBaru;
+          badge.style.display = 'inline-block';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    })
+    .getUsulanKontrakNotifikasiSummary(SESSION.token);
+}
+
+function loadKontrakReviewUnits() {
+  const el = document.getElementById('kontrakReviewUnitList');
+  el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat...</div>';
+  
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      if (!res.daftarUnit.length) {
+        el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada usulan baru masuk.</div>';
+        return;
+      }
+      el.innerHTML = res.daftarUnit.map(item => `
+        <div class="ce-dashboard-list-item" onclick="viewKontrakReviewList('${escapeHtml(item.unit)}')">
+          <div class="cdli-name">${escapeHtml(item.unit)}</div>
+          <div class="cdli-meta">${item.jumlah} usulan baru</div>
+        </div>`).join('');
+    })
+    .getUsulanKontrakNotifikasiSummary(SESSION.token);
+}
+
+let kontrakReviewSelectedUnit = '';
+function viewKontrakReviewList(unit) {
+  kontrakReviewSelectedUnit = unit;
+  document.getElementById('kontrakReviewUnitListState').style.display = 'none';
+  document.getElementById('kontrakReviewListState').style.display = 'block';
+  document.getElementById('kontrakReviewUnitTitle').textContent = `Daftar Usulan - ${unit}`;
+  
+  const el = document.getElementById('kontrakReviewDaftarPegawai');
+  el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat...</div>';
+  
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      if (!res.daftar.length) {
+        el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada usulan di unit ini.</div>';
+        return;
+      }
+      el.innerHTML = res.daftar.map(u => `
+        <div class="ce-dashboard-list-item" onclick="viewKontrakReviewDetail('${u.id}')">
+          <div>
+            <div class="cdli-name">${escapeHtml(u.nama)}</div>
+            <div class="cdli-sub" style="font-size:12px; color:#666;">NIP: ${escapeHtml(u.nip)} | Kategori: ${escapeHtml(u.layanan)}</div>
+          </div>
+          <div class="cdli-meta" style="font-size:12px; text-align:right;">
+            <div>${escapeHtml(u.jenis_usulan)} (${escapeHtml(u.tahun)})</div>
+            <div style="color:${u.semua_lampiran_disetujui ? '#4caf50' : '#ff9800'}; font-weight:bold;">
+              ${u.semua_lampiran_disetujui ? 'Lampiran Lengkap' : 'Review Tertunda'}
+            </div>
+          </div>
+        </div>`).join('');
+    })
+    .getUsulanKontrakListByUnit(SESSION.token, unit);
+}
+
+function backToKontrakReviewUnits() {
+  document.getElementById('kontrakReviewListState').style.display = 'none';
+  document.getElementById('kontrakReviewUnitListState').style.display = 'block';
+  loadKontrakReviewUnits();
+  loadKontrakReviewBadge();
+}
+
+let kontrakReviewActiveUsulanId = '';
+function viewKontrakReviewDetail(usulanId) {
+  kontrakReviewActiveUsulanId = usulanId;
+  document.getElementById('kontrakReviewListState').style.display = 'none';
+  document.getElementById('kontrakReviewDetailState').style.display = 'block';
+  
+  const el = document.getElementById('kontrakReviewDetailContent');
+  el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat...</div>';
+  
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      const u = res.usulan;
+      
+      const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat'];
+      const lampiranList = LAMP_KEYS.map(k => {
+        const url = u[k+'_url'];
+        if (!url) return null;
+        const label = k.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+        const approved = !!u[k+'_approved'];
+        return { key: k, label, url, approved };
+      }).filter(l => l !== null);
+      
+      const allApproved = lampiranList.every(l => l.approved);
+      let generateBtnHtml = '';
+      if (allApproved && u.status !== 'Selesai') {
+        generateBtnHtml = `
+          <div style="margin-top:20px; text-align:center; border-top:1px solid #eee; padding-top:16px;">
+            <button class="btn btn-primary" id="kontrakReview_genBtn" onclick="generateKontrakFromUsulanAdmin('${u.id}')">Generate Dokumen Kontrak Perjanjian Kerja</button>
+          </div>`;
+      }
+      
+      el.innerHTML = `
+        <div class="grid-2" style="font-size:14px; gap:10px; margin-bottom:20px; border:1px solid #ddd; padding:16px; border-radius:8px;">
+          <div><strong>NIP:</strong> ${escapeHtml(u.nip)}</div>
+          <div><strong>Nama:</strong> ${escapeHtml(u.nama)}</div>
+          <div><strong>Unit Kerja:</strong> ${escapeHtml(u.unit)}</div>
+          <div><strong>Email:</strong> ${escapeHtml(u.email)}</div>
+          <div><strong>Jenis Usulan:</strong> ${escapeHtml(u.jenis_usulan)}</div>
+          <div><strong>Tahun Kontrak:</strong> ${escapeHtml(u.tahun)}</div>
+          <div><strong>Evaluasi Kinerja:</strong> ${escapeHtml(u.evaluasi_kinerja || '-')}</div>
+          <div><strong>Kategori:</strong> ${escapeHtml(u.layanan)}</div>
+          <div><strong>Jenis Kontrak:</strong> ${escapeHtml(u.sub_menu)}</div>
+          <div><strong>Status Usulan:</strong> <strong style="color:${u.status === 'Selesai' ? '#2196f3' : (u.status === 'Disetujui' ? '#4caf50' : '#ff9800')}">${escapeHtml(u.status)}</strong></div>
+        </div>
+        
+        <h4>Persetujuan File Lampiran Pegawai</h4>
+        <div class="ce-dashboard-list" style="margin-top:10px; gap:10px;">
+          ${lampiranList.map(l => `
+            <div class="ce-dashboard-list-item" style="cursor:default; display:flex; justify-content:space-between; align-items:center; padding:12px 16px;">
+              <div>
+                <a href="${l.url}" target="_blank" style="text-decoration:none; color:#1957b3; font-weight:500; font-size:14px;">📄 ${l.label}</a>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" onchange="toggleAttachmentApproval('${u.id}', '${l.key}', this.checked)" ${l.approved ? 'checked' : ''} style="width:18px; height:18px; cursor:pointer;" />
+                <span style="font-size:13px; font-weight:500;">Setujui</span>
+              </div>
+            </div>`).join('')}
+        </div>
+        ${generateBtnHtml}
+      `;
+    })
+    .getUsulanKontrakById(SESSION.token, usulanId);
+}
+
+function backToKontrakReviewList() {
+  document.getElementById('kontrakReviewDetailState').style.display = 'none';
+  document.getElementById('kontrakReviewListState').style.display = 'block';
+  viewKontrakReviewList(kontrakReviewSelectedUnit);
+}
+
+function toggleAttachmentApproval(usulanId, lampKey, disetujui) {
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) {
+        showToast('success', res.message);
+        viewKontrakReviewDetail(usulanId);
+      } else {
+        showToast('error', res.message);
+      }
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memproses persetujuan: ' + (err.message || err)))
+    .approveUsulanKontrakAttachment(SESSION.token, usulanId, lampKey, disetujui);
+}
+
+function generateKontrakFromUsulanAdmin(usulanId) {
+  const btn = document.getElementById('kontrakReview_genBtn');
+  setBtnLoading(btn, true, 'Generating...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setBtnLoading(btn, false, 'Generate Dokumen Kontrak Perjanjian Kerja');
+      if (res.success) {
+        showToast('success', res.message);
+        viewKontrakReviewDetail(usulanId);
+        openKontrakResultModal({ docViewUrl: res.viewUrl, pdfDownloadUrl: `https://drive.google.com/uc?export=download&id=${res.fileId}` });
+      } else {
+        showToast('error', res.message);
+      }
+    })
+    .withFailureHandler(err => {
+      setBtnLoading(btn, false, 'Generate Dokumen Kontrak Perjanjian Kerja');
+      showToast('error', 'Gagal generate kontrak: ' + (err.message || err));
+    })
+    .generateKontrakFromUsulanVercel(SESSION.token, '', usulanId);
+}
 }
 </script>

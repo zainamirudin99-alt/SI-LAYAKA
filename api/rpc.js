@@ -35,6 +35,11 @@ const CONFIG = {
   PASSWORD_DIGIT_LENGTH: 8,
   SESSION_TTL_SECONDS:   6 * 60 * 60,
   SEED_SUPER_ADMIN_NIP:  '200103310225061024',
+  FOLDER_KP_OUTPUT:      '1zf8u-yXjhDcuzwyFiv7Xz7eYBNDZ85k3',
+  FOLDER_KP_LAMPIRAN:    '1BrMjMWkJN8D_EmOJTMsgNwARwXxapp8M',
+  FOLDER_PENSIUN_OUTPUT:  '10Cu3SmYJyy8lcLX2-KpIjB5qVEU1ynPu',
+  FOLDER_PENSIUN_LAMPIRAN: '1ko75RjljybXg6tLqpXdOH1Im8rjlUFTd',
+  FOLDER_KONTRAK_ROOT:    '1uCTUJ2qfrBeyjFEwsufFKuZuQO1MaYQi',
   SEED_ADMIN_UNIT_ES_II: 'Direktorat Sumber Daya Manusia',
   PROFIL_NORMAL_FIELDS:  ['nama_lengkap','tgl_lhr','golongan','status_kepegawaian','status_bekerja','jabatan','tmt_pensiun_bup'],
   PENSIUN_DASHBOARD_AMBANG_TAHUN: 1,
@@ -320,11 +325,367 @@ function cekEligiblePromosi(emp, targetDate) {
 }
 
 // ================================================================
+// DOCX TEMPLATE ENGINE — port dari TemplateEngine.gs (Node.js)
+// Dipakai untuk generate/preview template MS Word (.docx) tanpa
+// melalui Google Apps Script.
+// ================================================================
+
+const DATE_TAG_PREFIXES = ['tgl_', 'tmt_', 'tanggal_', 'tgl'];
+
+function docxNormalizeSmartQuotes(str) {
+  return String(str)
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'");
+}
+
+function docxFormatTanggal(value) {
+  const d = toDate(value);
+  if (!d) return (value === null || value === undefined) ? '' : String(value);
+  return `${d.getDate()} ${BULAN_ID[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function docxDiffYears(a, b) {
+  const d1 = toDate(a), d2 = toDate(b);
+  if (!d1 || !d2) return 0;
+  let years = d2.getFullYear() - d1.getFullYear();
+  const passed = d2.getMonth() > d1.getMonth() || (d2.getMonth() === d1.getMonth() && d2.getDate() >= d1.getDate());
+  if (!passed) years--;
+  return Math.max(0, years);
+}
+
+function docxDiffMonths(a, b) {
+  const d1 = toDate(a), d2 = toDate(b);
+  if (!d1 || !d2) return 0;
+  let months = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
+  if (d2.getDate() < d1.getDate()) months--;
+  return Math.max(0, months);
+}
+
+function docxDiffDays(a, b) {
+  const d1 = toDate(a), d2 = toDate(b);
+  if (!d1 || !d2) return 0;
+  return Math.round((d2.getTime() - d1.getTime()) / 86400000);
+}
+
+function docxFormatRupiah(value) {
+  const n = Math.round(Number(value) || 0);
+  const sign = n < 0 ? '-' : '';
+  const formatted = Math.abs(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${sign}Rp${formatted}`;
+}
+
+function docxTerbilang(value) {
+  const n = Math.round(Number(value) || 0);
+  if (n === 0) return 'nol';
+  if (n < 0) return 'minus ' + docxTerbilang(Math.abs(n));
+  const satuan = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan'];
+  function subThree(num) {
+    let s = '';
+    const h = Math.floor(num / 100), rem = num % 100, t = Math.floor(rem / 10), s1 = rem % 10;
+    if (h > 0) s += (h === 1 ? 'seratus' : satuan[h] + ' ratus') + ' ';
+    if (rem >= 11 && rem <= 19) { s += (rem === 11 ? 'sebelas' : satuan[s1] + ' belas') + ' '; }
+    else if (rem === 10) { s += 'sepuluh '; }
+    else { if (t > 0) s += satuan[t] + ' puluh '; if (s1 > 0) s += satuan[s1] + ' '; }
+    return s.trim();
+  }
+  const groups = [{value:1000000000000,label:'triliun'},{value:1000000000,label:'miliar'},{value:1000000,label:'juta'},{value:1000,label:'ribu'}];
+  let remaining = n, parts = [];
+  for (const g of groups) {
+    const count = Math.floor(remaining / g.value);
+    if (count > 0) {
+      parts.push(g.label === 'ribu' && count === 1 ? 'seribu' : subThree(count) + ' ' + g.label);
+      remaining %= g.value;
+    }
+  }
+  if (remaining > 0) parts.push(subThree(remaining));
+  return parts.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+function docxNum(v) {
+  if (v === '' || v === null || v === undefined) return 0;
+  const n = Number(v); return isNaN(n) ? 0 : n;
+}
+
+function docxSum(arr, fieldName) {
+  if (!Array.isArray(arr)) return 0;
+  return arr.reduce((s, item) => s + docxNum(item && item[fieldName]), 0);
+}
+
+function docxBulanKeAngka(namaBulan) {
+  if (typeof namaBulan === 'number') return namaBulan;
+  const idx = BULAN_ID.findIndex(b => b.toLowerCase() === String(namaBulan || '').trim().toLowerCase());
+  if (idx !== -1) return idx + 1;
+  const n = Number(namaBulan); return isNaN(n) ? 0 : n;
+}
+
+function docxCallFunction(fnName, args) {
+  switch (fnName) {
+    case 'diff_years':    return docxDiffYears(args[0], args[1]);
+    case 'diff_months':   return docxDiffMonths(args[0], args[1]);
+    case 'diff_days':     return docxDiffDays(args[0], args[1]);
+    case 'terbilang':     return docxTerbilang(args[0]);
+    case 'rupiah':        return docxFormatRupiah(args[0]);
+    case 'tanggal':       return docxFormatTanggal(args[0]);
+    case 'sum':           return docxSum(args[0], args[1]);
+    case 'num':           return docxNum(args[0]);
+    case 'bulan_ke_angka':return docxBulanKeAngka(args[0]);
+    default: throw new Error('Fungsi tidak dikenal: ' + fnName);
+  }
+}
+
+function docxApplyFilter(filterName, value) {
+  switch (filterName) {
+    case 'terbilang': return docxTerbilang(value);
+    case 'rupiah':    return docxFormatRupiah(value);
+    case 'tanggal':   return docxFormatTanggal(value);
+    case 'upper':     return String(value === null || value === undefined ? '' : value).toUpperCase();
+    case 'lower':     return String(value === null || value === undefined ? '' : value).toLowerCase();
+    default: return value;
+  }
+}
+
+function docxSplitTopLevel(str, sep) {
+  const out = []; let depth = 0, quoteChar = null, current = '';
+  for (let i = 0; i < str.length; i++) {
+    const c = str[i];
+    if (c === "'" || c === '"') { if (!quoteChar) quoteChar = c; else if (quoteChar === c) quoteChar = null; }
+    if (!quoteChar) { if (c === '(') depth++; if (c === ')') depth--; }
+    if (c === sep && depth === 0 && !quoteChar) { out.push(current); current = ''; } else { current += c; }
+  }
+  out.push(current); return out;
+}
+
+function docxTokenize(expr) {
+  const tokens = []; let i = 0;
+  while (i < expr.length) {
+    const c = expr[i];
+    if (/\s/.test(c)) { i++; continue; }
+    if (c === "'" || c === '"') {
+      const qc = c; let j = i + 1, str = '';
+      while (j < expr.length && expr[j] !== qc) { str += expr[j]; j++; }
+      tokens.push({ type: 'string', value: str }); i = j + 1; continue;
+    }
+    if (/[0-9]/.test(c)) {
+      let j = i, num = '';
+      while (j < expr.length && /[0-9.]/.test(expr[j])) { num += expr[j]; j++; }
+      tokens.push({ type: 'number', value: parseFloat(num) }); i = j; continue;
+    }
+    if (/[A-Za-z_]/.test(c)) {
+      let j = i, id = '';
+      while (j < expr.length && /[A-Za-z0-9_]/.test(expr[j])) { id += expr[j]; j++; }
+      tokens.push({ type: 'ident', value: id }); i = j; continue;
+    }
+    if (c === '(') { tokens.push({ type: 'lparen' }); i++; continue; }
+    if (c === ')') { tokens.push({ type: 'rparen' }); i++; continue; }
+    if (c === ',') { tokens.push({ type: 'comma' }); i++; continue; }
+    const two = expr.substr(i, 2);
+    if (['>=', '<=', '==', '!=', '&&', '||'].includes(two)) { tokens.push({ type: 'op', value: two }); i += 2; continue; }
+    if ('+-*/%<>?:!'.indexOf(c) !== -1) { tokens.push({ type: 'op', value: c }); i++; continue; }
+    throw new Error('Karakter tidak dikenal: ' + c);
+  }
+  return tokens;
+}
+
+function docxEvaluateExpression(expr, dataCtx) {
+  const tokens = docxTokenize(expr); let pos = 0;
+  const peek = () => tokens[pos];
+  const next = () => tokens[pos++];
+
+  function parseTernary() {
+    const cond = parseOr();
+    if (peek() && peek().type === 'op' && peek().value === '?') {
+      next(); const whenTrue = parseTernary();
+      if (!(peek() && peek().value === ':')) throw new Error('Ternary tanpa ":"');
+      next(); const whenFalse = parseTernary();
+      return cond ? whenTrue : whenFalse;
+    }
+    return cond;
+  }
+  function parseOr() {
+    let left = parseAnd();
+    while (peek() && peek().type === 'op' && peek().value === '||') { next(); left = left || parseAnd(); }
+    return left;
+  }
+  function parseAnd() {
+    let left = parseCmp();
+    while (peek() && peek().type === 'op' && peek().value === '&&') { next(); left = left && parseCmp(); }
+    return left;
+  }
+  function parseCmp() {
+    let left = parseAdd();
+    while (peek() && peek().type === 'op' && ['>', '<', '>=', '<=', '==', '!='].includes(peek().value)) {
+      const op = next().value; const right = parseAdd();
+      switch (op) {
+        case '>': left = left > right; break; case '<': left = left < right; break;
+        case '>=': left = left >= right; break; case '<=': left = left <= right; break;
+        case '==': left = left == right; break; case '!=': left = left != right; break;
+      }
+    }
+    return left;
+  }
+  function parseAdd() {
+    let left = parseMul();
+    while (peek() && peek().type === 'op' && (peek().value === '+' || peek().value === '-')) {
+      const op = next().value; const right = parseMul();
+      left = op === '+' ? (typeof left === 'string' || typeof right === 'string' ? String(left) + String(right) : left + right) : left - right;
+    }
+    return left;
+  }
+  function parseMul() {
+    let left = parseUnary();
+    while (peek() && peek().type === 'op' && ['*', '/', '%'].includes(peek().value)) {
+      const op = next().value; const right = parseUnary();
+      if (op === '*') left = left * right; else if (op === '/') left = right === 0 ? 0 : left / right; else left = left % right;
+    }
+    return left;
+  }
+  function parseUnary() {
+    if (peek() && peek().type === 'op' && peek().value === '-') { next(); return -parseUnary(); }
+    if (peek() && peek().type === 'op' && peek().value === '!') { next(); return !parseUnary(); }
+    return parsePrimary();
+  }
+  function parsePrimary() {
+    const t = peek();
+    if (!t) throw new Error('Ekspresi tidak lengkap');
+    if (t.type === 'number') { next(); return t.value; }
+    if (t.type === 'string') { next(); return t.value; }
+    if (t.type === 'lparen') {
+      next(); const val = parseTernary();
+      if (!(peek() && peek().type === 'rparen')) throw new Error('Kurung tidak seimbang');
+      next(); return val;
+    }
+    if (t.type === 'ident') {
+      next();
+      if (peek() && peek().type === 'lparen') {
+        next(); const args = [];
+        if (!(peek() && peek().type === 'rparen')) {
+          args.push(parseTernary());
+          while (peek() && peek().type === 'comma') { next(); args.push(parseTernary()); }
+        }
+        if (!(peek() && peek().type === 'rparen')) throw new Error('Argumen fungsi tidak lengkap');
+        next(); return docxCallFunction(t.value, args);
+      }
+      if (t.value === 'today') return new Date();
+      const isDateField = DATE_TAG_PREFIXES.some(p => t.value.indexOf(p) === 0);
+      const raw = dataCtx[t.value];
+      if (isDateField) { const d = toDate(raw); return d || raw; }
+      return raw;
+    }
+    throw new Error('Token tidak dikenal: ' + JSON.stringify(t));
+  }
+  return parseTernary();
+}
+
+const SET_EXPR_RE = /^set\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$/i;
+
+function docxEvaluateTag(rawExpr, dataCtx) {
+  const expr = docxNormalizeSmartQuotes(rawExpr).trim();
+
+  // set variabel turunan
+  const setMatch = expr.match(SET_EXPR_RE);
+  if (setMatch) {
+    let value;
+    try { value = docxEvaluateExpression(setMatch[2], dataCtx); } catch { value = 0; }
+    dataCtx[setMatch[1]] = value;
+    return '';
+  }
+
+  // Pisahkan filter
+  const segments = docxSplitTopLevel(expr, '|');
+  const mainExpr = segments[0].trim();
+  const filters = segments.slice(1).map(s => s.trim());
+
+  // Identifier tunggal → auto-format tanggal
+  const isBareIdent = /^[A-Za-z_][A-Za-z0-9_]*$/.test(mainExpr);
+  if (isBareIdent && filters.length === 0) {
+    const isDateField = DATE_TAG_PREFIXES.some(p => mainExpr.indexOf(p) === 0);
+    const raw = dataCtx[mainExpr];
+    if (isDateField) return docxFormatTanggal(raw);
+    return raw === undefined || raw === null ? '' : String(raw);
+  }
+
+  // Dropdown hint: identifier[Opsi1, Opsi2]
+  const ddm = mainExpr.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*\[[^\]]*\]$/);
+  if (ddm && filters.length === 0) {
+    const key = ddm[1];
+    const isDateField = DATE_TAG_PREFIXES.some(p => key.indexOf(p) === 0);
+    const raw = dataCtx[key];
+    if (isDateField) return docxFormatTanggal(raw);
+    return raw === undefined || raw === null ? '' : String(raw);
+  }
+
+  let result = docxEvaluateExpression(mainExpr, dataCtx);
+
+  // Auto-round ke 2 desimal
+  if (typeof result === 'number' && isFinite(result) && !Number.isInteger(result)) {
+    const ceiled = Math.ceil(Math.round(result * 100 * 1e9) / 1e9) / 100;
+    if (ceiled !== result) result = ceiled;
+  }
+
+  for (const f of filters) result = docxApplyFilter(f, result);
+  return result === undefined || result === null ? '' : String(result);
+}
+
+/**
+ * Render template DOCX menggunakan docxtemplater + custom parser yang
+ * mendukung sintaks {{ ekspresi }} yang sama dengan TemplateEngine.gs.
+ * @param {Buffer} templateBuffer  — isi file .docx sebagai Buffer
+ * @param {Object} dataCtx         — data pegawai + form
+ * @returns {Buffer}               — file .docx hasil generate
+ */
+function docxRenderTemplate(templateBuffer, dataCtx) {
+  // Lazy-require agar tidak error jika belum di-install
+  const PizZip = require('pizzip');
+  const Docxtemplater = require('docxtemplater');
+
+  const zip = new PizZip(templateBuffer);
+
+  // Custom parser: mendukung {{ ekspresi }} penuh (set, filter, fungsi, ternary)
+  const customParser = tag => ({
+    get(scope, context) {
+      // Scope bisa berupa item loop (object) atau dataCtx global
+      const ctx = Object.assign({}, dataCtx, typeof scope === 'object' && scope !== null ? scope : {});
+      try { return docxEvaluateTag(tag, ctx); } catch (e) { return `[ERROR:${tag}]`; }
+    }
+  });
+
+  const doc = new Docxtemplater(zip, {
+    paragraphLoop: true,
+    linebreaks: true,
+    parser: customParser
+  });
+
+  doc.render(dataCtx);
+
+  return doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' });
+}
+
+// ================================================================
+// UPLOAD TEMPLATE DOCX KE SUPABASE STORAGE
+// ================================================================
+async function uploadTemplateDocx(base64DataUrl, judul) {
+  const db = getDb();
+  const parts = base64DataUrl.split(',');
+  const mime = (parts[0].match(/:(.*?);/) || [, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])[1];
+  const rawB64 = parts.length > 1 ? parts[1] : parts[0];
+  const buf = Buffer.from(rawB64, 'base64');
+  const safeName = String(judul || 'template').replace(/[^a-zA-Z0-9._-]/g, '-');
+  const path = `templates/${Date.now()}-${safeName}.docx`;
+
+  const { error } = await db.storage.from('lampiran-usulan').upload(path, buf, { contentType: mime, upsert: false });
+  if (error) throw error;
+
+  const { data } = db.storage.from('lampiran-usulan').getPublicUrl(path);
+  return { path, publicUrl: data?.publicUrl || path };
+}
+
+// ================================================================
 // RPC METHODS — semua fungsi yang bisa dipanggil dari frontend
 // ================================================================
 const methods = {
 
   // ---- AUTH ----
+
 
   async login([nip, password]) {
     if (!nip||!password) return {success:false,message:'NIP dan password wajib diisi.'};
@@ -431,7 +792,7 @@ const methods = {
     verifyToken(token);
     const {data,error}=await getDb().from('templates').select('*').order('dibuat_pada',{ascending:false});
     if (error) throw error;
-    return (data||[]).map(t=>({id:t.id,judul:t.judul,fileId:t.file_id,layanan:t.layanan,subMenu:t.sub_menu,dibuatPada:t.dibuat_pada}));
+    return (data||[]).map(t=>({id:t.id,judul:t.judul,fileId:t.file_id,layanan:t.layanan,subMenu:t.sub_menu,tipe:t.tipe || 'gdocs',dibuatPada:t.dibuat_pada}));
   },
 
   async addTemplate([token, templateData]) {
@@ -456,7 +817,7 @@ const methods = {
     verifyToken(token);
     const {data,error}=await getDb().from('templates').select('*').eq('layanan',layanan).eq('sub_menu',subMenu);
     if (error) throw error;
-    return (data||[]).map(t=>({id:t.id,judul:t.judul,fileId:t.file_id,layanan:t.layanan,subMenu:t.sub_menu}));
+    return (data||[]).map(t=>({id:t.id,judul:t.judul,fileId:t.file_id,layanan:t.layanan,subMenu:t.sub_menu,tipe:t.tipe || 'gdocs'}));
   },
 
   // ---- CONFIG / OPTIONS ----
@@ -832,8 +1193,482 @@ const methods = {
         ? `${kolomAktif.length} kolom tersedia dari database.`
         : `⚠️ Database kosong — menampilkan ${KOLOM_DATA_UTAMA_DEFAULT.length} kolom default. Migrasikan data terlebih dahulu agar kolom aktual muncul.`
     };
+  },
+
+  // ---- TEMPLATE MANAGEMENT ----
+
+  async addTemplate([token, payload]) {
+    requireRole(token, ['admin', 'super_admin']);
+    // Accept the original browser payload as well as the DOCX-aware shape.
+    // This keeps existing Google Drive templates working while allowing the
+    // Vercel UI to add DOCX templates.
+    const input = payload || {};
+    const judul = input.judul;
+    const layanan = input.layanan;
+    const sub_menu = input.sub_menu || input.subMenu;
+    const tipe = input.tipe || 'gdocs';
+    const docxBase64 = input.docxBase64;
+    let file_id = input.file_id || input.driveLink || '';
+    if (!judul)     return { success: false, message: 'Judul template wajib diisi.' };
+    if (!layanan)   return { success: false, message: 'Layanan wajib dipilih.' };
+    if (!sub_menu)  return { success: false, message: 'Sub-menu wajib dipilih.' };
+    if (!tipe || !['gdocs', 'docx'].includes(tipe)) return { success: false, message: 'Tipe template tidak valid (gdocs / docx).' };
+
+    let finalFileId = file_id || '';
+
+    if (tipe === 'gdocs') {
+      if (!file_id) return { success: false, message: 'Link / ID Google Docs wajib diisi untuk tipe GDocs.' };
+      finalFileId = extractDriveFileId(String(file_id).trim());
+      if (!finalFileId) return { success: false, message: 'Link Google Drive tidak valid.' };
+    } else if (tipe === 'docx') {
+      if (!docxBase64) return { success: false, message: 'File .docx wajib diunggah.' };
+      const { publicUrl } = await uploadTemplateDocx(docxBase64, judul);
+      finalFileId = publicUrl;
+    }
+
+    const db = getDb();
+    const { error } = await db.from('templates').insert({
+      judul: String(judul).trim(),
+      file_id: finalFileId,
+      layanan: String(layanan).trim(),
+      sub_menu: String(sub_menu).trim(),
+      tipe
+    });
+    if (error) throw error;
+    return { success: true, message: 'Template berhasil disimpan.' };
+  },
+
+  async getTemplates([token, layanan, sub_menu]) {
+    verifyToken(token);
+    const db = getDb();
+    let q = db.from('templates').select('*');
+    if (layanan)  q = q.eq('layanan', layanan);
+    if (sub_menu) q = q.eq('sub_menu', sub_menu);
+    const { data, error } = await q.order('dibuat_pada', { ascending: false });
+    if (error) throw error;
+    return { success: true, templates: data || [] };
+  },
+
+  async deleteTemplate([token, id]) {
+    requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+    const { error } = await db.from('templates').delete().eq('id', id);
+    if (error) throw error;
+    return { success: true };
+  },
+
+  /**
+   * Generate dokumen dari template DOCX.
+   * Output: base64 file .docx (untuk semua role kecuali normal/user di Kontrak).
+   * Untuk normal/user di menu Kontrak: hasilkan .docx lalu kirim ke GAS untuk dikonversi ke PDF.
+   */
+  async generateDocxFromTemplate([token, templateId, dataContext, isKontrak]) {
+    const decoded = verifyToken(token);
+    const role = decoded.role || 'normal';
+    const db = getDb();
+
+    // Ambil template
+    const { data: tmpl, error: tmplErr } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
+    if (tmplErr) throw tmplErr;
+    if (!tmpl) return { success: false, message: 'Template tidak ditemukan.' };
+    if (tmpl.tipe !== 'docx') return { success: false, message: 'Template ini bukan tipe DOCX.' };
+
+    // Download file template dari Supabase Storage
+    const publicUrl = tmpl.file_id;
+    const fetchResp = await fetch(publicUrl);
+    if (!fetchResp.ok) return { success: false, message: 'Gagal mengunduh file template dari storage.' };
+    const arrayBuf = await fetchResp.arrayBuffer();
+    const templateBuffer = Buffer.from(arrayBuf);
+
+    // Render template
+    const renderedBuffer = docxRenderTemplate(templateBuffer, dataContext || {});
+
+    // Aturan khusus Kontrak: role normal/user → hasilkan PDF via GAS converter
+    const mustPdf = !!isKontrak && ['normal', 'user'].includes(role);
+    if (mustPdf) {
+      const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+      if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi (diperlukan untuk konversi PDF).' };
+
+      const { v4: uuidv4x } = require('uuid');
+      const shortId = uuidv4x();
+      const remoteSession = { id: shortId, data: { nip: decoded.nip, nama_lengkap: decoded.nama, nama: decoded.nama, role } };
+
+      const response = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'convertDocxToPdf',
+          params: [shortId, renderedBuffer.toString('base64'), `${tmpl.judul}.docx`],
+          remoteSession
+        })
+      });
+      const gasResult = await response.json();
+      if (!gasResult.success) return gasResult;
+      return { success: true, outputType: 'pdf', pdfUrl: gasResult.pdfUrl, fileName: gasResult.fileName };
+    }
+
+    // Output docx → base64 untuk diunduh langsung
+    const base64Out = renderedBuffer.toString('base64');
+    return {
+      success: true,
+      outputType: 'docx',
+      base64: base64Out,
+      fileName: `${tmpl.judul}.docx`,
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    };
+  },
+
+  /**
+   * Preview template DOCX — render dengan data contoh/live dan kembalikan base64
+   * agar client bisa me-render preview menggunakan docx-preview (CDN).
+   */
+  async previewDocxTemplate([token, templateId, dataContext]) {
+    verifyToken(token);
+    const db = getDb();
+
+    const { data: tmpl, error: tmplErr } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
+    if (tmplErr) throw tmplErr;
+    if (!tmpl) return { success: false, message: 'Template tidak ditemukan.' };
+    if (tmpl.tipe !== 'docx') return { success: false, message: 'Template ini bukan tipe DOCX.' };
+
+    const fetchResp = await fetch(tmpl.file_id);
+    if (!fetchResp.ok) return { success: false, message: 'Gagal mengunduh file template dari storage.' };
+    const arrayBuf = await fetchResp.arrayBuffer();
+    const templateBuffer = Buffer.from(arrayBuf);
+
+    const renderedBuffer = docxRenderTemplate(templateBuffer, dataContext || {});
+    return {
+      success: true,
+      base64: renderedBuffer.toString('base64'),
+      fileName: `${tmpl.judul}.docx`,
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    };
+  },
+
+
+
+  async ajukanUsulanKontrak([token, payload]) {
+    const decoded = verifyToken(token);
+    const role = decoded.role || 'normal';
+    const db = getDb();
+
+    const {
+      nip, nama, unit, email, tahun, jenis_usulan, evaluasi_kinerja,
+      layanan, sub_menu, form_data,
+      ktpBase64, ktpNama,
+      kkBase64, kkNama,
+      pasFotoBase64, pasFotoNama,
+      ijazahBase64, ijazahNama,
+      suratPengantarBase64, suratPengantarNama,
+      suratLamaranBase64, suratLamaranNama,
+      simAbBase64, simAbNama,
+      strAktifBase64, strAktifNama,
+      ketSehatBase64, ketSehatNama
+    } = payload || {};
+
+    if (!nip || !nama) return { success: false, message: 'Data pegawai (NIP/Nama) wajib diisi.' };
+    if (!email) return { success: false, message: 'Email wajib diisi.' };
+    if (!tahun) return { success: false, message: 'Tahun kontrak wajib diisi.' };
+    if (!ktpBase64) return { success: false, message: 'File KTP wajib diunggah.' };
+    if (!kkBase64) return { success: false, message: 'File KK wajib diunggah.' };
+    if (!pasFotoBase64) return { success: false, message: 'Pas Foto wajib diunggah.' };
+    if (!ijazahBase64) return { success: false, message: 'Ijazah & Transkrip wajib diunggah.' };
+    if (!suratPengantarBase64) return { success: false, message: 'Surat Pengantar Unit wajib diunggah.' };
+    if (!suratLamaranBase64) return { success: false, message: 'Surat Lamaran wajib diunggah.' };
+    if (!ketSehatBase64) return { success: false, message: 'Keterangan Sehat wajib diunggah.' };
+
+    // Forward to GAS for Drive file upload
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi.' };
+
+    const shortId = require('uuid').v4();
+    const remoteSession = {
+      id: shortId,
+      data: {
+        nip: decoded.nip || '', nama_lengkap: decoded.nama || '', nama: decoded.nama || '',
+        jabatan: decoded.jabatan || '', status_kepegawaian: decoded.status_kepegawaian || '', role: decoded.role || 'normal'
+      }
+    };
+
+    try {
+      const response = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'ajukanUsulanKontrakDrive',
+          params: [shortId, payload],
+          remoteSession
+        })
+      });
+      const gasResult = await response.json();
+      if (!gasResult.success) return gasResult;
+
+      // Store record in Supabase
+      const { error } = await db.from('usulan_kontrak').insert({
+        nip: String(nip || '').trim(),
+        nama: String(nama || '').trim(),
+        unit: String(unit || '').trim(),
+        email: String(email || '').trim(),
+        tahun: String(tahun || '').trim(),
+        jenis_usulan: String(jenis_usulan || '').trim(),
+        evaluasi_kinerja: String(evaluasi_kinerja || '').trim(),
+        layanan: String(layanan || '').trim(),
+        sub_menu: String(sub_menu || '').trim(),
+        form_data: form_data || {},
+        ktp_url: gasResult.urls?.ktp || '',
+        kk_url: gasResult.urls?.kk || '',
+        pas_foto_url: gasResult.urls?.pas_foto || '',
+        ijazah_transkrip_url: gasResult.urls?.ijazah || '',
+        surat_pengantar_url: gasResult.urls?.surat_pengantar || '',
+        surat_lamaran_url: gasResult.urls?.surat_lamaran || '',
+        sim_ab_url: gasResult.urls?.sim_ab || '',
+        str_aktif_url: gasResult.urls?.str_aktif || '',
+        keterangan_sehat_url: gasResult.urls?.keterangan_sehat || '',
+        diajukan_oleh_nip: decoded.nip,
+        nama_pengaju: decoded.nama,
+        status: 'Diajukan'
+      });
+      if (error) throw error;
+      return { success: true, message: 'Usulan Kontrak berhasil diajukan. Tunggu review dari admin.' };
+    } catch (err) {
+      return { success: false, message: 'Gagal mengajukan usulan: ' + err.message };
+    }
+  },
+
+  async getUsulanKontrakSaya([token]) {
+    const decoded = verifyToken(token);
+    const db = getDb();
+    const { data, error } = await db.from('usulan_kontrak')
+      .select('*')
+      .eq('nip', decoded.nip)
+      .order('tanggal_diajukan', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return { success: true, usulan: null };
+
+    const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat'];
+    const semuaYangAda = LAMP_KEYS.filter(k => data[k+'_url']);
+    const semuaApproved = semuaYangAda.every(k => data[k+'_approved']);
+    return {
+      success: true,
+      usulan: {
+        id: data.id,
+        status: data.status,
+        jenis_usulan: data.jenis_usulan,
+        tahun: data.tahun,
+        layanan: data.layanan,
+        sub_menu: data.sub_menu,
+        tanggal_diajukan: formatTanggalIndonesia(data.tanggal_diajukan),
+        semua_lampiran_disetujui: semuaApproved,
+        perjanjian_dibuat: data.perjanjian_dibuat,
+        form_data: data.form_data || {},
+        lampiran: LAMP_KEYS.map(k => ({
+          key: k,
+          url: data[k+'_url'] || '',
+          approved: !!data[k+'_approved']
+        })).filter(l => l.url)
+      }
+    };
+  },
+
+  async getUsulanKontrakNotifikasiSummary([token]) {
+    requireRole(token, ['admin','super_admin']);
+    const db = getDb();
+    const { data } = await db.from('usulan_kontrak').select('unit').eq('status','Diajukan');
+    const perUnit = {};
+    (data || []).forEach(u => {
+      const unit = String(u.unit || '(Tanpa Unit)').trim() || '(Tanpa Unit)';
+      perUnit[unit] = (perUnit[unit] || 0) + 1;
+    });
+    const daftarUnit = Object.keys(perUnit).sort().map(unit => ({ unit, jumlah: perUnit[unit] }));
+    return { success: true, totalUsulanBaru: (data || []).length, daftarUnit };
+  },
+
+  async getUsulanKontrakListByUnit([token, unit]) {
+    requireRole(token, ['admin','super_admin']);
+    const db = getDb();
+    const { data, error } = await db.from('usulan_kontrak').select('*').eq('status','Diajukan').eq('unit', unit);
+    if (error) throw error;
+    const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat'];
+    const daftar = (data || []).map(u => ({
+      id: u.id, nip: u.nip, nama: u.nama, unit: u.unit, email: u.email,
+      tahun: u.tahun, jenis_usulan: u.jenis_usulan, evaluasi_kinerja: u.evaluasi_kinerja,
+      layanan: u.layanan, sub_menu: u.sub_menu,
+      nama_pengaju: u.nama_pengaju, tanggal_diajukan: formatTanggalIndonesia(u.tanggal_diajukan),
+      form_data: u.form_data || {},
+      lampiran: LAMP_KEYS.map(k => ({
+        key: k, label: k.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase()),
+        url: u[k+'_url'] || '', approved: !!u[k+'_approved']
+      })).filter(l => l.url),
+      semua_lampiran_disetujui: LAMP_KEYS.filter(k => u[k+'_url']).every(k => u[k+'_approved'])
+    })).sort((a,b) => String(a.nama).localeCompare(String(b.nama)));
+    return { success: true, daftar };
+  },
+
+  async approveUsulanKontrakAttachment([token, usulanId, lampKey, disetujui]) {
+    const decoded = requireRole(token, ['admin','super_admin']);
+    const VALID_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat'];
+    if (!VALID_KEYS.includes(lampKey)) return { success: false, message: 'Kunci lampiran tidak valid.' };
+    const db = getDb();
+    const updateCol = {};
+    updateCol[lampKey + '_approved'] = !!disetujui;
+    const { error } = await db.from('usulan_kontrak').update(updateCol).eq('id', usulanId);
+    if (error) throw error;
+    // Check if all available lamps are now approved -> update status
+    const { data: row } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
+    if (row) {
+      const presentKeys = VALID_KEYS.filter(k => row[k+'_url']);
+      const allApproved = presentKeys.every(k => row[k+'_approved']);
+      if (allApproved && row.status === 'Diajukan') {
+        await db.from('usulan_kontrak').update({ status: 'Disetujui', diproses_oleh_nip: decoded.nip }).eq('id', usulanId);
+      } else if (!allApproved && row.status === 'Disetujui') {
+        await db.from('usulan_kontrak').update({ status: 'Diajukan' }).eq('id', usulanId);
+      }
+    }
+    return { success: true, message: disetujui ? 'Lampiran disetujui.' : 'Persetujuan lampiran dibatalkan.' };
+  },
+
+  async tandaiPerjanjianKontrakDibuat([token, usulanId]) {
+    const decoded = requireRole(token, ['admin','super_admin']);
+    const db = getDb();
+    const { error } = await db.from('usulan_kontrak').update({ perjanjian_dibuat: true, diproses_oleh_nip: decoded.nip }).eq('id', usulanId);
+    if (error) throw error;
+    return { success: true };
+  },
+
+  async getUsulanKontrakById([token, usulanId]) {
+    verifyToken(token);
+    const db = getDb();
+    const { data, error } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
+    if (error) throw error;
+    if (!data) return { success: false, message: 'Usulan tidak ditemukan.' };
+    return { success: true, usulan: data };
+  },
+
+  async generateKontrakFromUsulanVercel([token, templateRef, usulanId]) {
+    const decoded = requireRole(token, ['admin', 'super_admin', 'normal', 'user']);
+    const role = decoded.role || 'normal';
+    const db = getDb();
+
+    // Ambil data usulan
+    const { data: usulan, error: fetchErr } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
+    if (fetchErr) throw fetchErr;
+    if (!usulan) return { success: false, message: 'Usulan tidak ditemukan.' };
+
+    // Pastikan semua lampiran sudah disetujui (hanya wajib untuk admin+)
+    if (['admin', 'super_admin'].includes(role)) {
+      const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat'];
+      const presentKeys = LAMP_KEYS.filter(k => usulan[k+'_url']);
+      const allApproved = presentKeys.every(k => usulan[k+'_approved']);
+      if (!allApproved) return { success: false, message: 'Belum semua lampiran disetujui. Periksa kembali status lampiran.' };
+    }
+
+    // Cek apakah templateRef adalah UUID template dari tabel templates atau GDocs file ID
+    const { data: tmplRow } = await db.from('templates').select('*').eq('id', templateRef).maybeSingle();
+
+    const isDocxTemplate = tmplRow && tmplRow.tipe === 'docx';
+
+    if (isDocxTemplate) {
+      // === JALUR DOCX ===
+      const fetchResp = await fetch(tmplRow.file_id);
+      if (!fetchResp.ok) return { success: false, message: 'Gagal mengunduh file template DOCX dari storage.' };
+      const arrayBuf = await fetchResp.arrayBuffer();
+      const templateBuffer = Buffer.from(arrayBuf);
+
+      // Susun dataContext dari data usulan
+      const dataCtx = Object.assign({}, usulan.form_data || {}, {
+        nip: usulan.nip,
+        nama: usulan.nama,
+        tahun: usulan.tahun,
+        jenis_usulan: usulan.jenis_usulan,
+        evaluasi_kinerja: usulan.evaluasi_kinerja,
+        layanan: usulan.layanan,
+        sub_menu: usulan.sub_menu,
+        today: new Date()
+      });
+
+      const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx);
+
+      // Aturan Kontrak: role normal/user → PDF via GAS converter
+      const mustPdf = ['normal', 'user'].includes(role);
+      if (mustPdf) {
+        const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+        if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi (diperlukan untuk konversi PDF).' };
+
+        const { v4: uuidv4x } = require('uuid');
+        const shortId = uuidv4x();
+        const remoteSession = { id: shortId, data: { nip: decoded.nip, nama_lengkap: decoded.nama, nama: decoded.nama, role } };
+
+        const response = await fetch(gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            method: 'convertDocxToPdf',
+            params: [shortId, renderedBuffer.toString('base64'), `Kontrak_${usulan.nama}_${usulan.tahun}.docx`],
+            remoteSession
+          })
+        });
+        const gasResult = await response.json();
+        if (!gasResult.success) return gasResult;
+        return { success: true, outputType: 'pdf', pdfUrl: gasResult.pdfUrl, fileName: gasResult.fileName };
+      }
+
+      // Admin/super_admin: output docx base64
+      await db.from('usulan_kontrak').update({ perjanjian_dibuat: true, diproses_oleh_nip: decoded.nip, status: 'Selesai' }).eq('id', usulanId);
+      return {
+        success: true,
+        outputType: 'docx',
+        base64: renderedBuffer.toString('base64'),
+        fileName: `Kontrak_${usulan.nama}_${usulan.tahun}.docx`,
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        message: 'Kontrak berhasil digenerate.'
+      };
+    }
+
+    // === JALUR GDOCS (existing flow) ===
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi.' };
+
+    const { v4: uuidv4 } = require('uuid');
+    const shortId = uuidv4();
+    const remoteSession = {
+      id: shortId,
+      data: { nip: decoded.nip || '', nama_lengkap: decoded.nama || '', nama: decoded.nama || '', role: decoded.role || 'admin' }
+    };
+
+    try {
+      const response = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'generateKontrakFromUsulan',
+          params: [shortId, templateRef, {
+            nip: usulan.nip,
+            nama: usulan.nama,
+            tahun: usulan.tahun,
+            jenis_usulan: usulan.jenis_usulan,
+            evaluasi_kinerja: usulan.evaluasi_kinerja,
+            layanan: usulan.layanan,
+            sub_menu: usulan.sub_menu,
+            form_data: usulan.form_data || {}
+          }],
+          remoteSession
+        })
+      });
+      const gasResult = await response.json();
+      if (!gasResult.success) return gasResult;
+
+      // Untuk role normal/user: GDocs template selalu menghasilkan PDF (GAS sudah handle)
+      // Untuk admin/super_admin: GDocs/PDF sesuai output GAS
+      await db.from('usulan_kontrak').update({ perjanjian_dibuat: true, diproses_oleh_nip: decoded.nip, status: 'Selesai' }).eq('id', usulanId);
+      return { success: true, fileId: gasResult.fileId, viewUrl: gasResult.viewUrl, fileName: gasResult.fileName, message: gasResult.message, outputType: 'gdocs' };
+    } catch (err) {
+      return { success: false, message: 'Gagal generate kontrak: ' + err.message };
+    }
   }
 };
+
 
 // ================================================================
 // HELPER: Extract Drive File ID dari URL

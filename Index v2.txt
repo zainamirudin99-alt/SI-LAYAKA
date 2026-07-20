@@ -484,8 +484,14 @@
 
         <!-- ============ VIEW: KONTRAK ============ -->
         <div class="view-panel" id="view-kontrak" style="display:none;">
-          <div class="card kp-panel">
+          <!-- Admin Tabs (Only visible for admin/super_admin) -->
+          <div id="kontrakAdminTabs" class="ce-tabs" style="display:none; margin-bottom: 20px;">
+            <button type="button" class="tab-btn active" data-kontrak-tab="buat">Buat Kontrak (Admin)</button>
+            <button type="button" class="tab-btn" data-kontrak-tab="review">Review Usulan <span id="kontrakReviewBadge" class="badge-count" style="display:none; background:#ff4444; color:#fff; border-radius:10px; padding:2px 6px; font-size:11px; margin-left:4px;">0</span></button>
+          </div>
 
+          <!-- SECTION: ADMIN DIRECT GENERATION -->
+          <div id="kontrakAdminDirectSection" class="card kp-panel">
             <!-- STATE 1: Tenaga Kependidikan / Dosen -->
             <div id="kontrakPilihKategoriState">
               <div class="helper-text" style="margin-bottom:14px;">Pilih kategori pegawai untuk membuat dokumen Kontrak/Perjanjian Kerja.</div>
@@ -624,6 +630,140 @@
               </div>
             </div>
           </div>
+
+          <!-- SECTION: REVIEW USULAN MASUK (Admin Only) -->
+          <div id="kontrakAdminReviewSection" class="card kp-panel" style="display:none;">
+             <div id="kontrakReviewUnitListState">
+               <h3>Daftar Usulan Kontrak per Unit</h3>
+               <div id="kontrakReviewUnitList" class="ce-dashboard-list"></div>
+             </div>
+             <div id="kontrakReviewListState" style="display:none;">
+               <button type="button" class="ce-dashboard-back" onclick="backToKontrakReviewUnits()">&larr; Kembali</button>
+               <h3 id="kontrakReviewUnitTitle" style="margin-top:10px;">Usulan Unit</h3>
+               <div id="kontrakReviewDaftarPegawai" class="ce-dashboard-list" style="margin-top:14px;"></div>
+             </div>
+             <div id="kontrakReviewDetailState" style="display:none;">
+               <button type="button" class="ce-dashboard-back" onclick="backToKontrakReviewList()">&larr; Kembali</button>
+               <h3 style="margin-top:10px;">Detail Usulan Kontrak</h3>
+               <div id="kontrakReviewDetailContent" style="margin-top:14px;"></div>
+             </div>
+          </div>
+
+          <!-- SECTION: USER PROPOSAL (Normal / User Accounts) -->
+          <div id="kontrakUserProposalSection" class="card kp-panel" style="display:none;">
+             <!-- State: Status Usulan Aktif -->
+             <div id="kontrakUserStatusState" style="display:none;">
+               <h3>Status Usulan Kontrak Anda</h3>
+               <div class="proposal-status-card" id="kontrakUserStatusCard" style="margin-top:14px; border:1px solid #ddd; padding:18px; border-radius:8px;"></div>
+             </div>
+             <!-- State: Form Pengajuan Usulan -->
+             <div id="kontrakUserFormState" style="display:none;">
+               <h3>Pengajuan Usulan Kontrak Baru / Perpanjangan</h3>
+               <form id="kontrakUserForm" onsubmit="submitUsulanKontrak(event)" style="margin-top:14px;">
+                 <div class="grid-2 kp-grid">
+                   <div class="stack-field">
+                     <label>NIP/NIK</label>
+                     <input type="text" id="kontrakUser_nip" class="field-input" readonly style="background:#eee;" />
+                   </div>
+                   <div class="stack-field">
+                     <label>Nama Lengkap</label>
+                     <input type="text" id="kontrakUser_nama" class="field-input" readonly style="background:#eee;" />
+                   </div>
+                   <div class="stack-field">
+                     <label>Unit Kerja</label>
+                     <input type="text" id="kontrakUser_unit" class="field-input" readonly style="background:#eee;" />
+                   </div>
+                   <div class="stack-field">
+                     <label>Jabatan</label>
+                     <input type="text" id="kontrakUser_jabatan" class="field-input" readonly style="background:#eee;" />
+                   </div>
+                   <div class="stack-field">
+                     <label>Email Kontak</label>
+                     <input type="email" id="kontrakUser_email" class="field-input" required />
+                   </div>
+                   <div class="stack-field">
+                     <label>Tahun Kontrak</label>
+                     <input type="text" id="kontrakUser_tahun" class="field-input" readonly style="background:#eee;" />
+                   </div>
+                   <div class="stack-field">
+                     <label>Jenis Usulan</label>
+                     <select id="kontrakUser_jenisUsulan" class="field-input" onchange="toggleEvaluasiKinerjaUser()" required>
+                       <option value="Perpanjangan">Perpanjangan</option>
+                       <option value="Baru">Usulan Baru</option>
+                     </select>
+                   </div>
+                   <div class="stack-field" id="kontrakUser_evaluasiWrap">
+                     <label>Evaluasi Kinerja Tahun Sebelumnya</label>
+                     <select id="kontrakUser_evaluasiKinerja" class="field-input">
+                       <option value="Sangat Baik">Sangat Baik</option>
+                       <option value="Baik" selected>Baik</option>
+                       <option value="Cukup">Cukup</option>
+                       <option value="Kurang">Kurang</option>
+                     </select>
+                   </div>
+                   <div class="stack-field">
+                     <label>Kategori Pegawai</label>
+                     <select id="kontrakUser_layanan" class="field-input" onchange="onKontrakUserLayananChange()" required>
+                       <option value="">Pilih Kategori...</option>
+                       <option value="Kontrak Tendik">Tenaga Kependidikan</option>
+                       <option value="Kontrak Dosen">Dosen</option>
+                     </select>
+                   </div>
+                   <div class="stack-field">
+                     <label>Jenis Perjanjian Kerja</label>
+                     <select id="kontrakUser_subMenu" class="field-input" required>
+                       <option value="">Pilih Kategori Pegawai Dahulu...</option>
+                     </select>
+                   </div>
+                 </div>
+
+                 <h4 style="margin-top:20px; border-bottom:1px solid #ddd; padding-bottom:6px;">Unggah Lampiran Persyaratan</h4>
+                 <div class="grid-2 kp-grid" id="kontrakUserAttachmentsWrap">
+                   <div class="stack-field">
+                     <label>KTP (PDF/Gambar) <span style="color:red;">*</span></label>
+                     <input type="file" id="kontrakUser_file_ktp" class="field-input" accept="application/pdf,image/*" required />
+                   </div>
+                   <div class="stack-field">
+                     <label>Kartu Keluarga (PDF/Gambar) <span style="color:red;">*</span></label>
+                     <input type="file" id="kontrakUser_file_kk" class="field-input" accept="application/pdf,image/*" required />
+                   </div>
+                   <div class="stack-field">
+                     <label>Pas Foto Terbaru (Gambar) <span style="color:red;">*</span></label>
+                     <input type="file" id="kontrakUser_file_pas_foto" class="field-input" accept="image/*" required />
+                   </div>
+                   <div class="stack-field">
+                     <label>Ijazah & Transkrip Terakhir (PDF) <span style="color:red;">*</span></label>
+                     <input type="file" id="kontrakUser_file_ijazah" class="field-input" accept="application/pdf" required />
+                   </div>
+                   <div class="stack-field">
+                     <label>Surat Pengantar Pimpinan Unit (PDF) <span style="color:red;">*</span></label>
+                     <input type="file" id="kontrakUser_file_surat_pengantar" class="field-input" accept="application/pdf" required />
+                   </div>
+                   <div class="stack-field">
+                     <label>Surat Lamaran (PDF) <span style="color:red;">*</span></label>
+                     <input type="file" id="kontrakUser_file_surat_lamaran" class="field-input" accept="application/pdf" required />
+                   </div>
+                   <div class="stack-field">
+                     <label>Surat Keterangan Sehat (PDF/Gambar) <span style="color:red;">*</span></label>
+                     <input type="file" id="kontrakUser_file_ket_sehat" class="field-input" accept="application/pdf,image/*" required />
+                   </div>
+                   <div class="stack-field" id="kontrakUser_simWrap" style="display:none;">
+                     <label>SIM A & B (PDF/Gambar) <span style="color:red;">*</span></label>
+                     <input type="file" id="kontrakUser_file_sim" class="field-input" accept="application/pdf,image/*" />
+                   </div>
+                   <div class="stack-field" id="kontrakUser_strWrap" style="display:none;">
+                     <label>STR Aktif (PDF) <span style="color:red;">*</span></label>
+                     <input type="file" id="kontrakUser_file_str" class="field-input" accept="application/pdf" />
+                   </div>
+                 </div>
+
+                 <div class="actions-bar" style="margin-top:20px;">
+                   <button type="submit" class="btn btn-primary" id="kontrakUser_submitBtn">Ajukan Usulan</button>
+                 </div>
+               </form>
+             </div>
+          </div>
+        </div>
         </div>
 
         <!-- ============ VIEW: PROFIL SAYA (peran 'normal') ============ -->
@@ -655,10 +795,32 @@
           <div class="card">
             <h3 style="margin-top:0;">Tambah Template Baru</h3>
             <form id="templateForm">
+              <!-- Pilihan tipe template -->
+              <div class="stack-field grid-full" style="margin-bottom:14px;">
+                <label style="margin-bottom:8px; font-weight:600;">Tipe Template</label>
+                <div style="display:flex; gap:20px;">
+                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="radio" name="tplTipe" id="tplTipeGdocs" value="gdocs" checked onchange="toggleTplTipeInput()">
+                    <span>&#x1F4C4; Google Docs (via link)</span>
+                  </label>
+                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="radio" name="tplTipe" id="tplTipeDocx" value="docx" onchange="toggleTplTipeInput()">
+                    <span>&#x1F4DD; Microsoft Word (.docx)</span>
+                  </label>
+                </div>
+              </div>
+
               <div class="grid-2">
-                <div class="stack-field grid-full">
-                  <label>Link Google Drive (Template Dokumen)</label>
-                  <input type="text" id="tplDriveLink" placeholder="https://docs.google.com/document/d/..." required />
+                <!-- Input GDocs (link) -->
+                <div class="stack-field grid-full" id="tplGdocsInputWrapper">
+                  <label>Link Google Drive / Google Docs</label>
+                  <input type="text" id="tplDriveLink" placeholder="https://docs.google.com/document/d/..." />
+                </div>
+                <!-- Input Word (file upload) -->
+                <div class="stack-field grid-full" id="tplDocxInputWrapper" style="display:none;">
+                  <label>Upload File .docx</label>
+                  <input type="file" id="tplDocxFile" accept=".docx" />
+                  <p class="helper-text" style="margin:4px 0 0;">File akan disimpan di Supabase Storage. Gunakan placeholder <code>{{ nama_field }}</code> yang sama seperti GDocs.</p>
                 </div>
                 <div class="stack-field grid-full">
                   <label>Judul Template</label>
@@ -683,7 +845,7 @@
             <h3 style="margin-top:0;">Template Terdaftar</h3>
             <table class="table-list">
               <thead>
-                <tr><th>Judul</th><th>Layanan</th><th>Sub-menu</th><th></th></tr>
+                <tr><th>Judul</th><th>Tipe</th><th>Layanan</th><th>Sub-menu</th><th></th></tr>
               </thead>
               <tbody id="templateListBody"></tbody>
             </table>
