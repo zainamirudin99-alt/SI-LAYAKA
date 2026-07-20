@@ -661,6 +661,38 @@ function docxRenderTemplate(templateBuffer, dataCtx) {
 }
 
 // ================================================================
+// DOWNLOAD TEMPLATE DOCX DARI STORAGE (DENGAN SDK ATAU FETCH)
+// ================================================================
+async function downloadTemplateBuffer(fileIdOrUrl) {
+  const db = getDb();
+  let path = fileIdOrUrl;
+  
+  if (path.includes('/storage/v1/object/public/lampiran-usulan/')) {
+    path = path.split('/storage/v1/object/public/lampiran-usulan/')[1];
+  } else if (path.includes('/storage/v1/object/sign/lampiran-usulan/')) {
+    path = path.split('/storage/v1/object/sign/lampiran-usulan/')[1].split('?')[0];
+  }
+  
+  if (!path.startsWith('http://') && !path.startsWith('https://')) {
+    try {
+      const { data, error } = await db.storage.from('lampiran-usulan').download(path);
+      if (!error && data) {
+        const arrayBuf = await data.arrayBuffer();
+        return Buffer.from(arrayBuf);
+      }
+      console.warn(`[rpc download] SDK download failed for path=${path}:`, error?.message || error);
+    } catch (e) {
+      console.warn(`[rpc download] SDK download exception for path=${path}:`, e.message);
+    }
+  }
+  
+  const fetchResp = await fetch(fileIdOrUrl);
+  if (!fetchResp.ok) throw new Error(`Fetch failed with status ${fetchResp.status}`);
+  const arrayBuf = await fetchResp.arrayBuffer();
+  return Buffer.from(arrayBuf);
+}
+
+// ================================================================
 // UPLOAD TEMPLATE DOCX KE SUPABASE STORAGE
 // ================================================================
 async function uploadTemplateDocx(base64DataUrl, judul) {
@@ -1274,11 +1306,12 @@ const methods = {
     if (tmpl.tipe !== 'docx') return { success: false, message: 'Template ini bukan tipe DOCX.' };
 
     // Download file template dari Supabase Storage
-    const publicUrl = tmpl.file_id;
-    const fetchResp = await fetch(publicUrl);
-    if (!fetchResp.ok) return { success: false, message: 'Gagal mengunduh file template dari storage.' };
-    const arrayBuf = await fetchResp.arrayBuffer();
-    const templateBuffer = Buffer.from(arrayBuf);
+    let templateBuffer;
+    try {
+      templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
+    } catch (err) {
+      return { success: false, message: 'Gagal mengunduh file template dari storage: ' + err.message };
+    }
 
     // Render template
     const renderedBuffer = docxRenderTemplate(templateBuffer, dataContext || {});
@@ -1331,10 +1364,12 @@ const methods = {
     if (!tmpl) return { success: false, message: 'Template tidak ditemukan.' };
     if (tmpl.tipe !== 'docx') return { success: false, message: 'Template ini bukan tipe DOCX.' };
 
-    const fetchResp = await fetch(tmpl.file_id);
-    if (!fetchResp.ok) return { success: false, message: 'Gagal mengunduh file template dari storage.' };
-    const arrayBuf = await fetchResp.arrayBuffer();
-    const templateBuffer = Buffer.from(arrayBuf);
+    let templateBuffer;
+    try {
+      templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
+    } catch (err) {
+      return { success: false, message: 'Gagal mengunduh file template dari storage: ' + err.message };
+    }
 
     const renderedBuffer = docxRenderTemplate(templateBuffer, dataContext || {});
     return {
@@ -1717,10 +1752,12 @@ const methods = {
       });
     }
     
-    const fetchResp = await fetch(tmpl.file_id);
-    if (!fetchResp.ok) return { success: false, message: 'Gagal mengunduh file template dari storage.' };
-    const arrayBuf = await fetchResp.arrayBuffer();
-    const templateBuffer = Buffer.from(arrayBuf);
+    let templateBuffer;
+    try {
+      templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
+    } catch (err) {
+      return { success: false, message: 'Gagal mengunduh file template dari storage: ' + err.message };
+    }
     
     const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx);
     
@@ -1782,10 +1819,12 @@ const methods = {
       });
     }
     
-    const fetchResp = await fetch(tmpl.file_id);
-    if (!fetchResp.ok) return { success: false, message: 'Gagal mengunduh file template dari storage.' };
-    const arrayBuf = await fetchResp.arrayBuffer();
-    const templateBuffer = Buffer.from(arrayBuf);
+    let templateBuffer;
+    try {
+      templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
+    } catch (err) {
+      return { success: false, message: 'Gagal mengunduh file template dari storage: ' + err.message };
+    }
     
     const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx);
     
