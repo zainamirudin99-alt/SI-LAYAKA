@@ -1663,11 +1663,483 @@ const methods = {
       // Untuk admin/super_admin: GDocs/PDF sesuai output GAS
       await db.from('usulan_kontrak').update({ perjanjian_dibuat: true, diproses_oleh_nip: decoded.nip, status: 'Selesai' }).eq('id', usulanId);
       return { success: true, fileId: gasResult.fileId, viewUrl: gasResult.viewUrl, fileName: gasResult.fileName, message: gasResult.message, outputType: 'gdocs' };
-    } catch (err) {
-      return { success: false, message: 'Gagal generate kontrak: ' + err.message };
+  },
+
+  async previewDocumentVercel([token, payload]) {
+    const decoded = verifyToken(token);
+    const db = getDb();
+    
+    const { templateId, isKontrak, entries, subLayanan, layanan, formData } = payload || {};
+    
+    const { data: tmpl, error: tmplErr } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
+    if (tmplErr) throw tmplErr;
+    if (!tmpl) return { success: false, message: 'Template tidak ditemukan.' };
+    
+    let firstEntry = entries && entries[0] ? entries[0] : { formData, targetNip: payload.targetNip };
+    let nip = firstEntry.targetNip || decoded.nip;
+    let employee = {};
+    try {
+      employee = await methods.getEmployeeFullData([token, nip]);
+    } catch(e) {
+      // ignore
     }
+    
+    let dataCtx = {};
+    if (layanan === 'Kenaikan Pangkat') {
+      const derived = rpcBuildDerivedFields(employee, firstEntry.formData, subLayanan);
+      const alias = {};
+      if (firstEntry.formData.jumlah_angka_kredit_diperoleh !== undefined) {
+        alias.jumlah_angka_kredit_yang_diperoleh_saat_integrasi = firstEntry.formData.jumlah_angka_kredit_diperoleh;
+      }
+      if (firstEntry.formData.ada_ijazah_baru_2023 !== undefined) {
+        alias.ada_ijazah_baru_setelah_2023 = firstEntry.formData.ada_ijazah_baru_2023;
+      }
+      dataCtx = Object.assign({}, employee, firstEntry.formData, alias, derived);
+    } else if (layanan === 'Pensiun') {
+      if (subLayanan === 'DPCP') {
+        dataCtx = rpcBuildDpcpContext(firstEntry.formData);
+      } else {
+        dataCtx = rpcBuildSuperContext(firstEntry.formData);
+      }
+    } else {
+      dataCtx = Object.assign({}, firstEntry.formData, {
+        nip: firstEntry.formData.nip,
+        nama: firstEntry.formData.nama,
+        tahun: firstEntry.formData.tahun,
+        jenis_usulan: firstEntry.formData.jenis_usulan,
+        evaluasi_kinerja: firstEntry.formData.evaluasi_kinerja,
+        layanan: firstEntry.formData.layanan,
+        sub_menu: firstEntry.formData.sub_menu,
+        today: new Date()
+      });
+    }
+    
+    const fetchResp = await fetch(tmpl.file_id);
+    if (!fetchResp.ok) return { success: false, message: 'Gagal mengunduh file template dari storage.' };
+    const arrayBuf = await fetchResp.arrayBuffer();
+    const templateBuffer = Buffer.from(arrayBuf);
+    
+    const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx);
+    
+    return {
+      success: true,
+      outputType: 'docx',
+      base64: renderedBuffer.toString('base64'),
+      fileName: `${tmpl.judul}.docx`,
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    };
+  },
+
+  async generateDocumentVercel([token, payload]) {
+    const decoded = verifyToken(token);
+    const db = getDb();
+    
+    const { templateId, isKontrak, entries, subLayanan, layanan, formData } = payload || {};
+    
+    const { data: tmpl, error: tmplErr } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
+    if (tmplErr) throw tmplErr;
+    if (!tmpl) return { success: false, message: 'Template tidak ditemukan.' };
+    
+    let firstEntry = entries && entries[0] ? entries[0] : { formData, targetNip: payload.targetNip };
+    let nip = firstEntry.targetNip || decoded.nip;
+    let employee = {};
+    try {
+      employee = await methods.getEmployeeFullData([token, nip]);
+    } catch(e) {
+      // ignore
+    }
+    
+    let dataCtx = {};
+    if (layanan === 'Kenaikan Pangkat') {
+      const derived = rpcBuildDerivedFields(employee, firstEntry.formData, subLayanan);
+      const alias = {};
+      if (firstEntry.formData.jumlah_angka_kredit_diperoleh !== undefined) {
+        alias.jumlah_angka_kredit_yang_diperoleh_saat_integrasi = firstEntry.formData.jumlah_angka_kredit_diperoleh;
+      }
+      if (firstEntry.formData.ada_ijazah_baru_2023 !== undefined) {
+        alias.ada_ijazah_baru_setelah_2023 = firstEntry.formData.ada_ijazah_baru_2023;
+      }
+      dataCtx = Object.assign({}, employee, firstEntry.formData, alias, derived);
+    } else if (layanan === 'Pensiun') {
+      if (subLayanan === 'DPCP') {
+        dataCtx = rpcBuildDpcpContext(firstEntry.formData);
+      } else {
+        dataCtx = rpcBuildSuperContext(firstEntry.formData);
+      }
+    } else {
+      dataCtx = Object.assign({}, firstEntry.formData, {
+        nip: firstEntry.formData.nip,
+        nama: firstEntry.formData.nama,
+        tahun: firstEntry.formData.tahun,
+        jenis_usulan: firstEntry.formData.jenis_usulan,
+        evaluasi_kinerja: firstEntry.formData.evaluasi_kinerja,
+        layanan: firstEntry.formData.layanan,
+        sub_menu: firstEntry.formData.sub_menu,
+        today: new Date()
+      });
+    }
+    
+    const fetchResp = await fetch(tmpl.file_id);
+    if (!fetchResp.ok) return { success: false, message: 'Gagal mengunduh file template dari storage.' };
+    const arrayBuf = await fetchResp.arrayBuffer();
+    const templateBuffer = Buffer.from(arrayBuf);
+    
+    const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx);
+    
+    const isRoleNormalOrUser = ['normal', 'user'].includes(decoded.role || 'normal');
+    const mustPdf = isKontrak && isRoleNormalOrUser;
+    
+    if (mustPdf) {
+      const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+      if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi (diperlukan untuk konversi PDF).' };
+      
+      const { v4: uuidv4x } = require('uuid');
+      const shortId = uuidv4x();
+      const remoteSession = { id: shortId, data: { nip: decoded.nip, role: decoded.role } };
+      
+      const response = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'convertDocxToPdf',
+          params: [shortId, renderedBuffer.toString('base64'), `${tmpl.judul}.docx`],
+          remoteSession
+        })
+      });
+      const gasResult = await response.json();
+      if (!gasResult.success) return gasResult;
+      return { success: true, outputType: 'pdf', pdfUrl: gasResult.pdfUrl, fileName: gasResult.fileName };
+    }
+    
+    if (layanan === 'Kenaikan Pangkat') {
+      await methods.tandaiOpsiKpSelesai([token, nip, subLayanan]);
+    } else if (layanan === 'Pensiun') {
+      await methods.tandaiDokumenPensiunSelesai([token, nip, String(subLayanan).toLowerCase()]);
+    }
+    
+    const base64Out = renderedBuffer.toString('base64');
+    return {
+      success: true,
+      outputType: 'docx',
+      base64: base64Out,
+      fileName: `${tmpl.judul}.docx`,
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    };
   }
 };
+
+// ================================================================
+// CONSTANTS & HELPERS FOR DOCGEN ENGINE (PORTED FROM SCRIPT SIDE)
+// ================================================================
+const DOCGEN_KOEFISIEN_JABATAN = {
+  'Pengajar': 12.5, 'Asisten Ahli': 12.5, 'Lektor': 25, 'Lektor Kepala': 37.5, 'Guru Besar': 50
+};
+const DOCGEN_AK_DASAR_SEHARUSNYA = {
+  'III/b': 150, 'III/c': 200, 'III/d': 200,
+  'IV/a': 400, 'IV/b': 400, 'IV/c': 400, 'IV/d': 850, 'IV/e': 850,
+  'Set. III/b': 150, 'Set. III/c': 200, 'Set. III/d': 200,
+  'Set. IV/a': 400, 'Set. IV/b': 400, 'Set. IV/c': 400, 'Set. IV/d': 850, 'Set. IV/e': 850
+};
+const DOCGEN_NILAI_LAMA_GOLONGAN = {
+  'III/a': 0, 'III/b': 0, 'III/c': 0, 'III/d': 100,
+  'IV/a': 0, 'IV/b': 150, 'IV/c': 300, 'IV/d': 0, 'IV/e': 200,
+  'Set. III/a': 0, 'Set. III/b': 0, 'Set. III/c': 0, 'Set. III/d': 100,
+  'Set. IV/a': 0, 'Set. IV/b': 150, 'Set. IV/c': 300, 'Set. IV/d': 0, 'Set. IV/e': 200
+};
+const DOCGEN_KEBUTUHAN_AK_GOLONGAN = {
+  'III/a': 50, 'III/b': 50, 'III/c': 100, 'III/d': 100,
+  'IV/a': 150, 'IV/b': 150, 'IV/c': 150, 'IV/d': 200, 'IV/e': 0,
+  'Set. III/a': 50, 'Set. III/b': 50, 'Set. III/c': 100, 'Set. III/d': 100,
+  'Set. IV/a': 150, 'Set. IV/b': 150, 'Set. IV/c': 150, 'Set. IV/d': 200, 'Set. IV/e': 0
+};
+const DOCGEN_KEBUTUHAN_NAIK_JABATAN = {
+  'Pengajar': 12.5, 'Asisten Ahli': 50, 'Lektor': 200, 'Lektor Kepala': 450, 'Guru Besar': ''
+};
+const DOCGEN_JABATAN_TUJUAN = {
+  'Pengajar': 'ASISTEN AHLI', 'Asisten Ahli': 'LEKTOR',
+  'Lektor': 'LEKTOR KEPALA', 'Lektor Kepala': 'GURU BESAR'
+};
+const DOCGEN_PANGKAT_TUJUAN = {
+  'III/a': 'PENATA MUDA TK. I / III/B', 'III/b': 'PENATA / III/C',
+  'III/c': 'PENATA TK. I / III/D', 'III/d': 'PEMBINA / IV/A',
+  'IV/a': 'PEMBINA TK. I / IV/B', 'IV/b': 'PEMBINA UTAMA MUDA / IV/C',
+  'IV/c': 'PEMBINA UTAMA MADYA / IV/D', 'IV/d': 'PEMBINA UTAMA / IV/E', 'IV/e': '',
+  'Set. III/a': 'SETARA PENATA MUDA TK. I / III/B', 'Set. III/b': 'SETARA PENATA / III/C',
+  'Set. III/c': 'SETARA PENATA TK. I / III/D', 'Set. III/d': 'SETARA PEMBINA / IV/A',
+  'Set. IV/a': 'SETARA PEMBINA TK. I / IV/B', 'Set. IV/b': 'SETARA PENATA UTAMA MUDA / IV/C',
+  'Set. IV/c': 'SETARA PEMBINA UTAMA MADYA / IV/D', 'Set. IV/d': 'SETARA PEMBINA UTAMA / IV/E',
+  'Set. IV/e': ''
+};
+
+function rpcBuildDerivedFields(employee, formData, subLayanan) {
+  formData = formData || {};
+  const jabatan = formData.jabatan || employee.jabatan;
+  const golongan = formData.golongan || employee.golongan;
+
+  if (subLayanan === 'AK Konversi Tahunan') {
+    const bulanAwal = docxBulanKeAngka(formData.bulan_awal_penilaian);
+    const bulanAkhir = docxBulanKeAngka(formData.bulan_selesai_penilaian);
+    const koefisien = DOCGEN_KOEFISIEN_JABATAN[jabatan] || 0;
+    const pred = formData.predikat_skp === 'Baik' ? 1 : 1.5;
+    const jumlahBulan = (Number(bulanAkhir) - Number(bulanAwal) + 1) / 12;
+    const ak = jumlahBulan * koefisien * pred;
+    return {
+      ak_konversi_tahunan: Math.round(ak * 100) / 100
+    };
+  }
+
+  if (subLayanan === 'AK Konversi Kumulatif') {
+    const daftarPenilaianTahunan = (formData.data_massal || []).map(row => ({
+      predikat: row.predikat_skp,
+      jabatan: jabatan,
+      bulanAwal: docxBulanKeAngka(row.bulan_awal_penilaian),
+      bulanAkhir: docxBulanKeAngka(row.bulan_selesai_penilaian)
+    }));
+
+    const penilaianUntukTemplate = (formData.data_massal || []).map(row => {
+      const bulanAwal = docxBulanKeAngka(row.bulan_awal_penilaian);
+      const bulanAkhir = docxBulanKeAngka(row.bulan_selesai_penilaian);
+      const koefisien = DOCGEN_KOEFISIEN_JABATAN[jabatan] || 0;
+      const pred = row.predikat_skp === 'Baik' ? 1 : 1.5;
+      const jumlahBulan = (Number(bulanAkhir) - Number(bulanAwal) + 1) / 12;
+      const ak = jumlahBulan * koefisien * pred;
+      const roundedAk = Math.round(ak * 100) / 100;
+      return {
+        tahun_penilaian: row.tahun_penilaian,
+        bulan_awal_penilaian: row.bulan_awal_penilaian,
+        bulan_selesai_penilaian: row.bulan_selesai_penilaian,
+        predikat_skp: row.predikat_skp,
+        ak_konversi_tahun: roundedAk,
+        ak_konversi_didapat: roundedAk
+      };
+    });
+
+    const jumlahAkSaatIntegrasi = Number(formData.jumlah_angka_kredit_diperoleh) || 0;
+    const angkaDasarSaatIntegrasi = Number(formData.angka_dasar_saat_integrasi) || 0;
+
+    const akIntegrasiDidapat = jumlahAkSaatIntegrasi - angkaDasarSaatIntegrasi;
+    
+    let totalKonversi = 0;
+    (daftarPenilaianTahunan || []).forEach(r => {
+      const koef = DOCGEN_KOEFISIEN_JABATAN[r.jabatan] || 0;
+      const pred = r.predikat === 'Baik' ? 1 : 1.5;
+      const jumlahBulan = (Number(r.bulanAkhir) - Number(r.bulanAwal) + 1) / 12;
+      totalKonversi += (jumlahBulan * koef * pred);
+    });
+    const totalAkKonversiIntegrasi = akIntegrasiDidapat + totalKonversi;
+
+    const akDasarSeharusnya = DOCGEN_AK_DASAR_SEHARUSNYA[golongan] || 0;
+    const nilaiLama = DOCGEN_NILAI_LAMA_GOLONGAN[golongan] || 0;
+    const nilaiLamaDiakui = akDasarSeharusnya > angkaDasarSaatIntegrasi
+      ? (akDasarSeharusnya - angkaDasarSaatIntegrasi) + nilaiLama
+      : nilaiLama;
+
+    const totalKonversiBaru = totalAkKonversiIntegrasi - nilaiLamaDiakui;
+    
+    const hitungIjazah = formData.ada_ijazah_baru_2023 === 'Ada'
+      ? (DOCGEN_KEBUTUHAN_AK_GOLONGAN[golongan] || 0) * 0.25
+      : 0;
+
+    const totalAkBaru = totalKonversiBaru + hitungIjazah;
+    const totalJumlahAk = nilaiLamaDiakui + totalKonversiBaru + hitungIjazah;
+
+    let rekomendasi = 'TIDAK DAPAT DIPERTIMBANGKAN UNTUK KENAIKAN PANGKAT/JENJANG SETINGKAT LEBIH TINGGI';
+    const mentok = jabatan === 'Guru Besar' && (golongan === 'IV/e' || golongan === 'Set. IV/e');
+    if (!mentok) {
+      const cukupPangkat = (totalAkBaru - (DOCGEN_KEBUTUHAN_AK_GOLONGAN[golongan] || 0)) >= 0;
+      const kebutuhanJabatan = DOCGEN_KEBUTUHAN_NAIK_JABATAN[jabatan];
+      const cukupJabatan = kebutuhanJabatan === '' || kebutuhanJabatan === undefined
+        ? false
+        : (totalJumlahAk - kebutuhanJabatan) >= 0;
+
+      const jabatanTujuan = DOCGEN_JABATAN_TUJUAN[jabatan] || '';
+      const pangkatTujuan = DOCGEN_PANGKAT_TUJUAN[golongan] || '';
+
+      if (cukupPangkat && cukupJabatan) {
+        rekomendasi = `DAPAT DIPERTIMBANGKAN UNTUK KENAIKAN PANGKAT/JENJANG JABATAN SETINGKAT LEBIH TINGGI MENJADI ${jabatanTujuan} PANGKAT/GOLONGAN RUANG ${pangkatTujuan}`;
+      } else if (cukupPangkat && !cukupJabatan) {
+        rekomendasi = `DAPAT DIPERTIMBANGKAN UNTUK KENAIKAN PANGKAT SETINGKAT LEBIH TINGGI MENJADI ${pangkatTujuan}`;
+      } else if (!cukupPangkat && cukupJabatan) {
+        rekomendasi = `DAPAT DIPERTIMBANGKAN UNTUK KENAIKAN JENJANG JABATAN SETINGKAT LEBIH TINGGI MENJADI ${jabatanTujuan}`;
+      }
+    }
+
+    const round2 = n => Math.round(n * 100) / 100;
+    return {
+      penilaian: penilaianUntukTemplate,
+      ak_integrasi_didapat: round2(akIntegrasiDidapat),
+      total_ak_konversi_integrasi: round2(totalAkKonversiIntegrasi),
+      nilai_lama_diakui: round2(nilaiLamaDiakui),
+      total_konversi_baru: round2(totalKonversiBaru),
+      hitung_ijazah: hitungIjazah === 0 ? '' : round2(hitungIjazah),
+      total_ak_baru: round2(totalAkBaru),
+      total_jumlah_ak: round2(totalJumlahAk),
+      rekomendasi: rekomendasi
+    };
+  }
+  return {};
+}
+
+function pensiunGen_upper(str) {
+  return str ? String(str).toUpperCase().trim() : '';
+}
+function pensiunGen_tanggalUpper(value) {
+  return formatTanggalIndonesia(value).toUpperCase();
+}
+function pensiunGen_tanggalBiasa(value) {
+  return formatTanggalIndonesia(value);
+}
+function pensiunGen_dash(val) {
+  const s = (val !== null && val !== undefined) ? String(val).trim() : '';
+  return s === '' ? '-' : s;
+}
+function pensiunGen_upperOrDash(val) {
+  const s = pensiunGen_upper(val);
+  return s === '' ? '-' : s;
+}
+function pensiunGen_tanggalOrDash(val) {
+  if (!val || String(val).trim() === '') return '-';
+  return pensiunGen_tanggalUpper(val) || '-';
+}
+
+function pensiunGen_buildFamilyRows(rawArray, fieldNames, dateFields, upperFields) {
+  const filtered = (rawArray || []).filter(item => {
+    if (!item) return false;
+    return fieldNames.some(f => item[f] !== null && item[f] !== undefined && String(item[f]).trim() !== '');
+  });
+
+  if (filtered.length === 0) {
+    const dashRow = { no: '-' };
+    fieldNames.forEach(f => { dashRow[f] = '-'; });
+    return [dashRow];
+  }
+
+  return filtered.map((item, idx) => {
+    const row = { no: String(idx + 1) };
+    fieldNames.forEach(f => {
+      const val = item[f];
+      if (dateFields.indexOf(f) !== -1) row[f] = pensiunGen_tanggalOrDash(val);
+      else if (upperFields.indexOf(f) !== -1) row[f] = pensiunGen_upperOrDash(val);
+      else row[f] = pensiunGen_dash(val);
+    });
+    return row;
+  });
+}
+
+const PENSIUN_PASANGAN_FIELDS = ['nik', 'nama_pasangan', 'tgl_lahir_pasangan', 'tgl_kawin', 'tgl_cerai', 'keterangan_pasangan'];
+const PENSIUN_ANAK_FIELDS = ['nik', 'nama_anak', 'tg_lahir_anak', 'nama_ortu', 'keterangan_anak'];
+const PENSIUN_PASANGAN_DATE_FIELDS = ['tgl_lahir_pasangan', 'tgl_kawin', 'tgl_cerai'];
+const PENSIUN_ANAK_DATE_FIELDS = ['tg_lahir_anak'];
+const PENSIUN_PASANGAN_UPPER_FIELDS = ['nama_pasangan'];
+const PENSIUN_ANAK_UPPER_FIELDS = ['nama_anak', 'nama_ortu'];
+
+function pensiunGen_hitungJenisPensiunFields(formData) {
+  let jp1 = '', jp2 = '', jp3 = '', namaTtd = '', nipTtd = '';
+
+  if (formData.jenis_pensiun === 'BUP') {
+    jp1 = 'BUP';
+    jp2 = 'MENCAPAI BATAS USIA PENSIUN';
+    jp3 = 'PEGAWAI NEGERI SIPIL YANG BERSANGKUTAN';
+    namaTtd = pensiunGen_upper(formData.nama_lengkap);
+    nipTtd = formData.nip ? 'NIP. ' + formData.nip : '';
+  } else if (formData.jenis_pensiun === 'Meninggal') {
+    jp1 = 'MENINGGAL';
+    jp2 = 'AKAN DIBERHENTIKAN/YANG MENINGGAL DUNIA, TEWAS, ATAU HILANG';
+    jp3 = 'SUAMI/ISTRI PNS YANG BERSANGKUTAN';
+    const pasangan1 = (formData.pasangan && formData.pasangan[0]) || {};
+    namaTtd = pensiunGen_upper(formData.nama_suami_istri_1 || pasangan1.nama_pasangan);
+    const nikTtd = formData.nik_suami_istri_1 || pasangan1.nik;
+    nipTtd = nikTtd ? 'NIK. ' + nikTtd : '';
+  } else if (formData.jenis_pensiun === 'Diberhentikan') {
+    jp1 = 'DIBERHENTIKAN';
+    jp2 = 'AKAN DIBERHENTIKAN/YANG MENINGGAL DUNIA, TEWAS, ATAU HILANG';
+    jp3 = 'PEGAWAI NEGERI SIPIL YANG BERSANGKUTAN';
+    namaTtd = pensiunGen_upper(formData.nama_lengkap);
+    nipTtd = formData.nip ? 'NIP. ' + formData.nip : '';
+  } else if (formData.jenis_pensiun === 'Pengunduran Diri') {
+    jp1 = 'PENGUNDURAN DIRI';
+    jp2 = 'MENGAJUKAN PERMINTAAN SENDIRI';
+    jp3 = 'PEGAWAI NEGERI SIPIL YANG BERSANGKUTAN';
+    namaTtd = pensiunGen_upper(formData.nama_lengkap);
+    nipTtd = formData.nip ? 'NIP. ' + formData.nip : '';
+  } else if (formData.jenis_pensiun === 'Uzur') {
+    jp1 = 'UZUR';
+    jp2 = 'TIDAK CAKAP JASMANI DAN/ATAU ROHANI';
+    jp3 = 'PEGAWAI NEGERI SIPIL YANG BERSANGKUTAN';
+    namaTtd = pensiunGen_upper(formData.nama_lengkap);
+    nipTtd = formData.nip ? 'NIP. ' + formData.nip : '';
+  }
+
+  let akhirTmtKerja;
+  if (formData.jenis_pensiun === 'BUP') {
+    akhirTmtKerja = pensiunGen_tanggalUpper(formData.tmt_pensiun);
+  } else {
+    akhirTmtKerja = pensiunGen_tanggalUpper(formData.tgl_peristiwa_asli || formData.bulan_terakhir_bekerja || formData.tmt_pensiun);
+  }
+
+  return { jp1, jp2, jp3, namaTtd, nipTtd, akhirTmtKerja };
+}
+
+function rpcBuildDpcpContext(formData) {
+  formData = formData || {};
+  const fmtTmtGol = pensiunGen_tanggalUpper(formData.tmt_gol);
+  const pangkatGabungan = `${pensiunGen_upper(formData.pangkat)}/${pensiunGen_upper(formData.golongan)}/${fmtTmtGol}`;
+  const jenisPensiunFields = pensiunGen_hitungJenisPensiunFields(formData);
+
+  return {
+    nip: formData.nip || '',
+    nama_lengkap: pensiunGen_upper(formData.nama_lengkap),
+    nama: pensiunGen_upper(formData.nama),
+    tmp_lhr: pensiunGen_upper(formData.tmp_lhr),
+    tgl_lhr: pensiunGen_tanggalUpper(formData.tgl_lhr),
+    tmt_pengangkat: pensiunGen_tanggalUpper(formData.tmt_cpns),
+    golongan: pensiunGen_upper(formData.golongan),
+    pangkat: pangkatGabungan,
+    tmt_gol: fmtTmtGol,
+    jabatan: pensiunGen_upper(formData.jabatan),
+    tmt_jab: pensiunGen_tanggalUpper(formData.tmt_jab),
+    tmt_pensiun: pensiunGen_tanggalUpper(formData.tmt_pensiun),
+    unit_es_ii: pensiunGen_upper(formData.unit_es_ii),
+    unit_kerja: pensiunGen_upper(formData.unit_es_ii),
+    gaji_pokok: formData.gaji_pokok || '',
+    mk_kp_terakhir: pensiunGen_upper(formData.mk_kp_terakhir) || '0 TAHUN 0 BULAN',
+    mk_golongan: pensiunGen_upper(formData.mk_golongan),
+    mk_pns: pensiunGen_upper(formData.mk_pns),
+    mk_pensiun: pensiunGen_upper(formData.mk_pensiun),
+    alamat: pensiunGen_upper(formData.alamat),
+    pendidikan_pertama: pensiunGen_upper(formData.pendidikan_pertama),
+    cltn: pensiunGen_upper(formData.cltn) || '0 TAHUN 0 BULAN',
+    pmk: pensiunGen_upper(formData.pmk) || '0 TAHUN 0 BULAN',
+    akhir_tmt_kerja: jenisPensiunFields.akhirTmtKerja,
+    bulan_terakhir_bekerja: pensiunGen_tanggalUpper(formData.bulan_terakhir_bekerja),
+    jenis_pensiun1: jenisPensiunFields.jp1,
+    jenis_pensiun2: jenisPensiunFields.jp2,
+    jenis_pensiun3: jenisPensiunFields.jp3,
+    nama_ttd: jenisPensiunFields.namaTtd,
+    nip_ttd: jenisPensiunFields.nipTtd,
+    tgl_buat: pensiunGen_tanggalUpper(new Date()),
+
+    pasangan: pensiunGen_buildFamilyRows(formData.pasangan, PENSIUN_PASANGAN_FIELDS, PENSIUN_PASANGAN_DATE_FIELDS, PENSIUN_PASANGAN_UPPER_FIELDS),
+    anak: pensiunGen_buildFamilyRows(formData.anak, PENSIUN_ANAK_FIELDS, PENSIUN_ANAK_DATE_FIELDS, PENSIUN_ANAK_UPPER_FIELDS)
+  };
+}
+
+function rpcBuildSuperContext(formData) {
+  formData = formData || {};
+  const fmtTmtGol = pensiunGen_tanggalBiasa(formData.tmt_gol);
+  const pangkatGabungan = `${formData.pangkat || ''}/${formData.golongan || ''}/${fmtTmtGol}`;
+
+  return {
+    nomor_super_tidak_hukdis_sedangberat: formData.nomor_super_tidak_hukdis_sedangberat || '',
+    nama_lengkap: formData.nama_lengkap || '',
+    nip: formData.nip || '',
+    pangkat: pangkatGabungan,
+    jabatan: formData.jabatan || '',
+    tanggal_super: pensiunGen_tanggalBiasa(new Date()),
+    nomor_super_pidana: formData.nomor_super_pidana || ''
+  };
+}
+
 
 
 // ================================================================

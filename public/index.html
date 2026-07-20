@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
   <base target="_top">
@@ -920,12 +920,28 @@
                 Angka pada dokumen yang dihasilkan (AK Konversi Tahunan) mengikuti rumus baku sesuai format Surat Keputusan, dan bisa berbeda dari estimasi cepat di tab "0. Check Eligible".
               </div>
 
-              <div class="kp-entries-toolbar">
-                <span class="helper-text" style="margin:0;">Tiap entri menghasilkan satu bagian dokumen. Beberapa entri akan digabung jadi <strong>satu file</strong> saat Preview/Generate.</span>
-                <button type="button" class="btn btn-outline" id="optA_addEntryBtn">+ Tambah Data</button>
+              <div class="kp-entries-toolbar" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+                <span class="helper-text" style="margin:0; flex:1;">Tiap entri menghasilkan satu bagian dokumen. Beberapa entri akan digabung jadi <strong>satu file</strong> saat Preview/Generate.</span>
+                <div style="display:flex; gap:8px;">
+                  <button type="button" class="btn btn-outline" id="optA_copyEntryBtn" style="border-color:#1976d2; color:#1976d2;">📄 Salin Data Pertama</button>
+                  <button type="button" class="btn btn-outline" id="optA_addEntryBtn">+ Tambah Data</button>
+                </div>
               </div>
 
               <div id="optA_entriesContainer"></div>
+
+              <div class="stack-field" style="margin-top: 16px; margin-bottom: 8px;">
+                <label style="font-weight:600; margin-bottom:6px; display:block;">Pilih Tipe & Template</label>
+                <div style="display:flex; gap:16px; margin-bottom:8px;">
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="optA_templateSelectType" value="gdocs" checked onchange="filterServiceTemplates('optA_templateSelect', 'gdocs')"> Google Docs (GDocs)
+                  </label>
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="optA_templateSelectType" value="docx" onchange="filterServiceTemplates('optA_templateSelect', 'docx')"> Microsoft Word (.docx)
+                  </label>
+                </div>
+                <select id="optA_templateSelect" class="field-input" required></select>
+              </div>
 
               <div class="actions-bar">
                 <button class="btn btn-outline" id="optA_previewBtn">Preview</button>
@@ -939,12 +955,28 @@
                 Angka pada dokumen yang dihasilkan (AK Konversi Kumulatif), termasuk Rekomendasi, mengikuti rumus baku sesuai format Surat Keputusan, dan bisa berbeda dari estimasi cepat di tab "0. Check Eligible".
               </div>
 
-              <div class="kp-entries-toolbar">
-                <span class="helper-text" style="margin:0;">Tiap entri menghasilkan satu bagian dokumen. Beberapa entri akan digabung jadi <strong>satu file</strong> saat Preview/Generate.</span>
-                <button type="button" class="btn btn-outline" id="optB_addEntryBtn">+ Tambah Data</button>
+              <div class="kp-entries-toolbar" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+                <span class="helper-text" style="margin:0; flex:1;">Tiap entri menghasilkan satu bagian dokumen. Beberapa entri akan digabung jadi <strong>satu file</strong> saat Preview/Generate.</span>
+                <div style="display:flex; gap:8px;">
+                  <button type="button" class="btn btn-outline" id="optB_copyEntryBtn" style="border-color:#1976d2; color:#1976d2;">📄 Salin Data Pertama</button>
+                  <button type="button" class="btn btn-outline" id="optB_addEntryBtn">+ Tambah Data</button>
+                </div>
               </div>
 
               <div id="optB_entriesContainer"></div>
+
+              <div class="stack-field" style="margin-top: 16px; margin-bottom: 8px;">
+                <label style="font-weight:600; margin-bottom:6px; display:block;">Pilih Tipe & Template</label>
+                <div style="display:flex; gap:16px; margin-bottom:8px;">
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="optB_templateSelectType" value="gdocs" checked onchange="filterServiceTemplates('optB_templateSelect', 'gdocs')"> Google Docs (GDocs)
+                  </label>
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="optB_templateSelectType" value="docx" onchange="filterServiceTemplates('optB_templateSelect', 'docx')"> Microsoft Word (.docx)
+                  </label>
+                </div>
+                <select id="optB_templateSelect" class="field-input" required></select>
+              </div>
 
               <div class="actions-bar">
                 <button class="btn btn-outline" id="optB_previewBtn">Preview</button>
@@ -1112,6 +1144,19 @@
                   </label>
                 </div>
 
+                <div class="stack-field" style="margin-top: 16px; margin-bottom: 8px;">
+                  <label style="font-weight:600; margin-bottom:6px; display:block;">Pilih Tipe & Template DPCP</label>
+                  <div style="display:flex; gap:16px; margin-bottom:8px;">
+                    <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                      <input type="radio" name="pensiun_dpcpTemplateSelectType" value="gdocs" checked onchange="filterServiceTemplates('pensiun_dpcpTemplateSelect', 'gdocs')"> Google Docs (GDocs)
+                    </label>
+                    <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                      <input type="radio" name="pensiun_dpcpTemplateSelectType" value="docx" onchange="filterServiceTemplates('pensiun_dpcpTemplateSelect', 'docx')"> Microsoft Word (.docx)
+                    </label>
+                  </div>
+                  <select id="pensiun_dpcpTemplateSelect" class="field-input" required></select>
+                </div>
+
                 <div class="actions-bar">
                   <button class="btn btn-outline" id="pensiun_previewDpcpBtn">Preview DPCP</button>
                   <button class="btn btn-primary" id="pensiun_generateDpcpBtn">Generate DPCP</button>
@@ -1131,6 +1176,20 @@
                       <input type="text" id="pensiun_nomorSuperPidana" class="field-input" />
                     </div>
                   </div>
+
+                  <div class="stack-field" style="margin-top: 16px; margin-bottom: 8px;">
+                    <label style="font-weight:600; margin-bottom:6px; display:block;">Pilih Tipe & Template SUPER</label>
+                    <div style="display:flex; gap:16px; margin-bottom:8px;">
+                      <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                        <input type="radio" name="pensiun_superTemplateSelectType" value="gdocs" checked onchange="filterServiceTemplates('pensiun_superTemplateSelect', 'gdocs')"> Google Docs (GDocs)
+                      </label>
+                      <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                        <input type="radio" name="pensiun_superTemplateSelectType" value="docx" onchange="filterServiceTemplates('pensiun_superTemplateSelect', 'docx')"> Microsoft Word (.docx)
+                      </label>
+                    </div>
+                    <select id="pensiun_superTemplateSelect" class="field-input" required></select>
+                  </div>
+
                   <div class="actions-bar">
                     <button class="btn btn-outline" id="pensiun_previewSuperBtn">Preview SUPER</button>
                     <button class="btn btn-primary" id="pensiun_generateSuperBtn">Generate SUPER</button>
@@ -1297,6 +1356,19 @@
                 <label>Besaran Upah</label>
                 <input type="text" id="kontrak_besaranUpah" class="field-input" readonly />
                 <div class="helper-text" id="kontrak_besaranUpahMsg">Otomatis dari Pendidikan (S2/Sp1 atau S3/Sp2).</div>
+              </div>
+
+              <div class="stack-field" style="margin-top: 16px; margin-bottom: 8px;">
+                <label style="font-weight:600; margin-bottom:6px; display:block;">Pilih Tipe & Template Kontrak</label>
+                <div style="display:flex; gap:16px; margin-bottom:8px;">
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="kontrak_templateSelectType" value="gdocs" checked onchange="filterServiceTemplates('kontrak_templateSelect', 'gdocs')"> Google Docs (GDocs)
+                  </label>
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="kontrak_templateSelectType" value="docx" onchange="filterServiceTemplates('kontrak_templateSelect', 'docx')"> Microsoft Word (.docx)
+                  </label>
+                </div>
+                <select id="kontrak_templateSelect" class="field-input" required></select>
               </div>
 
               <div class="actions-bar">
@@ -1470,21 +1542,32 @@
           <div class="card">
             <h3 style="margin-top:0;">Tambah Template Baru</h3>
             <form id="templateForm">
-              <div class="grid-2">
-                <div class="stack-field">
-                  <label>Tipe Template</label>
-                  <select id="tplType" required>
-                    <option value="gdocs">Google Docs</option>
-                    <option value="docx">Microsoft Word (.docx)</option>
-                  </select>
+              <!-- Pilihan tipe template -->
+              <div class="stack-field grid-full" style="margin-bottom:14px;">
+                <label style="margin-bottom:8px; font-weight:600;">Tipe Template</label>
+                <div style="display:flex; gap:20px;">
+                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="radio" name="tplTipe" id="tplTipeGdocs" value="gdocs" checked onchange="toggleTplTipeInput()">
+                    <span>&#x1F4C4; Google Docs (via link)</span>
+                  </label>
+                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="radio" name="tplTipe" id="tplTipeDocx" value="docx" onchange="toggleTplTipeInput()">
+                    <span>&#x1F4DD; Microsoft Word (.docx)</span>
+                  </label>
                 </div>
-                <div class="stack-field grid-full" id="tplDriveLinkWrap">
-                  <label>Link Google Drive (Template Dokumen)</label>
+              </div>
+
+              <div class="grid-2">
+                <!-- Input GDocs (link) -->
+                <div class="stack-field grid-full" id="tplGdocsInputWrapper">
+                  <label>Link Google Drive / Google Docs</label>
                   <input type="text" id="tplDriveLink" placeholder="https://docs.google.com/document/d/..." />
                 </div>
-                <div class="stack-field grid-full" id="tplDocxFileWrap" style="display:none;">
-                  <label>File Template Word (.docx)</label>
-                  <input type="file" id="tplDocxFile" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+                <!-- Input Word (file upload) -->
+                <div class="stack-field grid-full" id="tplDocxInputWrapper" style="display:none;">
+                  <label>Upload File .docx</label>
+                  <input type="file" id="tplDocxFile" accept=".docx" />
+                  <p class="helper-text" style="margin:4px 0 0;">File akan disimpan di Supabase Storage. Gunakan placeholder <code>{{ nama_field }}</code> yang sama seperti GDocs.</p>
                 </div>
                 <div class="stack-field grid-full">
                   <label>Judul Template</label>
@@ -2582,10 +2665,15 @@ function lanjutKeOpsi(opt) {
  * ================================================================== */
 function bindKenaikanPangkatForms() {
   document.getElementById('optA_addEntryBtn').addEventListener('click', () => addOptAEntry());
+  document.getElementById('optA_copyEntryBtn').addEventListener('click', () => copyOptAEntry());
   document.getElementById('optB_addEntryBtn').addEventListener('click', () => addOptBEntry());
+  document.getElementById('optB_copyEntryBtn').addEventListener('click', () => copyOptBEntry());
 
   addOptAEntry(); // entri pertama default
   addOptBEntry(); // entri pertama default
+
+  loadServiceTemplates('Kenaikan Pangkat', 'AK Konversi Tahunan', 'optA_templateSelect');
+  loadServiceTemplates('Kenaikan Pangkat', 'AK Konversi Kumulatif', 'optB_templateSelect');
 
   document.getElementById('optA_previewBtn').addEventListener('click', () => handlePreviewGenerate('A', 'preview'));
   document.getElementById('optA_generateBtn').addEventListener('click', () => handlePreviewGenerate('A', 'generate'));
@@ -2906,6 +2994,82 @@ function addOptBEntry() {
   renumberEntries(container);
 }
 
+function copyOptAEntry() {
+  const container = document.getElementById('optA_entriesContainer');
+  const cards = container.querySelectorAll('.kp-entry-card');
+  if (!cards.length) {
+    addOptAEntry();
+    return;
+  }
+  const firstCard = cards[0];
+  addOptAEntry();
+  const newCard = container.lastElementChild;
+  
+  newCard.querySelector('[data-field="subjectInput"]').value = firstCard.querySelector('[data-field="subjectInput"]').value;
+  newCard.querySelector('[data-field="subjectNip"]').value = firstCard.querySelector('[data-field="subjectNip"]').value;
+  newCard.querySelector('[data-field="nomorSurat"]').value = firstCard.querySelector('[data-field="nomorSurat"]').value;
+  newCard.querySelector('[data-field="bulanAwal"]').value = firstCard.querySelector('[data-field="bulanAwal"]').value;
+  newCard.querySelector('[data-field="tahunPenilaian"]').value = firstCard.querySelector('[data-field="tahunPenilaian"]').value;
+  newCard.querySelector('[data-field="bulanSelesai"]').value = firstCard.querySelector('[data-field="bulanSelesai"]').value;
+  newCard.querySelector('[data-field="predikat"]').value = firstCard.querySelector('[data-field="predikat"]').value;
+  newCard.querySelector('[data-field="tanggalSurat"]').value = firstCard.querySelector('[data-field="tanggalSurat"]').value;
+  newCard.querySelector('[data-field="jabatan"]').value = firstCard.querySelector('[data-field="jabatan"]').value;
+  newCard.querySelector('[data-field="golongan"]').value = firstCard.querySelector('[data-field="golongan"]').value;
+  newCard.querySelector('[data-field="tmtJabatan"]').value = firstCard.querySelector('[data-field="tmtJabatan"]').value;
+  newCard.querySelector('[data-field="tmtGolonganBaru"]').value = firstCard.querySelector('[data-field="tmtGolonganBaru"]').value;
+  
+  newCard.dataset.originalJabatan = firstCard.dataset.originalJabatan || '';
+  newCard.dataset.originalGolongan = firstCard.dataset.originalGolongan || '';
+  
+  updateTmtJabatanVisibility(newCard);
+  updateTmtGolonganVisibility(newCard);
+}
+
+function copyOptBEntry() {
+  const container = document.getElementById('optB_entriesContainer');
+  const cards = container.querySelectorAll('.kp-entry-card');
+  if (!cards.length) {
+    addOptBEntry();
+    return;
+  }
+  const firstCard = cards[0];
+  addOptBEntry();
+  const newCard = container.lastElementChild;
+  
+  newCard.querySelector('[data-field="subjectInput"]').value = firstCard.querySelector('[data-field="subjectInput"]').value;
+  newCard.querySelector('[data-field="subjectNip"]').value = firstCard.querySelector('[data-field="subjectNip"]').value;
+  newCard.querySelector('[data-field="nomorSuratAkumulasi"]').value = firstCard.querySelector('[data-field="nomorSuratAkumulasi"]').value;
+  newCard.querySelector('[data-field="tahunSelesai"]').value = firstCard.querySelector('[data-field="tahunSelesai"]').value;
+  newCard.querySelector('[data-field="jumlahAK"]').value = firstCard.querySelector('[data-field="jumlahAK"]').value;
+  newCard.querySelector('[data-field="angkaDasar"]').value = firstCard.querySelector('[data-field="angkaDasar"]').value;
+  newCard.querySelector('[data-field="tanggalSuratAkumulasi"]').value = firstCard.querySelector('[data-field="tanggalSuratAkumulasi"]').value;
+  newCard.querySelector('[data-field="nomorSuratKumulatif"]').value = firstCard.querySelector('[data-field="nomorSuratKumulatif"]').value;
+  newCard.querySelector('[data-field="ijazahBaru"]').value = firstCard.querySelector('[data-field="ijazahBaru"]').value;
+  newCard.querySelector('[data-field="jabatan"]').value = firstCard.querySelector('[data-field="jabatan"]').value;
+  newCard.querySelector('[data-field="golongan"]').value = firstCard.querySelector('[data-field="golongan"]').value;
+  newCard.querySelector('[data-field="tmtJabatan"]').value = firstCard.querySelector('[data-field="tmtJabatan"]').value;
+  newCard.querySelector('[data-field="tmtGolonganBaru"]').value = firstCard.querySelector('[data-field="tmtGolonganBaru"]').value;
+  
+  newCard.dataset.originalJabatan = firstCard.dataset.originalJabatan || '';
+  newCard.dataset.originalGolongan = firstCard.dataset.originalGolongan || '';
+  
+  updateTmtJabatanVisibility(newCard);
+  updateTmtGolonganVisibility(newCard);
+
+  const firstPenilaianRows = firstCard.querySelectorAll('[data-field="penilaianBody"] tr');
+  const newPenilaianBody = newCard.querySelector('[data-field="penilaianBody"]');
+  newPenilaianBody.innerHTML = '';
+  
+  firstPenilaianRows.forEach(row => {
+    addPenilaianRowIn(newCard);
+    const newRow = newPenilaianBody.lastElementChild;
+    newRow.querySelector('.p-tahun').value = row.querySelector('.p-tahun').value;
+    newRow.querySelector('.p-bulanAwal').value = row.querySelector('.p-bulanAwal').value;
+    newRow.querySelector('.p-bulanSelesai').value = row.querySelector('.p-bulanSelesai').value;
+    newRow.querySelector('.p-predikat').value = row.querySelector('.p-predikat').value;
+  });
+}
+
 function addPenilaianRowIn(card) {
   const tbody = card.querySelector('[data-field="penilaianBody"]');
   const tr = document.createElement('tr');
@@ -2967,7 +3131,116 @@ function buildFormDataOptB_Card(card) {
   return data;
 }
 
-function val(id) { return document.getElementById(id).value; }
+let TEMPLATE_CACHE = {};
+
+function filterServiceTemplates(selectId, tipe) {
+  const selectEl = document.getElementById(selectId);
+  if (!selectEl) return;
+  const templates = TEMPLATE_CACHE[selectId] || [];
+  const filtered = templates.filter(t => (t.tipe || 'gdocs') === tipe);
+  if (!filtered.length) {
+    selectEl.innerHTML = `<option value="">Belum ada template ${tipe === 'docx' ? 'Word' : 'GDocs'} terdaftar</option>`;
+    return;
+  }
+  selectEl.innerHTML = filtered.map(t => {
+    const fileIdVal = t.id || t.fileId;
+    return `<option value="${fileIdVal}" data-tipe="${t.tipe || 'gdocs'}">${escapeHtml(t.judul)}</option>`;
+  }).join('');
+}
+
+function loadServiceTemplates(layanan, subMenu, selectId) {
+  const selectEl = document.getElementById(selectId);
+  if (!selectEl) return;
+  selectEl.innerHTML = '<option value="">Memuat template...</option>';
+  google.script.run
+    .withSuccessHandler(res => {
+      const templates = res.templates || res || [];
+      TEMPLATE_CACHE[selectId] = templates;
+      const checkedRadio = document.querySelector(`input[name="${selectId}Type"]:checked`);
+      const defaultType = checkedRadio ? checkedRadio.value : 'gdocs';
+      filterServiceTemplates(selectId, defaultType);
+    })
+    .withFailureHandler(() => {
+      selectEl.innerHTML = '<option value="">Gagal memuat template</option>';
+    })
+    .getTemplates(SESSION.token, layanan, subMenu);
+}
+
+function openDocxPreviewModal(base64Data, fileName) {
+  document.getElementById('modalTitle').textContent = 'Preview Dokumen (' + fileName + ')';
+  document.getElementById('modalBody').innerHTML = `
+    <div id="docxPreviewContainer" style="width:100%; height:550px; overflow:auto; padding:20px; background:#f5f5f5; border:1px solid #ddd; border-radius:4px;"></div>
+  `;
+  document.getElementById('modalOverlay').style.display = 'flex';
+  
+  // Convert base64 to Blob
+  const byteCharacters = atob(base64Data);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+  
+  const container = document.getElementById('docxPreviewContainer');
+  docx.renderAsync(blob, container)
+    .then(x => console.log("docx rendered"))
+    .catch(err => {
+      container.innerHTML = `<div class="alert error">Gagal merender preview: ${err.message || err}</div>`;
+    });
+}
+
+function openDownloadModalVercel(res) {
+  document.getElementById('modalTitle').textContent = 'Dokumen Siap';
+  if (res.outputType === 'pdf') {
+    document.getElementById('modalBody').innerHTML = `
+      <div style="padding:24px; text-align:center;">
+        <p style="margin-bottom:18px;">File <strong>${escapeHtml(res.fileName)}</strong> berhasil dibuat sebagai PDF.</p>
+        <a class="btn btn-primary" style="text-decoration:none;" href="${res.pdfUrl}" target="_blank" rel="noopener">Buka PDF</a>
+      </div>`;
+  } else {
+    const url = 'data:' + res.mimeType + ';base64,' + res.base64;
+    document.getElementById('modalBody').innerHTML = `
+      <div style="padding:24px; text-align:center;">
+        <p style="margin-bottom:18px;">File <strong>${escapeHtml(res.fileName)}</strong> berhasil dibuat sebagai Word (.docx).</p>
+        <a class="btn btn-primary" style="text-decoration:none;" href="${url}" download="${res.fileName}">Download Dokumen</a>
+      </div>`;
+  }
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+
+function runPreviewVercel(payload) {
+  showToast('info', 'Membuat preview dokumen...');
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) {
+        if (res.outputType === 'pdf') {
+          openPreviewModal(res.pdfUrl);
+        } else {
+          openDocxPreviewModal(res.base64, res.fileName);
+        }
+      } else {
+        showToast('error', res.message);
+      }
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal preview: ' + (err.message || err)))
+    .previewDocumentVercel(SESSION.token, payload);
+}
+
+function runGenerateVercel(payload) {
+  showToast('info', 'Memproses dokumen, mohon tunggu...');
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) {
+        showToast('success', `${res.fileName} berhasil dibuat.`);
+        openDownloadModalVercel(res);
+      } else {
+        showToast('error', res.message);
+      }
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal generate: ' + (err.message || err)))
+    .generateDocumentVercel(SESSION.token, payload);
+}
 
 function handlePreviewGenerate(opt, mode) {
   const container = document.getElementById(opt === 'A' ? 'optA_entriesContainer' : 'optB_entriesContainer');
@@ -2997,24 +3270,32 @@ function handlePreviewGenerate(opt, mode) {
   }
 
   const subLayanan = opt === 'A' ? 'AK Konversi Tahunan' : 'AK Konversi Kumulatif';
+  
+  const selectEl = document.getElementById(opt === 'A' ? 'optA_templateSelect' : 'optB_templateSelect');
+  if (!selectEl || !selectEl.value) {
+    showToast('error', 'Pilih template terlebih dahulu.');
+    return;
+  }
+  const selectedOption = selectEl.options[selectEl.selectedIndex];
+  const tipe = selectedOption.dataset.tipe;
+  const templateId = selectEl.value;
 
-  google.script.run
-    .withSuccessHandler(templates => {
-      if (!templates.length) {
-        showToast('error', `Belum ada template terdaftar untuk "${subLayanan}". Tambahkan di menu Template.`);
-        return;
-      }
-      const templateFileId = templates[0].fileId; // pakai template pertama yang cocok
-      const payload = { templateFileId, entries, subLayanan };
+  const payload = { templateId, templateFileId: templateId, entries, subLayanan, layanan: 'Kenaikan Pangkat' };
 
-      if (mode === 'preview') {
-        runPreview(payload);
-      } else {
-        runGenerate(payload);
-      }
-    })
-    .withFailureHandler(err => showToast('error', 'Gagal memuat template: ' + (err.message || err)))
-    .getTemplatesForService(SESSION.token, 'Kenaikan Pangkat', subLayanan);
+  if (tipe === 'docx') {
+    if (mode === 'preview') {
+      runPreviewVercel(payload);
+    } else {
+      runGenerateVercel(payload);
+    }
+  } else {
+    payload.templateFileId = templateId;
+    if (mode === 'preview') {
+      runPreview(payload);
+    } else {
+      runGenerate(payload);
+    }
+  }
 }
 
 function runPreview(payload) {
@@ -3070,19 +3351,43 @@ function closeModal() {
 function bindTemplateManagerForm() {
   const layananSel = document.getElementById('tplLayanan');
   const subMenuSel = document.getElementById('tplSubMenu');
-  const typeSel = document.getElementById('tplType');
-  const driveInput = document.getElementById('tplDriveLink');
-  const docxInput = document.getElementById('tplDocxFile');
 
-  const updateTemplateSource = () => {
-    const isDocx = typeSel.value === 'docx';
-    document.getElementById('tplDriveLinkWrap').style.display = isDocx ? 'none' : 'block';
-    document.getElementById('tplDocxFileWrap').style.display = isDocx ? 'block' : 'none';
-    driveInput.required = !isDocx;
-    docxInput.required = isDocx;
-  };
-  typeSel.addEventListener('change', updateTemplateSource);
-  updateTemplateSource();
+  google.script.run.withSuccessHandler(opts => {
+    layananSel.innerHTML = '<option value="">Pilih Layanan...</option>' +
+      Object.keys(opts).map(l => `<option value="${l}">${l}</option>`).join('');
+  }).getLayananOptions();
+
+  layananSel.addEventListener('change', () => {
+    google.script.run.withSuccessHandler(opts => {
+      const subs = opts[layananSel.value] || [];
+      subMenuSel.innerHTML = '<option value="">Pilih Sub-menu...</option>' + subs.map(s => `<option value="${s}">${s}</option>`).join('');
+    }).getLayananOptions();
+  });
+
+  document.getElementById('templateForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('tplSubmitBtn');
+    setBtnLoading(btn, true, 'Menyimpan...');
+
+    const payload = {
+      driveLink: val('tplDriveLink'),
+      judul: val('tplJudul'),
+      layanan: val('tplLayanan'),
+      subMenu: val('tplSubMenu')
+    };
+
+    google.script.run
+      .withSuccessHandler(res => {
+        setBtnLoading(btn, false, 'Simpan Template');
+function toggleTplTipeInput() {
+  const tipe = document.querySelector('input[name="tplTipe"]:checked')?.value || 'gdocs';
+  document.getElementById('tplGdocsInputWrapper').style.display = tipe === 'gdocs' ? '' : 'none';
+  document.getElementById('tplDocxInputWrapper').style.display  = tipe === 'docx'  ? '' : 'none';
+}
+
+function bindTemplateManagerForm() {
+  const layananSel = document.getElementById('tplLayanan');
+  const subMenuSel = document.getElementById('tplSubMenu');
 
   google.script.run.withSuccessHandler(opts => {
     layananSel.innerHTML = '<option value="">Pilih Layanan...</option>' +
@@ -3101,79 +3406,102 @@ function bindTemplateManagerForm() {
     const btn = document.getElementById('tplSubmitBtn');
     setBtnLoading(btn, true, 'Menyimpan...');
 
-    try {
-      const tipe = typeSel.value;
-      const payload = {
-        judul: val('tplJudul'),
-        layanan: val('tplLayanan'),
-        sub_menu: val('tplSubMenu'),
-        tipe
-      };
+    const tipe = document.querySelector('input[name="tplTipe"]:checked')?.value || 'gdocs';
+    const payload = {
+      judul:    val('tplJudul'),
+      layanan:  val('tplLayanan'),
+      sub_menu: val('tplSubMenu'),
+      tipe
+    };
 
-      if (tipe === 'docx') {
-        const file = docxInput.files[0];
-        if (!file) throw new Error('Pilih file .docx terlebih dahulu.');
-        payload.docxBase64 = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onerror = () => reject(new Error('File template tidak dapat dibaca.'));
-          reader.onload = () => resolve(reader.result);
-          reader.readAsDataURL(file);
-        });
-      } else {
-        payload.file_id = driveInput.value.trim();
-      }
-
-      google.script.run
-        .withSuccessHandler(res => {
-          setBtnLoading(btn, false, 'Simpan Template');
-          showToast(res.success ? 'success' : 'error', res.message);
-          if (res.success) {
-            document.getElementById('templateForm').reset();
-            updateTemplateSource();
-            loadTemplateList();
-          }
-        })
-        .withFailureHandler(err => {
-          setBtnLoading(btn, false, 'Simpan Template');
-          showToast('error', 'Gagal menyimpan: ' + (err.message || err));
-        })
-        .addTemplate(SESSION.token, payload);
-    } catch (err) {
+    if (tipe === 'gdocs') {
+      payload.file_id = val('tplDriveLink');
+    } else {
+      const fileInput = document.getElementById('tplDocxFile');
+      if (!fileInput.files || !fileInput.files[0]) {
+        showToast('error', 'Pilih file .docx terlebih dahulu.');
         setBtnLoading(btn, false, 'Simpan Template');
-        showToast('error', err.message || err);
+        return;
+      }
+      const base64 = await fileToBase64(fileInput.files[0]);
+      payload.docxBase64 = base64;
     }
+
+    google.script.run
+      .withSuccessHandler(res => {
+        setBtnLoading(btn, false, 'Simpan Template');
+        showToast(res.success ? 'success' : 'error', res.message);
+        if (res.success) {
+          document.getElementById('templateForm').reset();
+          toggleTplTipeInput();
+          loadTemplateList();
+        }
+      })
+      .withFailureHandler(err => {
+        setBtnLoading(btn, false, 'Simpan Template');
+        showToast('error', 'Gagal menyimpan: ' + (err.message || err));
+      })
+      .addTemplate(SESSION.token, payload);
   });
 }
 
 function loadTemplateList() {
   google.script.run
-    .withSuccessHandler(templates => {
+    .withSuccessHandler(res => {
       const tbody = document.getElementById('templateListBody');
       tbody.innerHTML = '';
+      const templates = res.templates || res || [];
       if (!templates.length) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Belum ada template terdaftar.</td></tr>';
         return;
       }
       templates.forEach(t => {
+        const tipeBadge = t.tipe === 'docx'
+          ? '<span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">Word</span>'
+          : '<span style="background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">GDocs</span>';
+        const previewBtn = t.tipe === 'docx'
+          ? `<button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="previewDocxTemplate('${t.id}')">Preview</button>`
+          : '';
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${escapeHtml(t.judul)}</td>
-          <td>${escapeHtml(t.tipe === 'docx' ? 'Word (.docx)' : 'Google Docs')}</td>
+          <td>${tipeBadge}</td>
           <td>${escapeHtml(t.layanan)}</td>
-          <td>${escapeHtml(t.subMenu)}</td>
-          <td><button class="btn btn-outline" style="padding:6px 10px; font-size:12px;" onclick="deleteTemplateHandler('${t.id}')">Hapus</button></td>`;
+          <td>${escapeHtml(t.sub_menu || t.subMenu || '')}</td>
+          <td style="white-space:nowrap;">
+            ${previewBtn}
+            <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;margin-left:4px;" onclick="deleteTemplateHandler('${t.id}')">Hapus</button>
+          </td>`;
         tbody.appendChild(tr);
       });
     })
     .withFailureHandler(err => showToast('error', 'Gagal memuat daftar template: ' + (err.message || err)))
-    .getAllTemplates(SESSION.token);
+    .getTemplates(SESSION.token, null, null);
 }
 
 function deleteTemplateHandler(id) {
   google.script.run
-    .withSuccessHandler(res => { showToast(res.success ? 'success' : 'error', res.message); loadTemplateList(); })
+    .withSuccessHandler(res => { showToast(res.success ? 'success' : 'error', res.message || 'Terhapus'); loadTemplateList(); })
     .withFailureHandler(err => showToast('error', String(err.message || err)))
     .deleteTemplate(SESSION.token, id);
+}
+
+function previewDocxTemplate(id) {
+  showToast('info', 'Membuat preview template...');
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) {
+        if (res.outputType === 'pdf') {
+          openPreviewModal(res.pdfUrl);
+        } else {
+          openDocxPreviewModal(res.base64, res.fileName || 'template_preview.docx');
+        }
+      } else {
+        showToast('error', res.message);
+      }
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal preview template: ' + (err.message || err)))
+    .previewDocxTemplate(SESSION.token, id);
 }
 
 /* ------------------------- TOAST ------------------------- */
@@ -4420,7 +4748,6 @@ function loadKontrakAksesKategoriList() {
             .withSuccessHandler(res => {
               if (res.success) { showToast('success', res.message); loadKontrakAksesKategoriList(); }
               else {
-                // Revert visual state if backend rejected
                 cb.checked = !nowChecked;
                 span.textContent = !nowChecked ? 'Diberikan Izin' : 'Tidak Diizinkan';
                 span.style.color = !nowChecked ? '#4caf50' : '#888';
@@ -4428,7 +4755,6 @@ function loadKontrakAksesKategoriList() {
               }
             })
             .withFailureHandler(err => {
-              // Revert visual state on error
               cb.checked = !nowChecked;
               span.textContent = !nowChecked ? 'Diberikan Izin' : 'Tidak Diizinkan';
               span.style.color = !nowChecked ? '#4caf50' : '#888';
@@ -4937,9 +5263,7 @@ function loadUsulanKontrakSaya() {
         let generateBtnHtml = '';
         if (res.usulan.status === 'Disetujui' && !res.usulan.perjanjian_dibuat) {
           generateBtnHtml = `
-            <div style="margin-top:20px; text-align:center;">
-              <button class="btn btn-primary" id="kontrakUser_genBtn" onclick="generateKontrakUserSelf('${res.usulan.id}')">Buat Dokumen Perjanjian Kerja Final</button>
-            </div>`;
+            <div id="kontrakUser_tplSelectorWrap" style="margin-top:20px; text-align:center;"></div>`;
         }
         
         card.innerHTML = `
@@ -4972,12 +5296,20 @@ function loadUsulanKontrakSaya() {
           </div>
           ${generateBtnHtml}
         `;
+
+        if (res.usulan.status === 'Disetujui' && !res.usulan.perjanjian_dibuat) {
+          renderTemplateSelectorForUsulan(res.usulan.layanan, res.usulan.sub_menu, 'kontrakUser_tplSelectorWrap', 'kontrakUser_genBtn', 'generateKontrakUserSelf', res.usulan.id);
+        }
       }
     })
     .getUsulanKontrakSaya(SESSION.token);
 }
 
 function generateKontrakUserSelf(usulanId) {
+  const selectEl = document.getElementById(`usulan_templateSelect_${usulanId}`);
+  const templateRef = selectEl ? selectEl.value : '';
+  if (!templateRef) { showToast('error', 'Pilih template terlebih dahulu.'); return; }
+
   const btn = document.getElementById('kontrakUser_genBtn');
   setBtnLoading(btn, true, 'Memproses...');
   google.script.run
@@ -4986,7 +5318,14 @@ function generateKontrakUserSelf(usulanId) {
       if (res.success) {
         showToast('success', res.message);
         loadUsulanKontrakSaya();
-        openKontrakResultModal({ docViewUrl: res.viewUrl, pdfDownloadUrl: `https://drive.google.com/uc?export=download&id=${res.fileId}` });
+        if (res.outputType === 'pdf') {
+          openKontrakResultModal({ outputType: 'pdf', pdfUrl: res.pdfUrl, docViewUrl: res.pdfUrl });
+        } else if (res.outputType === 'docx') {
+          const dlUrl = 'data:' + res.mimeType + ';base64,' + res.base64;
+          openKontrakResultModal({ isDocx: true, docViewUrl: dlUrl, fileName: res.fileName });
+        } else {
+          openKontrakResultModal({ docViewUrl: res.viewUrl, pdfDownloadUrl: `https://drive.google.com/uc?export=download&id=${res.fileId}` });
+        }
       } else {
         showToast('error', res.message);
       }
@@ -4995,7 +5334,7 @@ function generateKontrakUserSelf(usulanId) {
       setBtnLoading(btn, false, 'Buat Dokumen Perjanjian Kerja Final');
       showToast('error', 'Gagal membuat kontrak: ' + (err.message || err));
     })
-    .generateKontrakFromUsulanVercel(SESSION.token, '', usulanId);
+    .generateKontrakFromUsulanVercel(SESSION.token, templateRef, usulanId);
 }
 
 // --- ADMIN REVIEW FUNCTIONS ---
@@ -5104,9 +5443,7 @@ function viewKontrakReviewDetail(usulanId) {
       let generateBtnHtml = '';
       if (allApproved && u.status !== 'Selesai') {
         generateBtnHtml = `
-          <div style="margin-top:20px; text-align:center; border-top:1px solid #eee; padding-top:16px;">
-            <button class="btn btn-primary" id="kontrakReview_genBtn" onclick="generateKontrakFromUsulanAdmin('${u.id}')">Generate Dokumen Kontrak Perjanjian Kerja</button>
-          </div>`;
+          <div id="kontrakReview_tplSelectorWrap" style="margin-top:20px; text-align:center; border-top:1px solid #eee; padding-top:16px;"></div>`;
       }
       
       el.innerHTML = `
@@ -5138,6 +5475,10 @@ function viewKontrakReviewDetail(usulanId) {
         </div>
         ${generateBtnHtml}
       `;
+
+      if (allApproved && u.status !== 'Selesai') {
+        renderTemplateSelectorForUsulan(u.layanan, u.sub_menu, 'kontrakReview_tplSelectorWrap', 'kontrakReview_genBtn', 'generateKontrakFromUsulanAdmin', u.id);
+      }
     })
     .getUsulanKontrakById(SESSION.token, usulanId);
 }
@@ -5163,6 +5504,10 @@ function toggleAttachmentApproval(usulanId, lampKey, disetujui) {
 }
 
 function generateKontrakFromUsulanAdmin(usulanId) {
+  const selectEl = document.getElementById(`usulan_templateSelect_${usulanId}`);
+  const templateRef = selectEl ? selectEl.value : '';
+  if (!templateRef) { showToast('error', 'Pilih template terlebih dahulu.'); return; }
+
   const btn = document.getElementById('kontrakReview_genBtn');
   setBtnLoading(btn, true, 'Generating...');
   google.script.run
@@ -5171,7 +5516,14 @@ function generateKontrakFromUsulanAdmin(usulanId) {
       if (res.success) {
         showToast('success', res.message);
         viewKontrakReviewDetail(usulanId);
-        openKontrakResultModal({ docViewUrl: res.viewUrl, pdfDownloadUrl: `https://drive.google.com/uc?export=download&id=${res.fileId}` });
+        if (res.outputType === 'pdf') {
+          openKontrakResultModal({ outputType: 'pdf', pdfUrl: res.pdfUrl, docViewUrl: res.pdfUrl });
+        } else if (res.outputType === 'docx') {
+          const dlUrl = 'data:' + res.mimeType + ';base64,' + res.base64;
+          openKontrakResultModal({ isDocx: true, docViewUrl: dlUrl, fileName: res.fileName });
+        } else {
+          openKontrakResultModal({ docViewUrl: res.viewUrl, pdfDownloadUrl: `https://drive.google.com/uc?export=download&id=${res.fileId}` });
+        }
       } else {
         showToast('error', res.message);
       }
@@ -5180,7 +5532,8 @@ function generateKontrakFromUsulanAdmin(usulanId) {
       setBtnLoading(btn, false, 'Generate Dokumen Kontrak Perjanjian Kerja');
       showToast('error', 'Gagal generate kontrak: ' + (err.message || err));
     })
-    .generateKontrakFromUsulanVercel(SESSION.token, '', usulanId);
+    .generateKontrakFromUsulanVercel(SESSION.token, templateRef, usulanId);
+}
 }
 </script>
 </body>

@@ -424,6 +424,48 @@ function generateKontrakFromUsulan(sessionToken, templateFileId, usulanData) {
 }
 
 /**
+ * Menerima base64 file DOCX, mengkonversinya ke PDF via Google Drive,
+ * dan mengembalikan link view/download PDF-nya.
+ */
+function convertDocxToPdf(sessionToken, docxBase64, fileName) {
+  requireSession_(sessionToken);
+  try {
+    const bytes = Utilities.base64Decode(docxBase64);
+    const blob = Utilities.newBlob(bytes, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', fileName);
+    
+    // Simpan file docx sementara
+    const file = DriveApp.createFile(blob);
+    
+    // Konversi ke PDF
+    const pdfBlob = file.getAs('application/pdf');
+    pdfBlob.setName(fileName.replace(/\.docx$/i, '') + '.pdf');
+    
+    // Simpan PDF ke folder root kontrak (atau output default)
+    const outputFolder = DriveApp.getFolderById(CONFIG.FOLDER_KONTRAK_ROOT);
+    const pdfFile = outputFolder.createFile(pdfBlob);
+    
+    // Hapus file docx sementara
+    file.setTrashed(true);
+    
+    // Set sharing agar siapa saja yang memiliki link dapat melihat
+    try {
+      pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch(shareErr) {
+      Logger.log('Gagal set sharing PDF: ' + shareErr.message);
+    }
+    
+    return {
+      success: true,
+      pdfUrl: pdfFile.getUrl(),
+      fileName: pdfFile.getName(),
+      fileId: pdfFile.getId()
+    };
+  } catch (err) {
+    return { success: false, message: 'Gagal konversi ke PDF: ' + err.message };
+  }
+}
+
+/**
  * ENTRY POINT WEB APP: Menerima request rpc dari Vercel
  * untuk meng-generate / preview Google Docs.
  */

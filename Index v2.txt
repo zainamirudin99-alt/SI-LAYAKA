@@ -245,12 +245,28 @@
                 Angka pada dokumen yang dihasilkan (AK Konversi Tahunan) mengikuti rumus baku sesuai format Surat Keputusan, dan bisa berbeda dari estimasi cepat di tab "0. Check Eligible".
               </div>
 
-              <div class="kp-entries-toolbar">
-                <span class="helper-text" style="margin:0;">Tiap entri menghasilkan satu bagian dokumen. Beberapa entri akan digabung jadi <strong>satu file</strong> saat Preview/Generate.</span>
-                <button type="button" class="btn btn-outline" id="optA_addEntryBtn">+ Tambah Data</button>
+              <div class="kp-entries-toolbar" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+                <span class="helper-text" style="margin:0; flex:1;">Tiap entri menghasilkan satu bagian dokumen. Beberapa entri akan digabung jadi <strong>satu file</strong> saat Preview/Generate.</span>
+                <div style="display:flex; gap:8px;">
+                  <button type="button" class="btn btn-outline" id="optA_copyEntryBtn" style="border-color:#1976d2; color:#1976d2;">📄 Salin Data Pertama</button>
+                  <button type="button" class="btn btn-outline" id="optA_addEntryBtn">+ Tambah Data</button>
+                </div>
               </div>
 
               <div id="optA_entriesContainer"></div>
+
+              <div class="stack-field" style="margin-top: 16px; margin-bottom: 8px;">
+                <label style="font-weight:600; margin-bottom:6px; display:block;">Pilih Tipe & Template</label>
+                <div style="display:flex; gap:16px; margin-bottom:8px;">
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="optA_templateSelectType" value="gdocs" checked onchange="filterServiceTemplates('optA_templateSelect', 'gdocs')"> Google Docs (GDocs)
+                  </label>
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="optA_templateSelectType" value="docx" onchange="filterServiceTemplates('optA_templateSelect', 'docx')"> Microsoft Word (.docx)
+                  </label>
+                </div>
+                <select id="optA_templateSelect" class="field-input" required></select>
+              </div>
 
               <div class="actions-bar">
                 <button class="btn btn-outline" id="optA_previewBtn">Preview</button>
@@ -264,12 +280,28 @@
                 Angka pada dokumen yang dihasilkan (AK Konversi Kumulatif), termasuk Rekomendasi, mengikuti rumus baku sesuai format Surat Keputusan, dan bisa berbeda dari estimasi cepat di tab "0. Check Eligible".
               </div>
 
-              <div class="kp-entries-toolbar">
-                <span class="helper-text" style="margin:0;">Tiap entri menghasilkan satu bagian dokumen. Beberapa entri akan digabung jadi <strong>satu file</strong> saat Preview/Generate.</span>
-                <button type="button" class="btn btn-outline" id="optB_addEntryBtn">+ Tambah Data</button>
+              <div class="kp-entries-toolbar" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+                <span class="helper-text" style="margin:0; flex:1;">Tiap entri menghasilkan satu bagian dokumen. Beberapa entri akan digabung jadi <strong>satu file</strong> saat Preview/Generate.</span>
+                <div style="display:flex; gap:8px;">
+                  <button type="button" class="btn btn-outline" id="optB_copyEntryBtn" style="border-color:#1976d2; color:#1976d2;">📄 Salin Data Pertama</button>
+                  <button type="button" class="btn btn-outline" id="optB_addEntryBtn">+ Tambah Data</button>
+                </div>
               </div>
 
               <div id="optB_entriesContainer"></div>
+
+              <div class="stack-field" style="margin-top: 16px; margin-bottom: 8px;">
+                <label style="font-weight:600; margin-bottom:6px; display:block;">Pilih Tipe & Template</label>
+                <div style="display:flex; gap:16px; margin-bottom:8px;">
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="optB_templateSelectType" value="gdocs" checked onchange="filterServiceTemplates('optB_templateSelect', 'gdocs')"> Google Docs (GDocs)
+                  </label>
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="optB_templateSelectType" value="docx" onchange="filterServiceTemplates('optB_templateSelect', 'docx')"> Microsoft Word (.docx)
+                  </label>
+                </div>
+                <select id="optB_templateSelect" class="field-input" required></select>
+              </div>
 
               <div class="actions-bar">
                 <button class="btn btn-outline" id="optB_previewBtn">Preview</button>
@@ -437,6 +469,19 @@
                   </label>
                 </div>
 
+                <div class="stack-field" style="margin-top: 16px; margin-bottom: 8px;">
+                  <label style="font-weight:600; margin-bottom:6px; display:block;">Pilih Tipe & Template DPCP</label>
+                  <div style="display:flex; gap:16px; margin-bottom:8px;">
+                    <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                      <input type="radio" name="pensiun_dpcpTemplateSelectType" value="gdocs" checked onchange="filterServiceTemplates('pensiun_dpcpTemplateSelect', 'gdocs')"> Google Docs (GDocs)
+                    </label>
+                    <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                      <input type="radio" name="pensiun_dpcpTemplateSelectType" value="docx" onchange="filterServiceTemplates('pensiun_dpcpTemplateSelect', 'docx')"> Microsoft Word (.docx)
+                    </label>
+                  </div>
+                  <select id="pensiun_dpcpTemplateSelect" class="field-input" required></select>
+                </div>
+
                 <div class="actions-bar">
                   <button class="btn btn-outline" id="pensiun_previewDpcpBtn">Preview DPCP</button>
                   <button class="btn btn-primary" id="pensiun_generateDpcpBtn">Generate DPCP</button>
@@ -456,6 +501,20 @@
                       <input type="text" id="pensiun_nomorSuperPidana" class="field-input" />
                     </div>
                   </div>
+
+                  <div class="stack-field" style="margin-top: 16px; margin-bottom: 8px;">
+                    <label style="font-weight:600; margin-bottom:6px; display:block;">Pilih Tipe & Template SUPER</label>
+                    <div style="display:flex; gap:16px; margin-bottom:8px;">
+                      <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                        <input type="radio" name="pensiun_superTemplateSelectType" value="gdocs" checked onchange="filterServiceTemplates('pensiun_superTemplateSelect', 'gdocs')"> Google Docs (GDocs)
+                      </label>
+                      <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                        <input type="radio" name="pensiun_superTemplateSelectType" value="docx" onchange="filterServiceTemplates('pensiun_superTemplateSelect', 'docx')"> Microsoft Word (.docx)
+                      </label>
+                    </div>
+                    <select id="pensiun_superTemplateSelect" class="field-input" required></select>
+                  </div>
+
                   <div class="actions-bar">
                     <button class="btn btn-outline" id="pensiun_previewSuperBtn">Preview SUPER</button>
                     <button class="btn btn-primary" id="pensiun_generateSuperBtn">Generate SUPER</button>
@@ -622,6 +681,19 @@
                 <label>Besaran Upah</label>
                 <input type="text" id="kontrak_besaranUpah" class="field-input" readonly />
                 <div class="helper-text" id="kontrak_besaranUpahMsg">Otomatis dari Pendidikan (S2/Sp1 atau S3/Sp2).</div>
+              </div>
+
+              <div class="stack-field" style="margin-top: 16px; margin-bottom: 8px;">
+                <label style="font-weight:600; margin-bottom:6px; display:block;">Pilih Tipe & Template Kontrak</label>
+                <div style="display:flex; gap:16px; margin-bottom:8px;">
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="kontrak_templateSelectType" value="gdocs" checked onchange="filterServiceTemplates('kontrak_templateSelect', 'gdocs')"> Google Docs (GDocs)
+                  </label>
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="kontrak_templateSelectType" value="docx" onchange="filterServiceTemplates('kontrak_templateSelect', 'docx')"> Microsoft Word (.docx)
+                  </label>
+                </div>
+                <select id="kontrak_templateSelect" class="field-input" required></select>
               </div>
 
               <div class="actions-bar">
