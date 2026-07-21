@@ -1436,6 +1436,17 @@ function loadServiceTemplates(layanan, subMenu, selectId) {
     .getTemplates(SESSION.token, layanan, subMenu);
 }
 
+function reloadAllServiceTemplates() {
+  loadServiceTemplates('Kenaikan Pangkat', 'AK Konversi Tahunan', 'optA_templateSelect');
+  loadServiceTemplates('Kenaikan Pangkat', 'AK Konversi Kumulatif', 'optB_templateSelect');
+  loadServiceTemplates('Pensiun', 'DPCP', 'pensiun_dpcpTemplateSelect');
+  loadServiceTemplates('Pensiun', 'SUPER', 'pensiun_superTemplateSelect');
+  if (typeof kontrakSelectedSubMenu !== 'undefined' && kontrakSelectedSubMenu) {
+    loadServiceTemplates('Kontrak', kontrakSelectedSubMenu, 'kontrak_templateSelect');
+  }
+}
+
+
 function renderTemplateSelectorForUsulan(layanan, subMenu, wrapId, btnId, actionName, usulanId) {
   const wrap = document.getElementById(wrapId);
   if (!wrap) return;
@@ -1780,6 +1791,7 @@ function bindTemplateManagerForm() {
             document.getElementById('templateForm').reset();
             toggleTplTipeInput();
             loadTemplateList();
+            reloadAllServiceTemplates();
           }
         })
         .withFailureHandler(err => {
@@ -1831,7 +1843,7 @@ function loadTemplateList() {
 
 function deleteTemplateHandler(id) {
   google.script.run
-    .withSuccessHandler(res => { showToast(res.success ? 'success' : 'error', res.message || 'Terhapus'); loadTemplateList(); })
+    .withSuccessHandler(res => { showToast(res.success ? 'success' : 'error', res.message || 'Terhapus'); loadTemplateList(); reloadAllServiceTemplates(); })
     .withFailureHandler(err => showToast('error', String(err.message || err)))
     .deleteTemplate(SESSION.token, id);
 }
