@@ -579,7 +579,15 @@ function docxEvaluateExpression(expr, dataCtx) {
 const SET_EXPR_RE = /^set\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$/i;
 
 function docxEvaluateTag(rawExpr, dataCtx) {
-  const expr = docxNormalizeSmartQuotes(rawExpr).trim();
+  let expr = docxNormalizeSmartQuotes(rawExpr).trim();
+
+  // Decode XML entities (e.g. &gt; back to >, &lt; back to <)
+  expr = expr
+    .replace(/&gt;/g, '>')
+    .replace(/&lt;/g, '<')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
 
   // set variabel turunan
   const setMatch = expr.match(SET_EXPR_RE);
@@ -1557,9 +1565,7 @@ const methods = {
   },
 
   async getTemplates([token, layanan, sub_menu]) {
-    if (token !== 'TOKEN_TEST_BYPASS') {
-      verifyToken(token);
-    }
+    verifyToken(token);
     const db = getDb();
     let q = db.from('templates').select('*');
     if (layanan)  q = q.eq('layanan', layanan);
