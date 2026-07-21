@@ -54,6 +54,24 @@ function buildDataContext_(employee, formData, subLayanan) {
     alias.ada_ijazah_baru_setelah_2023 = formData.ada_ijazah_baru_2023;
   }
 
+  // Pemetaan alias untuk nama pendek/panjang (GDocs)
+  const map = {
+    tgl_lhr: 'tanggal_lahir',
+    tmp_lhr: 'tempat_lahir',
+    jns_kel: 'jenis_kelamin',
+    tmt_gol: 'tmt_golongan',
+    tmt_jab: 'tmt_jabatan',
+    unit_es_ii: 'unit_kerja',
+    karpeg: 'kartu_pegawai'
+  };
+  for (const key in map) {
+    const val = map[key];
+    if (employee && employee[key] !== undefined && alias[val] === undefined) alias[val] = employee[key];
+    if (employee && employee[val] !== undefined && alias[key] === undefined) alias[key] = employee[val];
+    if (formData && formData[key] !== undefined && alias[val] === undefined) alias[val] = formData[key];
+    if (formData && formData[val] !== undefined && alias[key] === undefined) alias[key] = formData[val];
+  }
+
   const ctx = Object.assign({}, employee, formData, alias, derived);
   // "today" tersedia otomatis lewat resolveIdentifier_, tidak perlu disuntik di sini.
   return ctx;
