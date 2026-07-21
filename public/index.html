@@ -807,6 +807,9 @@
               <button class="tab-btn" data-tab-target="tab-optB">Opsi B: AK Konversi Kumulatif</button>
               <button class="tab-btn" data-tab-target="tab-statusUsulan" id="tabBtnStatusUsulan" style="display:none;">Status Usulan Saya</button>
               <button class="tab-btn" data-tab-target="tab-usulanMasuk" id="tabBtnUsulanMasuk" style="display:none;">📨 Usulan Masuk <span id="usulanMasukBadge" class="cdli-badge" style="display:none;"></span></button>
+              <button class="tab-btn" data-tab-target="tab-siapSk" id="tabBtnSiapSk" style="display:none;">📝 Siap Buat SK</button>
+              <button class="tab-btn" data-tab-target="tab-approvalSk" id="tabBtnApprovalSk" style="display:none;">🔑 Approval SK <span id="approvalSkBadge" class="cdli-badge" style="display:none; background:#ef4444; color:#fff;"></span></button>
+              <button class="tab-btn" data-tab-target="tab-uploadSk" id="tabBtnUploadSk" style="display:none;">📤 Upload Final SK</button>
             </div>
 
             <!-- ---------- CHECK ELIGIBLE ---------- -->
@@ -1002,6 +1005,24 @@
                 <button type="button" class="ce-dashboard-back" id="usulanMasukBackBtn">&larr; Kembali ke daftar unit</button>
                 <div id="usulanMasukLevel2List" class="ce-dashboard-list"></div>
               </div>
+            </div>
+
+            <!-- ---------- SIAP BUAT SK (peran admin/super_admin) ---------- -->
+            <div class="tab-panel" data-tab-group-panel="kp" id="tab-siapSk">
+              <div class="helper-text" style="margin-bottom:14px;">Pegawai Non-ASN yang usulan Kenaikan Pangkatnya telah diproses Opsi A & B, dan siap dibuatkan SK. PNS tidak masuk dalam alur ini.</div>
+              <div id="siapSkList" class="ce-dashboard-list"></div>
+            </div>
+
+            <!-- ---------- APPROVAL SK (peran admin/super_admin ber-subrole) ---------- -->
+            <div class="tab-panel" data-tab-group-panel="kp" id="tab-approvalSk">
+              <div class="helper-text" style="margin-bottom:14px;">Daftar SK yang sedang menunggu persetujuan Anda sesuai dengan jenjang jabatan approval Anda. Anda wajib mencentang checkbox untuk menyetujui.</div>
+              <div id="approvalSkList" class="ce-dashboard-list"></div>
+            </div>
+
+            <!-- ---------- UPLOAD FINAL SK (peran admin/super_admin) ---------- -->
+            <div class="tab-panel" data-tab-group-panel="kp" id="tab-uploadSk">
+              <div class="helper-text" style="margin-bottom:14px;">Unggah PDF SK yang telah dicap basah dan ditandatangani oleh pejabat berwenang untuk menyelesaikan alur SK.</div>
+              <div id="uploadSkList" class="ce-dashboard-list"></div>
             </div>
           </div>
         </div>
@@ -2032,8 +2053,23 @@ function terapkanBatasanPeran_() {
   // Tab "Status Usulan Saya" (user) & "Usulan Masuk" (admin/super_admin).
   const tabStatusUsulan = document.getElementById('tabBtnStatusUsulan');
   const tabUsulanMasuk = document.getElementById('tabBtnUsulanMasuk');
+  const tabBtnSiapSk = document.getElementById('tabBtnSiapSk');
+  const tabBtnApprovalSk = document.getElementById('tabBtnApprovalSk');
+  const tabBtnUploadSk = document.getElementById('tabBtnUploadSk');
+
   if (tabStatusUsulan) tabStatusUsulan.style.display = (role === 'user') ? '' : 'none';
   if (tabUsulanMasuk) tabUsulanMasuk.style.display = (role === 'admin' || role === 'super_admin') ? '' : 'none';
+  if (tabBtnSiapSk) tabBtnSiapSk.style.display = (role === 'admin' || role === 'super_admin') ? '' : 'none';
+  if (tabBtnUploadSk) tabBtnUploadSk.style.display = (role === 'admin' || role === 'super_admin') ? '' : 'none';
+  if (tabBtnApprovalSk) {
+    if ((role === 'admin' || role === 'super_admin') && SESSION.user && SESSION.user.sub_role) {
+      tabBtnApprovalSk.style.display = '';
+      loadApprovalSkBadge();
+    } else {
+      tabBtnApprovalSk.style.display = 'none';
+    }
+  }
+
   if (role === 'admin' || role === 'super_admin') loadUsulanMasukBadge();
 
   // Sama untuk modul Pensiun.
@@ -2113,37 +2149,94 @@ function renderPeranAkunList(daftar) {
   const el = document.getElementById('peranAkunList');
   if (!daftar.length) { el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada data.</div>'; return; }
 
-  el.innerHTML = daftar.map(p => `
+  el.innerHTML = daftar.map(p => {
+    const isSeedSuperAdmin = p.nip === '200103310225061024';
+    
+    let subRoleSelectHtml = '';
+    if (p.role === 'admin' || p.role === 'super_admin') {
+      subRoleSelectHtml = `
+        <select class="field-input sub-role-select" style="min-height:36px; padding:6px 10px; font-size:12.5px; margin-left:8px;" data-nip="${escapeHtml(p.nip)}">
+          <option value="" ${!p.sub_role ? 'selected' : ''}>-- Tanpa Sub-Role --</option>
+          <option value="staff" ${p.sub_role === 'staff' ? 'selected' : ''}>Staff</option>
+          <option value="supervisor" ${p.sub_role === 'supervisor' ? 'selected' : ''}>Supervisor (SPV)</option>
+          <option value="manajer" ${p.sub_role === 'manajer' ? 'selected' : ''}>Manajer</option>
+          <option value="wakil_direktur" ${p.sub_role === 'wakil_direktur' ? 'selected' : ''}>Wakil Direktur</option>
+          <option value="direktur" ${p.sub_role === 'direktur' ? 'selected' : ''}>Direktur</option>
+          <option value="wakil_rektor" ${p.sub_role === 'wakil_rektor' ? 'selected' : ''}>Wakil Rektor</option>
+          <option value="rektor" ${p.sub_role === 'rektor' ? 'selected' : ''}>Rektor</option>
+        </select>
+      `;
+    }
+
+    return `
     <div class="ce-dashboard-list-item" style="cursor:default; flex-wrap:wrap;">
-      <div>
+      <div style="flex: 1; min-width: 250px;">
         <div class="cdli-name">${escapeHtml(p.nama)}</div>
-        <div class="cdli-meta">NIP ${escapeHtml(p.nip)} &middot; ${escapeHtml(p.unitEsIi || '-')} &middot; Peran saat ini: <strong>${escapeHtml(p.role)}</strong></div>
+        <div class="cdli-meta">NIP ${escapeHtml(p.nip)} &middot; ${escapeHtml(p.unitEsIi || '-')}</div>
+        <div class="cdli-meta" style="margin-top:4px;">
+          Peran: <strong style="color:#2563eb;">${escapeHtml(p.role)}</strong> &middot; 
+          Sub-Role: <strong style="color:#d97706;">${escapeHtml(p.sub_role ? (p.sub_role.toUpperCase().replace(/_/g, ' ')) : 'Tidak ada')}</strong>
+        </div>
       </div>
-      ${p.role === 'super_admin'
-        ? '<span class="cdli-badge">SUPER ADMIN (tidak bisa diubah)</span>'
-        : `<div style="display:flex; gap:8px; align-items:center;">
-            <select class="field-input" style="min-height:36px; padding:6px 10px; font-size:12.5px;" data-nip="${escapeHtml(p.nip)}">
+      ${isSeedSuperAdmin
+        ? '<span class="cdli-badge" style="background:#f3f4f6; color:#1f2937;">SEED SUPER ADMIN (Sistem Utama)</span>'
+        : `<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px;">
+            <select class="field-input role-select" style="min-height:36px; padding:6px 10px; font-size:12.5px;" data-nip="${escapeHtml(p.nip)}">
               <option value="normal" ${p.role === 'normal' ? 'selected' : ''}>normal</option>
               <option value="user" ${p.role === 'user' ? 'selected' : ''}>user</option>
               <option value="admin" ${p.role === 'admin' ? 'selected' : ''}>admin</option>
+              <option value="super_admin" ${p.role === 'super_admin' ? 'selected' : ''}>super_admin</option>
             </select>
-            <button type="button" class="btn btn-outline kp-small-btn" data-action="simpan-peran" data-nip="${escapeHtml(p.nip)}">Simpan</button>
+            ${subRoleSelectHtml}
+            <button type="button" class="btn btn-outline kp-small-btn" data-action="simpan-peran" data-nip="${escapeHtml(p.nip)}">Simpan Peran &amp; Sub-role</button>
           </div>`
       }
     </div>
-  `).join('');
+    `;
+  }).join('');
 
   el.querySelectorAll('[data-action="simpan-peran"]').forEach(btn => {
     btn.addEventListener('click', () => {
       const nip = btn.getAttribute('data-nip');
-      const select = el.querySelector(`select[data-nip="${nip}"]`);
+      const roleSelect = el.querySelector(`.role-select[data-nip="${nip}"]`);
+      const subRoleSelect = el.querySelector(`.sub-role-select[data-nip="${nip}"]`);
+      const newRole = roleSelect.value;
+      const newSubRole = subRoleSelect ? subRoleSelect.value : null;
+
+      btn.disabled = true;
+      btn.textContent = 'Menyimpan...';
+
       google.script.run
         .withSuccessHandler(res => {
-          if (res.success) { showToast('success', res.message); loadPeranAkunList(); }
-          else showToast('error', res.message);
+          if (!res.success) {
+            showToast('error', res.message);
+            btn.disabled = false;
+            btn.textContent = 'Simpan Peran & Sub-role';
+            return;
+          }
+
+          if (newRole === 'admin' || newRole === 'super_admin') {
+            google.script.run
+              .withSuccessHandler(resSub => {
+                showToast('success', 'Peran dan Sub-role berhasil disimpan.');
+                loadPeranAkunList();
+              })
+              .withFailureHandler(err => {
+                showToast('error', 'Gagal menyimpan sub-role: ' + (err.message || err));
+                loadPeranAkunList();
+              })
+              .setUserSubRole(SESSION.token, nip, newSubRole);
+          } else {
+            showToast('success', 'Peran berhasil disimpan.');
+            loadPeranAkunList();
+          }
         })
-        .withFailureHandler(err => showToast('error', 'Gagal mengubah peran: ' + (err.message || err)))
-        .ubahPeranAkun(SESSION.token, nip, select.value);
+        .withFailureHandler(err => {
+          showToast('error', 'Gagal menyimpan peran: ' + (err.message || err));
+          btn.disabled = false;
+          btn.textContent = 'Simpan Peran & Sub-role';
+        })
+        .ubahPeranAkun(SESSION.token, nip, newRole);
     });
   });
 }
@@ -2345,6 +2438,9 @@ function activateTab(groupName, targetId) {
   document.getElementById(targetId).classList.add('active');
   if (targetId === 'tab-statusUsulan') loadStatusUsulanSaya();
   if (targetId === 'tab-usulanMasuk') loadUsulanMasukDashboard();
+  if (targetId === 'tab-siapSk') loadSiapSkList();
+  if (targetId === 'tab-approvalSk') loadApprovalSkQueue();
+  if (targetId === 'tab-uploadSk') loadUploadSkList();
   if (targetId === 'tab-statusUsulanPensiun') loadStatusUsulanPensiunSaya();
   if (targetId === 'tab-usulanMasukPensiun') loadUsulanMasukPensiunDashboard();
 }
@@ -4357,9 +4453,18 @@ function bukaModalAjukanUsulan() {
       </div>
       <div id="usulanModal_daftarPegawai" style="margin:14px 0; display:flex; flex-direction:column; gap:8px;"></div>
       <div class="stack-field grid-full">
-        <label>Surat Pengantar (PDF/gambar, maks. 5 MB)</label>
+        <label>Nomor Surat Usulan Unit <span style="color:#ef4444;">*</span></label>
+        <input type="text" id="usulanModal_nomorSurat" class="field-input" placeholder="Contoh: B-123/UN7/2025" />
+      </div>
+      <div class="stack-field grid-full">
+        <label>Tanggal Surat Usulan <span style="color:#ef4444;">*</span></label>
+        <input type="date" id="usulanModal_tglSurat" class="field-input" />
+      </div>
+      <div class="stack-field grid-full">
+        <label>Upload Surat Usulan (PDF, maks. 1 MB) <span style="color:#ef4444;">*</span></label>
         <input type="file" id="usulanModal_file" accept=".pdf,.jpg,.jpeg,.png" />
         <div class="helper-text" id="usulanModal_fileMsg" style="display:none;">✓ File dimuat.</div>
+        <div class="helper-text" style="color:#f59e0b;">⚠️ Maksimal ukuran file 1 MB</div>
       </div>
       <button type="button" class="btn btn-primary" id="usulanModal_submitBtn" style="margin-top:18px; width:100%;">Ajukan Usulan</button>
     </div>
@@ -4384,8 +4489,8 @@ function bukaModalAjukanUsulan() {
     const file = e.target.files[0];
     const msg = document.getElementById('usulanModal_fileMsg');
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      showToast('error', 'Ukuran file melebihi 5 MB.');
+    if (file.size > 1 * 1024 * 1024) {
+      showToast('error', 'Ukuran file melebihi 1 MB. Kompres atau perkecil file terlebih dahulu.');
       e.target.value = ''; msg.style.display = 'none';
       return;
     }
@@ -4419,14 +4524,22 @@ function renderUsulanModalDaftar() {
 
 function submitUsulanModal() {
   if (!usulanModalDaftar.length) { showToast('error', 'Tambahkan minimal 1 pegawai.'); return; }
-  if (!usulanModalFileBase64) { showToast('error', 'Unggah surat pengantar terlebih dahulu.'); return; }
+  if (!usulanModalFileBase64) { showToast('error', 'Unggah surat usulan terlebih dahulu.'); return; }
+  const nomorSurat = (document.getElementById('usulanModal_nomorSurat').value || '').trim();
+  const tglSurat   = (document.getElementById('usulanModal_tglSurat').value || '').trim();
+  if (!nomorSurat) { showToast('error', 'Nomor Surat Usulan Unit wajib diisi.'); return; }
+  if (!tglSurat)   { showToast('error', 'Tanggal Surat Usulan wajib diisi.'); return; }
 
   const fileInput = document.getElementById('usulanModal_file');
-  const namaFile = fileInput.files[0] ? fileInput.files[0].name : 'surat_pengantar';
+  const namaFile = fileInput.files[0] ? fileInput.files[0].name : 'surat_usulan';
   const btn = document.getElementById('usulanModal_submitBtn');
   setBtnLoading(btn, true, 'Mengirim...');
 
-  google.script.run
+  const rpcCall = (typeof google !== 'undefined' && google.script)
+    ? google.script.run
+    : window.rpc;
+
+  const doCall = (rpc) => rpc
     .withSuccessHandler(res => {
       setBtnLoading(btn, false, 'Ajukan Usulan');
       if (res.success) {
@@ -4442,9 +4555,27 @@ function submitUsulanModal() {
     })
     .ajukanUsulanKP(SESSION.token, {
       daftarPegawai: usulanModalDaftar,
-      suratPengantarBase64: usulanModalFileBase64,
-      namaFileSuratPengantar: namaFile
+      suratUsulanBase64: usulanModalFileBase64,
+      namaFileSuratUsulan: namaFile,
+      nomor_surat_usul_unit: nomorSurat,
+      tgl_surat_usul: tglSurat
     });
+
+  if (typeof google !== 'undefined' && google.script) {
+    doCall(google.script.run);
+  } else {
+    window.rpc('ajukanUsulanKP', [SESSION.token, {
+      daftarPegawai: usulanModalDaftar,
+      suratUsulanBase64: usulanModalFileBase64,
+      namaFileSuratUsulan: namaFile,
+      nomor_surat_usul_unit: nomorSurat,
+      tgl_surat_usul: tglSurat
+    }]).then(res => {
+      setBtnLoading(btn, false, 'Ajukan Usulan');
+      if (res.success) { showToast('success', res.message); document.getElementById('modalOverlay').style.display = 'none'; }
+      else showToast('error', res.message);
+    }).catch(err => { setBtnLoading(btn, false, 'Ajukan Usulan'); showToast('error', err.message); });
+  }
 }
 
 /* ---------- STATUS USULAN SAYA (peran user) ---------- */
@@ -4455,15 +4586,24 @@ function loadStatusUsulanSaya() {
     .withSuccessHandler(res => {
       if (!res.success) { showToast('error', res.message); return; }
       if (!res.daftar.length) { el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Anda belum pernah mengajukan usulan.</div>'; return; }
-      el.innerHTML = res.daftar.map(u => `
+      el.innerHTML = res.daftar.map(u => {
+        let actionHtml = '';
+        if (u.skPdfUrl) {
+          actionHtml = `<a href="${u.skPdfUrl}" target="_blank" rel="noopener" class="btn btn-primary kp-small-btn" style="text-decoration:none;">⬇️ Download SK</a>`;
+        }
+        return `
         <div class="ce-dashboard-list-item" style="cursor:default; flex-wrap:wrap;">
           <div>
             <div class="cdli-name">${escapeHtml(u.nama)} ${u.opsiASelesai ? '<span class="cdli-warn" style="background:#d1fae5; color:#065f46;">Opsi A ✓</span>' : ''}${u.opsiBSelesai ? ' <span class="cdli-warn" style="background:#d1fae5; color:#065f46;">Opsi B ✓</span>' : ''}</div>
             <div class="cdli-meta">NIP ${escapeHtml(u.nip)} &middot; Diajukan ${escapeHtml(u.tanggalDiajukan)}</div>
           </div>
-          <span class="cdli-badge">${escapeHtml(u.status)}</span>
+          <div style="display:flex; align-items:center; gap:8px;">
+            ${actionHtml}
+            <span class="cdli-badge">${escapeHtml(u.status)}</span>
+          </div>
         </div>
-      `).join('');
+        `;
+      }).join('');
     })
     .withFailureHandler(err => showToast('error', 'Gagal memuat status usulan: ' + (err.message || err)))
     .getUsulanSayaForUser(SESSION.token);
@@ -5699,6 +5839,322 @@ function generateKontrakFromUsulanAdmin(usulanId) {
       showToast('error', 'Gagal generate kontrak: ' + (err.message || err));
     })
     .generateKontrakFromUsulanVercel(SESSION.token, templateRef, usulanId);
+}
+
+/* =====================================================================
+ * ALUR SK KENAIKAN PANGKAT (NON-ASN)
+ * ===================================================================== */
+
+// --- BADGE PERSURATAN / APPROVAL SK ---
+function loadApprovalSkBadge() {
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) return;
+      const badge = document.getElementById('approvalSkBadge');
+      if (badge) {
+        if (res.daftar && res.daftar.length > 0) {
+          badge.textContent = res.daftar.length;
+          badge.style.display = 'inline-block';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    })
+    .withFailureHandler(() => {})
+    .getSkApprovalQueue(SESSION.token);
+}
+
+// --- 1. TAMPIL DAFTAR SIAP BUAT SK ---
+function loadSiapSkList() {
+  const el = document.getElementById('siapSkList');
+  el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat...</div>';
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      if (!res.daftar || !res.daftar.length) {
+        el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada usulan berstatus Siap Dibuat SK saat ini.</div>';
+        return;
+      }
+      el.innerHTML = res.daftar.map(u => `
+        <div class="ce-dashboard-list-item" style="cursor:default; flex-wrap:wrap; align-items:center;">
+          <div style="flex:1; min-width:200px;">
+            <div class="cdli-name">${escapeHtml(u.nama)}</div>
+            <div class="cdli-meta">NIP ${escapeHtml(u.nip)} &middot; ${escapeHtml(u.unit)}</div>
+            <div class="cdli-meta" style="margin-top:4px;">
+              Surat Usul Unit: <strong>${escapeHtml(u.nomor_surat_usul)}</strong> (${escapeHtml(u.tgl_surat_usul)})
+            </div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            ${u.file_surat_usul_url ? `<a href="${u.file_surat_usul_url}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn">View Surat Usul</a>` : ''}
+            <button type="button" class="btn btn-primary kp-small-btn" onclick="bukaModalBuatSk('${u.id}', '${escapeHtml(u.nama).replace(/'/g, "\\'")}', '${escapeHtml(u.nip)}')">📝 Buat SK</button>
+          </div>
+        </div>
+      `).join('');
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat daftar siap SK: ' + (err.message || err)))
+    .getUsulanSiapSk(SESSION.token);
+}
+
+// --- 2. MODAL FORM BUAT SK ---
+function bukaModalBuatSk(usulanId, nama, nip) {
+  document.getElementById('modalTitle').textContent = 'Buat SK Kenaikan Pangkat';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="padding:22px; display:flex; flex-direction:column; gap:12px; max-height:85vh; overflow-y:auto;">
+      <div style="background:#eff6ff; padding:12px 16px; border-radius:8px; margin-bottom:8px; border:1px solid #bfdbfe;">
+        <div>Pegawai: <strong>${escapeHtml(nama)}</strong></div>
+        <div style="font-size:12px; color:#475569;">NIP: ${escapeHtml(nip)}</div>
+      </div>
+      <div class="stack-field">
+        <label>Nomor SK Kenaikan Pangkat <span style="color:#ef4444;">*</span></label>
+        <input type="text" id="buatSk_nomorSk" class="field-input" placeholder="Contoh: 123/UN7.A2/KP/2026" required />
+      </div>
+      <div class="grid-2" style="gap:12px;">
+        <div class="stack-field">
+          <label>Masa Kerja Baru (Tahun) <span style="color:#ef4444;">*</span></label>
+          <input type="number" id="buatSk_mkTahun" class="field-input" min="0" max="50" placeholder="Tahun" required />
+        </div>
+        <div class="stack-field">
+          <label>Masa Kerja Baru (Bulan) <span style="color:#ef4444;">*</span></label>
+          <input type="number" id="buatSk_mkBulan" class="field-input" min="0" max="11" placeholder="Bulan" required />
+        </div>
+      </div>
+      <div class="stack-field">
+        <label>Tipe Template SK</label>
+        <div style="display:flex; gap:16px; margin:4px 0 8px 0;">
+          <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+            <input type="radio" name="sk_templateSelectType" value="gdocs" checked onchange="filterServiceTemplates('sk_templateSelect', 'gdocs')"> Google Docs (GDocs)
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+            <input type="radio" name="sk_templateSelectType" value="docx" onchange="filterServiceTemplates('sk_templateSelect', 'docx')"> Microsoft Word (.docx)
+          </label>
+        </div>
+        <select id="sk_templateSelect" class="field-input" required></select>
+      </div>
+      <button type="button" class="btn btn-primary" id="buatSk_submitBtn" style="margin-top:10px; width:100%;">Proses &amp; Generate SK</button>
+    </div>
+  `;
+  document.getElementById('modalOverlay').style.display = 'flex';
+  
+  // Load templates
+  loadServiceTemplates('Kenaikan Pangkat SK', 'SK Kenaikan Pangkat', 'sk_templateSelect');
+  
+  document.getElementById('buatSk_submitBtn').addEventListener('click', () => prosesBuatSkKp(usulanId));
+}
+
+function prosesBuatSkKp(usulanId) {
+  const nomorSk = val('buatSk_nomorSk');
+  const mkTahun = val('buatSk_mkTahun');
+  const mkBulan = val('buatSk_mkBulan');
+  const templateId = val('sk_templateSelect');
+  
+  if (!nomorSk) { showToast('error', 'Nomor SK wajib diisi.'); return; }
+  if (mkTahun === '' || mkBulan === '') { showToast('error', 'Masa Kerja Baru (Tahun & Bulan) wajib diisi.'); return; }
+  if (!templateId) { showToast('error', 'Pilih template SK terlebih dahulu.'); return; }
+  
+  const btn = document.getElementById('buatSk_submitBtn');
+  setBtnLoading(btn, true, 'Sedang memproses...');
+  
+  google.script.run
+    .withSuccessHandler(res => {
+      setBtnLoading(btn, false, 'Proses & Generate SK');
+      if (res.success) {
+        showToast('success', res.message);
+        document.getElementById('modalOverlay').style.display = 'none';
+        loadSiapSkList();
+      } else {
+        showToast('error', res.message);
+      }
+    })
+    .withFailureHandler(err => {
+      setBtnLoading(btn, false, 'Proses & Generate SK');
+      showToast('error', 'Gagal memproses SK: ' + (err.message || err));
+    })
+    .buatSkKp(SESSION.token, usulanId, {
+      nomor_sk: nomorSk,
+      masa_kerja_kp_baru_tahun: parseInt(mkTahun, 10),
+      masa_kerja_kp_baru_bulan: parseInt(mkBulan, 10),
+      templateId: templateId
+    });
+}
+
+// --- 3. TAMPIL ANTRIAN APPROVAL SK ---
+function loadApprovalSkQueue() {
+  const el = document.getElementById('approvalSkList');
+  el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat...</div>';
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      loadApprovalSkBadge();
+      if (!res.daftar || !res.daftar.length) {
+        el.innerHTML = `<div class="ce-dashboard-card cdc-empty">Tidak ada SK menunggu persetujuan Anda saat ini. (Level Anda: ${escapeHtml(res.subRoleLabel || 'Tidak ada')})</div>`;
+        return;
+      }
+      el.innerHTML = `
+        <div style="font-weight:600; color:#3b82f6; margin-bottom:12px;">Level Approval Anda: ${escapeHtml(res.subRoleLabel)}</div>
+        <div class="ce-dashboard-list" style="gap:14px;">
+          ${res.daftar.map(u => {
+            return `
+            <div class="ce-dashboard-list-item" style="cursor:default; display:block; padding:16px;">
+              <div class="grid-2" style="font-size:14px; gap:8px; margin-bottom:12px;">
+                <div><strong>Nama Pegawai:</strong> ${escapeHtml(u.nama)} (NIP ${escapeHtml(u.nip)})</div>
+                <div><strong>Unit Kerja:</strong> ${escapeHtml(u.unit)}</div>
+                <div><strong>Nomor SK:</strong> ${escapeHtml(u.nomorSk)}</div>
+                <div><strong>TMT Baru:</strong> ${escapeHtml(u.tmtKpBaru)}</div>
+                <div><strong>Golongan / Pangkat Baru:</strong> ${escapeHtml(u.golBaru)} / ${escapeHtml(u.pangkatBaru)}</div>
+                <div><strong>Gaji Pokok Baru:</strong> ${escapeHtml(u.gajiPokokBaru)}</div>
+              </div>
+              
+              <div class="stack-field" style="margin-top:10px;">
+                <label style="font-weight:600;">Catatan / Tanggapan (Opsional)</label>
+                <input type="text" id="catatan_${u.id}" class="field-input" placeholder="Tulis catatan..." style="min-height:36px;" />
+              </div>
+              
+              <div style="display:flex; align-items:center; gap:10px; margin-top:14px; background:#f8fafc; padding:10px 14px; border-radius:6px; border:1px solid #e2e8f0;">
+                <input type="checkbox" id="check_${u.id}" onchange="toggleApproveBtn('${u.id}')" style="width:20px; height:20px; cursor:pointer;" />
+                <label for="check_${u.id}" style="font-weight:500; font-size:13.5px; cursor:pointer; color:#1e293b;">Saya dengan sadar login dan menyetujui draft SK ini untuk diteruskan.</label>
+              </div>
+              
+              <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:14px; border-top:1px solid #eee; padding-top:12px;">
+                <button type="button" class="btn btn-outline kp-small-btn" onclick="previewDraftSk('${u.id}')">📄 Lihat/Download Draft SK</button>
+                <button type="button" class="btn btn-primary kp-small-btn" id="btn_approve_${u.id}" onclick="prosesApproveSkKp('${u.id}')" disabled style="background:#cbd5e1; border-color:#cbd5e1; cursor:not-allowed;">Setujui &amp; Teruskan</button>
+              </div>
+            </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat antrian approval: ' + (err.message || err)))
+    .getSkApprovalQueue(SESSION.token);
+}
+
+function toggleApproveBtn(usulanId) {
+  const check = document.getElementById(`check_${usulanId}`);
+  const btn = document.getElementById(`btn_approve_${usulanId}`);
+  if (check && btn) {
+    btn.disabled = !check.checked;
+    if (check.checked) {
+      btn.style.background = '';
+      btn.style.borderColor = '';
+      btn.style.cursor = 'pointer';
+    } else {
+      btn.style.background = '#cbd5e1';
+      btn.style.borderColor = '#cbd5e1';
+      btn.style.cursor = 'not-allowed';
+    }
+  }
+}
+
+function previewDraftSk(usulanId) {
+  showToast('info', 'Sedang men-generate preview draft SK...');
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) {
+        if (res.outputType === 'docx') {
+          const dlUrl = 'data:' + res.mimeType + ';base64,' + res.base64;
+          const link = document.createElement('a');
+          link.href = dlUrl;
+          link.download = res.fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          showToast('success', 'Draft SK DOCX berhasil didownload.');
+        } else if (res.outputType === 'gdocs') {
+          window.open(res.viewUrl, '_blank');
+        }
+      } else {
+        showToast('error', res.message);
+      }
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal generate preview SK: ' + (err.message || err)))
+    .generateSkDraftVercel(SESSION.token, usulanId);
+}
+
+function prosesApproveSkKp(usulanId) {
+  const btn = document.getElementById(`btn_approve_${usulanId}`);
+  const catatan = (document.getElementById(`catatan_${usulanId}`).value || '').trim();
+  setBtnLoading(btn, true, 'Memproses...');
+  
+  google.script.run
+    .withSuccessHandler(res => {
+      setBtnLoading(btn, false, 'Setujui & Teruskan');
+      if (res.success) {
+        showToast('success', res.message);
+        loadApprovalSkQueue();
+      } else {
+        showToast('error', res.message);
+      }
+    })
+    .withFailureHandler(err => {
+      setBtnLoading(btn, false, 'Setujui & Teruskan');
+      showToast('error', 'Gagal memproses approval: ' + (err.message || err));
+    })
+    .approveSkKp(SESSION.token, usulanId, catatan);
+}
+
+// --- 4. TAMPIL LIST SIAP UPLOAD PDF SK FINAL ---
+function loadUploadSkList() {
+  const el = document.getElementById('uploadSkList');
+  el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat...</div>';
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      if (!res.daftar || !res.daftar.length) {
+        el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada SK siap upload saat ini.</div>';
+        return;
+      }
+      el.innerHTML = res.daftar.map(u => `
+        <div class="ce-dashboard-list-item" style="cursor:default; display:block; padding:16px;">
+          <div class="grid-2" style="font-size:14px; gap:8px; margin-bottom:12px;">
+            <div><strong>Pegawai:</strong> ${escapeHtml(u.nama)} (NIP ${escapeHtml(u.nip)})</div>
+            <div><strong>Nomor SK:</strong> ${escapeHtml(u.nomorSk)}</div>
+            <div><strong>Golongan / Pangkat Baru:</strong> ${escapeHtml(u.golBaru)} / ${escapeHtml(u.pangkatBaru)}</div>
+            <div><strong>TMT Baru:</strong> ${escapeHtml(u.tmtKpBaru)}</div>
+          </div>
+          <div class="stack-field" style="margin-top:10px;">
+            <label style="font-weight:600;">Upload File PDF SK (Sudah TTD &amp; Cap basah, maks 1MB) <span style="color:#ef4444;">*</span></label>
+            <input type="file" id="pdf_${u.id}" accept=".pdf" style="margin-top:4px;" />
+          </div>
+          <div style="display:flex; justify-content:flex-end; margin-top:12px;">
+            <button type="button" class="btn btn-primary kp-small-btn" id="btn_upload_${u.id}" onclick="prosesUploadSkFinal('${u.id}')">📤 Upload &amp; Selesaikan SK</button>
+          </div>
+        </div>
+      `).join('');
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat daftar upload SK: ' + (err.message || err)))
+    .getUsulanSiapUploadSk(SESSION.token);
+}
+
+// --- REBUILD / RUN UPLOAD PDF SK FINAL ---
+function prosesUploadSkFinal(usulanId) {
+  const fileInput = document.getElementById(`pdf_${usulanId}`);
+  const file = fileInput ? fileInput.files[0] : null;
+  if (!file) { showToast('error', 'Pilih file PDF SK terlebih dahulu.'); return; }
+  if (file.size > 1 * 1024 * 1024) { showToast('error', 'Ukuran file PDF SK tidak boleh melebihi 1 MB.'); return; }
+  
+  const btn = document.getElementById(`btn_upload_${usulanId}`);
+  setBtnLoading(btn, true, 'Mengunggah...');
+  
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const base64Data = ev.target.result;
+    google.script.run
+      .withSuccessHandler(res => {
+        setBtnLoading(btn, false, 'Upload & Selesaikan SK');
+        if (res.success) {
+          showToast('success', res.message);
+          loadUploadSkList();
+        } else {
+          showToast('error', res.message);
+        }
+      })
+      .withFailureHandler(err => {
+        setBtnLoading(btn, false, 'Upload & Selesaikan SK');
+        showToast('error', 'Gagal upload SK: ' + (err.message || err));
+      })
+      .uploadSkFinalPdf(SESSION.token, usulanId, base64Data, file.name);
+  };
+  reader.readAsDataURL(file);
 }
 </script>
 

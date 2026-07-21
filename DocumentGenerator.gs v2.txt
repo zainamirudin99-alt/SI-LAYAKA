@@ -505,6 +505,50 @@ function convertDocxToPdf(sessionToken, docxBase64, fileName) {
 }
 
 /**
+ * GENERATE SK FROM TEMPLATE (GDOCS)
+ * Mengcopy template SK GDocs dan me-replace semua placeholder.
+ */
+function generateSkFromUsulan(sessionToken, templateFileId, dataCtx) {
+  const employeeSession = requireRole_(sessionToken, ['admin', 'super_admin']);
+  try {
+    const templateDoc = DriveApp.getFileById(templateFileId);
+    const fileName = sanitizeFileName_("SK_KP_Draft_" + dataCtx.nama);
+    const docCopyFile = templateDoc.makeCopy(fileName);
+    const docCopyId = docCopyFile.getId();
+    const docCopy = DocumentApp.openById(docCopyId);
+    const body = docCopy.getBody();
+
+    // Ganti placeholder manual
+    for (const [key, val] of Object.entries(dataCtx)) {
+      let replacement = val;
+      if (val instanceof Date) {
+        replacement = formatTanggalIndonesia_(val);
+      } else if (typeof val === 'number') {
+        replacement = String(val);
+      }
+      body.replaceText(new RegExp('\{\{\\s*' + key + '\\s*\}\}', 'g'), replacement || '');
+    }
+
+    docCopy.saveAndClose();
+
+    // Pindahkan ke folder output KP
+    const outputFolder = DriveApp.getFolderById(CONFIG.FOLDER_KP_OUTPUT);
+    pindahFileKeFolder_(docCopyFile, outputFolder);
+    try { docCopyFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) {}
+
+    return {
+      success: true,
+      message: 'Draft SK berhasil digenerate.',
+      fileId: docCopyId,
+      fileName: fileName,
+      viewUrl: docCopyFile.getUrl()
+    };
+  } catch (err) {
+    return { success: false, message: 'Gagal generate SK di Google Drive: ' + err.message };
+  }
+}
+
+/**
  * ENTRY POINT WEB APP: Menerima request rpc dari Vercel
  * untuk meng-generate / preview Google Docs.
  */

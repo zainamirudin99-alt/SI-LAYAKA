@@ -132,6 +132,9 @@
               <button class="tab-btn" data-tab-target="tab-optB">Opsi B: AK Konversi Kumulatif</button>
               <button class="tab-btn" data-tab-target="tab-statusUsulan" id="tabBtnStatusUsulan" style="display:none;">Status Usulan Saya</button>
               <button class="tab-btn" data-tab-target="tab-usulanMasuk" id="tabBtnUsulanMasuk" style="display:none;">📨 Usulan Masuk <span id="usulanMasukBadge" class="cdli-badge" style="display:none;"></span></button>
+              <button class="tab-btn" data-tab-target="tab-siapSk" id="tabBtnSiapSk" style="display:none;">📝 Siap Buat SK</button>
+              <button class="tab-btn" data-tab-target="tab-approvalSk" id="tabBtnApprovalSk" style="display:none;">🔑 Approval SK <span id="approvalSkBadge" class="cdli-badge" style="display:none; background:#ef4444; color:#fff;"></span></button>
+              <button class="tab-btn" data-tab-target="tab-uploadSk" id="tabBtnUploadSk" style="display:none;">📤 Upload Final SK</button>
             </div>
 
             <!-- ---------- CHECK ELIGIBLE ---------- -->
@@ -327,6 +330,24 @@
                 <button type="button" class="ce-dashboard-back" id="usulanMasukBackBtn">&larr; Kembali ke daftar unit</button>
                 <div id="usulanMasukLevel2List" class="ce-dashboard-list"></div>
               </div>
+            </div>
+
+            <!-- ---------- SIAP BUAT SK (peran admin/super_admin) ---------- -->
+            <div class="tab-panel" data-tab-group-panel="kp" id="tab-siapSk">
+              <div class="helper-text" style="margin-bottom:14px;">Pegawai Non-ASN yang usulan Kenaikan Pangkatnya telah diproses Opsi A & B, dan siap dibuatkan SK. PNS tidak masuk dalam alur ini.</div>
+              <div id="siapSkList" class="ce-dashboard-list"></div>
+            </div>
+
+            <!-- ---------- APPROVAL SK (peran admin/super_admin ber-subrole) ---------- -->
+            <div class="tab-panel" data-tab-group-panel="kp" id="tab-approvalSk">
+              <div class="helper-text" style="margin-bottom:14px;">Daftar SK yang sedang menunggu persetujuan Anda sesuai dengan jenjang jabatan approval Anda. Anda wajib mencentang checkbox untuk menyetujui.</div>
+              <div id="approvalSkList" class="ce-dashboard-list"></div>
+            </div>
+
+            <!-- ---------- UPLOAD FINAL SK (peran admin/super_admin) ---------- -->
+            <div class="tab-panel" data-tab-group-panel="kp" id="tab-uploadSk">
+              <div class="helper-text" style="margin-bottom:14px;">Unggah PDF SK yang telah dicap basah dan ditandatangani oleh pejabat berwenang untuk menyelesaikan alur SK.</div>
+              <div id="uploadSkList" class="ce-dashboard-list"></div>
             </div>
           </div>
         </div>

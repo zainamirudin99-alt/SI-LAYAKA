@@ -179,3 +179,49 @@ END $$;
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('lampiran-usulan', 'lampiran-usulan', false)
 ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================
+-- 8. TAMBAHAN UNTUK ALUR SK KENAIKAN PANGKAT (NON-ASN)
+--    Jalankan bagian ini di Supabase SQL Editor jika sudah
+--    pernah menjalankan schema di atas sebelumnya.
+-- ============================================================
+
+-- 8a. Kolom sub_role untuk admin/super_admin yang berperan sebagai
+--     approver berjenjang SK KP (Staff → SPV → ... → Wakil Rektor)
+ALTER TABLE user_roles ADD COLUMN IF NOT EXISTS sub_role TEXT
+  CHECK (sub_role IN ('staff','supervisor','manajer','wakil_direktur','direktur','wakil_rektor','rektor'));
+
+-- 8b. Kolom tambahan di usulan_kp untuk alur SK
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS nomor_surat_usul_unit   TEXT;
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS tgl_surat_usul           TEXT;
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS file_surat_usul_url      TEXT;
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS nomor_sk                 TEXT;
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS tmt_kp_baru              TEXT;
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS masa_kerja_kp_baru_tahun TEXT;
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS masa_kerja_kp_baru_bulan TEXT;
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS gaji_pokok_baru_kp       TEXT;
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS pangkat_baru             TEXT;
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS gol_baru                 TEXT;
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS sk_file_id               TEXT;
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS sk_pdf_url               TEXT;
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS sk_pdf_signed_url        TEXT;
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS sk_dibuat_pada           TIMESTAMPTZ;
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS sk_approval_step         TEXT DEFAULT 'staff';
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS sk_approval_log          JSONB DEFAULT '[]';
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS sk_selesai_pada          TIMESTAMPTZ;
+
+-- 8c. Storage bucket khusus untuk PDF SK yang sudah ditandatangani
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('sk-kp', 'sk-kp', false)
+ON CONFLICT (id) DO NOTHING;
+
+-- 8d. Index untuk performa query SK
+CREATE INDEX IF NOT EXISTS idx_usulan_kp_sk_step ON usulan_kp(sk_approval_step);
+
+-- 8e. RLS policy untuk bucket sk-kp (denied to public, same as lampiran-usulan)
+ALTER TABLE usulan_kp ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='usulan_kp' AND policyname='deny_public_usulan_kp') THEN
+    CREATE POLICY "deny_public_usulan_kp" ON usulan_kp FOR ALL TO public USING (false);
+  END IF;
+END $$;
