@@ -202,7 +202,7 @@ async function uploadLampiran(base64DataUrl, namaFile, subfolder) {
   const parts  = base64DataUrl.split(',');
   const mime   = (parts[0].match(/:(.*?);/)||[,'application/octet-stream'])[1];
   const rawB64 = parts[1];
-  const buf    = Buffer.from(rawB64, 'base64');
+  const buf    = new Uint8Array(Buffer.from(rawB64, 'base64'));
   const path   = `${subfolder||'misc'}/${Date.now()}-${(namaFile||'lampiran').replace(/[^a-zA-Z0-9._-]/g,'-')}`;
 
   const { error } = await db.storage.from('lampiran-usulan').upload(path, buf, { contentType: mime, upsert: false });
@@ -716,7 +716,7 @@ async function uploadTemplateDocx(base64DataUrl, judul) {
   const parts = base64DataUrl.split(',');
   const mime = (parts[0].match(/:(.*?);/) || [, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])[1];
   const rawB64 = parts.length > 1 ? parts[1] : parts[0];
-  const buf = Buffer.from(rawB64, 'base64');
+  const buf = new Uint8Array(Buffer.from(rawB64, 'base64'));
   const safeName = String(judul || 'template').replace(/[^a-zA-Z0-9._-]/g, '-');
   const path = `templates/${Date.now()}-${safeName}.docx`;
 
