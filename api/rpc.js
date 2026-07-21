@@ -681,6 +681,7 @@ function docxEvaluateTag(rawExpr, dataCtx) {
     const isDateField = DATE_TAG_PREFIXES.some(p => mainExpr.indexOf(p) === 0);
     const raw = dataCtx[mainExpr];
     if (isDateField) return docxFormatTanggal(raw);
+    if (typeof raw === 'object' && raw !== null) return raw;
     return raw === undefined || raw === null ? '' : String(raw);
   }
 
@@ -691,6 +692,7 @@ function docxEvaluateTag(rawExpr, dataCtx) {
     const isDateField = DATE_TAG_PREFIXES.some(p => key.indexOf(p) === 0);
     const raw = dataCtx[key];
     if (isDateField) return docxFormatTanggal(raw);
+    if (typeof raw === 'object' && raw !== null) return raw;
     return raw === undefined || raw === null ? '' : String(raw);
   }
 
@@ -703,6 +705,7 @@ function docxEvaluateTag(rawExpr, dataCtx) {
   }
 
   for (const f of filters) result = docxApplyFilter(f, result);
+  if (typeof result === 'object' && result !== null) return result;
   return result === undefined || result === null ? '' : String(result);
 }
 
