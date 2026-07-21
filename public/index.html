@@ -3199,8 +3199,8 @@ function reloadAllServiceTemplates() {
   loadServiceTemplates('Kenaikan Pangkat', 'AK Konversi Kumulatif', 'optB_templateSelect');
   loadServiceTemplates('Pensiun', 'DPCP', 'pensiun_dpcpTemplateSelect');
   loadServiceTemplates('Pensiun', 'SUPER', 'pensiun_superTemplateSelect');
-  if (typeof kontrakSelectedSubMenu !== 'undefined' && kontrakSelectedSubMenu) {
-    loadServiceTemplates('Kontrak', kontrakSelectedSubMenu, 'kontrak_templateSelect');
+  if (typeof kontrakSelectedSubMenu !== 'undefined' && kontrakSelectedSubMenu && typeof kontrakSelectedLayanan !== 'undefined' && kontrakSelectedLayanan) {
+    loadServiceTemplates(kontrakSelectedLayanan, kontrakSelectedSubMenu, 'kontrak_templateSelect');
   }
 }
 
@@ -4997,7 +4997,7 @@ function pilihModeKontrak(mode) {
     searchFn
   );
 
-  loadServiceTemplates('Kontrak', kontrakSelectedSubMenu, 'kontrak_templateSelect');
+  loadServiceTemplates(kontrakSelectedLayanan, kontrakSelectedSubMenu, 'kontrak_templateSelect');
   kontrakGoToState_('form');
 }
 
