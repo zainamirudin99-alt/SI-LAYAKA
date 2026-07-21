@@ -1286,6 +1286,213 @@ const methods = {
     return { success: true, message: 'Template berhasil disimpan.' };
   },
 
+  async scanTemplateFormulas([token, payload]) {
+    verifyToken(token);
+    const input = payload || {};
+    const sourceType = input.sourceType;
+
+    if (sourceType === 'gdrive') {
+      const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+      if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi.' };
+
+      const decoded = verifyToken(token);
+      const shortId = uuidv4();
+      const remoteSession = {
+        id: shortId,
+        data: {
+          nip: decoded.nip || '',
+          nama_lengkap: decoded.nama || '',
+          nama: decoded.nama || '',
+          jabatan: decoded.jabatan || '',
+          status_kepegawaian: decoded.status_kepegawaian || '',
+          role: decoded.role || 'normal'
+        }
+      };
+
+      const response = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'scanTemplateFormulas',
+          params: [shortId, payload],
+          remoteSession
+        })
+      });
+      return await response.json();
+    }
+
+    if (sourceType === 'upload') {
+      const fileBase64 = input.fileBase64;
+      if (!fileBase64) return { success: false, message: 'File template (.docx) tidak ditemukan.' };
+
+      try {
+        const PizZip = require('pizzip');
+        const buf = Buffer.from(fileBase64, 'base64');
+        const zip = new PizZip(buf);
+        
+        const docFile = zip.file('word/document.xml');
+        if (!docFile) return { success: false, message: 'Format file .docx tidak valid (tidak ditemukan word/document.xml).' };
+        
+        const docXml = docFile.asText();
+
+        // Helper to remove table tags taking nesting into account
+        const stripTableXml = (xml) => {
+          let result = '';
+          let idx = 0;
+          while (true) {
+            let startIdx = xml.indexOf('<w:tbl', idx);
+            if (startIdx === -1) {
+              result += xml.substring(idx);
+              break;
+            }
+            result += xml.substring(idx, startIdx);
+
+            let tblDepth = 1;
+            let searchIdx = startIdx + 6;
+            while (tblDepth > 0) {
+              let nextOpen = xml.indexOf('<w:tbl', searchIdx);
+              let nextClose = xml.indexOf('</w:tbl>', searchIdx);
+
+              if (nextClose === -1) {
+                searchIdx = xml.length;
+                break;
+              }
+
+              if (nextOpen !== -1 && nextOpen < nextClose) {
+                tblDepth++;
+                searchIdx = nextOpen + 6;
+              } else {
+                tblDepth--;
+                searchIdx = nextClose + 8;
+              }
+            }
+            idx = searchIdx;
+          }
+          return result;
+        };
+
+        const paragraphsXml = stripTableXml(docXml);
+
+        const decodeXmlEntities = str => str
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&apos;/g, "'");
+
+        const xmlToPlainText = xml => decodeXmlEntities(xml.replace(/<[^>]+>/g, ''));
+
+        const gabungan = xmlToPlainText(docXml);
+        const teksParagrafSaja = xmlToPlainText(paragraphsXml);
+
+        const KNOWN_FUNCTIONS = [
+          'diff_years', 'diff_months', 'diff_days', 'terbilang', 'rupiah', 'tanggal',
+          'sum', 'num', 'bulan_ke_angka'
+        ];
+
+        const SMART_QUOTES_RE = /[\u201C\u201D\u2018\u2019]/;
+
+        const tagNilai = new Set();
+        const tagSetVariable = new Set();
+        const tagLoopValid = new Set();
+        const tagLoopBermasalah = new Set();
+        const tagDropdown = new Set();
+        const issues = [];
+
+        (gabungan.match(/\{\{[^{}]+\}\}/g) || []).forEach(raw => {
+          const inner = raw.slice(2, -2).trim();
+
+          if (SMART_QUOTES_RE.test(inner)) {
+            issues.push({
+              type: 'kutip_pintar',
+              detail: 'Tanda kutip di rumus ini pakai kutip "keriting" (\u201C \u201D / \u2018 \u2019) hasil autocorrect Word. Mesin sudah otomatis menormalisasi ini jadi kutip lurus saat generate, jadi TIDAK fatal — tapi tetap disarankan diketik ulang pakai kutip lurus (" atau \') supaya lebih mudah dibaca & di-edit ulang.',
+              snippet: raw
+            });
+          }
+
+          const setMatch = inner.match(/^(set|Set|SET)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=/);
+          if (setMatch) {
+            const keyword = setMatch[1];
+            const varName = setMatch[2];
+            tagSetVariable.add(varName);
+            if (keyword !== 'set') {
+              issues.push({
+                type: 'info_set_case',
+                detail: `Variabel turunan "${varName}" ditulis "${keyword} ..." — mesin sekarang mengenali "set"/"Set"/"SET" tanpa membedakan huruf besar-kecil, jadi ini AMAN, hanya info supaya konsisten dengan tag "set" lain.`,
+                snippet: raw
+              });
+            }
+          } else {
+            tagNilai.add(inner);
+
+            if (/^[A-Za-z_][A-Za-z0-9_]*\s*\[[^\]]*\]$/.test(inner)) {
+              tagDropdown.add(inner);
+            }
+
+            if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(inner) && !/^[a-z][a-z0-9_]*$/.test(inner)) {
+              issues.push({
+                type: 'konvensi_penamaan',
+                detail: `Tag "{{${inner}}}" tidak huruf kecil semua (snake_case) seperti tag lain — rawan gagal mapping kalau data context memakai huruf kecil semua.`,
+                snippet: raw
+              });
+            }
+          }
+
+          (inner.match(/([A-Za-z_][A-Za-z0-9_]*)\s*\(/g) || []).forEach(fm => {
+            const fnName = fm.replace('(', '').trim();
+            if (!KNOWN_FUNCTIONS.includes(fnName)) {
+              issues.push({
+                type: 'fungsi_tidak_dikenal',
+                detail: `Fungsi "${fnName}()" tidak dikenali mesin (yang didukung: ${KNOWN_FUNCTIONS.join(', ')}).`,
+                snippet: raw
+              });
+            }
+          });
+        });
+
+        (gabungan.match(/(?<!\{)\{#(\w+)\}(?!\})/g) || []).forEach(m => tagLoopValid.add(m));
+        (gabungan.match(/(?<!\{)\\{\/(\w+)\}(?!\})/g) || []).forEach(m => tagLoopValid.add(m));
+        (gabungan.match(/\{\{#(\w+)\}\}/g) || []).forEach(m => tagLoopValid.add(m));
+        (gabungan.match(/\{\{\/(\w+)\}\}/g) || []).forEach(m => tagLoopValid.add(m));
+
+        (gabungan.match(/\{\{\^(\w+)\}\}/g) || []).forEach(m => {
+          tagLoopBermasalah.add(m);
+          issues.push({
+            type: 'kontrol_negasi_tidak_dikenal',
+            detail: `Tag "${m}" pakai simbol "^" (inverted section) — struktur ini tidak didukung TemplateEngine.gs. Gunakan ternary ({{ kondisi ? 'ya' : 'tidak' }}) sebagai gantinya.`,
+            snippet: m
+          });
+        });
+
+        const loopDiLuarTabel = new Set();
+        (teksParagrafSaja.match(/\{\{[#/^]\w+\}\}/g) || []).forEach(m => loopDiLuarTabel.add(m));
+        (teksParagrafSaja.match(/(?<!\{)\{[#/]\w+\}(?!\})/g) || []).forEach(m => loopDiLuarTabel.add(m));
+        if (loopDiLuarTabel.size > 0) {
+          issues.push({
+            type: 'loop_di_luar_tabel',
+            detail: `Tag loop ${Array.from(loopDiLuarTabel).join(', ')} ditemukan di PARAGRAF BIASA, bukan di dalam sel tabel. TemplateEngine.gs dengan sengaja HANYA memproses loop di dalam tabel (loop di seluruh isi dokumen terlalu rapuh untuk didukung dengan aman) — tag ini TIDAK akan pernah berfungsi di posisi ini, berapa pun benarnya nama/datanya, dan bisa membuat halaman dokumen berantakan (mis. patah halaman ganda yang tidak diinginkan). Hapus tag ini dari paragraf; jika perlu menggabungkan beberapa entri jadi satu file, pakai fitur "+ Tambah Data" di Opsi A/B yang sudah menangani ini di level kode, bukan di dalam template.`,
+            snippet: Array.from(loopDiLuarTabel).join(' ... ')
+          });
+        }
+
+        return {
+          success: true,
+          tagNilai: Array.from(tagNilai).sort(),
+          tagSetVariable: Array.from(tagSetVariable).sort(),
+          tagLoopBenar: Array.from(tagLoopValid).sort(),
+          tagLoopBermasalah: Array.from(tagLoopBermasalah).sort(),
+          tagDropdown: Array.from(tagDropdown).sort(),
+          issues: issues,
+          totalTagDitemukan: tagNilai.size + tagSetVariable.size + tagLoopValid.size + tagLoopBermasalah.size
+        };
+      } catch (err) {
+        return { success: false, message: 'Gagal memindai file template: ' + err.message };
+      }
+    }
+
+    return { success: false, message: 'sourceType tidak dikenali' };
+  },
+
   async getTemplates([token, layanan, sub_menu]) {
     verifyToken(token);
     const db = getDb();

@@ -8,10 +8,10 @@ $jsClient = Get-Content -Raw -Encoding utf8 "JavaScriptClient v2.txt"
 
 # Polyfill to map google.script.run to fetch(/api/rpc)
 $polyfill = @"
-const google = {
-  script: {
-    run: new Proxy({}, {
-      get(target, prop) {
+if (typeof google === 'undefined' || !google.script || !google.script.run) {
+  var google = {
+    script: {
+      run: (function() {
         const createBuilder = (successHandler = null, failureHandler = null) => {
           return new Proxy({}, {
             get(builderTarget, builderProp) {
@@ -46,34 +46,38 @@ const google = {
           });
         };
 
-        if (prop === 'withSuccessHandler') {
-          return function(fn) {
-            return createBuilder(fn, null);
-          };
-        }
-        if (prop === 'withFailureHandler') {
-          return function(fn) {
-            return createBuilder(null, fn);
-          };
-        }
+        return new Proxy({}, {
+          get(target, prop) {
+            if (prop === 'withSuccessHandler') {
+              return function(fn) {
+                return createBuilder(fn, null);
+              };
+            }
+            if (prop === 'withFailureHandler') {
+              return function(fn) {
+                return createBuilder(null, fn);
+              };
+            }
 
-        return async function(...args) {
-          try {
-            const response = await fetch('/api/rpc', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ method: prop, params: args })
-            });
-            const data = await response.json();
-            // Direct calls do not have callbacks
-          } catch (err) {
-            console.error('RPC Error:', err);
+            return async function(...args) {
+              try {
+                const response = await fetch('/api/rpc', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ method: prop, params: args })
+                });
+                const data = await response.json();
+                // Direct calls do not have callbacks
+              } catch (err) {
+                console.error('RPC Error:', err);
+              }
+            };
           }
-        };
-      }
-    })
-  }
-};
+        });
+      })()
+    }
+  };
+}
 "@
 
 $jsClientWithPolyfill = $jsClient -replace "<script>", "<script>`n$polyfill"
