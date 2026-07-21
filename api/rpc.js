@@ -1751,9 +1751,7 @@ const methods = {
    * agar client bisa me-render preview menggunakan docx-preview (CDN).
    */
   async previewDocxTemplate([token, templateId, dataContext]) {
-    if (token !== 'TOKEN_TEST_BYPASS') {
-      verifyToken(token);
-    }
+    verifyToken(token);
     const db = getDb();
 
     const { data: tmpl, error: tmplErr } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
