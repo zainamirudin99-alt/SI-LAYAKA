@@ -3240,6 +3240,22 @@ module.exports = async (req, res) => {
           body: JSON.stringify({ method, params: proxiedParams, remoteSession })
         });
         const result = await response.json();
+        
+        // Post-processing: Jika generateDocument sukses via GAS, sinkronkan status usulan ke Supabase
+        if (result && result.success && method === 'generateDocument') {
+          const payload = params[1];
+          if (payload && payload.layanan === 'Kenaikan Pangkat' && payload.entries) {
+            const token = params[0];
+            for (const entry of payload.entries) {
+              try {
+                await methods.tandaiOpsiKpSelesai([token, entry.targetNip, payload.subLayanan]);
+              } catch (dbErr) {
+                console.error('[rpc proxy post-process] Gagal memperbarui status di Supabase:', dbErr.message);
+              }
+            }
+          }
+        }
+
         res.status(200).json(result);
         return;
       } catch (proxyErr) {
