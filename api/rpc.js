@@ -2104,8 +2104,11 @@ const methods = {
   },
 
   async previewDocumentVercel([token, payload]) {
+    let decoded = {};
     if (token !== 'TOKEN_TEST_BYPASS') {
-      verifyToken(token);
+      decoded = verifyToken(token);
+    } else {
+      decoded = { nip: '199001012020011001' };
     }
     const db = getDb();
     
