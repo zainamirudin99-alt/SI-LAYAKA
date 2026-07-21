@@ -250,11 +250,18 @@ function previewKontrakDocument(sessionToken, payload) {
     const tempName = '[PREVIEW] Kontrak - ' + sanitizeFileName_(dataContext.nama_lengkap || 'pegawai') + ' - ' + new Date().getTime();
 
     const copyFile = renderTemplateCopy_(templates[0].fileId, dataContext, tempName);
-    try { copyFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) { Logger.log('Share err: '+e.message); }
+
+    // Konversi hasil render GDocs ke PDF dan encode ke Base64
+    const pdfBlob = copyFile.getAs('application/pdf');
+    const base64 = Utilities.base64Encode(pdfBlob.getBytes());
+
+    // Hapus file copy sementara dari Google Drive
+    copyFile.setTrashed(true);
+
     return {
       success: true,
-      previewUrl: `https://docs.google.com/document/d/${copyFile.getId()}/preview`,
-      tempFileId: copyFile.getId()
+      base64: base64,
+      fileName: tempName + '.pdf'
     };
   } catch (err) {
     return { success: false, message: 'Gagal membuat preview Kontrak: ' + err.message };

@@ -1645,13 +1645,29 @@ function runPreview(payload) {
   google.script.run
     .withSuccessHandler(res => {
       if (res.success) {
-        openPreviewModal(res.previewUrl);
+        if (res.base64) {
+          const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
+          openPreviewModal(blobUrl);
+        } else {
+          openPreviewModal(res.previewUrl);
+        }
       } else {
         showToast('error', res.message);
       }
     })
     .withFailureHandler(err => showToast('error', 'Gagal preview: ' + (err.message || err)))
     .previewDocument(SESSION.token, payload);
+}
+
+function convertBase64ToBlobUrl_(base64, mimeType) {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  const blob = new Blob([bytes], { type: mimeType });
+  return URL.createObjectURL(blob);
 }
 
 function runGenerate(payload) {
@@ -3338,7 +3354,18 @@ function runKontrakPreviewGenerate(mode) {
   if (mode === 'preview') {
     showToast('info', 'Membuat preview Kontrak...');
     google.script.run
-      .withSuccessHandler(res => res.success ? openPreviewModal(res.previewUrl) : showToast('error', res.message))
+      .withSuccessHandler(res => {
+        if (res.success) {
+          if (res.base64) {
+            const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
+            openPreviewModal(blobUrl);
+          } else {
+            openPreviewModal(res.previewUrl);
+          }
+        } else {
+          showToast('error', res.message);
+        }
+      })
       .withFailureHandler(err => showToast('error', 'Gagal preview Kontrak: ' + (err.message || err)))
       .previewKontrakDocument(SESSION.token, payload);
     return;

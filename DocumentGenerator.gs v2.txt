@@ -233,19 +233,17 @@ function previewDocument(sessionToken, payload) {
 
     const copyFile = renderMultiEntryDocument_(payload.templateFileId, entries, tempName);
 
-    // Otomatis buka akses "siapapun yang punya link bisa melihat" agar
-    // iframe preview langsung tampil tanpa dialog "Request Access".
-    try {
-      copyFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    } catch (shareErr) {
-      Logger.log('Gagal set sharing preview: ' + shareErr.message);
-      // Tetap lanjut — preview mungkin masih bisa dibuka jika user sudah login Google.
-    }
+    // Konversi hasil render GDocs ke PDF dan encode ke Base64
+    const pdfBlob = copyFile.getAs('application/pdf');
+    const base64 = Utilities.base64Encode(pdfBlob.getBytes());
+
+    // Hapus file copy sementara dari Google Drive
+    copyFile.setTrashed(true);
 
     return {
       success: true,
-      previewUrl: `https://docs.google.com/document/d/${copyFile.getId()}/preview`,
-      tempFileId: copyFile.getId(),
+      base64: base64,
+      fileName: tempName + '.pdf',
       jumlahEntri: entries.length
     };
   } catch (err) {
