@@ -344,6 +344,78 @@ function docxFormatTanggal(value) {
   return `${d.getDate()} ${BULAN_ID[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+function docxBulanKeAngka(namaBulan) {
+  if (typeof namaBulan === 'number') return namaBulan;
+  const idx = BULAN_ID.findIndex(b => b.toLowerCase() === String(namaBulan || '').trim().toLowerCase());
+  if (idx !== -1) return idx + 1;
+  const n = Number(namaBulan);
+  return isNaN(n) ? 0 : n;
+}
+
+function docxNum(v) {
+  if (v === '' || v === null || v === undefined) return 0;
+  const n = Number(v);
+  return isNaN(n) ? 0 : n;
+}
+
+function docxSum(arr, fieldName) {
+  if (!Array.isArray(arr)) return 0;
+  return arr.reduce((s, item) => s + docxNum(item && item[fieldName]), 0);
+}
+
+function docxTerbilang(value) {
+  const n = Math.round(Number(value) || 0);
+  if (n === 0) return 'nol';
+  if (n < 0) return 'minus ' + docxTerbilang(Math.abs(n));
+
+  const satuan = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan'];
+
+  function subThree(num) {
+    let s = '';
+    const h = Math.floor(num / 100);
+    const rem = num % 100;
+    const t = Math.floor(rem / 10);
+    const s1 = rem % 10;
+
+    if (h > 0) s += (h === 1 ? 'seratus' : satuan[h] + ' ratus') + ' ';
+    if (rem >= 11 && rem <= 19) {
+      s += (rem === 10 ? 'sepuluh' : rem === 11 ? 'sebelas' : satuan[s1] + ' belas') + ' ';
+    } else if (rem === 10) {
+      s += 'sepuluh ';
+    } else {
+      if (t > 0) s += satuan[t] + ' puluh ';
+      if (s1 > 0) s += satuan[s1] + ' ';
+    }
+    return s.trim();
+  }
+
+  const groups = [
+    { value: 1000000000000, label: 'triliun' },
+    { value: 1000000000, label: 'miliar' },
+    { value: 1000000, label: 'juta' },
+    { value: 1000, label: 'ribu' }
+  ];
+
+  let remaining = n;
+  let parts = [];
+
+  for (const g of groups) {
+    const count = Math.floor(remaining / g.value);
+    if (count > 0) {
+      if (g.label === 'ribu' && count === 1) {
+        parts.push('seribu');
+      } else {
+        parts.push(subThree(count) + ' ' + g.label);
+      }
+      remaining %= g.value;
+    }
+  }
+  if (remaining > 0) parts.push(subThree(remaining));
+
+  return parts.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+
 function docxDiffYears(a, b) {
   const d1 = toDate(a), d2 = toDate(b);
   if (!d1 || !d2) return 0;
@@ -1269,7 +1341,10 @@ const methods = {
         { label: 'Masa Kerja (Thn)',      contoh: '{{ diff_years(tmt, today) }}' },
         { label: 'Logika (ternary)',       contoh: "{{ a > b ? 'X' : 'Y' }}" },
         { label: 'Loop Baris Tabel',      contoh: '{{#nama_loop}} ... {{/nama_loop}}' },
-        { label: 'Variabel turunan ("set")', contoh: '{{ set total = a + b }}{{ total }}' }
+        { label: 'Variabel turunan ("set")', contoh: '{{ set total = a + b }}{{ total }}' },
+        { label: 'Jumlah Kolom Loop (sum)', contoh: "{{ sum(penilaian, 'ak_konversi_didapat') }}" },
+        { label: 'Ubah ke Angka (num)',    contoh: '{{ num(nilai_string) }}' },
+        { label: 'Nama Bulan -> Angka',    contoh: '{{ bulan_ke_angka(bulan_selesai_penilaian) }}' }
       ],
       catatan: firstRow
         ? `${kolomAktif.length} kolom tersedia dari database.`
