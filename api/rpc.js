@@ -711,10 +711,10 @@ function docxEvaluateTag(rawExpr, dataCtx) {
 
 function docxCleanMassalLoops(xml) {
   let cleaned = xml;
-  // Regex toleran XML untuk mencari dan menghapus tag loop massal gantung
-  const reDataMassalOpen = /\{\{\s*(?:<[^>]+>)*#\s*(?:<[^>]+>)*d\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*t\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*_\s*(?:<[^>]+>)*m\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*l\s*(?:<[^>]+>)*\}\}/gi;
+  // Regex toleran XML untuk mencari dan menghapus tag loop massal gantung (baik # maupun ^)
+  const reDataMassalOpen = /\{\{\s*(?:<[^>]+>)*[#^]\s*(?:<[^>]+>)*d\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*t\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*_\s*(?:<[^>]+>)*m\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*l\s*(?:<[^>]+>)*\}\}/gi;
   const reDataMassalClose = /\{\{\s*(?:<[^>]+>)*\/\s*(?:<[^>]+>)*d\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*t\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*_\s*(?:<[^>]+>)*m\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*l\s*(?:<[^>]+>)*\}\}/gi;
-  const reIsLastOpen = /\{\{\s*(?:<[^>]+>)*#\s*(?:<[^>]+>)*i\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*L\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*t\s*(?:<[^>]+>)*\}\}/gi;
+  const reIsLastOpen = /\{\{\s*(?:<[^>]+>)*[#^]\s*(?:<[^>]+>)*i\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*L\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*t\s*(?:<[^>]+>)*\}\}/gi;
   const reIsLastClose = /\{\{\s*(?:<[^>]+>)*\/\s*(?:<[^>]+>)*i\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*L\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*t\s*(?:<[^>]+>)*\}\}/gi;
 
   cleaned = cleaned.replace(reDataMassalOpen, '');
