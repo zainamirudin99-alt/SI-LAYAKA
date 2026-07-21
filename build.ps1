@@ -26,20 +26,31 @@ if (typeof google === 'undefined' || !google.script || !google.script.run) {
                 };
               }
               return async function(...args) {
+                const ctrl = new AbortController();
+                const timer = setTimeout(() => ctrl.abort(), 30000);
                 try {
                   const response = await fetch('/api/rpc', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ method: builderProp, params: args })
+                    body: JSON.stringify({ method: builderProp, params: args }),
+                    signal: ctrl.signal
                   });
+                  clearTimeout(timer);
                   const data = await response.json();
-                  if (response.ok) {
+                  console.log('[RPC]', builderProp, '->', data);
+                  // Server selalu mengembalikan HTTP 200; bedakan sukses dari field `success`
+                  if (response.ok && data && data.success !== false) {
                     if (successHandler) successHandler(data);
                   } else {
-                    if (failureHandler) failureHandler(data.message || 'Server error');
+                    const msg = (data && (data.message || data.error)) || 'Server error';
+                    if (failureHandler) failureHandler({ message: msg });
+                    else console.error('[RPC] failure (no handler):', msg);
                   }
                 } catch (err) {
-                  if (failureHandler) failureHandler(err.message || err);
+                  clearTimeout(timer);
+                  const msg = err.name === 'AbortError' ? 'Request timeout (30s)' : (err.message || String(err));
+                  console.error('[RPC] catch:', builderProp, msg);
+                  if (failureHandler) failureHandler({ message: msg });
                 }
               };
             }
