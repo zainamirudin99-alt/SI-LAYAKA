@@ -634,6 +634,21 @@ function docxEvaluateTag(rawExpr, dataCtx) {
   return result === undefined || result === null ? '' : String(result);
 }
 
+function docxCleanMassalLoops(xml) {
+  let cleaned = xml;
+  // Regex toleran XML untuk mencari dan menghapus tag loop massal gantung
+  const reDataMassalOpen = /\{\{\s*(?:<[^>]+>)*#\s*(?:<[^>]+>)*d\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*t\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*_\s*(?:<[^>]+>)*m\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*l\s*(?:<[^>]+>)*\}\}/gi;
+  const reDataMassalClose = /\{\{\s*(?:<[^>]+>)*\/\s*(?:<[^>]+>)*d\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*t\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*_\s*(?:<[^>]+>)*m\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*l\s*(?:<[^>]+>)*\}\}/gi;
+  const reIsLastOpen = /\{\{\s*(?:<[^>]+>)*#\s*(?:<[^>]+>)*i\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*L\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*t\s*(?:<[^>]+>)*\}\}/gi;
+  const reIsLastClose = /\{\{\s*(?:<[^>]+>)*\/\s*(?:<[^>]+>)*i\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*L\s*(?:<[^>]+>)*a\s*(?:<[^>]+>)*s\s*(?:<[^>]+>)*t\s*(?:<[^>]+>)*\}\}/gi;
+
+  cleaned = cleaned.replace(reDataMassalOpen, '');
+  cleaned = cleaned.replace(reDataMassalClose, '');
+  cleaned = cleaned.replace(reIsLastOpen, '');
+  cleaned = cleaned.replace(reIsLastClose, '');
+  return cleaned;
+}
+
 /**
  * Render template DOCX menggunakan docxtemplater + custom parser yang
  * mendukung sintaks {{ ekspresi }} yang sama dengan TemplateEngine.gs.
@@ -647,6 +662,17 @@ function docxRenderTemplate(templateBuffer, dataCtx) {
   const Docxtemplater = require('docxtemplater');
 
   const zip = new PizZip(templateBuffer);
+
+  // Bersihkan loop massal gantung dari seluruh bagian berkas XML di dalam ZIP
+  Object.keys(zip.files).forEach(fileName => {
+    if (fileName.endsWith('.xml')) {
+      const content = zip.files[fileName].asText();
+      const cleaned = docxCleanMassalLoops(content);
+      if (cleaned !== content) {
+        zip.file(fileName, cleaned);
+      }
+    }
+  });
 
   // Custom parser: mendukung {{ ekspresi }} penuh (set, filter, fungsi, ternary)
   const customParser = tag => ({
