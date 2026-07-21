@@ -1808,7 +1808,7 @@ function loadTemplateList() {
           ? '<span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">Word</span>'
           : '<span style="background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">GDocs</span>';
         const previewBtn = t.tipe === 'docx'
-          ? `<button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="previewDocxTemplate('${t.id}',encodeURIComponent(t.file_id||''),encodeURIComponent(t.judul||''))">Preview</button>`
+          ? `<button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="previewDocxTemplate('${t.id}')">Preview</button>`
           : '';
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -1834,28 +1834,29 @@ function deleteTemplateHandler(id) {
     .deleteTemplate(SESSION.token, id);
 }
 
-function previewDocxTemplate(id, encodedFileId, encodedJudul) {
-  // Gunakan MS Office Online Viewer - tidak perlu roundtrip ke backend!
-  const fileUrl = encodedFileId ? decodeURIComponent(encodedFileId) : '';
-  const judul   = encodedJudul  ? decodeURIComponent(encodedJudul)  : 'template_preview.docx';
+function previewDocxTemplate(id) {
+  showToast('info', 'Membuat preview template...');
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) {
+        // Microsoft Office Online Viewer dengan signed URL (bucket private aman)
+        const viewerUrl = 'https://view.officeapps.live.com/op/embed.aspx?src=' + encodeURIComponent(res.signedUrl);
 
-  if (!fileUrl) {
-    showToast('error', 'URL file tidak tersedia untuk preview.');
-    return;
-  }
-
-  // MS Office Online Viewer: render .docx langsung dari URL publik Supabase
-  const viewerUrl = 'https://view.officeapps.live.com/op/embed.aspx?src=' + encodeURIComponent(fileUrl);
-
-  document.getElementById('modalTitle').textContent = 'Preview: ' + judul;
-  document.getElementById('modalBody').innerHTML =
-    '<div style="width:100%;height:600px;overflow:hidden;border-radius:4px;">' +
-      '<iframe src="' + viewerUrl + '" width="100%" height="100%" frameborder="0" style="border:none;" allow="fullscreen"></iframe>' +
-    '</div>' +
-    '<div style="text-align:center;margin-top:12px;">' +
-      '<a href="' + escapeHtml(fileUrl) + '" target="_blank" rel="noopener" class="btn btn-outline" style="font-size:13px;">Download File Asli</a>' +
-    '</div>';
-  document.getElementById('modalOverlay').style.display = 'flex';
+        document.getElementById('modalTitle').textContent = 'Preview: ' + res.judul;
+        document.getElementById('modalBody').innerHTML =
+          '<div style="width:100%;height:600px;overflow:hidden;border-radius:4px;">' +
+            '<iframe src="' + viewerUrl + '" width="100%" height="100%" frameborder="0" style="border:none;" allow="fullscreen"></iframe>' +
+          '</div>' +
+          '<div style="text-align:center;margin-top:12px;">' +
+            '<a href="' + escapeHtml(res.signedUrl) + '" target="_blank" rel="noopener" class="btn btn-outline" style="font-size:13px;">Download File Asli</a>' +
+          '</div>';
+        document.getElementById('modalOverlay').style.display = 'flex';
+      } else {
+        showToast('error', res.message);
+      }
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memproses preview: ' + (err.message || err)))
+    .getTemplateViewUrl(SESSION.token, id);
 }
 
 /* ------------------------- TOAST ------------------------- */

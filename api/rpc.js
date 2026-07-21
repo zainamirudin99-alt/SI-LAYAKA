@@ -1316,6 +1316,39 @@ const methods = {
     };
   },
 
+  /**
+   * Membuat signed read URL untuk file template DOCX agar bisa di-preview oleh
+   * Microsoft Office Online Viewer secara aman (bucket private).
+   */
+  async getTemplateViewUrl([token, templateId]) {
+    verifyToken(token);
+    const db = getDb();
+
+    const { data: tmpl, error: tmplErr } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
+    if (tmplErr) throw tmplErr;
+    if (!tmpl) return { success: false, message: 'Template tidak ditemukan.' };
+    if (tmpl.tipe !== 'docx') return { success: false, message: 'Template ini bukan tipe DOCX.' };
+
+    let path = tmpl.file_id;
+    if (path.includes('/storage/v1/object/public/lampiran-usulan/')) {
+      path = path.split('/storage/v1/object/public/lampiran-usulan/')[1];
+    } else if (path.includes('/storage/v1/object/sign/lampiran-usulan/')) {
+      path = path.split('/storage/v1/object/sign/lampiran-usulan/')[1].split('?')[0];
+    }
+
+    const { data, error } = await db.storage
+      .from('lampiran-usulan')
+      .createSignedUrl(path, 7200); // 2 jam
+
+    if (error) throw error;
+
+    return {
+      success: true,
+      signedUrl: data.signedUrl,
+      judul: tmpl.judul
+    };
+  },
+
   async scanTemplateFormulas([token, payload]) {
     verifyToken(token);
     const input = payload || {};
