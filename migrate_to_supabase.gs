@@ -302,7 +302,9 @@ function cekKonfigurasi_() {
 }
 
 function safeCellValue_(val) {
-  if (val instanceof Date) return val.toISOString();
+  if (val instanceof Date) {
+    return Utilities.formatDate(val, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  }
   if (val === null || val === undefined) return null;
   const s = String(val).trim();
   return s === '' ? null : s;
