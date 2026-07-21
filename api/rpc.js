@@ -1246,9 +1246,7 @@ const methods = {
   // ---- TEMPLATE MANAGEMENT ----
 
   async addTemplate([token, payload]) {
-    if (token !== 'TOKEN_TEST_BYPASS') {
-      requireRole(token, ['admin', 'super_admin']);
-    }
+    requireRole(token, ['admin', 'super_admin']);
     // Accept the original browser payload as well as the DOCX-aware shape.
     // This keeps existing Google Drive templates working while allowing the
     // Vercel UI to add DOCX templates.
@@ -1295,9 +1293,7 @@ const methods = {
    * tanpa melewati Vercel Function (bypass body limit & timeout).
    */
   async getTemplateUploadUrl([token, judul, layanan, sub_menu]) {
-    if (token !== 'TOKEN_TEST_BYPASS') {
-      requireRole(token, ['admin', 'super_admin']);
-    }
+    requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
 
     const safeName = String(judul || 'template').replace(/[^a-zA-Z0-9._-]/g, '-');

@@ -3503,10 +3503,6 @@ function bindTemplateManagerForm() {
           uploadResp = await fetch(urlRes.signedUrl, {
             method: 'PUT',
             body: file,
-            headers: {
-              'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-              'x-upsert': 'false'
-            },
             signal: uploadCtrl.signal
           });
           clearTimeout(uploadTimer);
