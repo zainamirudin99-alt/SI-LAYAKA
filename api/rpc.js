@@ -2104,9 +2104,7 @@ const methods = {
   },
 
   async previewDocumentVercel([token, payload]) {
-    if (token !== 'TOKEN_TEST_BYPASS') {
-      verifyToken(token);
-    }
+    const decoded = verifyToken(token);
     const db = getDb();
     
     const { templateId, isKontrak, entries, subLayanan, layanan, formData } = payload || {};
