@@ -1708,34 +1708,77 @@ function bindTemplateManagerForm() {
       tipe
     };
 
-    if (tipe === 'gdocs') {
-      payload.file_id = val('tplDriveLink');
-    } else {
-      const fileInput = document.getElementById('tplDocxFile');
-      if (!fileInput.files || !fileInput.files[0]) {
-        showToast('error', 'Pilih file .docx terlebih dahulu.');
-        setBtnLoading(btn, false, 'Simpan Template');
-        return;
-      }
-      const base64 = await fileToBase64(fileInput.files[0]);
-      payload.docxBase64 = base64;
-    }
 
-    google.script.run
-      .withSuccessHandler(res => {
-        setBtnLoading(btn, false, 'Simpan Template');
-        showToast(res.success ? 'success' : 'error', res.message);
-        if (res.success) {
-          document.getElementById('templateForm').reset();
-          toggleTplTipeInput();
-          loadTemplateList();
+    try {
+      if (tipe === 'gdocs') {
+        payload.file_id = val('tplDriveLink');
+      } else {
+        // ---- DOCX: upload langsung dari browser via Signed URL ----
+        const fileInput = document.getElementById('tplDocxFile');
+        if (!fileInput.files || !fileInput.files[0]) {
+          showToast('error', 'Pilih file .docx terlebih dahulu.');
+          setBtnLoading(btn, false, 'Simpan Template');
+          return;
         }
-      })
-      .withFailureHandler(err => {
-        setBtnLoading(btn, false, 'Simpan Template');
-        showToast('error', 'Gagal menyimpan: ' + (err.message || err));
-      })
-      .addTemplate(SESSION.token, payload);
+        const file = fileInput.files[0];
+
+        // Step 1: Minta signed upload URL dari backend (payload kecil, cepat)
+        setBtnLoading(btn, true, 'Menyiapkan upload...');
+        const urlRes = await new Promise((resolve, reject) => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(err => reject(new Error(err.message || String(err))))
+            .getTemplateUploadUrl(SESSION.token, payload.judul, payload.layanan, payload.sub_menu);
+        });
+
+        if (!urlRes || !urlRes.success) {
+          throw new Error(urlRes?.message || 'Gagal mendapatkan URL upload.');
+        }
+
+        // Step 2: Upload file LANGSUNG ke Supabase Storage dari browser
+        // (bypass Vercel Function - tidak ada base64, tidak ada body limit 4.5MB!)
+        setBtnLoading(btn, true, 'Mengupload file...');
+        const uploadResp = await fetch(urlRes.signedUrl, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'x-upsert': 'false'
+          }
+        });
+
+        if (!uploadResp.ok) {
+          const errText = await uploadResp.text().catch(() => '');
+          throw new Error(`Upload gagal (${uploadResp.status}): ${errText || 'Hubungi admin.'}`);
+        }
+
+        // Step 3: Kirim hanya metadata (path & publicUrl) - tanpa base64!
+        payload.storagePath = urlRes.path;
+        payload.publicUrl   = urlRes.publicUrl;
+      }
+
+      // Simpan record template ke database
+      setBtnLoading(btn, true, 'Menyimpan...');
+      google.script.run
+        .withSuccessHandler(res => {
+          setBtnLoading(btn, false, 'Simpan Template');
+          showToast(res.success ? 'success' : 'error', res.message);
+          if (res.success) {
+            document.getElementById('templateForm').reset();
+            toggleTplTipeInput();
+            loadTemplateList();
+          }
+        })
+        .withFailureHandler(err => {
+          setBtnLoading(btn, false, 'Simpan Template');
+          showToast('error', 'Gagal menyimpan: ' + (err.message || err));
+        })
+        .addTemplate(SESSION.token, payload);
+
+    } catch (err) {
+      setBtnLoading(btn, false, 'Simpan Template');
+      showToast('error', err.message || 'Terjadi kesalahan, coba lagi.');
+    }
   });
 }
 

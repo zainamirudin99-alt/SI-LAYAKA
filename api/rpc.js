@@ -1255,7 +1255,6 @@ const methods = {
     const layanan = input.layanan;
     const sub_menu = input.sub_menu || input.subMenu;
     const tipe = input.tipe || 'gdocs';
-    const docxBase64 = input.docxBase64;
     let file_id = input.file_id || input.driveLink || '';
     if (!judul)     return { success: false, message: 'Judul template wajib diisi.' };
     if (!layanan)   return { success: false, message: 'Layanan wajib dipilih.' };
@@ -1269,9 +1268,11 @@ const methods = {
       finalFileId = extractDriveFileId(String(file_id).trim());
       if (!finalFileId) return { success: false, message: 'Link Google Drive tidak valid.' };
     } else if (tipe === 'docx') {
-      if (!docxBase64) return { success: false, message: 'File .docx wajib diunggah.' };
-      const { publicUrl } = await uploadTemplateDocx(docxBase64, judul);
-      finalFileId = publicUrl;
+      // File sudah diupload langsung dari browser ke Supabase via signed URL.
+      // Backend hanya menerima path/publicUrl — TIDAK ada base64 yang melewati Vercel.
+      const storagePath = input.storagePath || input.publicUrl || '';
+      if (!storagePath) return { success: false, message: 'Path file .docx wajib diisi (upload via signed URL dulu).' };
+      finalFileId = input.publicUrl || storagePath;
     }
 
     const db = getDb();
@@ -1284,6 +1285,35 @@ const methods = {
     });
     if (error) throw error;
     return { success: true, message: 'Template berhasil disimpan.' };
+  },
+
+  /**
+   * Membuat signed upload URL untuk file template DOCX.
+   * Browser menggunakan URL ini untuk upload LANGSUNG ke Supabase Storage
+   * tanpa melewati Vercel Function (bypass body limit & timeout).
+   */
+  async getTemplateUploadUrl([token, judul, layanan, sub_menu]) {
+    requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+
+    const safeName = String(judul || 'template').replace(/[^a-zA-Z0-9._-]/g, '-');
+    const path = `templates/${Date.now()}-${safeName}.docx`;
+
+    const { data, error } = await db.storage
+      .from('lampiran-usulan')
+      .createSignedUploadUrl(path);
+    if (error) throw error;
+
+    const { data: pubData } = db.storage
+      .from('lampiran-usulan')
+      .getPublicUrl(path);
+
+    return {
+      success:   true,
+      signedUrl: data.signedUrl,
+      path,
+      publicUrl: pubData?.publicUrl || path
+    };
   },
 
   async scanTemplateFormulas([token, payload]) {
