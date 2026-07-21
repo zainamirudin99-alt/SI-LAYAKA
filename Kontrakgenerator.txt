@@ -346,6 +346,4 @@ function generateKontrakDocument(sessionToken, payload) {
     }
   } catch (err) {
     return { success: false, message: 'Gagal generate dokumen Kontrak: ' + err.message };
-  }
-}
 }
