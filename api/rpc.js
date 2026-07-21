@@ -2132,6 +2132,21 @@ const methods = {
       if (firstEntry.formData.ada_ijazah_baru_2023 !== undefined) {
         alias.ada_ijazah_baru_setelah_2023 = firstEntry.formData.ada_ijazah_baru_2023;
       }
+      const map = {
+        tgl_lhr: 'tanggal_lahir',
+        tmp_lhr: 'tempat_lahir',
+        jns_kel: 'jenis_kelamin',
+        tmt_gol: 'tmt_golongan',
+        tmt_jab: 'tmt_jabatan',
+        unit_es_ii: 'unit_kerja',
+        karpeg: 'kartu_pegawai'
+      };
+      for (const [key, val] of Object.entries(map)) {
+        if (employee && employee[key] !== undefined && alias[val] === undefined) alias[val] = employee[key];
+        if (employee && employee[val] !== undefined && alias[key] === undefined) alias[key] = employee[val];
+        if (firstEntry.formData && firstEntry.formData[key] !== undefined && alias[val] === undefined) alias[val] = firstEntry.formData[key];
+        if (firstEntry.formData && firstEntry.formData[val] !== undefined && alias[key] === undefined) alias[key] = firstEntry.formData[val];
+      }
       dataCtx = Object.assign({}, employee, firstEntry.formData, alias, derived);
     } else if (layanan === 'Pensiun') {
       if (subLayanan === 'DPCP') {
@@ -2198,6 +2213,21 @@ const methods = {
       }
       if (firstEntry.formData.ada_ijazah_baru_2023 !== undefined) {
         alias.ada_ijazah_baru_setelah_2023 = firstEntry.formData.ada_ijazah_baru_2023;
+      }
+      const map = {
+        tgl_lhr: 'tanggal_lahir',
+        tmp_lhr: 'tempat_lahir',
+        jns_kel: 'jenis_kelamin',
+        tmt_gol: 'tmt_golongan',
+        tmt_jab: 'tmt_jabatan',
+        unit_es_ii: 'unit_kerja',
+        karpeg: 'kartu_pegawai'
+      };
+      for (const [key, val] of Object.entries(map)) {
+        if (employee && employee[key] !== undefined && alias[val] === undefined) alias[val] = employee[key];
+        if (employee && employee[val] !== undefined && alias[key] === undefined) alias[key] = employee[val];
+        if (firstEntry.formData && firstEntry.formData[key] !== undefined && alias[val] === undefined) alias[val] = firstEntry.formData[key];
+        if (firstEntry.formData && firstEntry.formData[val] !== undefined && alias[key] === undefined) alias[key] = firstEntry.formData[val];
       }
       dataCtx = Object.assign({}, employee, firstEntry.formData, alias, derived);
     } else if (layanan === 'Pensiun') {
