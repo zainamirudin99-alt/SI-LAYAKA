@@ -527,7 +527,7 @@ function templateSum_(arr, fieldName) {
 /** Nama bulan Indonesia (atau angka yang sudah berupa angka) -> angka 1-12. */
 function templateBulanKeAngka_(namaBulan) {
   if (typeof namaBulan === 'number') return namaBulan;
-  const idx = BULAN_ID.findIndex(b => b.toLowerCase() === String(namaBulan || '').trim().toLowerCase());
+  const idx = UTILS_BULAN_ID.findIndex(b => b.toLowerCase() === String(namaBulan || '').trim().toLowerCase());
   if (idx !== -1) return idx + 1;
   const n = Number(namaBulan);
   return isNaN(n) ? 0 : n;
