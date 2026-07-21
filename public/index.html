@@ -1773,6 +1773,12 @@ if (typeof google === 'undefined' || !google.script || !google.script.run) {
  * =================================================================
  */
 
+// Helper function to read input values safely
+const val = id => {
+  const el = document.getElementById(id);
+  return el ? el.value.trim() : '';
+};
+
 let SESSION = { token: null, user: null };
 let FORM_OPTIONS = { golongan: [], jabatan: [], predikat: [], bulan: [], ijazahBaru: [] };
 let DOCGEN_FORM_OPTIONS = { predikat: [], ijazahBaru: [] };
