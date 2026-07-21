@@ -220,7 +220,7 @@ function appendElementByType_(targetBody, el) {
  * dan mengembalikan URL embed (iframe) untuk ditampilkan di frontend.
  */
 function previewDocument(sessionToken, payload) {
-  const employeeSession = requireRole_(sessionToken, ['admin', 'super_admin']);
+  const employeeSession = requireRole_(sessionToken, ['normal', 'user', 'admin', 'super_admin']);
   try {
     if (!payload.templateFileId) return { success: false, message: 'Template belum dipilih.' };
 
@@ -233,17 +233,16 @@ function previewDocument(sessionToken, payload) {
 
     const copyFile = renderMultiEntryDocument_(payload.templateFileId, entries, tempName);
 
-    // Konversi hasil render GDocs ke PDF dan encode ke Base64
-    const pdfBlob = copyFile.getAs('application/pdf');
-    const base64 = Utilities.base64Encode(pdfBlob.getBytes());
-
-    // Hapus file copy sementara dari Google Drive
-    copyFile.setTrashed(true);
+    try {
+      copyFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (shareErr) {
+      Logger.log('Gagal set sharing GDocs preview: ' + shareErr.message);
+    }
 
     return {
       success: true,
-      base64: base64,
-      fileName: tempName + '.pdf',
+      previewUrl: `https://docs.google.com/document/d/${copyFile.getId()}/preview`,
+      tempFileId: copyFile.getId(),
       jumlahEntri: entries.length
     };
   } catch (err) {
@@ -254,11 +253,12 @@ function previewDocument(sessionToken, payload) {
 
 /**
  * GENERATE: render dokumen final (bisa berisi >1 entri digabung dalam
- * satu file), konversi ke PDF, simpan otomatis ke folder Drive output,
- * hapus file Docs sementara, kembalikan link download langsung ke frontend.
+ * satu file), simpan otomatis ke folder Drive output.
+ * - Jika pemanggil ber-role 'normal' atau 'user': dikonversi ke PDF, file Docs aslinya dihapus.
+ * - Jika pemanggil ber-role 'admin' atau 'super_admin': tetap disimpan sebagai Google Docs.
  */
 function generateDocument(sessionToken, payload) {
-  const employeeSession = requireRole_(sessionToken, ['admin', 'super_admin']);
+  const employeeSession = requireRole_(sessionToken, ['normal', 'user', 'admin', 'super_admin']);
   try {
     if (!payload.templateFileId) return { success: false, message: 'Template belum dipilih.' };
 
@@ -274,9 +274,6 @@ function generateDocument(sessionToken, payload) {
     const docCopy = renderMultiEntryDocument_(payload.templateFileId, entries, fileName);
 
     // ── ROUTING OUTPUT FOLDER berdasarkan layanan ──────────────────────
-    // Kenaikan Pangkat → FOLDER_KP_OUTPUT (tetap Google Docs, bukan PDF)
-    // Pensiun (DPCP/SUPER) → FOLDER_PENSIUN_OUTPUT
-    // Kontrak Tendik/Dosen → FOLDER_KONTRAK_ROOT / sub-folder tahun
     const layanan = String(payload.layanan || '').trim();
     let outputFolder;
     if (layanan === 'Pensiun') {
@@ -300,16 +297,42 @@ function generateDocument(sessionToken, payload) {
       nipYangDigenerate.forEach(nip => tandaiOpsiUsulanKpSelesai_(nip, payload.subLayanan, employeeSession.nip));
     }
 
-    return {
-      success: true,
-      message: entries.length > 1
-        ? `Dokumen berhasil dibuat (${entries.length} data digabung dalam satu file).`
-        : 'Dokumen berhasil dibuat.',
-      fileId: docCopy.getId(),
-      fileName: fileName,
-      viewUrl: docCopy.getUrl(),
-      jumlahEntri: entries.length
-    };
+    const userRole = getUserRole_(employeeSession.nip);
+    const isNormalOrUser = (userRole === 'normal' || userRole === 'user');
+
+    if (isNormalOrUser) {
+      // Konversi ke PDF
+      const pdfBlob = docCopy.getAs('application/pdf');
+      pdfBlob.setName(fileName + '.pdf');
+      const pdfFile = outputFolder.createFile(pdfBlob);
+      try { pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) {}
+      
+      // Hapus Google Docs aslinya
+      docCopy.setTrashed(true);
+
+      return {
+        success: true,
+        message: 'Dokumen berhasil dibuat sebagai PDF.',
+        fileId: pdfFile.getId(),
+        fileName: fileName + '.pdf',
+        viewUrl: pdfFile.getUrl(),
+        jumlahEntri: entries.length,
+        outputType: 'pdf'
+      };
+    } else {
+      // Admin / Super Admin: Tetap kembalikan Google Docs
+      return {
+        success: true,
+        message: entries.length > 1
+          ? `Dokumen berhasil dibuat (${entries.length} data digabung dalam satu file).`
+          : 'Dokumen berhasil dibuat.',
+        fileId: docCopy.getId(),
+        fileName: fileName,
+        viewUrl: docCopy.getUrl(),
+        jumlahEntri: entries.length,
+        outputType: 'gdocs'
+      };
+    }
   } catch (err) {
     return { success: false, message: 'Gagal generate dokumen: ' + err.message };
   }

@@ -1693,10 +1693,16 @@ function openPreviewModal(url) {
 }
 function openDownloadModal(res) {
   document.getElementById('modalTitle').textContent = 'Dokumen Siap';
+  const isPdf = res.outputType === 'pdf' || String(res.fileName).toLowerCase().endsWith('.pdf');
+  const msg = isPdf 
+    ? `File <strong>${escapeHtml(res.fileName)}</strong> berhasil dibuat sebagai PDF dan tersimpan di folder "Kenaikan Pangkat".`
+    : `File <strong>${escapeHtml(res.fileName)}</strong> berhasil dibuat sebagai Google Docs dan tersimpan di folder "Kenaikan Pangkat".`;
+  const btnLabel = isPdf ? 'Unduh PDF' : 'Buka Google Docs';
+
   document.getElementById('modalBody').innerHTML = `
     <div style="padding:24px; text-align:center;">
-      <p style="margin-bottom:18px;">File <strong>${escapeHtml(res.fileName)}</strong> berhasil dibuat sebagai Google Docs dan tersimpan di folder "Kenaikan Pangkat".</p>
-      <a class="btn btn-primary" style="text-decoration:none;" href="${res.viewUrl}" target="_blank" rel="noopener">Buka Dokumen</a>
+      <p style="margin-bottom:18px;">${msg}</p>
+      <a class="btn btn-primary" style="text-decoration:none;" href="${res.viewUrl}" target="_blank" rel="noopener">${btnLabel}</a>
     </div>`;
   document.getElementById('modalOverlay').style.display = 'flex';
 }
@@ -3390,12 +3396,17 @@ function runKontrakPreviewGenerate(mode) {
 /** REF (konfirmasi Titto): hasil generate Kontrak SELALU 2 file (Google Docs & PDF) -- tampilkan tautan keduanya. */
 function openKontrakResultModal(res) {
   document.getElementById('modalTitle').textContent = 'Dokumen Kontrak Siap';
+  let linksHtml = '';
+  if (res.outputType === 'pdf') {
+    linksHtml = `<a class="btn btn-primary" style="text-decoration:none;" href="${res.pdfDownloadUrl}" target="_blank" rel="noopener">Unduh PDF</a>`;
+  } else {
+    linksHtml = `<a class="btn btn-primary" style="text-decoration:none;" href="${res.docViewUrl}" target="_blank" rel="noopener">Buka Google Docs</a>`;
+  }
   document.getElementById('modalBody').innerHTML = `
     <div style="padding:24px; text-align:center;">
-      <p style="margin-bottom:18px;">Dokumen Kontrak berhasil dibuat dalam 2 format, tersimpan di folder "Kontrak".</p>
+      <p style="margin-bottom:18px;">Dokumen Kontrak berhasil dibuat dan tersimpan di folder "Kontrak".</p>
       <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-        <a class="btn btn-outline" style="text-decoration:none;" href="${res.docViewUrl}" target="_blank" rel="noopener">Buka Google Docs</a>
-        <a class="btn btn-primary" style="text-decoration:none;" href="${res.pdfDownloadUrl}" target="_blank" rel="noopener">Unduh PDF</a>
+        ${linksHtml}
       </div>
     </div>`;
   document.getElementById('modalOverlay').style.display = 'flex';

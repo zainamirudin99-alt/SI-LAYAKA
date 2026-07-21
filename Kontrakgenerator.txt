@@ -234,6 +234,7 @@ function searchEmployeesForKontrak(sessionToken, query) {
 }
 
 /** Preview dokumen Kontrak (sementara, tidak disimpan permanen). */
+/** Preview dokumen Kontrak (sementara, tidak disimpan permanen). */
 function previewKontrakDocument(sessionToken, payload) {
   requireRole_(sessionToken, ['normal', 'user', 'admin', 'super_admin']);
   try {
@@ -251,17 +252,16 @@ function previewKontrakDocument(sessionToken, payload) {
 
     const copyFile = renderTemplateCopy_(templates[0].fileId, dataContext, tempName);
 
-    // Konversi hasil render GDocs ke PDF dan encode ke Base64
-    const pdfBlob = copyFile.getAs('application/pdf');
-    const base64 = Utilities.base64Encode(pdfBlob.getBytes());
-
-    // Hapus file copy sementara dari Google Drive
-    copyFile.setTrashed(true);
+    try {
+      copyFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch(shareErr) {
+      Logger.log('Gagal set sharing kontrak preview: ' + shareErr.message);
+    }
 
     return {
       success: true,
-      base64: base64,
-      fileName: tempName + '.pdf'
+      previewUrl: `https://docs.google.com/document/d/${copyFile.getId()}/preview`,
+      tempFileId: copyFile.getId()
     };
   } catch (err) {
     return { success: false, message: 'Gagal membuat preview Kontrak: ' + err.message };
@@ -269,14 +269,9 @@ function previewKontrakDocument(sessionToken, payload) {
 }
 
 /**
- * Generate dokumen Kontrak -- REVISI (konfirmasi Titto): menghasilkan
- * DUA file sekaligus, Google Docs DAN PDF, keduanya disimpan di folder
- * khusus "Kontrak" (terpisah dari Kenaikan Pangkat/Pensiun). Guard akses:
- * - admin/super_admin: selalu boleh.
- * - user: boleh, TAPI hanya utk NIP yang jenis_peg-nya eligible (dicek ulang
- *   di server, tidak percaya begitu saja pada UI).
- * - normal: boleh HANYA untuk NIP dirinya sendiri, DAN hanya kalau kategori
- *   status kepegawaiannya sudah diizinkan admin (isAksesKontrakDiizinkan_).
+ * Generate dokumen Kontrak.
+ * - Jika pemanggil ber-role 'normal' atau 'user': dikonversi ke PDF, file Docs aslinya dihapus.
+ * - Jika pemanggil ber-role 'admin' atau 'super_admin': tetap disimpan sebagai Google Docs.
  */
 function generateKontrakDocument(sessionToken, payload) {
   const employee = requireRole_(sessionToken, ['normal', 'user', 'admin', 'super_admin']);
@@ -298,7 +293,6 @@ function generateKontrakDocument(sessionToken, payload) {
       const eligible = CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE.some(j => j.toLowerCase() === jp);
       if (!eligible) return { success: false, message: 'Pegawai ini tidak termasuk kategori yang boleh diajukan akun User.' };
     }
-    // admin/super_admin: tidak ada pembatasan tambahan.
 
     if (!layanan || !subMenu) return { success: false, message: 'Jenis Kontrak belum dipilih.' };
     if (kontrakGen_hitungJangkaWaktuBulan_(formData.tmt_bulan, formData.tmt_tahun, formData.tst_bulan, formData.tst_tahun) <= 0) {
@@ -313,7 +307,6 @@ function generateKontrakDocument(sessionToken, payload) {
 
     const docCopy = renderTemplateCopy_(templates[0].fileId, dataContext, fileName);
 
-    // Folder khusus "Kontrak" -- Google Docs & PDF disimpan BERSAMA di sini (di dalam sub-folder tahun)
     const tahun = String(new Date().getFullYear());
     const rootKontrak = DriveApp.getFolderById(CONFIG.FOLDER_KONTRAK_ROOT);
     const existing = rootKontrak.getFoldersByName(tahun);
@@ -321,24 +314,38 @@ function generateKontrakDocument(sessionToken, payload) {
     pindahFileKeFolder_(docCopy, outputFolder);
     try { docCopy.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) { Logger.log('Share err doc: '+e.message); }
 
-    // PDF dibuat dari Docs yang SAMA (bukan menggantikannya) -- kedua file
-    // tetap ada sesuai permintaan Titto.
-    const pdfBlob = docCopy.getAs('application/pdf');
-    pdfBlob.setName(fileName + '.pdf');
-    const pdfFile = outputFolder.createFile(pdfBlob);
-    try { pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) { Logger.log('Share err pdf: '+e.message); }
+    const isNormalOrUser = (role === 'normal' || role === 'user');
 
-    return {
-      success: true,
-      message: 'Dokumen Kontrak berhasil dibuat (Google Docs & PDF).',
-      docFileId: docCopy.getId(),
-      docViewUrl: docCopy.getUrl(),
-      pdfFileId: pdfFile.getId(),
-      pdfFileName: fileName + '.pdf',
-      pdfDownloadUrl: `https://drive.google.com/uc?export=download&id=${pdfFile.getId()}`,
-      pdfViewUrl: pdfFile.getUrl()
-    };
+    if (isNormalOrUser) {
+      // PDF dibuat dari Docs, kemudian Docs asli dihapus
+      const pdfBlob = docCopy.getAs('application/pdf');
+      pdfBlob.setName(fileName + '.pdf');
+      const pdfFile = outputFolder.createFile(pdfBlob);
+      try { pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e) { Logger.log('Share err pdf: '+e.message); }
+      
+      docCopy.setTrashed(true);
+
+      return {
+        success: true,
+        message: 'Dokumen Kontrak berhasil dibuat sebagai PDF.',
+        pdfFileId: pdfFile.getId(),
+        pdfFileName: fileName + '.pdf',
+        pdfDownloadUrl: `https://drive.google.com/uc?export=download&id=${pdfFile.getId()}`,
+        pdfViewUrl: pdfFile.getUrl(),
+        outputType: 'pdf'
+      };
+    } else {
+      // Admin / Super Admin: Hanya Google Docs
+      return {
+        success: true,
+        message: 'Dokumen Kontrak berhasil dibuat sebagai Google Docs.',
+        docFileId: docCopy.getId(),
+        docViewUrl: docCopy.getUrl(),
+        outputType: 'gdocs'
+      };
+    }
   } catch (err) {
     return { success: false, message: 'Gagal generate dokumen Kontrak: ' + err.message };
   }
+}
 }
