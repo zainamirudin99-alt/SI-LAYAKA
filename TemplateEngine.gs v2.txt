@@ -207,7 +207,7 @@ function renderCellTextInPlace_(cell, dataContext) {
     }
     if (newText !== originalText) {
       cell.clear();
-      cell.appendParagraph(newText);
+      cell.appendParagraph(newText || ' ');
     }
     return;
   }
@@ -235,7 +235,7 @@ function renderCellTextInPlace_(cell, dataContext) {
       newParaText = newParaText.split(m2[0]).join(value);
     }
     if (newParaText !== paraText) {
-      paragraph.setText(newParaText);
+      paragraph.setText(newParaText || ' ');
     }
   }
 }
@@ -840,7 +840,7 @@ function fillRowPlaceholders_(row, mergedContext, openInfo, closeInfo, item) {
 
     if (newText !== cellText) {
       cell.clear();
-      cell.appendParagraph(newText);
+      cell.appendParagraph(newText || ' ');
     }
   }
 }
