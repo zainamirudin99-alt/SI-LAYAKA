@@ -275,21 +275,25 @@ function isPegawaiAktif_(employee) {
  * tetap tersedia lewat getPromosiEligibleList untuk drill-down).
  */
 function getPromosiDashboardSummary(sessionToken) {
-  requireSession_(sessionToken);
   try {
+    requireSession_(sessionToken);
     const target = hitungTargetTmtPromosi_(new Date());
-    const employees = getAllEmployees_();
+    const employees = getAllEmployees_() || [];
 
     const perUnit = {}; // unit -> { dosen: n, tendik: n }
     employees.forEach(emp => {
-      if (!isPegawaiAktif_(emp)) return;
-      const hasil = cekEligiblePromosi_(emp, target.targetDate);
-      if (!hasil.eligible) return;
+      try {
+        if (!emp || !isPegawaiAktif_(emp)) return;
+        const hasil = cekEligiblePromosi_(emp, target.targetDate);
+        if (!hasil || !hasil.eligible) return;
 
-      const unit = String(emp.unit_es_ii || '(Tanpa Unit)').trim() || '(Tanpa Unit)';
-      if (!perUnit[unit]) perUnit[unit] = { dosen: 0, tendik: 0 };
-      if (hasil.kategori === 'dosen') perUnit[unit].dosen++;
-      else perUnit[unit].tendik++;
+        const unit = String(emp.unit_es_ii || '(Tanpa Unit)').trim() || '(Tanpa Unit)';
+        if (!perUnit[unit]) perUnit[unit] = { dosen: 0, tendik: 0 };
+        if (hasil.kategori === 'dosen') perUnit[unit].dosen++;
+        else perUnit[unit].tendik++;
+      } catch (rowErr) {
+        Logger.log('Skip row err in promosi summary: ' + rowErr.message);
+      }
     });
 
     const daftarUnit = Object.keys(perUnit).sort().map(unit => ({
@@ -305,7 +309,7 @@ function getPromosiDashboardSummary(sessionToken) {
       daftarUnit: daftarUnit
     };
   } catch (err) {
-    return { success: false, message: 'Gagal memuat dashboard eligible: ' + err.message };
+    return { success: false, message: 'Gagal memuat dashboard eligible: ' + err.message, daftarUnit: [] };
   }
 }
 
@@ -315,35 +319,45 @@ function getPromosiDashboardSummary(sessionToken) {
  * 'tendik' (gabungan kedua sub-kategori tendik).
  */
 function getPromosiEligibleList(sessionToken, unit, kategoriFilter) {
-  requireSession_(sessionToken);
   try {
+    requireSession_(sessionToken);
     const target = hitungTargetTmtPromosi_(new Date());
-    const employees = getAllEmployees_();
+    const employees = getAllEmployees_() || [];
 
-    const hasil = employees
-      .filter(emp => isPegawaiAktif_(emp))
-      .map(emp => Object.assign({ emp: emp }, cekEligiblePromosi_(emp, target.targetDate)))
-      .filter(r => r.eligible)
-      .filter(r => (String(r.emp.unit_es_ii || '(Tanpa Unit)').trim() || '(Tanpa Unit)') === unit)
-      .filter(r => kategoriFilter === 'dosen' ? r.kategori === 'dosen' : r.kategori !== 'dosen')
-      .map(r => ({
-        nip: r.emp.nip,
-        nama: r.emp.nama_lengkap || r.emp.nama,
-        jabatan: r.emp.jabatan,
-        kategori: r.kategori,
-        tmtGolongan: formatTanggalIndonesia_(r.emp.tmt_gol),
-        golonganSekarang: r.emp.golongan,
-        batasGolongan: r.batasGolongan,
-        masaKerjaTahun: r.masaKerjaTahun,
-        syaratTahun: r.syaratTahun,
-        jalurReguler: r.jalurReguler,
-        notifPerhatian: r.statusInfo.notifPerhatian,
-        labelStatus: r.statusInfo.labelStatus
-      }))
-      .sort((a, b) => String(a.nama).localeCompare(String(b.nama)));
+    const list = [];
+    employees.forEach(emp => {
+      try {
+        if (!emp || !isPegawaiAktif_(emp)) return;
+        const res = cekEligiblePromosi_(emp, target.targetDate);
+        if (!res || !res.eligible) return;
+        const empUnit = String(emp.unit_es_ii || '(Tanpa Unit)').trim() || '(Tanpa Unit)';
+        if (empUnit !== unit) return;
+        const matchesCategory = kategoriFilter === 'dosen' ? res.kategori === 'dosen' : res.kategori !== 'dosen';
+        if (!matchesCategory) return;
 
-    return { success: true, targetTmt: `1 ${BULAN_ID[target.targetMonth - 1]} ${target.targetYear}`, daftar: hasil };
+        list.push({
+          nip: emp.nip,
+          nama: emp.nama_lengkap || emp.nama,
+          jabatan: emp.jabatan,
+          kategori: res.kategori,
+          tmtGolongan: formatTanggalIndonesia_(emp.tmt_gol),
+          golonganSekarang: emp.golongan,
+          batasGolongan: res.batasGolongan,
+          masaKerjaTahun: res.masaKerjaTahun,
+          syaratTahun: res.syaratTahun,
+          jalurReguler: res.jalurReguler,
+          notifPerhatian: res.statusInfo ? res.statusInfo.notifPerhatian : false,
+          labelStatus: res.statusInfo ? res.statusInfo.labelStatus : '-'
+        });
+      } catch (e) {
+        Logger.log('Skip row err in promosi list: ' + e.message);
+      }
+    });
+
+    list.sort((a, b) => String(a.nama).localeCompare(String(b.nama)));
+
+    return { success: true, targetTmt: `1 ${BULAN_ID[target.targetMonth - 1]} ${target.targetYear}`, daftar: list };
   } catch (err) {
-    return { success: false, message: 'Gagal memuat daftar pegawai eligible: ' + err.message };
+    return { success: false, message: 'Gagal memuat daftar pegawai eligible: ' + err.message, daftar: [] };
   }
 }
