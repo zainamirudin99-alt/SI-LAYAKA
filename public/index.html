@@ -3261,14 +3261,22 @@ function filterServiceTemplates(selectId, tipe) {
   const selectEl = document.getElementById(selectId);
   if (!selectEl) return;
   const templates = TEMPLATE_CACHE[selectId] || [];
-  const filtered = templates.filter(t => (t.tipe || 'gdocs') === tipe);
+  let filtered = templates.filter(t => (t.tipe || 'gdocs') === tipe);
+  if (selectId === 'sk_templateSelect') {
+    const skTemplates = filtered.filter(t => {
+      const sub = t.subMenu || t.sub_menu || '';
+      return sub.startsWith('SK') || sub === 'SK Kenaikan Pangkat';
+    });
+    if (skTemplates.length > 0) filtered = skTemplates;
+  }
   if (!filtered.length) {
     selectEl.innerHTML = `<option value="">Belum ada template ${tipe === 'docx' ? 'Word' : 'GDocs'} terdaftar</option>`;
     return;
   }
   selectEl.innerHTML = filtered.map(t => {
     const fileIdVal = t.id || t.fileId;
-    return `<option value="${fileIdVal}" data-tipe="${t.tipe || 'gdocs'}">${escapeHtml(t.judul)}</option>`;
+    const subLabel = (t.subMenu || t.sub_menu) ? ` [${t.subMenu || t.sub_menu}]` : '';
+    return `<option value="${fileIdVal}" data-tipe="${t.tipe || 'gdocs'}">${escapeHtml(t.judul)}${escapeHtml(subLabel)}</option>`;
   }).join('');
 }
 
@@ -5936,7 +5944,7 @@ function bukaModalBuatSk(usulanId, nama, nip) {
   document.getElementById('modalOverlay').style.display = 'flex';
   
   // Load templates
-  loadServiceTemplates('Kenaikan Pangkat SK', null, 'sk_templateSelect');
+  loadServiceTemplates('Kenaikan Pangkat', null, 'sk_templateSelect');
   
   document.getElementById('buatSk_submitBtn').addEventListener('click', () => prosesBuatSkKp(usulanId));
 }
