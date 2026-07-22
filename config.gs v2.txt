@@ -41,19 +41,9 @@ const CONFIG = {
 
   // Daftar layanan & sub-menu yang tersedia (dipakai Template Manager)
   LAYANAN_LIST: {
-    'Kenaikan Pangkat': ['AK Konversi Tahunan', 'AK Konversi Kumulatif'],
+    'Kenaikan Pangkat': ['AK Konversi Tahunan', 'AK Konversi Kumulatif', 'SK KP Dosen Pegawai Tetap Undip NON ASN', 'SK KP Tendik Pegawai Tetap Undip NON ASN'],
+    'Kenaikan Pangkat SK': ['SK Kenaikan Pangkat', 'SK KP Dosen Pegawai Tetap Undip NON ASN', 'SK KP Tendik Pegawai Tetap Undip NON ASN'],
     'Pensiun': ['DPCP', 'SUPER'],
-    // Kontrak Tendik & Kontrak Dosen DIPISAH sebagai layanan tersendiri
-    // (bukan satu "Kontrak" dengan 7 sub-menu) supaya nama sub-menu yang
-    // SAMA di kedua sisi ("Kontrak Penuh Waktu", "Kontrak Paruh Waktu")
-    // tetap bisa punya template BERBEDA tanpa bentrok -- getTemplatesForService
-    // sudah memfilter berdasarkan (layanan, subMenu) sekaligus, jadi tidak
-    // perlu perubahan apa pun di TemplateAdmin.gs.
-    // CATATAN: daftar Tendik di sini memakai "KDRP" (sesuai daftar link
-    // template yang Anda berikan) -- deskripsi menu Anda sempat menyebut
-    // "Tenaga Kontrak Penghargaan" utk Tendik juga, yang tampaknya salah
-    // ketik (harusnya "KDRP", karena "Tenaga Kontrak Penghargaan" sudah
-    // dipakai di daftar Dosen). PERLU DIKONFIRMASI Titto.
     'Kontrak Tendik': ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'KDRP', 'Tenaga Profesional'],
     'Kontrak Dosen': ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan']
   },

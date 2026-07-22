@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <base target="_top">
@@ -5936,7 +5936,7 @@ function bukaModalBuatSk(usulanId, nama, nip) {
   document.getElementById('modalOverlay').style.display = 'flex';
   
   // Load templates
-  loadServiceTemplates('Kenaikan Pangkat SK', 'SK Kenaikan Pangkat', 'sk_templateSelect');
+  loadServiceTemplates('Kenaikan Pangkat SK', null, 'sk_templateSelect');
   
   document.getElementById('buatSk_submitBtn').addEventListener('click', () => prosesBuatSkKp(usulanId));
 }

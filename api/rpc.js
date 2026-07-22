@@ -61,7 +61,7 @@ const CONFIG = {
   KONTRAK_JENIS_PEG_ELIGIBLE: ['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','KDRP'],
   KONTRAK_UPAH_TIER: {tier1:2903600,tier2:3026400},
   ROLE_LIST: ['normal','user','admin','super_admin'],
-  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif'],'Kenaikan Pangkat SK':['SK Kenaikan Pangkat'],'Pensiun':['DPCP','SUPER'],'Kontrak Tendik':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','KDRP','Tenaga Profesional'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan']},
+  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Kenaikan Pangkat SK':['SK Kenaikan Pangkat','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER'],'Kontrak Tendik':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','KDRP','Tenaga Profesional'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan']},
   USULAN_KP_KATA_KUNCI_PNS: ['pns'],
   USULAN_KP_NOTIF_SIASN: 'Siap diusulkan ke-SIASN',
   USULAN_KP_NOTIF_SK:    'Siap Dibuat SK',
@@ -1072,6 +1072,26 @@ const methods = {
     const {data,error}=await getDb().from('templates').select('*').order('dibuat_pada',{ascending:false});
     if (error) throw error;
     return (data||[]).map(t=>({id:t.id,judul:t.judul,fileId:t.file_id,layanan:t.layanan,subMenu:t.sub_menu,tipe:t.tipe || 'gdocs',dibuatPada:t.dibuat_pada}));
+  },
+
+  async getTemplates([token, layanan, subMenu]) {
+    verifyToken(token);
+    const db = getDb();
+    if (layanan === 'Kenaikan Pangkat SK' && (!subMenu || subMenu === 'SK Kenaikan Pangkat')) {
+      const skSubMenus = ['SK Kenaikan Pangkat', 'SK KP Dosen Pegawai Tetap Undip NON ASN', 'SK KP Tendik Pegawai Tetap Undip NON ASN'];
+      const { data, error } = await db.from('templates').select('*')
+        .or(`layanan.eq.Kenaikan Pangkat SK,and(layanan.eq.Kenaikan Pangkat,sub_menu.in.("${skSubMenus.join('","')}"))`)
+        .order('dibuat_pada', { ascending: false });
+      if (!error && data && data.length) {
+        return data.map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || 'gdocs', dibuatPada: t.dibuat_pada }));
+      }
+    }
+    let query = db.from('templates').select('*').order('dibuat_pada', { ascending: false });
+    if (layanan) query = query.eq('layanan', layanan);
+    if (subMenu) query = query.eq('sub_menu', subMenu);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || 'gdocs', dibuatPada: t.dibuat_pada }));
   },
 
   async addTemplate([token, templateData]) {
