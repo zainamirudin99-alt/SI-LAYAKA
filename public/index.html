@@ -1891,10 +1891,10 @@ function restoreSessionIfAny() {
 }
 
 function doLogin() {
-  const nip = (document.getElementById('loginNip').value || '').trim();
-  const password = (document.getElementById('loginPassword').value || '').trim();
-  const errBox = document.getElementById('loginError');
-  const btn = document.getElementById('loginSubmitBtn');
+  var nip = (document.getElementById('loginNip').value || '').trim();
+  var password = (document.getElementById('loginPassword').value || '').trim();
+  var errBox = document.getElementById('loginError');
+  var btn = document.getElementById('loginSubmitBtn');
 
   if (!nip || !password) {
     errBox.textContent = 'NIP dan Password wajib diisi.';
@@ -1903,25 +1903,35 @@ function doLogin() {
   }
 
   errBox.style.display = 'none';
-  setBtnLoading(btn, true, 'Masuk...');
+  btn.disabled = true;
+  btn.textContent = 'Masuk...';
 
   google.script.run
     .withSuccessHandler(function(res) {
-      setBtnLoading(btn, false, 'Masuk');
-      if (res && res.success) {
-        SESSION.token = res.token;
-        SESSION.user = res.user;
-        sessionStorage.setItem('sikp_token', res.token);
-        showApp();
-      } else {
-        errBox.textContent = (res && res.message) || 'Login gagal.';
+      btn.disabled = false;
+      btn.textContent = 'Masuk';
+      try {
+        if (res && res.success) {
+          SESSION.token = res.token;
+          SESSION.user = res.user;
+          sessionStorage.setItem('sikp_token', res.token);
+          showApp();
+        } else {
+          errBox.textContent = (res && res.message) || 'Login gagal.';
+          errBox.style.display = 'block';
+        }
+      } catch(appErr) {
+        errBox.textContent = 'Login berhasil, tapi gagal membuka aplikasi: ' + (appErr.message || String(appErr));
         errBox.style.display = 'block';
+        console.error('[doLogin showApp error]', appErr);
       }
     })
     .withFailureHandler(function(err) {
-      setBtnLoading(btn, false, 'Masuk');
+      btn.disabled = false;
+      btn.textContent = 'Masuk';
       errBox.textContent = 'Terjadi kesalahan: ' + (err.message || String(err));
       errBox.style.display = 'block';
+      console.error('[doLogin RPC error]', err);
     })
     .login(nip, password);
 }
@@ -1996,17 +2006,29 @@ function bindRegisterForm() {
 }
 
 function showApp() {
-  document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('appShell').style.display = 'block';
-  document.getElementById('sidebarUserName').textContent = SESSION.user.nama || SESSION.user.nip;
-  document.getElementById('sidebarUserRole').textContent = SESSION.user.jabatan || SESSION.user.status_kepegawaian || '-';
-  terapkanBatasanPeran_();
-  if (SESSION.user.role !== 'normal') {
-    loadTemplateList();
-    loadServiceTemplates('Kenaikan Pangkat', 'AK Konversi Tahunan', 'optA_templateSelect');
-    loadServiceTemplates('Kenaikan Pangkat', 'AK Konversi Kumulatif', 'optB_templateSelect');
-    loadServiceTemplates('Pensiun', 'DPCP', 'pensiun_dpcpTemplateSelect');
-    loadServiceTemplates('Pensiun', 'SUPER', 'pensiun_superTemplateSelect');
+  try {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appShell').style.display = 'block';
+    document.getElementById('sidebarUserName').textContent = SESSION.user.nama || SESSION.user.nip;
+    document.getElementById('sidebarUserRole').textContent = SESSION.user.jabatan || SESSION.user.status_kepegawaian || '-';
+    terapkanBatasanPeran_();
+    if (SESSION.user.role !== 'normal') {
+      loadTemplateList();
+      loadServiceTemplates('Kenaikan Pangkat', 'AK Konversi Tahunan', 'optA_templateSelect');
+      loadServiceTemplates('Kenaikan Pangkat', 'AK Konversi Kumulatif', 'optB_templateSelect');
+      loadServiceTemplates('Pensiun', 'DPCP', 'pensiun_dpcpTemplateSelect');
+      loadServiceTemplates('Pensiun', 'SUPER', 'pensiun_superTemplateSelect');
+    }
+  } catch(e) {
+    console.error('[showApp ERROR]', e);
+    // tampilkan error di layar agar user bisa melaporkannya
+    var errBox = document.getElementById('loginError');
+    if (errBox) {
+      document.getElementById('loginScreen').style.display = 'flex';
+      document.getElementById('appShell').style.display = 'none';
+      errBox.textContent = 'Gagal membuka aplikasi: ' + e.message + '. Silakan refresh halaman.';
+      errBox.style.display = 'block';
+    }
   }
 }
 
