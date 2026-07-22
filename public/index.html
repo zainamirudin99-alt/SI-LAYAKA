@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <base target="_top">
@@ -709,7 +709,7 @@
 
       <!-- ---------- PANE: LOGIN ---------- -->
       <div class="auth-pane active" data-auth-group-pane="auth" id="pane-login">
-        <form id="loginForm">
+        <form id="loginForm" onsubmit="return false;">
           <div class="field">
             <label for="loginNip">NIP</label>
             <input type="text" id="loginNip" autocomplete="username" required placeholder="Masukkan NIP" />
@@ -819,15 +819,15 @@
               <div class="ce-dashboard" id="ceDashboard">
                 <div class="ce-dashboard-header" style="flex-wrap:wrap; gap:12px;">
                   <div>
-                    <span class="ce-dashboard-title">ðŸ“Š Dashboard Eligible Kenaikan Pangkat</span>
+                    <span class="ce-dashboard-title">&#x1F4CA; Dashboard Eligible Kenaikan Pangkat</span>
                     <div style="margin-top:4px; font-size:13px; color:var(--text-muted);">
                       Daftar berikut adalah pegawai yang memenuhi syarat secara administratif untuk diusulkan Kenaikan Pangkat.
                     </div>
                   </div>
                   <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                    <button type="button" class="btn btn-outline kp-small-btn" id="ceBtnSyaratKp" style="border-color:#2563eb; color:#2563eb; font-weight:600; background:#eff6ff;">ðŸ“‹ Syarat-Syarat Kenaikan Pangkat</button>
+                    <button type="button" class="btn btn-outline kp-small-btn" id="ceBtnSyaratKp" style="border-color:#2563eb; color:#2563eb; font-weight:600; background:#eff6ff;">&#x1F4CB; Syarat-Syarat Kenaikan Pangkat</button>
                     <span class="ce-dashboard-target" id="ceDashboardTarget"></span>
-                    <button type="button" class="btn btn-primary kp-small-btn" id="ceDashboardAjukanUsulanBtn" style="display:none;">ðŸ“¨ Ajukan Usulan</button>
+                    <button type="button" class="btn btn-primary kp-small-btn" id="ceDashboardAjukanUsulanBtn" style="display:none;">&#x1F4E8; Ajukan Usulan</button>
                   </div>
                 </div>
 
@@ -912,7 +912,7 @@
 
               <div class="actions-bar" style="flex-wrap:wrap; gap:12px; align-items:center;">
                 <button class="btn btn-primary" id="ce_hitungBtn">Hitung / Cek Eligibility</button>
-                <button class="btn btn-primary" id="ce_ajukanUsulanBtn" style="display:none; background:#16a34a; border-color:#16a34a;">ðŸ“¨ Ajukan Usulan</button>
+                <button class="btn btn-primary" id="ce_ajukanUsulanBtn" style="display:none; background:#16a34a; border-color:#16a34a;">&#x1F4E8; Ajukan Usulan</button>
               </div>
 
               <div class="card" id="ce_resultCard" style="display:none; margin-top:18px; background:var(--surface-alt);">
@@ -1047,15 +1047,15 @@
                 <div class="ce-dashboard">
                 <div class="ce-dashboard-header" style="flex-wrap:wrap; gap:12px;">
                   <div>
-                    <span class="ce-dashboard-title">ðŸ“Š Dashboard Eligible Kenaikan Pangkat</span>
+                    <span class="ce-dashboard-title">&#x1F4CA; Dashboard Eligible Kenaikan Pangkat</span>
                     <div style="margin-top:4px; font-size:13px; color:var(--text-muted);">
                       Daftar berikut adalah pegawai yang memenuhi syarat secara administratif untuk diusulkan Kenaikan Pangkat.
                     </div>
                   </div>
                   <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                    <button type="button" class="btn btn-outline kp-small-btn" id="ceBtnSyaratKp" style="border-color:#2563eb; color:#2563eb; font-weight:600; background:#eff6ff;">ðŸ“‹ Syarat-Syarat Kenaikan Pangkat</button>
+                    <button type="button" class="btn btn-outline kp-small-btn" id="ceBtnSyaratKp" style="border-color:#2563eb; color:#2563eb; font-weight:600; background:#eff6ff;">&#x1F4CB; Syarat-Syarat Kenaikan Pangkat</button>
                     <span class="ce-dashboard-target" id="ceDashboardTarget"></span>
-                    <button type="button" class="btn btn-primary kp-small-btn" id="ceDashboardAjukanUsulanBtn" style="display:none;">ðŸ“¨ Ajukan Usulan</button>
+                    <button type="button" class="btn btn-primary kp-small-btn" id="ceDashboardAjukanUsulanBtn" style="display:none;">&#x1F4E8; Ajukan Usulan</button>
                   </div>
                 </div>
                     <div id="pensiunDashboardLevel2List" class="ce-dashboard-list"></div>
