@@ -109,55 +109,45 @@ const PENSIUN_ANAK_UPPER_FIELDS = ['nama_anak', 'nama_ortu'];
 function pensiunGen_hitungJenisPensiunFields_(formData) {
   let jp1 = '', jp2 = '', jp3 = '', namaTtd = '', nipTtd = '';
 
-  if (formData.jenis_pensiun === 'BUP') {
+  const jp = String(formData.jenis_pensiun || '').trim();
+
+  if (jp === 'BUP') {
     jp1 = 'BUP';
     jp2 = 'MENCAPAI BATAS USIA PENSIUN';
     jp3 = 'PEGAWAI NEGERI SIPIL YANG BERSANGKUTAN';
     namaTtd = pensiunGen_upper_(formData.nama_lengkap);
     nipTtd = formData.nip ? 'NIP. ' + formData.nip : '';
-  } else if (formData.jenis_pensiun === 'Meninggal') {
+  } else if (jp === 'Meninggal') {
     jp1 = 'MENINGGAL';
     jp2 = 'AKAN DIBERHENTIKAN/YANG MENINGGAL DUNIA, TEWAS, ATAU HILANG';
     jp3 = 'SUAMI/ISTRI PNS YANG BERSANGKUTAN';
-    // REF: nama/NIK penanda tangan = pasangan pertama pada kasus Meninggal.
-    // Referensi membaca formData.nama_suami_istri_1/nik_suami_istri_1
-    // (field bernomor tetap dari form lama). Di sini payload.pasangan[0]
-    // adalah sumber yang SAMA (array pasangan yang sama dikirim frontend) --
-    // jadi kalau field bernomor lama tidak dikirim, jatuh balik ke situ.
     const pasangan1 = (formData.pasangan && formData.pasangan[0]) || {};
-    namaTtd = pensiunGen_upper_(formData.nama_suami_istri_1 || pasangan1.nama_pasangan);
-    const nikTtd = formData.nik_suami_istri_1 || pasangan1.nik;
-    nipTtd = nikTtd ? 'NIK. ' + nikTtd : '';
-  } else if (formData.jenis_pensiun === 'Diberhentikan') {
-    jp1 = 'DIBERHENTIKAN';
-    jp2 = 'AKAN DIBERHENTIKAN/YANG MENINGGAL DUNIA, TEWAS, ATAU HILANG';
-    jp3 = 'PEGAWAI NEGERI SIPIL YANG BERSANGKUTAN';
-    namaTtd = pensiunGen_upper_(formData.nama_lengkap);
-    nipTtd = formData.nip ? 'NIP. ' + formData.nip : '';
-  } else if (formData.jenis_pensiun === 'Pengunduran Diri') {
-    // BELUM DIVERIFIKASI Titto -- redaksi tebakan terbaik, SAMAKAN dengan
-    // format SK resmi Anda sebelum dipakai produksi sungguhan.
-    jp1 = 'PENGUNDURAN DIRI';
-    jp2 = 'MENGAJUKAN PERMINTAAN SENDIRI';
-    jp3 = 'PEGAWAI NEGERI SIPIL YANG BERSANGKUTAN';
-    namaTtd = pensiunGen_upper_(formData.nama_lengkap);
-    nipTtd = formData.nip ? 'NIP. ' + formData.nip : '';
-  } else if (formData.jenis_pensiun === 'Uzur') {
-    // BELUM DIVERIFIKASI Titto -- redaksi tebakan terbaik, SAMAKAN dengan
-    // format SK resmi Anda sebelum dipakai produksi sungguhan.
+    const namaPas = formData.nama_suami_istri_1 || pasangan1.nama_pasangan || formData.nama_pasangan || '';
+    namaTtd = pensiunGen_upper_(namaPas);
+    const nikPas = formData.nik_suami_istri_1 || pasangan1.nik || formData.nik_pasangan || '';
+    nipTtd = nikPas ? 'NIK. ' + nikPas : (formData.nip ? 'NIP. ' + formData.nip : '');
+  } else if (jp === 'Uzur') {
     jp1 = 'UZUR';
     jp2 = 'TIDAK CAKAP JASMANI DAN/ATAU ROHANI';
     jp3 = 'PEGAWAI NEGERI SIPIL YANG BERSANGKUTAN';
     namaTtd = pensiunGen_upper_(formData.nama_lengkap);
     nipTtd = formData.nip ? 'NIP. ' + formData.nip : '';
+  } else if (jp === 'Diberhentikan') {
+    jp1 = 'DIBERHENTIKAN';
+    jp2 = 'AKAN DIBERHENTIKAN/YANG MENINGGAL DUNIA, TEWAS, ATAU HILANG';
+    jp3 = 'PEGAWAI NEGERI SIPIL YANG BERSANGKUTAN';
+    namaTtd = pensiunGen_upper_(formData.nama_lengkap);
+    nipTtd = formData.nip ? 'NIP. ' + formData.nip : '';
+  } else if (jp === 'Pengunduran Diri') {
+    jp1 = 'PENGUNDURAN DIRI';
+    jp2 = 'MENGAJUKAN PERMINTAAN SENDIRI';
+    jp3 = 'PEGAWAI NEGERI SIPIL YANG BERSANGKUTAN';
+    namaTtd = pensiunGen_upper_(formData.nama_lengkap);
+    nipTtd = formData.nip ? 'NIP. ' + formData.nip : '';
   }
 
-  // REF: {{akhir_tmt_kerja}}
-  // - BUP                                       : sama dengan tmt_pensiun
-  // - Meninggal/Diberhentikan/Pengunduran Diri/Uzur : pakai tgl_peristiwa_asli
-  //   (tanggal peristiwa input manual)
   let akhirTmtKerja;
-  if (formData.jenis_pensiun === 'BUP') {
+  if (jp === 'BUP') {
     akhirTmtKerja = pensiunGen_tanggalUpper_(formData.tmt_pensiun);
   } else {
     akhirTmtKerja = pensiunGen_tanggalUpper_(formData.tgl_peristiwa_asli || formData.bulan_terakhir_bekerja || formData.tmt_pensiun);
@@ -166,18 +156,22 @@ function pensiunGen_hitungJenisPensiunFields_(formData) {
   return { jp1, jp2, jp3, namaTtd, nipTtd, akhirTmtKerja };
 }
 
-/**
- * Bangun dataContext siap-render untuk dokumen DPCP dari formData yang
- * dikirim frontend (lihat payload di JavaScriptClient.html -- field-nya
- * SAMA persis dengan payload referensi index_v7.txt). Tag di template
- * yang didukung: lihat daftar di TemplateAdmin.gs (Glosarium > Pensiun).
- */
+function pensiunGen_formatGajiRupiah_(val) {
+  if (!val) return '-';
+  const numStr = String(val).replace(/[^0-9]/g, '');
+  if (!numStr) return String(val);
+  const num = parseInt(numStr, 10);
+  return 'Rp ' + num.toLocaleString('id-ID') + ',-';
+}
+
 function pensiunGen_buildDpcpContext_(formData) {
   formData = formData || {};
 
   const fmtTmtGol = pensiunGen_tanggalUpper_(formData.tmt_gol);
   const pangkatGabungan = `${pensiunGen_upper_(formData.pangkat)}/${pensiunGen_upper_(formData.golongan)}/${fmtTmtGol}`;
   const jenisPensiunFields = pensiunGen_hitungJenisPensiunFields_(formData);
+
+  const tglSekarang = pensiunGen_tanggalUpper_(new Date());
 
   const ctx = {
     nip: formData.nip || '',
@@ -194,7 +188,7 @@ function pensiunGen_buildDpcpContext_(formData) {
     tmt_pensiun: pensiunGen_tanggalUpper_(formData.tmt_pensiun),
     unit_es_ii: pensiunGen_upper_(formData.unit_es_ii),
     unit_kerja: pensiunGen_upper_(formData.unit_es_ii),
-    gaji_pokok: formData.gaji_pokok || '',
+    gaji_pokok: pensiunGen_formatGajiRupiah_(formData.gaji_pokok),
     mk_kp_terakhir: pensiunGen_upper_(formData.mk_kp_terakhir) || '0 TAHUN 0 BULAN',
     mk_golongan: pensiunGen_upper_(formData.mk_golongan),
     mk_pns: pensiunGen_upper_(formData.mk_pns),
@@ -210,16 +204,14 @@ function pensiunGen_buildDpcpContext_(formData) {
     jenis_pensiun3: jenisPensiunFields.jp3,
     nama_ttd: jenisPensiunFields.namaTtd,
     nip_ttd: jenisPensiunFields.nipTtd,
-    tgl_buat: pensiunGen_tanggalUpper_(new Date()),
+    tgl_buat: tglSekarang,
+    today: tglSekarang,
 
     pasangan: pensiunGen_buildFamilyRows_(formData.pasangan, PENSIUN_PASANGAN_FIELDS, PENSIUN_PASANGAN_DATE_FIELDS, PENSIUN_PASANGAN_UPPER_FIELDS),
     anak: pensiunGen_buildFamilyRows_(formData.anak, PENSIUN_ANAK_FIELDS, PENSIUN_ANAK_DATE_FIELDS, PENSIUN_ANAK_UPPER_FIELDS)
   };
 
-  // fotoBase64 diteruskan apa adanya (bukan untuk dicetak sebagai teks --
-  // ditangani khusus oleh pensiunGen_insertFoto_ SEBELUM tag lain diisi).
   ctx._fotoBase64 = formData.fotoBase64 || '';
-
   return ctx;
 }
 

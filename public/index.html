@@ -4162,7 +4162,11 @@ function pensiunMonthsFromPair(tahunId, bulanId) {
 }
 function pensiunDateDiffMonths(dateStr1, dateStr2) {
   if (!dateStr1 || !dateStr2) return 0;
-  const d1 = new Date(dateStr1 + 'T00:00:00'), d2 = new Date(dateStr2 + 'T00:00:00');
+  let s1 = String(dateStr1).trim();
+  let s2 = String(dateStr2).trim();
+  if (s1.length === 7) s1 += '-01';
+  if (s2.length === 7) s2 += '-01';
+  const d1 = new Date(s1 + 'T00:00:00'), d2 = new Date(s2 + 'T00:00:00');
   if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return 0;
   let months = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
   if (d2.getDate() < d1.getDate()) months -= 1;
