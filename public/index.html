@@ -3975,10 +3975,6 @@ function loadPromosiDashboard() {
   const level1El = document.getElementById('ceDashboardLevel1');
   const btnSyarat = document.getElementById('ceBtnSyaratKp');
   if (btnSyarat) btnSyarat.onclick = bukaModalSyaratKp;
-  const targetEl = document.getElementById('ceDashboardTarget');
-  const level1El = document.getElementById('ceDashboardLevel1');
-  const btnSyarat = document.getElementById('ceBtnSyaratKp');
-  if (btnSyarat) btnSyarat.onclick = bukaModalSyaratKp;
 
   google.script.run
     .withSuccessHandler(res => {
