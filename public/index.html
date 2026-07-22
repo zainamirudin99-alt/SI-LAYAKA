@@ -709,18 +709,19 @@
 
       <!-- ---------- PANE: LOGIN ---------- -->
       <div class="auth-pane active" data-auth-group-pane="auth" id="pane-login">
-        <form id="loginForm" onsubmit="return false;">
+        <form id="loginForm" onsubmit="doLogin(); return false;">
           <div class="field">
             <label for="loginNip">NIP</label>
-            <input type="text" id="loginNip" autocomplete="username" required placeholder="Masukkan NIP" />
+            <input type="text" id="loginNip" autocomplete="username" placeholder="Masukkan NIP" />
           </div>
           <div class="field">
             <label for="loginPassword">Password</label>
-            <input type="password" id="loginPassword" autocomplete="current-password" required placeholder="8 digit pertama NIP" />
+            <input type="password" id="loginPassword" autocomplete="current-password" placeholder="8 digit pertama NIP" />
             <div class="helper-text">Password default = 8 digit angka pertama dari NIP Anda.</div>
           </div>
-          <button type="submit" id="loginSubmitBtn" class="btn btn-primary">Masuk</button>
+          <button type="button" id="loginSubmitBtn" class="btn btn-primary" onclick="doLogin()">Masuk</button>
         </form>
+        <div style="font-size:10px;color:#aaa;text-align:center;margin-top:6px;">build: d6d2a36</div>
       </div>
 
       <!-- ---------- PANE: REGISTER ---------- -->
@@ -1889,38 +1890,50 @@ function restoreSessionIfAny() {
     .validateSession(token);
 }
 
+function doLogin() {
+  const nip = (document.getElementById('loginNip').value || '').trim();
+  const password = (document.getElementById('loginPassword').value || '').trim();
+  const errBox = document.getElementById('loginError');
+  const btn = document.getElementById('loginSubmitBtn');
+
+  if (!nip || !password) {
+    errBox.textContent = 'NIP dan Password wajib diisi.';
+    errBox.style.display = 'block';
+    return;
+  }
+
+  errBox.style.display = 'none';
+  setBtnLoading(btn, true, 'Masuk...');
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      setBtnLoading(btn, false, 'Masuk');
+      if (res && res.success) {
+        SESSION.token = res.token;
+        SESSION.user = res.user;
+        sessionStorage.setItem('sikp_token', res.token);
+        showApp();
+      } else {
+        errBox.textContent = (res && res.message) || 'Login gagal.';
+        errBox.style.display = 'block';
+      }
+    })
+    .withFailureHandler(function(err) {
+      setBtnLoading(btn, false, 'Masuk');
+      errBox.textContent = 'Terjadi kesalahan: ' + (err.message || String(err));
+      errBox.style.display = 'block';
+    })
+    .login(nip, password);
+}
+
 function bindLoginForm() {
   const form = document.getElementById('loginForm');
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const nip = document.getElementById('loginNip').value.trim();
-    const password = document.getElementById('loginPassword').value.trim();
-    const errBox = document.getElementById('loginError');
-    const btn = document.getElementById('loginSubmitBtn');
-
-    errBox.style.display = 'none';
-    setBtnLoading(btn, true, 'Masuk...');
-
-    google.script.run
-      .withSuccessHandler(res => {
-        setBtnLoading(btn, false, 'Masuk');
-        if (res.success) {
-          SESSION.token = res.token;
-          SESSION.user = res.user;
-          sessionStorage.setItem('sikp_token', res.token);
-          showApp();
-        } else {
-          errBox.textContent = res.message;
-          errBox.style.display = 'block';
-        }
-      })
-      .withFailureHandler(err => {
-        setBtnLoading(btn, false, 'Masuk');
-        errBox.textContent = 'Terjadi kesalahan: ' + (err.message || err);
-        errBox.style.display = 'block';
-      })
-      .login(nip, password);
-  });
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      doLogin();
+    });
+  }
 }
 
 /** Toggle antara panel "Masuk" dan "Daftar Akun" pada layar login. */
