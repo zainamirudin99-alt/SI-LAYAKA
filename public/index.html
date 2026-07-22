@@ -1046,19 +1046,24 @@
               <!-- STATE 1: Dashboard (unit -> daftar pegawai akan pensiun) -->
               <div id="pensiunDashboardState">
                 <div class="ce-dashboard">
-                <div class="ce-dashboard-header" style="flex-wrap:wrap; gap:12px;">
-                  <div>
-                    <span class="ce-dashboard-title">&#x1F4CA; Dashboard Eligible Kenaikan Pangkat</span>
-                    <div style="margin-top:4px; font-size:13px; color:var(--text-muted);">
-                      Daftar berikut adalah pegawai yang memenuhi syarat secara administratif untuk diusulkan Kenaikan Pangkat.
+                  <div class="ce-dashboard-header" style="flex-wrap:wrap; gap:12px;">
+                    <div>
+                      <span class="ce-dashboard-title">&#x1F4CA; Dashboard Eligible Pensiun</span>
+                      <div style="margin-top:4px; font-size:13px; color:var(--text-muted);">
+                        Daftar berikut adalah pegawai yang memenuhi syarat secara administratif untuk diusulkan Pensiun.
+                      </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                      <span class="ce-dashboard-target" id="pensiunDashboardAmbang"></span>
                     </div>
                   </div>
-                  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                    <button type="button" class="btn btn-outline kp-small-btn" id="ceBtnSyaratKp" style="border-color:#2563eb; color:#2563eb; font-weight:600; background:#eff6ff;">&#x1F4CB; Syarat-Syarat Kenaikan Pangkat</button>
-                    <span class="ce-dashboard-target" id="ceDashboardTarget"></span>
-                    <button type="button" class="btn btn-primary kp-small-btn" id="ceDashboardAjukanUsulanBtn" style="display:none;">&#x1F4E8; Ajukan Usulan</button>
-                  </div>
-                </div>
+
+                  <!-- Level 1: List Unit -->
+                  <div id="pensiunDashboardLevel1" class="ce-dashboard-grid"></div>
+
+                  <!-- Level 2: List Pegawai per Unit -->
+                  <div id="pensiunDashboardLevel2" style="display:none; margin-top:14px;">
+                    <button type="button" class="btn btn-outline" id="pensiunBackToUnit" style="margin-bottom:12px;">&larr; Kembali ke Daftar Unit</button>
                     <div id="pensiunDashboardLevel2List" class="ce-dashboard-list"></div>
                   </div>
                 </div>
@@ -4070,8 +4075,9 @@ function loadPensiunDashboardOnce() {
 function loadPensiunDashboard() {
   google.script.run
     .withSuccessHandler(res => {
-      if (!res.success) { showToast('error', res.message); return; }
-      document.getElementById('pensiunDashboardAmbang').textContent = `Ambang: < ${res.ambangTahun} tahun`;
+      if (!res || !res.success) { showToast('error', (res && res.message) || 'Gagal memuat dashboard pensiun'); return; }
+      const ambangEl = document.getElementById('pensiunDashboardAmbang');
+      if (ambangEl) ambangEl.textContent = `Ambang: < ${res.ambangTahun} tahun`;
       renderPensiunDashboardLevel1(res.daftarUnit);
     })
     .withFailureHandler(err => showToast('error', 'Gagal memuat dashboard pensiun: ' + (err.message || err)))
