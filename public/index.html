@@ -4540,35 +4540,37 @@ function bindPensiunForm() {
 
   setupAutocomplete('subjectPensiun_input', 'subjectPensiun_list', 'subjectPensiun_nip', onSelectPensiunEmployee);
 
-  document.getElementById('pensiunGoToFormBtn').addEventListener('click', () => {
+  document.getElementById('pensiunGoToFormBtn')?.addEventListener('click', () => {
     if (SESSION.user.role === 'user') bukaModalAjukanUsulanPensiun();
     else pensiunGoToFormState();
   });
-  document.getElementById('pensiunBackToDashboard').addEventListener('click', pensiunBackToDashboardState);
-  document.getElementById('pensiunBackToUnit').addEventListener('click', () => {
-    document.getElementById('pensiunDashboardLevel1').style.display = 'grid';
-    document.getElementById('pensiunDashboardLevel2').style.display = 'none';
+  document.getElementById('pensiunBackToDashboard')?.addEventListener('click', pensiunBackToDashboardState);
+  document.getElementById('pensiunBackToUnit')?.addEventListener('click', () => {
+    const l1 = document.getElementById('pensiunDashboardLevel1');
+    const l2 = document.getElementById('pensiunDashboardLevel2');
+    if (l1) l1.style.display = 'grid';
+    if (l2) l2.style.display = 'none';
   });
 
-  document.getElementById('pensiun_jenisPensiun').addEventListener('change', pensiunToggleJenisPensiun);
-  document.getElementById('pensiun_tglPeristiwa').addEventListener('change', pensiunCalculateAutoTmtPensiun);
+  document.getElementById('pensiun_jenisPensiun')?.addEventListener('change', pensiunToggleJenisPensiun);
+  document.getElementById('pensiun_tglPeristiwa')?.addEventListener('change', pensiunCalculateAutoTmtPensiun);
   ['pensiun_tmtGol', 'pensiun_tmtCpns', 'pensiun_tmtPensiun', 'pensiun_bulanTerakhirBekerja'].forEach(id => {
-    document.getElementById(id).addEventListener('input', pensiunRunRealtimeCalculations);
+    document.getElementById(id)?.addEventListener('input', pensiunRunRealtimeCalculations);
   });
   ['pensiun_mkKpTahun', 'pensiun_mkKpBulan', 'pensiun_mkSebelumTahun', 'pensiun_mkSebelumBulan',
    'pensiun_cltnTahun', 'pensiun_cltnBulan', 'pensiun_pmkTahun', 'pensiun_pmkBulan'].forEach(id => {
-    document.getElementById(id).addEventListener('input', pensiunRunRealtimeCalculations);
+    document.getElementById(id)?.addEventListener('input', pensiunRunRealtimeCalculations);
   });
-  document.getElementById('pensiun_gajiPokok').addEventListener('blur', e => pensiunFormatRupiah(e.target));
-  document.getElementById('pensiun_fotoUpload').addEventListener('change', e => pensiunProcessImageToBase64(e.target));
+  document.getElementById('pensiun_gajiPokok')?.addEventListener('blur', e => pensiunFormatRupiah(e.target));
+  document.getElementById('pensiun_fotoUpload')?.addEventListener('change', e => pensiunProcessImageToBase64(e.target));
 
-  document.getElementById('pensiun_addPasangan').addEventListener('click', () => pensiunAddPasanganRow());
-  document.getElementById('pensiun_addAnak').addEventListener('click', () => pensiunAddAnakRow());
+  document.getElementById('pensiun_addPasangan')?.addEventListener('click', () => pensiunAddPasanganRow());
+  document.getElementById('pensiun_addAnak')?.addEventListener('click', () => pensiunAddAnakRow());
 
-  document.getElementById('pensiun_previewDpcpBtn').addEventListener('click', pensiunRunPreviewDpcp);
-  document.getElementById('pensiun_generateDpcpBtn').addEventListener('click', pensiunRunGenerateDpcp);
-  document.getElementById('pensiun_previewSuperBtn').addEventListener('click', pensiunRunPreviewSuper);
-  document.getElementById('pensiun_generateSuperBtn').addEventListener('click', pensiunRunGenerateSuper);
+  document.getElementById('pensiun_previewDpcpBtn')?.addEventListener('click', pensiunRunPreviewDpcp);
+  document.getElementById('pensiun_generateDpcpBtn')?.addEventListener('click', pensiunRunGenerateDpcp);
+  document.getElementById('pensiun_previewSuperBtn')?.addEventListener('click', pensiunRunPreviewSuper);
+  document.getElementById('pensiun_generateSuperBtn')?.addEventListener('click', pensiunRunGenerateSuper);
 }
 
 /* =====================================================================
