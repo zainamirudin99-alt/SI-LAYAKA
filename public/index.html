@@ -5183,7 +5183,7 @@ function loadKontrakAksesKategoriList() {
           span.style.color = nowChecked ? '#4caf50' : '#888';
           google.script.run
             .withSuccessHandler(res => {
-              if (res.success) { showToast('success', res.message); loadKontrakAksesKategoriList(); }
+              if (res && res.success) { showToast('success', res.message); }
               else {
                 cb.checked = !nowChecked;
                 span.textContent = !nowChecked ? 'Diberikan Izin' : 'Tidak Diizinkan';

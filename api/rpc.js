@@ -26,6 +26,9 @@ function getDb() {
   return supabase;
 }
 
+// Global in-memory cache for akses_kontrak_mandiri
+const MEMORY_AKSES_KONTRAK_MANDIRI = {};
+
 // ----------------------------------------------------------------
 // KONFIGURASI (sama dengan config.gs)
 // ----------------------------------------------------------------
@@ -1179,29 +1182,96 @@ const methods = {
   async getStatusAksesKontrakSaya([token]) {
     const decoded = verifyToken(token);
     const db = getDb();
-    const { data: emp, error } = await db.from('data_utama').select('jenis_peg').eq('nip', decoded.nip).maybeSingle();
-    if (error) throw error;
-    const jenisPegSaya = String((emp && emp.jenis_peg) || '').trim();
-    const eligible = CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE.some(j => j.toLowerCase() === jenisPegSaya.toLowerCase());
-    if (!eligible) return { success: true, eligible: false, diizinkan: false, jenisPeg: jenisPegSaya };
+    const { data: emp } = await db.from('data_utama')
+      .select('status_kepegawaian, jenis_peg')
+      .eq('nip', decoded.nip).maybeSingle();
 
-    // Cek tabel akses_kontrak_mandiri di Supabase
-    const kategoriCocok = CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE.find(j => j.toLowerCase() === jenisPegSaya.toLowerCase());
-    const { data: aksesRow } = await db.from('akses_kontrak_mandiri')
-      .select('diizinkan').eq('kategori', kategoriCocok).order('tanggal_diubah', { ascending: false }).limit(1).maybeSingle();
-    const diizinkan = eligible && aksesRow && aksesRow.diizinkan === true;
-    return { success: true, eligible, diizinkan, jenisPeg: jenisPegSaya };
+    const statusKep = String((emp && emp.status_kepegawaian) || '').trim();
+    const jenisPeg = String((emp && emp.jenis_peg) || '').trim();
+    const eligibleList = CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE || [
+      'Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','KDRP'
+    ];
+
+    let kategoriCocok = eligibleList.find(j => 
+      j.toLowerCase() === statusKep.toLowerCase() || 
+      j.toLowerCase() === jenisPeg.toLowerCase() ||
+      (statusKep && statusKep.toLowerCase().includes(j.toLowerCase())) ||
+      (jenisPeg && jenisPeg.toLowerCase().includes(j.toLowerCase()))
+    );
+
+    if (!kategoriCocok) {
+      if (/non[\s-]?asn|kontrak|profesional|kdrp/i.test(statusKep + ' ' + jenisPeg)) {
+        kategoriCocok = 'Tenaga Profesional';
+      }
+    }
+
+    if (!kategoriCocok) {
+      return { success: true, eligible: false, diizinkan: false, jenisPeg: statusKep || jenisPeg };
+    }
+
+    let diizinkan = false;
+    try {
+      const { data: aksesRow } = await db.from('akses_kontrak_mandiri')
+        .select('diizinkan').eq('kategori', kategoriCocok).order('tanggal_diubah', { ascending: false }).limit(1).maybeSingle();
+      if (aksesRow && typeof aksesRow.diizinkan === 'boolean') {
+        diizinkan = aksesRow.diizinkan;
+      } else if (MEMORY_AKSES_KONTRAK_MANDIRI[kategoriCocok] !== undefined) {
+        diizinkan = MEMORY_AKSES_KONTRAK_MANDIRI[kategoriCocok];
+      }
+    } catch {
+      diizinkan = !!MEMORY_AKSES_KONTRAK_MANDIRI[kategoriCocok];
+    }
+
+    return { success: true, eligible: true, diizinkan, kategori: kategoriCocok, jenisPeg: statusKep || jenisPeg };
   },
 
   async getSemuaStatusAksesKontrakKategori([token]) {
     requireRole(token, ['admin','super_admin']);
     const db = getDb();
-    const { data: rows } = await db.from('akses_kontrak_mandiri').select('kategori,diizinkan').order('tanggal_diubah', { ascending: false });
-    // Ambil baris terakhir per kategori
-    const peta = {};
-    (rows || []).forEach(r => { if (!(r.kategori in peta)) peta[r.kategori] = r.diizinkan; });
-    const daftar = CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE.map(k => ({ kategori: k, diizinkan: !!peta[k] }));
+    const eligibleList = CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE || [
+      'Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','KDRP'
+    ];
+    const peta = { ...MEMORY_AKSES_KONTRAK_MANDIRI };
+    try {
+      const { data: rows } = await db.from('akses_kontrak_mandiri').select('kategori,diizinkan').order('tanggal_diubah', { ascending: false });
+      (rows || []).forEach(r => { if (!(r.kategori in peta)) peta[r.kategori] = r.diizinkan; });
+    } catch (e) {
+      console.warn('[rpc] getSemuaStatusAksesKontrakKategori db warning:', e.message);
+    }
+    const daftar = eligibleList.map(k => ({ kategori: k, diizinkan: !!peta[k] }));
     return { success: true, daftar };
+  },
+
+  async aturAksesKontrakKategori([token, kategori, diizinkan]) {
+    requireRole(token, ['admin','super_admin']);
+    const decoded = verifyToken(token);
+    const db = getDb();
+    const kat = String(kategori||'').trim();
+    const isAllowed = !!diizinkan;
+
+    MEMORY_AKSES_KONTRAK_MANDIRI[kat] = isAllowed;
+
+    try {
+      const { error } = await db.from('akses_kontrak_mandiri').upsert({
+        kategori: kat,
+        diizinkan: isAllowed,
+        diubah_oleh: decoded.nip,
+        tanggal_diubah: new Date().toISOString()
+      }, { onConflict: 'kategori' });
+
+      if (error) {
+        await db.from('akses_kontrak_mandiri').insert({
+          kategori: kat,
+          diizinkan: isAllowed,
+          diubah_oleh: decoded.nip,
+          tanggal_diubah: new Date().toISOString()
+        });
+      }
+    } catch (e) {
+      console.warn('[rpc] aturAksesKontrakKategori db notice:', e.message);
+    }
+
+    return { success: true, message: `Akses mandiri untuk "${kat}" berhasil ${isAllowed ? 'diberikan' : 'dicabut'}.` };
   },
 
   async getLatestSavedGenerateData([token, nip]) {
