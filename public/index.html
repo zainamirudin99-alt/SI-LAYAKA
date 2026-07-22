@@ -1904,7 +1904,7 @@ function doLogin() {
 
   errBox.style.display = 'none';
   btn.disabled = true;
-  btn.textContent = 'Masuk...';
+  btn.textContent = 'Menghubungi server...';
 
   google.script.run
     .withSuccessHandler(function(res) {
@@ -1929,13 +1929,12 @@ function doLogin() {
     .withFailureHandler(function(err) {
       btn.disabled = false;
       btn.textContent = 'Masuk';
-      errBox.textContent = 'Terjadi kesalahan: ' + (err.message || String(err));
+      errBox.textContent = 'Error jaringan: ' + (err.message || String(err));
       errBox.style.display = 'block';
       console.error('[doLogin RPC error]', err);
     })
     .login(nip, password);
 }
-
 function bindLoginForm() {
   const form = document.getElementById('loginForm');
   if (form) {
@@ -3866,74 +3865,7 @@ function escapeHtml(str) {
  * ===================================================================== */
 let promosiDashboardData = null; // cache respons getPromosiDashboardSummary
 
-function bukaModalSyaratKp() {
-  document.getElementById('modalTitle').textContent = 'Syarat-Syarat Kenaikan Pangkat';
-  document.getElementById('modalBody').innerHTML = 
-    <div style="padding:16px 20px; max-height:75vh; overflow-y:auto; font-size:13.5px; line-height:1.6; color:#1e293b;">
-      <h3 style="margin-top:0; color:#1e40af; border-bottom:2px solid #bfdbfe; padding-bottom:6px; font-size:15px; font-weight:700;">A. KENAIKAN PANGKAT (KP) REGULER</h3>
-      <p style="font-size:13px; color:#475569; font-weight:500; margin-bottom:10px;">Berlaku bagi PNS Pelaksana atau yang sedang tugas belajar (tidak memegang jabatan fungsional/struktural).</p>
-      
-      <h4 style="margin:12px 0 6px 0; color:#0f172a; font-size:13.5px; font-weight:700;">1. Syarat Utama:</h4>
-      <ul style="margin:0 0 12px 20px; padding:0;">
-        <li><strong>Masa Kerja:</strong> Minimal 4 tahun dalam pangkat/golongan terakhir.</li>
-        <li><strong>Penilaian Kinerja:</strong> SKP bernilai minimal "Baik" dalam 2 tahun terakhir.</li>
-        <li><strong>Batas Atasan:</strong> Pangkat tidak boleh melampaui pangkat atasan langsung.</li>
-        <li><strong>Ujian Dinas:</strong> Wajib lulus Ujian Dinas jika pindah ruang golongan (misal: II/d ke III/a), kecuali memiliki ijazah lebih tinggi yang diakui.</li>
-      </ul>
 
-      <h4 style="margin:14px 0 6px 0; color:#0f172a; font-size:13.5px; font-weight:700;">2. Batas Maksimal Golongan (Berdasarkan Pendidikan Terakhir yang Diakui):</h4>
-      <ul style="margin:0 0 16px 20px; padding:0;">
-        <li><strong>SD / Sederajat:</strong> Maksimal II/a (Pengatur Muda)</li>
-        <li><strong>SMP / Sederajat:</strong> Maksimal II/c (Pengatur)</li>
-        <li><strong>SMA / SMK / D-I:</strong> Maksimal II/d (Pengatur Tingkat I)</li>
-        <li><strong>Diploma II (D-II):</strong> Maksimal III/a (Penata Muda)</li>
-        <li><strong>Diploma III (D-III):</strong> Maksimal III/b (Penata Muda Tingkat I)</li>
-        <li><strong>Sarjana (S-1) / D-IV:</strong> Maksimal III/c (Penata)</li>
-        <li><strong>Magister (S-2) / Spesialis I:</strong> Maksimal III/d (Penata Tingkat I)</li>
-        <li><strong>Doktor (S-3) / Spesialis II:</strong> Maksimal IV/a (Pembina)</li>
-      </ul>
-
-      <h3 style="margin-top:20px; color:#1e40af; border-bottom:2px solid #bfdbfe; padding-bottom:6px; font-size:15px; font-weight:700;">B. KENAIKAN PANGKAT JABATAN FUNGSIONAL (JF)</h3>
-      <p style="font-size:13px; color:#475569; font-weight:500; margin-bottom:10px;">Berlaku bagi PNS pemegang Jabatan Fungsional Keterampilan maupun Keahlian.</p>
-
-      <h4 style="margin:12px 0 6px 0; color:#0f172a; font-size:13.5px; font-weight:700;">1. Syarat Utama:</h4>
-      <ul style="margin:0 0 12px 20px; padding:0;">
-        <li><strong>Masa Kerja:</strong> Minimal 2 tahun dalam pangkat/golongan terakhir.</li>
-        <li><strong>Angka Kredit:</strong> Memenuhi Angka Kredit (AK) kumulatif yang disyaratkan (hasil konversi SKP tahunan).</li>
-        <li><strong>Penilaian Kinerja:</strong> SKP bernilai minimal "Baik" dalam 2 tahun terakhir.</li>
-        <li><strong>Syarat Tambahan (Jika sekaligus naik jenjang jabatan):</strong> Wajib Lulus Uji Kompetensi (Ukom) dan tersedia formasi/lowongan kebutuhan pada jenjang tujuan.</li>
-      </ul>
-
-      <h4 style="margin:14px 0 6px 0; color:#0f172a; font-size:13.5px; font-weight:700;">2. Batas Maksimal Golongan (Berdasarkan Jenjang Jabatan):</h4>
-      <div style="margin-left:6px;">
-        <p style="font-weight:600; margin:6px 0 4px 0;">Kategori Keterampilan:</p>
-        <ul style="margin:0 0 10px 20px; padding:0;">
-          <li><strong>Pemula:</strong> Maksimal II/b (Pengatur Muda Tingkat I)</li>
-          <li><strong>Terampil:</strong> Maksimal II/d (Pengatur Tingkat I)</li>
-          <li><strong>Mahir:</strong> Maksimal III/b (Penata Muda Tingkat I)</li>
-          <li><strong>Penyelia:</strong> Maksimal III/d (Penata Tingkat I)</li>
-        </ul>
-        <p style="font-weight:600; margin:6px 0 4px 0;">Kategori Keahlian:</p>
-        <ul style="margin:0 0 16px 20px; padding:0;">
-          <li><strong>Ahli Pertama:</strong> Maksimal III/b (Penata Muda Tingkat I)</li>
-          <li><strong>Ahli Muda:</strong> Maksimal III/d (Penata Tingkat I)</li>
-          <li><strong>Ahli Madya:</strong> Maksimal IV/c (Pembina Utama Muda)</li>
-          <li><strong>Ahli Utama:</strong> Maksimal IV/e (Pembina Utama)</li>
-        </ul>
-      </div>
-
-      <h3 style="margin-top:20px; color:#1e40af; border-bottom:2px solid #bfdbfe; padding-bottom:6px; font-size:15px; font-weight:700;">C. KELENGKAPAN DOKUMEN UMUM</h3>
-      <ul style="margin:10px 0 10px 20px; padding:0;">
-        <li>SK Kenaikan Pangkat terakhir.</li>
-        <li>SK Pengangkatan Jabatan terakhir (Jabatan Pelaksana untuk Reguler, atau SK JF untuk Fungsional).</li>
-        <li>Dokumen SKP 2 tahun terakhir (bernilai minimal Baik) dari sistem e-Kinerja.</li>
-        <li>PAK terbaru atau rekap konversi Angka Kredit (khusus JF).</li>
-        <li>Sertifikat Lulus Ujian Dinas (untuk KP Reguler pindah golongan) atau Sertifikat Lulus Ukom (untuk KP JF naik jenjang).</li>
-        <li>Ijazah &amp; Transkrip Nilai (jika ada pencantuman gelar/pendidikan baru).</li>
-      </ul>
-    </div>
-  document.getElementById('modalOverlay').style.display = 'flex';
-}
 
 function bukaModalSyaratKp() {
   document.getElementById('modalTitle').textContent = 'Syarat-Syarat Kenaikan Pangkat';
