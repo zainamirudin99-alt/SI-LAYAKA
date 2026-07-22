@@ -127,7 +127,12 @@ function renderDocumentBody_(body, dataContext) {
       value = `[ERROR:${rawExpr}]`;
     }
     const pattern = '\\{\\{\\s*' + escapeRegex_(rawExpr) + '\\s*\\}\\}';
-    body.replaceText(pattern, escapeReplacement_(value));
+    const repVal = escapeReplacement_(value);
+    try {
+      body.replaceText(pattern, repVal);
+    } catch (e) {
+      body.replaceText(pattern, repVal === '' ? ' ' : repVal);
+    }
   });
 
   // 4) Auto-fit tinggi baris tabel: setelah semua konten terisi, pastikan

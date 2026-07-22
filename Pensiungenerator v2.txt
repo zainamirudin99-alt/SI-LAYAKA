@@ -227,7 +227,11 @@ function pensiunGen_insertFoto_(doc, dataContext) {
   const fotoBase64 = dataContext._fotoBase64;
 
   if (!fotoBase64) {
-    body.replaceText('\\{\\{\\s*foto\\s*\\}\\}', '');
+    try {
+      body.replaceText('\\{\\{\\s*foto\\s*\\}\\}', ' ');
+    } catch (e) {
+      Logger.log('Foto clear err: ' + e.message);
+    }
     return;
   }
 
@@ -248,9 +252,19 @@ function pensiunGen_insertFoto_(doc, dataContext) {
     inlineImage.setWidth(120);
     inlineImage.setHeight(160);
 
-    textObj.setText(textString.replace('{{foto}}', '').replace('{{ foto }}', ''));
+    const remText = textString.replace('{{foto}}', '').replace('{{ foto }}', '');
+    if (remText.trim() === '') {
+      textObj.setText(' ');
+    } else {
+      textObj.setText(remText);
+    }
   } catch (imgErr) {
-    textObj.setText(textString.replace('{{foto}}', '[Gagal Memproses Gambar]').replace('{{ foto }}', '[Gagal Memproses Gambar]'));
+    const fallbackText = textString.replace('{{foto}}', '[Foto]').replace('{{ foto }}', '[Foto]');
+    if (fallbackText.trim() === '') {
+      textObj.setText(' ');
+    } else {
+      textObj.setText(fallbackText);
+    }
   }
 }
 
