@@ -1445,30 +1445,35 @@
                <h3>Pengajuan Usulan Kontrak Baru / Perpanjangan</h3>
                <form id="kontrakUserForm" onsubmit="submitUsulanKontrak(event)" style="margin-top:14px;">
                  <div class="grid-2 kp-grid">
-                   <div class="stack-field">
-                     <label>NIP/NIK</label>
-                     <input type="text" id="kontrakUser_nip" class="field-input" readonly style="background:#eee;" />
-                   </div>
-                   <div class="stack-field">
-                     <label>Nama Lengkap</label>
-                     <input type="text" id="kontrakUser_nama" class="field-input" readonly style="background:#eee;" />
-                   </div>
-                   <div class="stack-field">
-                     <label>Unit Kerja</label>
-                     <input type="text" id="kontrakUser_unit" class="field-input" readonly style="background:#eee;" />
-                   </div>
-                   <div class="stack-field">
-                     <label>Jabatan</label>
-                     <input type="text" id="kontrakUser_jabatan" class="field-input" readonly style="background:#eee;" />
-                   </div>
-                   <div class="stack-field">
-                     <label>Email Kontak</label>
-                     <input type="email" id="kontrakUser_email" class="field-input" required />
-                   </div>
-                   <div class="stack-field">
-                     <label>Tahun Kontrak</label>
-                     <input type="text" id="kontrakUser_tahun" class="field-input" readonly style="background:#eee;" />
-                   </div>
+                    <div class="stack-field autocomplete-wrap grid-full">
+                      <label style="font-weight:600; color:var(--primary);">🔍 Cari &amp; Pilih Pegawai di Unit Kerja Anda</label>
+                      <input type="text" id="kontrakUser_search" class="field-input" placeholder="Ketik Nama atau NIP pegawai yang diusulkan..." autocomplete="off" />
+                      <div id="kontrakUser_searchList" class="autocomplete-list" style="display:none;"></div>
+                    </div>
+                    <div class="stack-field">
+                      <label>NIP/NIK <span style="color:red;">*</span></label>
+                      <input type="text" id="kontrakUser_nip" class="field-input" required placeholder="Masukkan NIP/NIK" />
+                    </div>
+                    <div class="stack-field">
+                      <label>Nama Lengkap <span style="color:red;">*</span></label>
+                      <input type="text" id="kontrakUser_nama" class="field-input" required placeholder="Masukkan Nama Lengkap" />
+                    </div>
+                    <div class="stack-field">
+                      <label>Unit Kerja <span style="color:red;">*</span></label>
+                      <input type="text" id="kontrakUser_unit" class="field-input" required placeholder="Masukkan Unit Kerja" />
+                    </div>
+                    <div class="stack-field">
+                      <label>Jabatan</label>
+                      <input type="text" id="kontrakUser_jabatan" class="field-input" placeholder="Masukkan Jabatan" />
+                    </div>
+                    <div class="stack-field">
+                      <label>Email Kontak</label>
+                      <input type="email" id="kontrakUser_email" class="field-input" required placeholder="contoh@email.com" />
+                    </div>
+                    <div class="stack-field">
+                      <label>Tahun Kontrak</label>
+                      <input type="text" id="kontrakUser_tahun" class="field-input" />
+                    </div>
                    <div class="stack-field">
                      <label>Jenis Usulan</label>
                      <select id="kontrakUser_jenisUsulan" class="field-input" onchange="toggleEvaluasiKinerjaUser()" required>
@@ -5055,6 +5060,51 @@ function bindKontrakForm() {
   }
 
   initKontrakTabs(); // Inisialisasi tab review/buat kontrak untuk admin
+
+  const userSearchInput = document.getElementById('kontrakUser_search');
+  const userSearchList = document.getElementById('kontrakUser_searchList');
+  if (userSearchInput && userSearchList) {
+    let debounceTimer = null;
+    userSearchInput.addEventListener('input', () => {
+      const q = userSearchInput.value.trim();
+      clearTimeout(debounceTimer);
+      if (q.length < 2) { userSearchList.style.display = 'none'; return; }
+      debounceTimer = setTimeout(() => {
+        google.script.run
+          .withSuccessHandler(results => {
+            userSearchList.innerHTML = '';
+            if (!results || !results.length) {
+              userSearchList.innerHTML = '<div style="padding:8px 12px; color:#64748b; font-size:12px;">Tidak ditemukan pegawai di unit Anda.</div>';
+              userSearchList.style.display = 'block';
+              return;
+            }
+            results.forEach(r => {
+              const item = document.createElement('div');
+              item.className = 'autocomplete-item';
+              item.innerHTML = `<strong>${escapeHtml(r.nama)}</strong><br><small style="color:#64748b;">NIP: ${escapeHtml(r.nip)} &middot; ${escapeHtml(r.unit_es_ii || '')}</small>`;
+              item.addEventListener('click', () => {
+                userSearchInput.value = `${r.nama} (${r.nip})`;
+                document.getElementById('kontrakUser_nip').value = r.nip || '';
+                document.getElementById('kontrakUser_nama').value = r.nama || '';
+                document.getElementById('kontrakUser_unit').value = r.unit_es_ii || '';
+                document.getElementById('kontrakUser_jabatan').value = r.jabatan || '';
+                userSearchList.style.display = 'none';
+                
+                const isDriver = String(r.jabatan || '').toLowerCase().includes('pengemudi');
+                const isMedis = isJabatanMedis(r.jabatan);
+                const simWrap = document.getElementById('kontrakUser_simWrap');
+                const strWrap = document.getElementById('kontrakUser_strWrap');
+                if (simWrap) simWrap.style.display = isDriver ? 'block' : 'none';
+                if (strWrap) strWrap.style.display = isMedis ? 'block' : 'none';
+              });
+              userSearchList.appendChild(item);
+            });
+            userSearchList.style.display = 'block';
+          })
+          .searchEmployees(SESSION.token, q);
+      }, 300);
+    });
+  }
 
   document.getElementById('kontrak_pendidikan').addEventListener('input', updateKontrakBesaranUpahPreview_);
   document.getElementById('kontrak_tmtTahun').addEventListener('change', () => {

@@ -3223,6 +3223,51 @@ function bindKontrakForm() {
 
   initKontrakTabs(); // Inisialisasi tab review/buat kontrak untuk admin
 
+  const userSearchInput = document.getElementById('kontrakUser_search');
+  const userSearchList = document.getElementById('kontrakUser_searchList');
+  if (userSearchInput && userSearchList) {
+    let debounceTimer = null;
+    userSearchInput.addEventListener('input', () => {
+      const q = userSearchInput.value.trim();
+      clearTimeout(debounceTimer);
+      if (q.length < 2) { userSearchList.style.display = 'none'; return; }
+      debounceTimer = setTimeout(() => {
+        google.script.run
+          .withSuccessHandler(results => {
+            userSearchList.innerHTML = '';
+            if (!results || !results.length) {
+              userSearchList.innerHTML = '<div style="padding:8px 12px; color:#64748b; font-size:12px;">Tidak ditemukan pegawai di unit Anda.</div>';
+              userSearchList.style.display = 'block';
+              return;
+            }
+            results.forEach(r => {
+              const item = document.createElement('div');
+              item.className = 'autocomplete-item';
+              item.innerHTML = `<strong>${escapeHtml(r.nama)}</strong><br><small style="color:#64748b;">NIP: ${escapeHtml(r.nip)} &middot; ${escapeHtml(r.unit_es_ii || '')}</small>`;
+              item.addEventListener('click', () => {
+                userSearchInput.value = `${r.nama} (${r.nip})`;
+                document.getElementById('kontrakUser_nip').value = r.nip || '';
+                document.getElementById('kontrakUser_nama').value = r.nama || '';
+                document.getElementById('kontrakUser_unit').value = r.unit_es_ii || '';
+                document.getElementById('kontrakUser_jabatan').value = r.jabatan || '';
+                userSearchList.style.display = 'none';
+                
+                const isDriver = String(r.jabatan || '').toLowerCase().includes('pengemudi');
+                const isMedis = isJabatanMedis(r.jabatan);
+                const simWrap = document.getElementById('kontrakUser_simWrap');
+                const strWrap = document.getElementById('kontrakUser_strWrap');
+                if (simWrap) simWrap.style.display = isDriver ? 'block' : 'none';
+                if (strWrap) strWrap.style.display = isMedis ? 'block' : 'none';
+              });
+              userSearchList.appendChild(item);
+            });
+            userSearchList.style.display = 'block';
+          })
+          .searchEmployees(SESSION.token, q);
+      }, 300);
+    });
+  }
+
   document.getElementById('kontrak_pendidikan').addEventListener('input', updateKontrakBesaranUpahPreview_);
   document.getElementById('kontrak_tmtTahun').addEventListener('change', () => {
     // REF: begitu tahun TMT diisi, tahun TST otomatis mengikuti (tetap bisa diubah manual).
