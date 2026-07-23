@@ -673,6 +673,11 @@
   body.theme-dark .mk-display-row { border-color: rgba(0,229,255,0.2); }
   .mk-display-row strong { color: var(--primary); }
   body.theme-dark .mk-display-row strong { color: var(--accent); }
+
+  /* Enforcement font Times New Roman untuk seluruh dokumen preview/generate */
+  .docx-wrapper, .docx-wrapper *, #modalBody .docx, #modalBody section.docx, #modalBody table, #modalBody p, #modalBody span {
+    font-family: 'Times New Roman', Times, serif !important;
+  }
 </style>
   <!-- Libraries for Word template previewing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>

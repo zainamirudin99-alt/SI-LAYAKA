@@ -900,6 +900,29 @@ function docxRenderTemplate(templateBuffer, dataCtx) {
     throw error;
   }
 
+  // Setel font seluruh dokumen menjadi Times New Roman pada XML berkas DOCX
+  try {
+    const zipObj = doc.getZip();
+    const docXmlFile = zipObj.file("word/document.xml");
+    if (docXmlFile) {
+      let xml = docXmlFile.asText();
+      xml = xml.replace(/w:ascii="[^"]*"/g, 'w:ascii="Times New Roman"')
+               .replace(/w:hAnsi="[^"]*"/g, 'w:hAnsi="Times New Roman"')
+               .replace(/w:cs="[^"]*"/g, 'w:cs="Times New Roman"');
+      zipObj.file("word/document.xml", xml);
+    }
+    const stylesXmlFile = zipObj.file("word/styles.xml");
+    if (stylesXmlFile) {
+      let stylesXml = stylesXmlFile.asText();
+      stylesXml = stylesXml.replace(/w:ascii="[^"]*"/g, 'w:ascii="Times New Roman"')
+                           .replace(/w:hAnsi="[^"]*"/g, 'w:hAnsi="Times New Roman"')
+                           .replace(/w:cs="[^"]*"/g, 'w:cs="Times New Roman"');
+      zipObj.file("word/styles.xml", stylesXml);
+    }
+  } catch (fontErr) {
+    console.warn('[rpc font] Gagal menerapkan font Times New Roman ke XML DOCX:', fontErr.message);
+  }
+
   return doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
 

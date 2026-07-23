@@ -139,6 +139,13 @@ function renderDocumentBody_(body, dataContext) {
   //    setiap baris tabel tidak lebih tinggi dari isinya (minimumHeight = 0
   //    membuat Google Docs menyesuaikan tinggi baris ke konten aktual).
   findAllTablesRecursive_(body).forEach(table => autoFitTableRows_(table));
+
+  // 5) Pastikan seluruh font dokumen yang digenerate menggunakan Times New Roman.
+  try {
+    body.setFontFamily('Times New Roman');
+  } catch (e) {
+    // ignore
+  }
 }
 
 /** Isi tag {{..}} di setiap sel sebuah tabel, sel per sel (lihat renderCellTextInPlace_). */
