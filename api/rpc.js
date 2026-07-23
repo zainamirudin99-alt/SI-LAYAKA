@@ -508,10 +508,10 @@ function klasifikasiStatusBekerja(sb) {
     if (isLn) {
       if (isBebas) {
         return {
-          eligibleSamaSekali: false,
-          track: 'normal',
+          eligibleSamaSekali: true,
+          track: 'reguler',
           notifPerhatian: true,
-          catatanNotif: 'TB LN Bebas Jabatan (Tidak Eligible)',
+          catatanNotif: 'Masa Kerja 4 Tahun',
           labelStatus: 'Tugas Belajar LN - Bebas Jabatan'
         };
       }
