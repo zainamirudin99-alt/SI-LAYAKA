@@ -112,12 +112,28 @@
   button { font-family: inherit; cursor: pointer; }
 
   /* ---------- Sidebar Logo Switcher (Light vs Dark) ---------- */
+  .sidebar-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    margin-bottom: 22px;
+    padding: 0 4px;
+    width: 100%;
+  }
+
   .sidebar-logo {
-    height: 44px;
-    width: auto;
-    max-width: 140px;
+    width: 100%;
+    max-width: 210px;
+    height: auto;
+    max-height: 58px;
     object-fit: contain;
+    object-position: left center;
     transition: all var(--transition);
+  }
+
+  .sidebar-brand span {
+    display: none !important;
   }
 
   body.theme-light .sidebar-logo-light { display: block !important; }

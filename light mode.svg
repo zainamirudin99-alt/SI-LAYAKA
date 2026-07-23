@@ -1,21 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 950 300" width="100%" height="100%">
   <g transform="translate(30, 35)">
-    <path d="M 80 15 Q 120 0 160 15 L 165 120 Q 120 195 120 205 Q 120 195 75 120 Z" fill="none" stroke="#00B4D8" stroke-width="4" stroke-dasharray="8 4" opacity="0.5"/>
+    <path d="M 80 15 Q 120 0 160 15 L 165 120 Q 120 195 120 205 Q 120 195 75 120 Z" fill="none" stroke="#38bdf8" stroke-width="4" stroke-dasharray="8 4" opacity="0.8"/>
     
-    <circle cx="105" cy="80" r="22" fill="#FFFFFF" stroke="#007BFF" stroke-width="6" />
+    <circle cx="105" cy="80" r="22" fill="#FFFFFF" stroke="#3b82f6" stroke-width="6" />
     
-    <path d="M 85 65 C 110 15, 185 10, 240 20 C 175 20, 120 40, 100 60 Z" fill="#0A2540" />
+    <path d="M 85 65 C 110 15, 185 10, 240 20 C 175 20, 120 40, 100 60 Z" fill="#ffffff" />
     
-    <path d="M 65 110 C 95 155, 220 140, 285 80 C 210 125, 120 130, 85 100 Z" fill="#007BFF" />
+    <path d="M 65 110 C 95 155, 220 140, 285 80 C 210 125, 120 130, 85 100 Z" fill="#60a5fa" />
   </g>
 
   <g transform="translate(340, 0)">
-    <text x="0" y="135" font-family="'Montserrat', 'Arial Black', sans-serif" font-size="76" font-weight="900" fill="#0A2540" letter-spacing="3">SILAYAKA</text>
+    <text x="0" y="135" font-family="'Sora', 'Montserrat', 'Arial Black', sans-serif" font-size="76" font-weight="900" fill="#ffffff" letter-spacing="3">SILAYAKA</text>
     
-    <rect x="5" y="152" width="540" height="4" fill="#00B4D8" rx="2"/>
+    <rect x="5" y="152" width="540" height="4" fill="#38bdf8" rx="2"/>
 
-    <text x="5" y="188" font-family="'Helvetica Neue', 'Arial', sans-serif" font-size="18" font-weight="700" fill="#007BFF" letter-spacing="1">SISTEM LAYANAN ADMINISTRASI KEPEGAWAIAN</text>
+    <text x="5" y="188" font-family="'Inter', 'Helvetica Neue', sans-serif" font-size="18" font-weight="700" fill="#93c5fd" letter-spacing="1">SISTEM LAYANAN ADMINISTRASI KEPEGAWAIAN</text>
     
-    <text x="5" y="218" font-family="'Helvetica Neue', 'Arial', sans-serif" font-size="15" font-weight="500" fill="#5A7184" letter-spacing="0.5">Direktorat Sumber Daya Manusia – Universitas Diponegoro</text>
+    <text x="5" y="218" font-family="'Inter', 'Helvetica Neue', sans-serif" font-size="15" font-weight="500" fill="#cbd5e1" letter-spacing="0.5">Direktorat Sumber Daya Manusia – Universitas Diponegoro</text>
   </g>
 </svg>
