@@ -150,7 +150,7 @@ function normalizeNipForMatch(nip, statusKepegawaian) {
 
 function signToken(employee, role, sub_role) {
   return jwt.sign(
-    { nip: employee.nip, nama: employee.nama_lengkap||employee.nama||'', jabatan: employee.jabatan||'', status_kepegawaian: employee.status_kepegawaian||'', role, sub_role },
+    { nip: employee.nip, nama: employee.nama_lengkap||employee.nama||'', jabatan: employee.jabatan||'', status_kepegawaian: employee.status_kepegawaian||'', unit_es_ii: employee.unit_es_ii||'', role, sub_role },
     JWT_SECRET,
     { expiresIn: CONFIG.SESSION_TTL_SECONDS }
   );
@@ -168,6 +168,14 @@ function requireRole(token, allowedRoles) {
     throw new Error('Anda tidak memiliki hak akses untuk aksi ini.');
   }
   return decoded;
+}
+
+async function getCallerUnit(decoded, db) {
+  if (decoded && decoded.unit_es_ii) return decoded.unit_es_ii;
+  if (!decoded || !decoded.nip) return null;
+  const dbClient = db || getDb();
+  const { data } = await dbClient.from('data_utama').select('unit_es_ii').eq('nip', decoded.nip).maybeSingle();
+  return data?.unit_es_ii || null;
 }
 
 // ================================================================
@@ -993,7 +1001,7 @@ const methods = {
     if (!valid||String(password).trim()!==valid) return {success:false,message:`Password salah. Gunakan ${CONFIG.PASSWORD_DIGIT_LENGTH} digit pertama dari NIP.`};
     const { role, sub_role } = await getUserRole(emp.nip);
     const token = signToken(emp, role, sub_role);
-    return {success:true,message:'Login berhasil.',token,user:{nip:emp.nip,nama:emp.nama_lengkap||emp.nama,jabatan:emp.jabatan||'',status_kepegawaian:emp.status_kepegawaian||'',role,sub_role}};
+    return {success:true,message:'Login berhasil.',token,user:{nip:emp.nip,nama:emp.nama_lengkap||emp.nama,jabatan:emp.jabatan||'',status_kepegawaian:emp.status_kepegawaian||'',unitEsIi:emp.unit_es_ii||'',role,sub_role}};
   },
 
   async register([nama, nipInput, unitKerja]) {
@@ -1010,7 +1018,7 @@ const methods = {
     const role='normal';
     const token=signToken(emp,role,null);
     const pw=extractPassword(emp.nip,emp.status_kepegawaian);
-    return {success:true,message:`Registrasi berhasil. Password Anda: ${pw} (${CONFIG.PASSWORD_DIGIT_LENGTH} digit pertama NIP).`,token,user:{nip:emp.nip,nama:emp.nama_lengkap||emp.nama,jabatan:'',status_kepegawaian:'',role}};
+    return {success:true,message:`Registrasi berhasil. Password Anda: ${pw} (${CONFIG.PASSWORD_DIGIT_LENGTH} digit pertama NIP).`,token,user:{nip:emp.nip,nama:emp.nama_lengkap||emp.nama,jabatan:'',status_kepegawaian:'',unitEsIi:emp.unit_es_ii||unitTrim,role}};
   },
 
   async logout([token]) {
@@ -1021,24 +1029,35 @@ const methods = {
   async validateSession([token]) {
     try {
       const decoded=verifyToken(token);
+      const db=getDb();
       const { role, sub_role } = await getUserRole(decoded.nip);
-      return {valid:true,user:{nip:decoded.nip,nama:decoded.nama,jabatan:decoded.jabatan||'',status_kepegawaian:decoded.status_kepegawaian||'',role,sub_role}};
+      const callerUnit = await getCallerUnit(decoded, db);
+      return {valid:true,user:{nip:decoded.nip,nama:decoded.nama,jabatan:decoded.jabatan||'',status_kepegawaian:decoded.status_kepegawaian||'',unitEsIi:callerUnit||'',role,sub_role}};
     } catch(e) { return {valid:false,message:e.message}; }
   },
 
   // ---- DATA PEGAWAI ----
 
   async searchEmployees([token, query]) {
-    verifyToken(token);
+    const decoded = verifyToken(token);
     const q=String(query||'').trim().toLowerCase();
     if (q.length<1) return [];
     const db=getDb();
-    const {data,error}=await db.from('data_utama')
-      .select('nip,nama_lengkap,nama')
-      .or(`nama_lengkap.ilike.%${q}%,nama.ilike.%${q}%,nip.ilike.%${q}%`)
-      .limit(20);
+    let req = db.from('data_utama')
+      .select('nip,nama_lengkap,nama,unit_es_ii')
+      .or(`nama_lengkap.ilike.%${q}%,nama.ilike.%${q}%,nip.ilike.%${q}%`);
+
+    // Pembatasan Akses: Jika peran akun adalah 'user', HANYA dapat mencari pegawai di unit_es_ii yang sama
+    if (decoded.role === 'user') {
+      const callerUnit = await getCallerUnit(decoded, db);
+      if (callerUnit) {
+        req = req.eq('unit_es_ii', callerUnit);
+      }
+    }
+
+    const {data,error} = await req.limit(20);
     if (error) throw error;
-    return (data||[]).map(e=>({nip:e.nip,nama:e.nama_lengkap||e.nama}));
+    return (data||[]).map(e=>({nip:e.nip,nama:e.nama_lengkap||e.nama,unitEsIi:e.unit_es_ii}));
   },
 
   async getEmployeeFullData([token, nip]) {
@@ -1477,9 +1496,18 @@ const methods = {
   // ---- PROMOSI DASHBOARD ----
 
   async getPromosiDashboardSummary([token]) {
-    verifyToken(token);
-    const db=getDb();
-    const {data:emps, error}=await db.from('data_utama').select('nip,nama_lengkap,nama,jabatan,golongan,tmt_gol,status_bekerja,pendidikan,unit_es_ii');
+    const decoded = verifyToken(token);
+    const db = getDb();
+    let query = db.from('data_utama').select('nip,nama_lengkap,nama,jabatan,golongan,tmt_gol,status_bekerja,pendidikan,unit_es_ii');
+
+    if (decoded.role === 'user') {
+      const callerUnit = await getCallerUnit(decoded, db);
+      if (callerUnit) {
+        query = query.eq('unit_es_ii', callerUnit);
+      }
+    }
+
+    const {data:emps, error} = await query;
     if (error) throw error;
     const target=hitungTargetTmtPromosi(new Date());
     const perUnit={};
@@ -1498,9 +1526,15 @@ const methods = {
   },
 
   async getPromosiEligibleList([token, unit, kategoriFilter]) {
-    verifyToken(token);
-    const db=getDb();
-    const {data:emps, error}=await db.from('data_utama').select('*').eq('unit_es_ii',unit);
+    const decoded = verifyToken(token);
+    const db = getDb();
+    let targetUnit = unit;
+    if (decoded.role === 'user') {
+      const callerUnit = await getCallerUnit(decoded, db);
+      if (callerUnit) targetUnit = callerUnit;
+    }
+
+    const {data:emps, error} = await db.from('data_utama').select('*').eq('unit_es_ii', targetUnit);
     if (error) throw error;
     const target=hitungTargetTmtPromosi(new Date());
     const hasil=(emps||[])
@@ -1515,9 +1549,18 @@ const methods = {
   // ---- PENSIUN DASHBOARD ----
 
   async getPensiunDashboardSummary([token]) {
-    verifyToken(token);
-    const db=getDb();
-    const {data:emps, error}=await db.from('data_utama').select('nip,nama_lengkap,nama,jabatan,unit_es_ii,tmt_pensiun_bup');
+    const decoded = verifyToken(token);
+    const db = getDb();
+    let query = db.from('data_utama').select('nip,nama_lengkap,nama,jabatan,unit_es_ii,tmt_pensiun_bup');
+
+    if (decoded.role === 'user') {
+      const callerUnit = await getCallerUnit(decoded, db);
+      if (callerUnit) {
+        query = query.eq('unit_es_ii', callerUnit);
+      }
+    }
+
+    const {data:emps, error} = await query;
     if (error) throw error;
     const ambangHari=CONFIG.PENSIUN_DASHBOARD_AMBANG_TAHUN*365;
     const perUnit={};
@@ -1533,9 +1576,15 @@ const methods = {
   },
 
   async getPensiunEligibleList([token, unit]) {
-    verifyToken(token);
-    const db=getDb();
-    const {data:emps, error}=await db.from('data_utama').select('nip,nama_lengkap,nama,jabatan,tmt_pensiun_bup,unit_es_ii').eq('unit_es_ii',unit);
+    const decoded = verifyToken(token);
+    const db = getDb();
+    let targetUnit = unit;
+    if (decoded.role === 'user') {
+      const callerUnit = await getCallerUnit(decoded, db);
+      if (callerUnit) targetUnit = callerUnit;
+    }
+
+    const {data:emps, error} = await db.from('data_utama').select('nip,nama_lengkap,nama,jabatan,tmt_pensiun_bup,unit_es_ii').eq('unit_es_ii', targetUnit);
     if (error) throw error;
     const ambangHari=CONFIG.PENSIUN_DASHBOARD_AMBANG_TAHUN*365;
     const daftar=(emps||[])
@@ -3107,6 +3156,15 @@ const methods = {
     const emp = await findEmployeeByNip(nip);
     if (!emp) return { success: false, message: 'Data pegawai tidak ditemukan.' };
 
+    const db = getDb();
+
+    if (decoded.role === 'user') {
+      const callerUnit = await getCallerUnit(decoded, db);
+      if (callerUnit && emp.unit_es_ii && emp.unit_es_ii !== callerUnit) {
+        return { success: false, message: `Anda hanya dapat mengajukan usulan PMK untuk pegawai di unit kerja Anda (${callerUnit}).` };
+      }
+    }
+
     // Upload files to storage (bucket: lampiran-usulan, folder: pmk)
     const fileSuratUsulUrl = file_surat_usul_pmk_b64 ? await uploadLampiran(file_surat_usul_pmk_b64, file_surat_usul_pmk_name || 'surat_usul_pmk.pdf', 'pmk') : '';
     const fileKpUrl        = file_kp_terakhir_b64 ? await uploadLampiran(file_kp_terakhir_b64, file_kp_terakhir_name || 'kp_terakhir.pdf', 'pmk') : '';
@@ -3117,7 +3175,6 @@ const methods = {
     const fileKontrakUrl   = file_kontrak_b64 ? await uploadLampiran(file_kontrak_b64, file_kontrak_name || 'kontrak.pdf', 'pmk') : '';
     const fileMelamarUrl   = file_melamar_cpns_b64 ? await uploadLampiran(file_melamar_cpns_b64, file_melamar_cpns_name || 'ijazah_cpns.pdf', 'pmk') : '';
 
-    const db = getDb();
     const insertData = {
       nip: emp.nip,
       nama: emp.nama_lengkap || emp.nama,
@@ -3143,9 +3200,16 @@ const methods = {
   },
 
   async getUsulanPmkList([token, filterStatus]) {
-    requireRole(token, ['user', 'admin', 'super_admin']);
+    const decoded = requireRole(token, ['user', 'admin', 'super_admin']);
     const db = getDb();
     let query = db.from('usulan_pmk').select('*').order('tanggal_diajukan', { ascending: false });
+
+    if (decoded.role === 'user') {
+      const callerUnit = await getCallerUnit(decoded, db);
+      if (callerUnit) {
+        query = query.eq('unit', callerUnit);
+      }
+    }
 
     if (filterStatus && filterStatus !== 'ALL') {
       query = query.eq('status', filterStatus);

@@ -197,7 +197,9 @@ function showApp() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appShell').style.display = 'block';
   document.getElementById('sidebarUserName').textContent = SESSION.user.nama || SESSION.user.nip;
-  document.getElementById('sidebarUserRole').textContent = SESSION.user.jabatan || SESSION.user.status_kepegawaian || '-';
+  const roleLabel = SESSION.user.role ? (SESSION.user.role.toUpperCase().replace(/_/g, ' ')) : '';
+  const unitLabel = SESSION.user.unitEsIi ? ` · ${SESSION.user.unitEsIi}` : '';
+  document.getElementById('sidebarUserRole').textContent = (SESSION.user.jabatan || SESSION.user.status_kepegawaian || roleLabel) + unitLabel;
   terapkanBatasanPeran_();
   if (SESSION.user.role !== 'normal') {
     loadTemplateList();
