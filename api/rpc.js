@@ -3429,7 +3429,37 @@ const methods = {
     };
   },
 
-  // ---- USULAN PMK (PENINJAUAN MASA KERJA) ----
+  // ---- USULAN PMK & PG (PENINJAUAN MASA KERJA & PENCANTUMAN GELAR) ----
+
+  /**
+   * Generates a Signed Upload URL for Supabase Storage.
+   * Enables the browser to upload large files directly to Supabase Storage,
+   * completely bypassing Vercel Serverless Function 4.5MB payload limits (HTTP 413).
+   */
+  async getPmkUploadUrl([token, filename, folder]) {
+    verifyToken(token);
+    const db = getDb();
+
+    const safeFolder = folder || 'pmk';
+    const safeName = String(filename || 'document.pdf').replace(/[^a-zA-Z0-9._-]/g, '-');
+    const path = `${safeFolder}/${Date.now()}-${uuidv4().substring(0,8)}-${safeName}`;
+
+    const { data, error } = await db.storage
+      .from('lampiran-usulan')
+      .createSignedUploadUrl(path);
+    if (error) throw error;
+
+    const { data: pubData } = db.storage
+      .from('lampiran-usulan')
+      .getPublicUrl(path);
+
+    return {
+      success: true,
+      signedUrl: data.signedUrl,
+      path,
+      publicUrl: pubData?.publicUrl || path
+    };
+  },
 
   async ajukanUsulanPmk([token, payload]) {
     const decoded = requireRole(token, ['user', 'admin', 'super_admin']);
@@ -3437,9 +3467,24 @@ const methods = {
       nip,
       jenis_usulan,
       nomor_surat_usul_pmk,
+      // Direct file URLs (Uploaded straight from browser to Supabase Storage):
+      file_surat_usul_pmk_url: in_surat_url,
+      file_kp_terakhir_url: in_kp_url,
+      file_sk_kerja_url: in_sk_kerja_url,
+      file_sk_pns_url: in_sk_pns_url,
+      file_phk_url: in_phk_url,
+      file_gaji_url: in_gaji_url,
+      file_kontrak_url: in_kontrak_url,
+      file_melamar_cpns_url: in_melamar_url,
+      jenjang_pendidikan_terbaru,
+      file_ijazah_terbaru_url: in_ijazah_url,
+      file_transkrip_terbaru_url: in_transkrip_url,
+      file_sk_ijin_belajar_url: in_ijin_url,
+      file_sk_pengaktifan_url: in_aktif_url,
+      file_penyetaraan_ijazah_url: in_penyetaraan_url,
+      // Base64 Fallback:
       file_surat_usul_pmk_b64,
       file_surat_usul_pmk_name,
-      // PMK files:
       file_kp_terakhir_b64,
       file_kp_terakhir_name,
       file_sk_kerja_b64,
@@ -3454,8 +3499,6 @@ const methods = {
       file_kontrak_name,
       file_melamar_cpns_b64,
       file_melamar_cpns_name,
-      // PG files & fields:
-      jenjang_pendidikan_terbaru,
       file_ijazah_terbaru_b64,
       file_ijazah_terbaru_name,
       file_transkrip_terbaru_b64,
@@ -3485,8 +3528,7 @@ const methods = {
 
     const tipeUsulan = jenis_usulan === 'PG' ? 'PG' : 'PMK';
 
-    // Upload Surat Pengantar / Surat Usul
-    const fileSuratUsulUrl = file_surat_usul_pmk_b64 ? await uploadLampiran(file_surat_usul_pmk_b64, file_surat_usul_pmk_name || 'surat_pengantar.pdf', 'pmk') : '';
+    const fileSuratUsulUrl = in_surat_url || (file_surat_usul_pmk_b64 ? await uploadLampiran(file_surat_usul_pmk_b64, file_surat_usul_pmk_name || 'surat_pengantar.pdf', 'pmk') : '');
 
     const insertData = {
       nip: emp.nip,
@@ -3501,19 +3543,11 @@ const methods = {
     };
 
     if (tipeUsulan === 'PG') {
-      const [
-        fileIjazahUrl,
-        fileTranskripUrl,
-        fileIjinBelajarUrl,
-        filePengaktifanUrl,
-        filePenyetaraanUrl
-      ] = await Promise.all([
-        file_ijazah_terbaru_b64 ? uploadLampiran(file_ijazah_terbaru_b64, file_ijazah_terbaru_name || 'ijazah_terbaru.pdf', 'pmk') : Promise.resolve(''),
-        file_transkrip_terbaru_b64 ? uploadLampiran(file_transkrip_terbaru_b64, file_transkrip_terbaru_name || 'transkrip_terbaru.pdf', 'pmk') : Promise.resolve(''),
-        file_sk_ijin_belajar_b64 ? uploadLampiran(file_sk_ijin_belajar_b64, file_sk_ijin_belajar_name || 'sk_ijin_belajar.pdf', 'pmk') : Promise.resolve(''),
-        file_sk_pengaktifan_b64 ? uploadLampiran(file_sk_pengaktifan_b64, file_sk_pengaktifan_name || 'sk_pengaktifan.pdf', 'pmk') : Promise.resolve(''),
-        file_penyetaraan_ijazah_b64 ? uploadLampiran(file_penyetaraan_ijazah_b64, file_penyetaraan_ijazah_name || 'penyetaraan_ijazah.pdf', 'pmk') : Promise.resolve('')
-      ]);
+      const fileIjazahUrl = in_ijazah_url || (file_ijazah_terbaru_b64 ? await uploadLampiran(file_ijazah_terbaru_b64, file_ijazah_terbaru_name || 'ijazah_terbaru.pdf', 'pmk') : '');
+      const fileTranskripUrl = in_transkrip_url || (file_transkrip_terbaru_b64 ? await uploadLampiran(file_transkrip_terbaru_b64, file_transkrip_terbaru_name || 'transkrip_terbaru.pdf', 'pmk') : '');
+      const fileIjinBelajarUrl = in_ijin_url || (file_sk_ijin_belajar_b64 ? await uploadLampiran(file_sk_ijin_belajar_b64, file_sk_ijin_belajar_name || 'sk_ijin_belajar.pdf', 'pmk') : '');
+      const filePengaktifanUrl = in_aktif_url || (file_sk_pengaktifan_b64 ? await uploadLampiran(file_sk_pengaktifan_b64, file_sk_pengaktifan_name || 'sk_pengaktifan.pdf', 'pmk') : '');
+      const filePenyetaraanUrl = in_penyetaraan_url || (file_penyetaraan_ijazah_b64 ? await uploadLampiran(file_penyetaraan_ijazah_b64, file_penyetaraan_ijazah_name || 'penyetaraan_ijazah.pdf', 'pmk') : '');
 
       insertData.jenjang_pendidikan_terbaru = jenjang_pendidikan_terbaru || '';
       insertData.file_ijazah_terbaru_url = fileIjazahUrl;
@@ -3523,23 +3557,13 @@ const methods = {
       insertData.file_penyetaraan_ijazah_url = filePenyetaraanUrl;
 
     } else {
-      const [
-        fileKpUrl,
-        fileSkKerjaUrl,
-        fileSkPnsUrl,
-        filePhkUrl,
-        fileGajiUrl,
-        fileKontrakUrl,
-        fileMelamarUrl
-      ] = await Promise.all([
-        file_kp_terakhir_b64 ? uploadLampiran(file_kp_terakhir_b64, file_kp_terakhir_name || 'kp_terakhir.pdf', 'pmk') : Promise.resolve(''),
-        file_sk_kerja_b64 ? uploadLampiran(file_sk_kerja_b64, file_sk_kerja_name || 'sk_kerja.pdf', 'pmk') : Promise.resolve(''),
-        file_sk_pns_b64 ? uploadLampiran(file_sk_pns_b64, file_sk_pns_name || 'sk_pns.pdf', 'pmk') : Promise.resolve(''),
-        file_phk_b64 ? uploadLampiran(file_phk_b64, file_phk_name || 'phk.pdf', 'pmk') : Promise.resolve(''),
-        file_gaji_b64 ? uploadLampiran(file_gaji_b64, file_gaji_name || 'gaji.pdf', 'pmk') : Promise.resolve(''),
-        file_kontrak_b64 ? uploadLampiran(file_kontrak_b64, file_kontrak_name || 'kontrak.pdf', 'pmk') : Promise.resolve(''),
-        file_melamar_cpns_b64 ? uploadLampiran(file_melamar_cpns_b64, file_melamar_cpns_name || 'ijazah_cpns.pdf', 'pmk') : Promise.resolve('')
-      ]);
+      const fileKpUrl = in_kp_url || (file_kp_terakhir_b64 ? await uploadLampiran(file_kp_terakhir_b64, file_kp_terakhir_name || 'kp_terakhir.pdf', 'pmk') : '');
+      const fileSkKerjaUrl = in_sk_kerja_url || (file_sk_kerja_b64 ? await uploadLampiran(file_sk_kerja_b64, file_sk_kerja_name || 'sk_kerja.pdf', 'pmk') : '');
+      const fileSkPnsUrl = in_sk_pns_url || (file_sk_pns_b64 ? await uploadLampiran(file_sk_pns_b64, file_sk_pns_name || 'sk_pns.pdf', 'pmk') : '');
+      const filePhkUrl = in_phk_url || (file_phk_b64 ? await uploadLampiran(file_phk_b64, file_phk_name || 'phk.pdf', 'pmk') : '');
+      const fileGajiUrl = in_gaji_url || (file_gaji_b64 ? await uploadLampiran(file_gaji_b64, file_gaji_name || 'gaji.pdf', 'pmk') : '');
+      const fileKontrakUrl = in_kontrak_url || (file_kontrak_b64 ? await uploadLampiran(file_kontrak_b64, file_kontrak_name || 'kontrak.pdf', 'pmk') : '');
+      const fileMelamarUrl = in_melamar_url || (file_melamar_cpns_b64 ? await uploadLampiran(file_melamar_cpns_b64, file_melamar_cpns_name || 'ijazah_cpns.pdf', 'pmk') : '');
 
       insertData.file_kp_terakhir_url = fileKpUrl;
       insertData.file_sk_kerja_url = fileSkKerjaUrl;
