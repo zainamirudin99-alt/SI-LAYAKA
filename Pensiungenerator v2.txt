@@ -164,6 +164,21 @@ function pensiunGen_formatGajiRupiah_(val) {
   return 'Rp ' + num.toLocaleString('id-ID') + ',-';
 }
 
+function makeAllStringsUpper_(obj) {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'string') return obj.toUpperCase();
+  if (Array.isArray(obj)) return obj.map(makeAllStringsUpper_);
+  if (typeof obj === 'object') {
+    const res = {};
+    for (const key of Object.keys(obj)) {
+      if (key === '_fotoBase64') res[key] = obj[key];
+      else res[key] = makeAllStringsUpper_(obj[key]);
+    }
+    return res;
+  }
+  return obj;
+}
+
 function pensiunGen_buildDpcpContext_(formData) {
   formData = formData || {};
 
@@ -207,12 +222,12 @@ function pensiunGen_buildDpcpContext_(formData) {
     tgl_buat: tglSekarang,
     today: tglSekarang,
 
-    pasangan: pensiunGen_buildFamilyRows_(formData.pasangan, PENSIUN_PASANGAN_FIELDS, PENSIUN_PASANGAN_DATE_FIELDS, PENSIUN_PASANGAN_UPPER_FIELDS),
-    anak: pensiunGen_buildFamilyRows_(formData.anak, PENSIUN_ANAK_FIELDS, PENSIUN_ANAK_DATE_FIELDS, PENSIUN_ANAK_UPPER_FIELDS)
+    pasangan: pensiunGen_buildFamilyRows_(formData.pasangan, PENSIUN_PASANGAN_FIELDS, PENSIUN_PASANGAN_DATE_FIELDS, PENSIUN_PASANGAN_FIELDS),
+    anak: pensiunGen_buildFamilyRows_(formData.anak, PENSIUN_ANAK_FIELDS, PENSIUN_ANAK_DATE_FIELDS, PENSIUN_ANAK_FIELDS)
   };
 
   ctx._fotoBase64 = formData.fotoBase64 || '';
-  return ctx;
+  return makeAllStringsUpper_(ctx);
 }
 
 /**

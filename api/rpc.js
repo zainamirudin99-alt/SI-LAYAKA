@@ -3172,13 +3172,37 @@ function pensiunGen_hitungJenisPensiunFields(formData) {
   return { jp1, jp2, jp3, namaTtd, nipTtd, akhirTmtKerja };
 }
 
+function pensiunGen_formatGajiRupiah(val) {
+  if (!val) return '-';
+  const numStr = String(val).replace(/[^0-9]/g, '');
+  if (!numStr) return String(val).toUpperCase();
+  const num = parseInt(numStr, 10);
+  return 'RP ' + num.toLocaleString('id-ID') + ',-';
+}
+
+function makeAllStringsUpper(obj) {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'string') return obj.toUpperCase();
+  if (Array.isArray(obj)) return obj.map(makeAllStringsUpper);
+  if (typeof obj === 'object') {
+    const res = {};
+    for (const key of Object.keys(obj)) {
+      res[key] = makeAllStringsUpper(obj[key]);
+    }
+    return res;
+  }
+  return obj;
+}
+
 function rpcBuildDpcpContext(formData) {
   formData = formData || {};
   const fmtTmtGol = pensiunGen_tanggalUpper(formData.tmt_gol);
   const pangkatGabungan = `${pensiunGen_upper(formData.pangkat)}/${pensiunGen_upper(formData.golongan)}/${fmtTmtGol}`;
   const jenisPensiunFields = pensiunGen_hitungJenisPensiunFields(formData);
 
-  return {
+  const tglSekarang = pensiunGen_tanggalUpper(new Date());
+
+  const ctx = {
     nip: formData.nip || '',
     nama_lengkap: pensiunGen_upper(formData.nama_lengkap),
     nama: pensiunGen_upper(formData.nama),
@@ -3193,7 +3217,7 @@ function rpcBuildDpcpContext(formData) {
     tmt_pensiun: pensiunGen_tanggalUpper(formData.tmt_pensiun),
     unit_es_ii: pensiunGen_upper(formData.unit_es_ii),
     unit_kerja: pensiunGen_upper(formData.unit_es_ii),
-    gaji_pokok: formData.gaji_pokok || '',
+    gaji_pokok: pensiunGen_formatGajiRupiah(formData.gaji_pokok),
     mk_kp_terakhir: pensiunGen_upper(formData.mk_kp_terakhir) || '0 TAHUN 0 BULAN',
     mk_golongan: pensiunGen_upper(formData.mk_golongan),
     mk_pns: pensiunGen_upper(formData.mk_pns),
@@ -3202,18 +3226,21 @@ function rpcBuildDpcpContext(formData) {
     pendidikan_pertama: pensiunGen_upper(formData.pendidikan_pertama),
     cltn: pensiunGen_upper(formData.cltn) || '0 TAHUN 0 BULAN',
     pmk: pensiunGen_upper(formData.pmk) || '0 TAHUN 0 BULAN',
-    akhir_tmt_kerja: jenisPensiunFields.akhirTmtKerja,
+    akhir_tmt_kerja: pensiunGen_upper(jenisPensiunFields.akhirTmtKerja),
     bulan_terakhir_bekerja: pensiunGen_tanggalUpper(formData.bulan_terakhir_bekerja),
-    jenis_pensiun1: jenisPensiunFields.jp1,
-    jenis_pensiun2: jenisPensiunFields.jp2,
-    jenis_pensiun3: jenisPensiunFields.jp3,
-    nama_ttd: jenisPensiunFields.namaTtd,
-    nip_ttd: jenisPensiunFields.nipTtd,
-    tgl_buat: pensiunGen_tanggalUpper(new Date()),
+    jenis_pensiun1: pensiunGen_upper(jenisPensiunFields.jp1),
+    jenis_pensiun2: pensiunGen_upper(jenisPensiunFields.jp2),
+    jenis_pensiun3: pensiunGen_upper(jenisPensiunFields.jp3),
+    nama_ttd: pensiunGen_upper(jenisPensiunFields.namaTtd),
+    nip_ttd: pensiunGen_upper(jenisPensiunFields.nipTtd),
+    tgl_buat: tglSekarang,
+    today: tglSekarang,
 
-    pasangan: pensiunGen_buildFamilyRows(formData.pasangan, PENSIUN_PASANGAN_FIELDS, PENSIUN_PASANGAN_DATE_FIELDS, PENSIUN_PASANGAN_UPPER_FIELDS),
-    anak: pensiunGen_buildFamilyRows(formData.anak, PENSIUN_ANAK_FIELDS, PENSIUN_ANAK_DATE_FIELDS, PENSIUN_ANAK_UPPER_FIELDS)
+    pasangan: pensiunGen_buildFamilyRows(formData.pasangan, PENSIUN_PASANGAN_FIELDS, PENSIUN_PASANGAN_DATE_FIELDS, PENSIUN_PASANGAN_FIELDS),
+    anak: pensiunGen_buildFamilyRows(formData.anak, PENSIUN_ANAK_FIELDS, PENSIUN_ANAK_DATE_FIELDS, PENSIUN_ANAK_FIELDS)
   };
+
+  return makeAllStringsUpper(ctx);
 }
 
 function rpcBuildSuperContext(formData) {
