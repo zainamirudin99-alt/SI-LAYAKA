@@ -453,19 +453,124 @@ function sudahMencapaiBatasGolongan(kategori, emp) {
 }
 
 function klasifikasiStatusBekerja(sb) {
-  const s=String(sb||'').trim().toLowerCase();
-  if (/diberhentikan\s+sementara/.test(s)) return {dikenali:true,eligibleSamaSekali:false,track:'normal',notifPerhatian:false,labelStatus:'Diberhentikan Sementara'};
-  if (/\bnon[\s-]?aktif\b|\btidak\s+aktif\b/.test(s)) return {dikenali:true,eligibleSamaSekali:false,track:'normal',notifPerhatian:false,labelStatus:'Non Aktif'};
-  if (/tugas\s+belajar/.test(s)) {
-    const bebas=!/tidak\s+bebas/.test(s)&&/\bbebas\b/.test(s);
-    const tidakBebas=/tidak\s+bebas/.test(s);
-    if (bebas) return {dikenali:true,eligibleSamaSekali:true,track:'reguler',notifPerhatian:true,labelStatus:'Tugas Belajar - Bebas Jabatan'};
-    if (tidakBebas) return {dikenali:true,eligibleSamaSekali:true,track:'normal',notifPerhatian:true,labelStatus:'Tugas Belajar - Tidak Bebas Jabatan'};
-    return {dikenali:false,eligibleSamaSekali:false,track:'normal',notifPerhatian:true,labelStatus:'Tugas Belajar (status tidak terbaca)'};
+  const s = String(sb || '').trim().toLowerCase();
+
+  // 1. Diberhentikan sementara
+  if (/diberhentikan\s+sementara/i.test(s)) {
+    return {
+      eligibleSamaSekali: false,
+      track: 'normal',
+      notifPerhatian: false,
+      catatanNotif: '',
+      labelStatus: 'Diberhentikan Sementara'
+    };
   }
-  if (/ijin\s+belajar|izin\s+belajar/.test(s)) return {dikenali:true,eligibleSamaSekali:true,track:'normal',notifPerhatian:false,labelStatus:'Ijin Belajar'};
-  if (/dipekerjakan/.test(s)) return {dikenali:true,eligibleSamaSekali:true,track:'normal',notifPerhatian:true,labelStatus:'Dipekerjakan'};
-  return {dikenali:true,eligibleSamaSekali:true,track:'normal',notifPerhatian:false,labelStatus:String(sb||'Aktif Bekerja').trim()};
+
+  // Non-aktif / Tidak aktif
+  if (/\bnon[\s-]?aktif\b|\btidak\s+aktif\b/i.test(s)) {
+    return {
+      eligibleSamaSekali: false,
+      track: 'normal',
+      notifPerhatian: false,
+      catatanNotif: '',
+      labelStatus: 'Non Aktif'
+    };
+  }
+
+  // 2. Dipekerjakan
+  if (/dipekerjakan/i.test(s)) {
+    return {
+      eligibleSamaSekali: true,
+      track: 'normal',
+      notifPerhatian: true,
+      catatanNotif: 'Perlu dilihat SK Tugasnya',
+      labelStatus: 'Dipekerjakan'
+    };
+  }
+
+  // 3. Ijin / Izin Belajar
+  if (/ijin\s+belajar|izin\s+belajar/i.test(s)) {
+    return {
+      eligibleSamaSekali: true,
+      track: 'normal',
+      notifPerhatian: false,
+      catatanNotif: '',
+      labelStatus: 'Ijin Belajar'
+    };
+  }
+
+  // 4. Tugas Belajar
+  if (/tugas\s+belajar/i.test(s)) {
+    const isLn = /\bln\b|luar\s+negeri/i.test(s);
+    const isBebas = !/tidak\s+bebas/i.test(s) && /\bbebas\b/i.test(s);
+    const isTidakBebas = /tidak\s+bebas/i.test(s);
+
+    if (isLn) {
+      if (isBebas) {
+        return {
+          eligibleSamaSekali: false,
+          track: 'normal',
+          notifPerhatian: true,
+          catatanNotif: 'TB LN Bebas Jabatan (Tidak Eligible)',
+          labelStatus: 'Tugas Belajar LN - Bebas Jabatan'
+        };
+      }
+      if (isTidakBebas) {
+        return {
+          eligibleSamaSekali: true,
+          track: 'normal',
+          notifPerhatian: false,
+          catatanNotif: '',
+          labelStatus: 'Tugas Belajar LN - Tidak Bebas Jabatan'
+        };
+      }
+      // Tugas Belajar LN (tanpa keterangan bebas/tidak)
+      return {
+        eligibleSamaSekali: true,
+        track: 'normal',
+        notifPerhatian: true,
+        catatanNotif: 'Perlu dilihat SK Tugasnya',
+        labelStatus: 'Tugas Belajar LN'
+      };
+    } else {
+      // DN (default atau eksplisit DN)
+      if (isBebas) {
+        return {
+          eligibleSamaSekali: true,
+          track: 'reguler', // Masa kerja 4 tahun
+          notifPerhatian: true,
+          catatanNotif: 'Masa Kerja 4 Tahun',
+          labelStatus: 'Tugas Belajar DN - Bebas Jabatan'
+        };
+      }
+      if (isTidakBebas) {
+        return {
+          eligibleSamaSekali: true,
+          track: 'normal',
+          notifPerhatian: false,
+          catatanNotif: '',
+          labelStatus: 'Tugas Belajar DN - Tidak Bebas Jabatan'
+        };
+      }
+      // Tugas Belajar DN / biasa (tanpa keterangan bebas/tidak)
+      return {
+        eligibleSamaSekali: true,
+        track: 'normal',
+        notifPerhatian: true,
+        catatanNotif: 'Perlu dilihat SK Tugasnya',
+        labelStatus: 'Tugas Belajar'
+      };
+    }
+  }
+
+  // 5. Aktif Bekerja (default)
+  return {
+    eligibleSamaSekali: true,
+    track: 'normal',
+    notifPerhatian: false,
+    catatanNotif: '',
+    labelStatus: sb ? String(sb).trim() : 'Aktif Bekerja'
+  };
 }
 
 function cekEligiblePromosi(emp, targetDate) {
@@ -1587,7 +1692,7 @@ const methods = {
       .map(emp=>Object.assign({emp},cekEligiblePromosi(emp,target.targetDate)))
       .filter(r=>r.eligible)
       .filter(r=>kategoriFilter==='dosen'?r.kategori==='dosen':r.kategori!=='dosen')
-      .map(r=>({nip:r.emp.nip,nama:r.emp.nama_lengkap||r.emp.nama,jabatan:r.emp.jabatan,kategori:r.kategori,tmtGolongan:formatTanggalIndonesia(r.emp.tmt_gol),golonganSekarang:r.emp.golongan,batasGolongan:r.batasGolongan,masaKerjaTahun:r.masaKerjaTahun,syaratTahun:r.syaratTahun,jalurReguler:r.jalurReguler,notifPerhatian:r.statusInfo.notifPerhatian,labelStatus:r.statusInfo.labelStatus}))
+      .map(r=>({nip:r.emp.nip,nama:r.emp.nama_lengkap||r.emp.nama,jabatan:r.emp.jabatan,kategori:r.kategori,tmtGolongan:formatTanggalIndonesia(r.emp.tmt_gol),golonganSekarang:r.emp.golongan,batasGolongan:r.batasGolongan,masaKerjaTahun:r.masaKerjaTahun,syaratTahun:r.syaratTahun,jalurReguler:r.jalurReguler,notifPerhatian:r.statusInfo.notifPerhatian,catatanNotif:r.statusInfo.catatanNotif||'',labelStatus:r.statusInfo.labelStatus}))
       .sort((a,b)=>String(a.nama).localeCompare(String(b.nama)));
     return {success:true,targetTmt:`1 ${BULAN_ID[target.targetMonth-1]} ${target.targetYear}`,daftar:hasil};
   },

@@ -3948,7 +3948,7 @@ function loadPromosiDashboardLevel3(unit, kategori) {
         listEl.innerHTML = res.daftar.map(p => `
           <div class="ce-dashboard-list-item" onclick="onSelectPromosiPegawai('${escapeHtml(p.nip)}','${escapeHtml(p.nama).replace(/'/g, "\\'")}','${p.kategori}')">
             <div>
-              <div class="cdli-name">${escapeHtml(p.nama)} ${p.notifPerhatian ? '<span class="cdli-warn" title="Perlu perhatian khusus">⚠️ Perhatian</span>' : ''}</div>
+              <div class="cdli-name">${escapeHtml(p.nama)} ${p.notifPerhatian ? `<span class="cdli-warn" title="${escapeHtml(p.catatanNotif || 'Perlu perhatian khusus')}">⚠️ ${escapeHtml(p.catatanNotif || 'Perhatian')}</span>` : ''}</div>
               <div class="cdli-meta">${escapeHtml(p.jabatan || '-')} &middot; NIP ${escapeHtml(p.nip)} &middot; TMT Golongan: ${escapeHtml(p.tmtGolongan || '-')} &middot; Golongan: ${escapeHtml(p.golonganSekarang || '-')}${p.batasGolongan ? ' (maks. ' + escapeHtml(p.batasGolongan) + ')' : ''}</div>
               <div class="cdli-meta">Status: ${escapeHtml(p.labelStatus || '-')}${p.jalurReguler ? ' &middot; Jalur Kenaikan Pangkat Reguler (syarat ' + p.syaratTahun + ' tahun)' : ''}</div>
             </div>
