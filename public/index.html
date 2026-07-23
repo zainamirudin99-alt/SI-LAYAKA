@@ -256,7 +256,7 @@
 
   .main-content { flex: 1; padding: 26px 30px; min-width: 0; }
   .topbar {
-    display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px;
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; padding-right: 120px;
   }
   .topbar h2 { margin: 0; font-size: 21px; }
   .topbar .breadcrumb { font-size: 12.5px; color: var(--text-muted); }
@@ -1531,23 +1531,21 @@
                      <input type="file" id="kontrakUser_file_ket_sehat" class="field-input" accept="application/pdf,image/*" required />
                    </div>
                    <div class="stack-field" id="kontrakUser_simWrap" style="display:none;">
-                     <label>SIM A & B (PDF/Gambar) <span style="color:red;">*</span></label>
-                     <input type="file" id="kontrakUser_file_sim" class="field-input" accept="application/pdf,image/*" />
-                   </div>
-                   <div class="stack-field" id="kontrakUser_strWrap" style="display:none;">
-                     <label>STR Aktif (PDF) <span style="color:red;">*</span></label>
-                     <input type="file" id="kontrakUser_file_str" class="field-input" accept="application/pdf" />
-                   </div>
-                 </div>
-
-                 <div class="actions-bar" style="margin-top:20px;">
-                   <button type="submit" class="btn btn-primary" id="kontrakUser_submitBtn">Ajukan Usulan</button>
-                 </div>
-               </form>
-             </div>
+                  <label>SIM A & B (PDF/Gambar) <span style="color:red;">*</span></label>
+                  <input type="file" id="kontrakUser_file_sim" class="field-input" accept="application/pdf,image/*" />
+                </div>
+                <div class="stack-field" id="kontrakUser_strWrap" style="display:none;">
+                  <label>STR Aktif (PDF) <span style="color:red;">*</span></label>
+                  <input type="file" id="kontrakUser_file_str" class="field-input" accept="application/pdf" />
+                </div>
+              </div>
+              <div class="actions-bar" style="margin-top:20px;">
+                <button type="submit" class="btn btn-primary" id="kontrakUser_submitBtn">Ajukan Usulan</button>
+              </div>
+            </form>
           </div>
         </div>
-        </div>
+      </div>
 
         <!-- ============ VIEW: PROFIL SAYA (peran 'normal') ============ -->
         <div class="view-panel" id="view-profil-saya" style="display:none;">
@@ -1562,13 +1560,13 @@
         <!-- ============ VIEW: PMK (PENINJAUAN MASA KERJA) ============ -->
         <div class="view-panel" id="view-pmk" style="display:none;">
           <div class="card kp-panel">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px; border-bottom:1px solid #e2e8f0; padding-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:16px;">
               <div>
-                <h3 style="margin:0; font-family:'Sora',sans-serif; font-size:18px; font-weight:700; color:#1e293b;">Peninjauan Masa Kerja (PMK) PNS</h3>
-                <p style="margin:4px 0 0 0; color:#64748b; font-size:13px;">Menu verifikasi &amp; pengajuan usulan peninjauan masa kerja pegawai</p>
+                <h3 style="margin:0; font-size:17px; font-weight:700;">Pengajuan &amp; Verifikasi Usulan PMK</h3>
+                <p style="margin:4px 0 0 0; color:var(--text-muted); font-size:13px;">Kelola usulan peninjauan masa kerja PNS dan lakukan verifikasi berkas secara berkala.</p>
               </div>
-              <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                <button type="button" class="btn btn-outline" id="btnSyaratPmk" onclick="bukaModalSyaratPmk()" style="border-color:#3b82f6; color:#2563eb; font-weight:600;">
+              <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                <button type="button" class="btn btn-outline" id="btnSyaratPmk" onclick="bukaModalSyaratPmk()" style="font-weight:600;">
                   📋 Syarat-Syarat PMK
                 </button>
                 <button type="button" class="btn btn-primary" id="btnAjukanPmk" onclick="bukaModalAjukanPmk()" style="font-weight:600;">
@@ -1578,14 +1576,14 @@
             </div>
 
             <!-- Filter Status Usulan -->
-            <div style="display:flex; gap:12px; margin-bottom:16px; align-items:center; flex-wrap:wrap; background:#f8fafc; padding:12px 16px; border-radius:8px; border:1px solid #e2e8f0;">
-              <div style="font-weight:600; font-size:14px; color:#334155;">Status Usulan:</div>
-              <select id="pmkFilterStatus" class="field-input" style="max-width:230px; padding:6px 12px; margin:0;" onchange="loadPmkUsulanList()">
+            <div style="display:flex; gap:12px; margin-bottom:18px; align-items:center; flex-wrap:wrap; background:var(--surface-alt); padding:10px 14px; border-radius:8px; border:1px solid var(--border);">
+              <div style="font-weight:600; font-size:13.5px; color:var(--text-muted);">Status Usulan:</div>
+              <select id="pmkFilterStatus" class="field-input" style="max-width:220px; padding:6px 12px; margin:0; font-size:13px;" onchange="loadPmkUsulanList()">
                 <option value="ALL">Semua Status</option>
                 <option value="Diajukan">Diajukan</option>
                 <option value="siap diajukan di SIASN">Siap Diajukan di SIASN</option>
               </select>
-              <button type="button" class="btn btn-secondary" onclick="loadPmkUsulanList()" style="padding:6px 14px;">🔄 Refresh List</button>
+              <button type="button" class="btn btn-secondary" onclick="loadPmkUsulanList()" style="padding:6px 14px; font-size:13px;">🔄 Refresh List</button>
             </div>
 
             <!-- List State -->
