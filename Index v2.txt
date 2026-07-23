@@ -150,7 +150,10 @@
               <!-- Dashboard eligible (skrining masa kerja) -- tampil SEBELUM pemilihan nama -->
               <div class="ce-dashboard" id="ceDashboard">
                 <div class="ce-dashboard-header">
-                  <span class="ce-dashboard-title">📊 Dashboard Eligible Kenaikan Pangkat</span>
+                  <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-start;">
+                    <span class="ce-dashboard-title">📊 Dashboard Eligible Kenaikan Pangkat Administratif</span>
+                    <span style="font-size:11.5px; color:var(--text-muted); font-weight:normal; font-style:italic;">* belum termasuk perhitungan angka kredit, perlu dihitung dengan kalkulator di bawah</span>
+                  </div>
                   <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                     <span class="ce-dashboard-target" id="ceDashboardTarget"></span>
                     <button type="button" class="btn btn-outline kp-small-btn" onclick="bukaModalSyaratKp()" style="font-weight:600; border-color:#3b82f6; color:#2563eb;">📋 Syarat-Syarat Kenaikan Pangkat</button>
