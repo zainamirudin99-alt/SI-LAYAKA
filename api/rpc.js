@@ -3611,7 +3611,7 @@ const methods = {
   },
 
   async approveUsulanPmkAttachment([token, id, docKey, disetujui]) {
-    const decoded = requireRole(token, ['user', 'admin', 'super_admin']);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
 
     const validDocKeys = {

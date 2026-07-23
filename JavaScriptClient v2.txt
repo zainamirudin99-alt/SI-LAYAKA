@@ -5106,6 +5106,9 @@ function loadPmkUsulanList() {
         return;
       }
 
+      const isAdmin = (SESSION.user && (SESSION.user.role === 'admin' || SESSION.user.role === 'super_admin'));
+      const btnLabel = isAdmin ? '🔍 Verifikasi &amp; Detail &rarr;' : '👁️ Lihat Status &amp; Detail &rarr;';
+
       container.innerHTML = `
         <div class="ce-dashboard-list" style="gap:12px;">
           ${daftar.map(item => {
@@ -5133,7 +5136,7 @@ function loadPmkUsulanList() {
                 </div>
                 <div>
                   <button type="button" class="btn btn-primary kp-small-btn" onclick="event.stopPropagation(); viewPmkUsulanDetail('${item.id}')">
-                    🔍 Verifikasi &amp; Detail &rarr;
+                    ${btnLabel}
                   </button>
                 </div>
               </div>
@@ -5169,6 +5172,7 @@ function viewPmkUsulanDetail(usulanId) {
       const statusLabel = isSiapSiasn ? 'siap diajukan di SIASN' : (u.status || 'Diajukan');
       const tgl = u.tanggal_diajukan ? formatTanggalIndonesia(u.tanggal_diajukan) : '-';
       const isPg = (u.jenis_usulan === 'PG');
+      const isAdmin = (SESSION.user && (SESSION.user.role === 'admin' || SESSION.user.role === 'super_admin'));
 
       const docs = isPg ? [
         { key: 'surat_usul', label: '1. Dok Surat Pengantar PG', url: u.file_surat_usul_pmk_url, app: u.file_surat_usul_pmk_approved },
@@ -5213,22 +5217,35 @@ function viewPmkUsulanDetail(usulanId) {
 
           <div style="margin-bottom:16px; background:#f8fafc; padding:14px; border-radius:8px; border:1px solid #e2e8f0;">
             <h4 style="margin:0 0 10px 0; font-size:14px; font-weight:700; color:#1e293b;">
-              📋 Verifikasi Kelengkapan Berkas Lampiran ${isPg ? 'PG' : 'PMK'}
+              📋 ${isAdmin ? 'Verifikasi Kelengkapan Berkas Lampiran' : 'Status Verifikasi Berkas Lampiran'} ${isPg ? 'PG' : 'PMK'}
             </h4>
             <p style="margin:0 0 14px 0; color:#64748b; font-size:12.5px;">
-              Periksa lampiran file satu per satu dan berikan centang (checkbox) untuk validasi. Setelah <strong>semua dokumen wajib dicentang</strong>, status usulan akan otomatis berubah menjadi <strong>"siap diajukan di SIASN"</strong>.
+              ${isAdmin
+                ? 'Periksa lampiran file satu per satu dan berikan centang (checkbox) untuk validasi. Setelah <strong>semua dokumen wajib dicentang</strong>, status usulan akan otomatis berubah menjadi <strong>"siap diajukan di SIASN"</strong>.'
+                : 'Berikut adalah rincian berkas lampiran usulan yang diajukan beserta status verifikasi oleh Tim Kepegawaian.'
+              }
             </p>
 
             <div style="display:flex; flex-direction:column; gap:10px;">
               ${docs.map(doc => `
                 <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:10px 14px; background:#fff; border:1px solid #e2e8f0; border-radius:6px;">
                   <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:250px;">
-                    <input type="checkbox" id="chk_pmk_${doc.key}" ${doc.app ? 'checked' : ''}
-                           onchange="togglePmkDocApproval('${u.id}', '${doc.key}', this.checked)"
-                           style="width:20px; height:20px; cursor:pointer; accent-color:#10b981;" />
-                    <label for="chk_pmk_${doc.key}" style="font-weight:600; font-size:13.5px; cursor:pointer; color:#1e293b;">
-                      ${escapeHtml(doc.label)}
-                    </label>
+                    ${isAdmin ? `
+                      <input type="checkbox" id="chk_pmk_${doc.key}" ${doc.app ? 'checked' : ''}
+                             onchange="togglePmkDocApproval('${u.id}', '${doc.key}', this.checked)"
+                             style="width:20px; height:20px; cursor:pointer; accent-color:#10b981;" />
+                      <label for="chk_pmk_${doc.key}" style="font-weight:600; font-size:13.5px; cursor:pointer; color:#1e293b;">
+                        ${escapeHtml(doc.label)}
+                      </label>
+                    ` : `
+                      <span style="font-size:16px;">${doc.app ? '✅' : '⏳'}</span>
+                      <span style="font-weight:600; font-size:13.5px; color:#1e293b;">
+                        ${escapeHtml(doc.label)}
+                      </span>
+                      <span style="margin-left:8px; font-size:11.5px; padding:2px 8px; border-radius:10px; font-weight:700; background:${doc.app ? '#dcfce7' : '#fef3c7'}; color:${doc.app ? '#15803d' : '#b45309'}; display:inline-block;">
+                        ${doc.app ? 'Terverifikasi' : 'Belum Diverifikasi'}
+                      </span>
+                    `}
                   </div>
                   <div>
                     ${doc.url ? `<a href="${doc.url}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn" style="color:#2563eb; border-color:#93c5fd;">📄 Lihat File PDF</a>` : '<span style="color:#94a3b8; font-size:12px; font-style:italic;">Tidak ada file (opsional)</span>'}
@@ -5246,6 +5263,12 @@ function viewPmkUsulanDetail(usulanId) {
 
 /** Toggle Checkbox Approval Dokumen PMK / PG */
 function togglePmkDocApproval(usulanId, docKey, disetujui) {
+  const isAdmin = (SESSION.user && (SESSION.user.role === 'admin' || SESSION.user.role === 'super_admin'));
+  if (!isAdmin) {
+    showToast('error', 'Hanya Admin yang berhak melakukan verifikasi berkas usulan.');
+    return;
+  }
+
   google.script.run
     .withSuccessHandler(res => {
       if (res.success) {
