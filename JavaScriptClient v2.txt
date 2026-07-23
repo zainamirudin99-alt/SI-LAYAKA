@@ -839,11 +839,9 @@ function onSelectCheckEligibleSubject(nip, nama) {
   ceSelectedEmployee = { nip, nama };
   document.getElementById('ce_resultCard').style.display = 'none';
 
-  // REF alur terkoreksi: tombol "Ajukan Usulan" tersedia begitu pegawai
-  // dipilih -- TIDAK perlu menunggu klik "Hitung / Cek Eligibility" dulu.
-  // Tetap disembunyikan utk peran 'normal' (tidak pernah sampai ke tab ini).
+  // Tombol "Ajukan Usulan" hanya akan tampil di bawah hasil kalkulasi jika statusnya Eligible
   const ajukanBtn = document.getElementById('ce_ajukanUsulanBtn');
-  if (ajukanBtn) ajukanBtn.style.display = (SESSION.user.role !== 'normal') ? 'inline-flex' : 'none';
+  if (ajukanBtn) ajukanBtn.style.display = 'none';
 
   google.script.run
     .withSuccessHandler(emp => {
@@ -990,8 +988,11 @@ function renderEligibilityResult(res) {
     </div>
   `;
   card.style.display = 'block';
-  // Tombol "Ajukan Usulan" SUDAH tampil sejak pegawai dipilih (lihat
-  // onSelectCheckEligibleSubject) -- tidak perlu di-toggle lagi di sini.
+  // Tombol "Ajukan Usulan" hanya tampil jika hasil perhitungan adalah Eligible
+  const ajukanBtn = document.getElementById('ce_ajukanUsulanBtn');
+  if (ajukanBtn) {
+    ajukanBtn.style.display = (isEligible && SESSION.user.role !== 'normal') ? 'inline-flex' : 'none';
+  }
 }
 function fmtNum(n) { return Number(n || 0).toLocaleString('id-ID', { maximumFractionDigits: 2 }); }
 

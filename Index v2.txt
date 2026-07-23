@@ -178,10 +178,6 @@
                 <div class="autocomplete-list" id="subjectCE_list"></div>
               </div>
 
-              <div class="actions-bar" style="justify-content:flex-start;">
-                <button class="btn btn-primary" id="ce_ajukanUsulanBtn" style="display:none;">📨 Ajukan Usulan</button>
-              </div>
-
               <div class="grid-2" style="margin-top:18px;">
                 <div class="stack-field">
                   <label>Golongan (saat ini)</label>
@@ -248,6 +244,7 @@
                 <h3 style="margin-top:0;" id="ce_resultTitle">Hasil Perhitungan</h3>
                 <div id="ce_resultBody"></div>
                 <div class="actions-bar" style="justify-content:flex-start; margin-top:16px;">
+                  <button class="btn btn-primary" id="ce_ajukanUsulanBtn" style="display:none;">📨 Ajukan Usulan</button>
                   <button class="btn btn-secondary" id="ce_lanjutABtn">Lanjut ke Opsi A →</button>
                   <button class="btn btn-secondary" id="ce_lanjutBBtn">Lanjut ke Opsi B →</button>
                 </div>
