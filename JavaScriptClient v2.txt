@@ -49,7 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
           bindKenaikanPangkatForms();
           bindCheckEligibleForm();
           bindPensiunForm();
-          loadPromosiDashboard();
           bindKontrakForm();
         })
         .withFailureHandler(err => showToast('error', 'Gagal memuat opsi form DocGen: ' + (err.message || err)))
@@ -207,6 +206,7 @@ function showApp() {
     loadServiceTemplates('Kenaikan Pangkat', 'AK Konversi Kumulatif', 'optB_templateSelect');
     loadServiceTemplates('Pensiun', 'DPCP', 'pensiun_dpcpTemplateSelect');
     loadServiceTemplates('Pensiun', 'SUPER', 'pensiun_superTemplateSelect');
+    loadPromosiDashboard();
   }
 }
 
@@ -2041,6 +2041,7 @@ function escapeHtml(str) {
 let promosiDashboardData = null; // cache respons getPromosiDashboardSummary
 
 function loadPromosiDashboard() {
+  if (!SESSION.token) return;
   google.script.run
     .withSuccessHandler(res => {
       if (!res.success) { showToast('error', res.message); return; }
@@ -2048,13 +2049,8 @@ function loadPromosiDashboard() {
       document.getElementById('ceDashboardTarget').textContent = 'TMT diproses: ' + res.targetTmt;
       renderPromosiDashboardLevel1(res.daftarUnit);
 
-      // REF: tombol "Ajukan Usulan" di header dashboard -- muncul begitu
-      // dashboard termuat, TANPA perlu cari/pilih satu nama dulu (beda
-      // dari tombol di bawah field pencarian yang muncul setelah pilih
-      // pegawai). Sama-sama membuka modal yang SAMA (bisa tambah banyak
-      // nama + satu surat pengantar di dalamnya).
       const dashboardAjukanBtn = document.getElementById('ceDashboardAjukanUsulanBtn');
-      if (dashboardAjukanBtn) dashboardAjukanBtn.style.display = (SESSION.user.role !== 'normal') ? 'inline-flex' : 'none';
+      if (dashboardAjukanBtn) dashboardAjukanBtn.style.display = (SESSION.user && SESSION.user.role !== 'normal') ? 'inline-flex' : 'none';
     })
     .withFailureHandler(err => showToast('error', 'Gagal memuat dashboard eligible: ' + (err.message || err)))
     .getPromosiDashboardSummary(SESSION.token);
