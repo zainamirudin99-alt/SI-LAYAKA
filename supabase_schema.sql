@@ -225,3 +225,22 @@ DO $$ BEGIN
     CREATE POLICY "deny_public_usulan_kp" ON usulan_kp FOR ALL TO public USING (false);
   END IF;
 END $$;
+
+-- ============================================================
+-- 9. TABEL: akses_kontrak_mandiri
+--    Kontrol akses mandiri pengajuan Kontrak oleh pegawai (role normal)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS akses_kontrak_mandiri (
+  kategori        TEXT PRIMARY KEY,
+  diizinkan       BOOLEAN NOT NULL DEFAULT FALSE,
+  diubah_oleh     TEXT,
+  tanggal_diubah  TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE akses_kontrak_mandiri ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='akses_kontrak_mandiri' AND policyname='deny_public_akses_kontrak_mandiri') THEN
+    CREATE POLICY "deny_public_akses_kontrak_mandiri" ON akses_kontrak_mandiri FOR ALL TO public USING (false);
+  END IF;
+END $$;
+

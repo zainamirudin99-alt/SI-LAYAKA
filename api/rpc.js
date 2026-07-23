@@ -1182,9 +1182,7 @@ const methods = {
   async getStatusAksesKontrakSaya([token]) {
     const decoded = verifyToken(token);
     const db = getDb();
-    const { data: emp } = await db.from('data_utama')
-      .select('status_kepegawaian, jenis_peg')
-      .eq('nip', decoded.nip).maybeSingle();
+    const emp = await findEmployeeByNip(decoded.nip);
 
     const statusKep = String((emp && emp.status_kepegawaian) || '').trim();
     const jenisPeg = String((emp && emp.jenis_peg) || '').trim();
@@ -1195,12 +1193,15 @@ const methods = {
     let kategoriCocok = eligibleList.find(j => 
       j.toLowerCase() === statusKep.toLowerCase() || 
       j.toLowerCase() === jenisPeg.toLowerCase() ||
-      (statusKep && statusKep.toLowerCase().includes(j.toLowerCase())) ||
-      (jenisPeg && jenisPeg.toLowerCase().includes(j.toLowerCase()))
+      (statusKep && (statusKep.toLowerCase().includes(j.toLowerCase()) || j.toLowerCase().includes(statusKep.toLowerCase()))) ||
+      (jenisPeg && (jenisPeg.toLowerCase().includes(j.toLowerCase()) || j.toLowerCase().includes(jenisPeg.toLowerCase())))
     );
 
     if (!kategoriCocok) {
-      if (/non[\s-]?asn|kontrak|profesional|kdrp/i.test(statusKep + ' ' + jenisPeg)) {
+      if (!statusKep && !jenisPeg) {
+        // User baru terdaftar atau belum terisi status/jenis peg di data utama
+        kategoriCocok = 'Tenaga Profesional';
+      } else if (/non[\s-]?asn|kontrak|profesional|kdrp|pegawai|tenaga/i.test(statusKep + ' ' + jenisPeg)) {
         kategoriCocok = 'Tenaga Profesional';
       }
     }
@@ -1211,14 +1212,19 @@ const methods = {
 
     let diizinkan = false;
     try {
-      const { data: aksesRow } = await db.from('akses_kontrak_mandiri')
-        .select('diizinkan').eq('kategori', kategoriCocok).order('tanggal_diubah', { ascending: false }).limit(1).maybeSingle();
-      if (aksesRow && typeof aksesRow.diizinkan === 'boolean') {
-        diizinkan = aksesRow.diizinkan;
+      const { data: rows } = await db.from('akses_kontrak_mandiri')
+        .select('diizinkan')
+        .eq('kategori', kategoriCocok)
+        .order('tanggal_diubah', { ascending: false })
+        .limit(1);
+
+      if (rows && rows.length > 0 && typeof rows[0].diizinkan === 'boolean') {
+        diizinkan = rows[0].diizinkan;
       } else if (MEMORY_AKSES_KONTRAK_MANDIRI[kategoriCocok] !== undefined) {
         diizinkan = MEMORY_AKSES_KONTRAK_MANDIRI[kategoriCocok];
       }
-    } catch {
+    } catch (e) {
+      console.warn('[rpc] getStatusAksesKontrakSaya db warning:', e.message);
       diizinkan = !!MEMORY_AKSES_KONTRAK_MANDIRI[kategoriCocok];
     }
 
@@ -1260,6 +1266,7 @@ const methods = {
       }, { onConflict: 'kategori' });
 
       if (error) {
+        console.warn('[rpc] aturAksesKontrakKategori upsert warning:', error.message);
         await db.from('akses_kontrak_mandiri').insert({
           kategori: kat,
           diizinkan: isAllowed,
