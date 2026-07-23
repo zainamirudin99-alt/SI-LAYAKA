@@ -3351,7 +3351,7 @@ module.exports = async (req, res) => {
         return;
       }
     }
-    res.status(404).json({error:`Method "${method}" tidak ditemukan`});
+    res.status(200).json({ success: false, message: `Method "${method}" tidak ditemukan` });
     return;
   }
 

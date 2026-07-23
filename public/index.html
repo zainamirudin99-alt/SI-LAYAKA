@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
   <base target="_top">
@@ -709,19 +709,18 @@
 
       <!-- ---------- PANE: LOGIN ---------- -->
       <div class="auth-pane active" data-auth-group-pane="auth" id="pane-login">
-        <form id="loginForm" onsubmit="doLogin(); return false;">
+        <form id="loginForm">
           <div class="field">
             <label for="loginNip">NIP</label>
-            <input type="text" id="loginNip" autocomplete="username" placeholder="Masukkan NIP" />
+            <input type="text" id="loginNip" autocomplete="username" required placeholder="Masukkan NIP" />
           </div>
           <div class="field">
             <label for="loginPassword">Password</label>
-            <input type="password" id="loginPassword" autocomplete="current-password" placeholder="8 digit pertama NIP" />
+            <input type="password" id="loginPassword" autocomplete="current-password" required placeholder="8 digit pertama NIP" />
             <div class="helper-text">Password default = 8 digit angka pertama dari NIP Anda.</div>
           </div>
-          <button type="button" id="loginSubmitBtn" class="btn btn-primary" onclick="doLogin()">Masuk</button>
+          <button type="submit" id="loginSubmitBtn" class="btn btn-primary">Masuk</button>
         </form>
-        <div style="font-size:10px;color:#aaa;text-align:center;margin-top:6px;">build: d6d2a36</div>
       </div>
 
       <!-- ---------- PANE: REGISTER ---------- -->
@@ -818,17 +817,11 @@
 
               <!-- Dashboard eligible (skrining masa kerja) -- tampil SEBELUM pemilihan nama -->
               <div class="ce-dashboard" id="ceDashboard">
-                <div class="ce-dashboard-header" style="flex-wrap:wrap; gap:12px;">
-                  <div>
-                    <span class="ce-dashboard-title">&#x1F4CA; Dashboard Eligible Kenaikan Pangkat</span>
-                    <div style="margin-top:4px; font-size:13px; color:var(--text-muted);">
-                      Daftar berikut adalah pegawai yang memenuhi syarat secara administratif untuk diusulkan Kenaikan Pangkat.
-                    </div>
-                  </div>
-                  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                    <button type="button" class="btn btn-outline kp-small-btn" id="ceBtnSyaratKp" style="border-color:#2563eb; color:#2563eb; font-weight:600; background:#eff6ff;">&#x1F4CB; Syarat-Syarat Kenaikan Pangkat</button>
+                <div class="ce-dashboard-header">
+                  <span class="ce-dashboard-title">📊 Dashboard Eligible Kenaikan Pangkat</span>
+                  <div style="display:flex; align-items:center; gap:10px;">
                     <span class="ce-dashboard-target" id="ceDashboardTarget"></span>
-                    <button type="button" class="btn btn-primary kp-small-btn" id="ceDashboardAjukanUsulanBtn" style="display:none;">&#x1F4E8; Ajukan Usulan</button>
+                    <button type="button" class="btn btn-primary kp-small-btn" id="ceDashboardAjukanUsulanBtn" style="display:none;">📨 Ajukan Usulan</button>
                   </div>
                 </div>
 
@@ -852,6 +845,9 @@
                 <div class="autocomplete-list" id="subjectCE_list"></div>
               </div>
 
+              <div class="actions-bar" style="justify-content:flex-start;">
+                <button class="btn btn-primary" id="ce_ajukanUsulanBtn" style="display:none;">📨 Ajukan Usulan</button>
+              </div>
 
               <div class="grid-2" style="margin-top:18px;">
                 <div class="stack-field">
@@ -911,9 +907,8 @@
                 </div>
               </div>
 
-              <div class="actions-bar" style="flex-wrap:wrap; gap:12px; align-items:center;">
+              <div class="actions-bar">
                 <button class="btn btn-primary" id="ce_hitungBtn">Hitung / Cek Eligibility</button>
-                <button class="btn btn-primary" id="ce_ajukanUsulanBtn" style="display:none; background:#16a34a; border-color:#16a34a;">&#x1F4E8; Ajukan Usulan</button>
               </div>
 
               <div class="card" id="ce_resultCard" style="display:none; margin-top:18px; background:var(--surface-alt);">
@@ -1046,24 +1041,13 @@
               <!-- STATE 1: Dashboard (unit -> daftar pegawai akan pensiun) -->
               <div id="pensiunDashboardState">
                 <div class="ce-dashboard">
-                  <div class="ce-dashboard-header" style="flex-wrap:wrap; gap:12px;">
-                    <div>
-                      <span class="ce-dashboard-title">&#x1F4CA; Dashboard Eligible Pensiun</span>
-                      <div style="margin-top:4px; font-size:13px; color:var(--text-muted);">
-                        Daftar berikut adalah pegawai yang memenuhi syarat secara administratif untuk diusulkan Pensiun.
-                      </div>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                      <span class="ce-dashboard-target" id="pensiunDashboardAmbang"></span>
-                    </div>
+                  <div class="ce-dashboard-header">
+                    <span class="ce-dashboard-title">🧓 Pegawai Akan Pensiun</span>
+                    <span class="ce-dashboard-target" id="pensiunDashboardAmbang"></span>
                   </div>
-
-                  <!-- Level 1: List Unit -->
                   <div id="pensiunDashboardLevel1" class="ce-dashboard-grid"></div>
-
-                  <!-- Level 2: List Pegawai per Unit -->
-                  <div id="pensiunDashboardLevel2" style="display:none; margin-top:14px;">
-                    <button type="button" class="btn btn-outline" id="pensiunBackToUnit" style="margin-bottom:12px;">&larr; Kembali ke Daftar Unit</button>
+                  <div id="pensiunDashboardLevel2" style="display:none;">
+                    <button type="button" class="ce-dashboard-back" id="pensiunBackToUnit">&larr; Kembali ke daftar unit</button>
                     <div id="pensiunDashboardLevel2List" class="ce-dashboard-list"></div>
                   </div>
                 </div>
@@ -1895,59 +1879,38 @@ function restoreSessionIfAny() {
     .validateSession(token);
 }
 
-function doLogin() {
-  var nip = (document.getElementById('loginNip').value || '').trim();
-  var password = (document.getElementById('loginPassword').value || '').trim();
-  var errBox = document.getElementById('loginError');
-  var btn = document.getElementById('loginSubmitBtn');
+function bindLoginForm() {
+  const form = document.getElementById('loginForm');
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const nip = document.getElementById('loginNip').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
+    const errBox = document.getElementById('loginError');
+    const btn = document.getElementById('loginSubmitBtn');
 
-  if (!nip || !password) {
-    errBox.textContent = 'NIP dan Password wajib diisi.';
-    errBox.style.display = 'block';
-    return;
-  }
+    errBox.style.display = 'none';
+    setBtnLoading(btn, true, 'Masuk...');
 
-  errBox.style.display = 'none';
-  btn.disabled = true;
-  btn.textContent = 'Menghubungi server...';
-
-  google.script.run
-    .withSuccessHandler(function(res) {
-      btn.disabled = false;
-      btn.textContent = 'Masuk';
-      try {
-        if (res && res.success) {
+    google.script.run
+      .withSuccessHandler(res => {
+        setBtnLoading(btn, false, 'Masuk');
+        if (res.success) {
           SESSION.token = res.token;
           SESSION.user = res.user;
           sessionStorage.setItem('sikp_token', res.token);
           showApp();
         } else {
-          errBox.textContent = (res && res.message) || 'Login gagal.';
+          errBox.textContent = res.message;
           errBox.style.display = 'block';
         }
-      } catch(appErr) {
-        errBox.textContent = 'Login berhasil, tapi gagal membuka aplikasi: ' + (appErr.message || String(appErr));
+      })
+      .withFailureHandler(err => {
+        setBtnLoading(btn, false, 'Masuk');
+        errBox.textContent = 'Terjadi kesalahan: ' + (err.message || err);
         errBox.style.display = 'block';
-        console.error('[doLogin showApp error]', appErr);
-      }
-    })
-    .withFailureHandler(function(err) {
-      btn.disabled = false;
-      btn.textContent = 'Masuk';
-      errBox.textContent = 'Error jaringan: ' + (err.message || String(err));
-      errBox.style.display = 'block';
-      console.error('[doLogin RPC error]', err);
-    })
-    .login(nip, password);
-}
-function bindLoginForm() {
-  const form = document.getElementById('loginForm');
-  if (form) {
-    form.addEventListener('submit', function(e) {
-      e.preventDefault();
-      doLogin();
-    });
-  }
+      })
+      .login(nip, password);
+  });
 }
 
 /** Toggle antara panel "Masuk" dan "Daftar Akun" pada layar login. */
@@ -2010,29 +1973,17 @@ function bindRegisterForm() {
 }
 
 function showApp() {
-  try {
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('appShell').style.display = 'block';
-    document.getElementById('sidebarUserName').textContent = SESSION.user.nama || SESSION.user.nip;
-    document.getElementById('sidebarUserRole').textContent = SESSION.user.jabatan || SESSION.user.status_kepegawaian || '-';
-    terapkanBatasanPeran_();
-    if (SESSION.user.role !== 'normal') {
-      loadTemplateList();
-      loadServiceTemplates('Kenaikan Pangkat', 'AK Konversi Tahunan', 'optA_templateSelect');
-      loadServiceTemplates('Kenaikan Pangkat', 'AK Konversi Kumulatif', 'optB_templateSelect');
-      loadServiceTemplates('Pensiun', 'DPCP', 'pensiun_dpcpTemplateSelect');
-      loadServiceTemplates('Pensiun', 'SUPER', 'pensiun_superTemplateSelect');
-    }
-  } catch(e) {
-    console.error('[showApp ERROR]', e);
-    // tampilkan error di layar agar user bisa melaporkannya
-    var errBox = document.getElementById('loginError');
-    if (errBox) {
-      document.getElementById('loginScreen').style.display = 'flex';
-      document.getElementById('appShell').style.display = 'none';
-      errBox.textContent = 'Gagal membuka aplikasi: ' + e.message + '. Silakan refresh halaman.';
-      errBox.style.display = 'block';
-    }
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appShell').style.display = 'block';
+  document.getElementById('sidebarUserName').textContent = SESSION.user.nama || SESSION.user.nip;
+  document.getElementById('sidebarUserRole').textContent = SESSION.user.jabatan || SESSION.user.status_kepegawaian || '-';
+  terapkanBatasanPeran_();
+  if (SESSION.user.role !== 'normal') {
+    loadTemplateList();
+    loadServiceTemplates('Kenaikan Pangkat', 'AK Konversi Tahunan', 'optA_templateSelect');
+    loadServiceTemplates('Kenaikan Pangkat', 'AK Konversi Kumulatif', 'optB_templateSelect');
+    loadServiceTemplates('Pensiun', 'DPCP', 'pensiun_dpcpTemplateSelect');
+    loadServiceTemplates('Pensiun', 'SUPER', 'pensiun_superTemplateSelect');
   }
 }
 
@@ -2654,9 +2605,11 @@ function onSelectCheckEligibleSubject(nip, nama) {
   ceSelectedEmployee = { nip, nama };
   document.getElementById('ce_resultCard').style.display = 'none';
 
-    // Tombol "Ajukan Usulan" hanya muncul setelah perhitungan "Hitung / Cek Eligibility"
-  // keluar dengan hasil ELIGIBLE -- sembunyikan terlebih dahulu saat memilih pegawai baru.
-  if (ajukanBtn) ajukanBtn.style.display = 'none';
+  // REF alur terkoreksi: tombol "Ajukan Usulan" tersedia begitu pegawai
+  // dipilih -- TIDAK perlu menunggu klik "Hitung / Cek Eligibility" dulu.
+  // Tetap disembunyikan utk peran 'normal' (tidak pernah sampai ke tab ini).
+  const ajukanBtn = document.getElementById('ce_ajukanUsulanBtn');
+  if (ajukanBtn) ajukanBtn.style.display = (SESSION.user.role !== 'normal') ? 'inline-flex' : 'none';
 
   google.script.run
     .withSuccessHandler(emp => {
@@ -2800,18 +2753,9 @@ function renderEligibilityResult(res) {
       <div style="font-weight:400; font-size:12.5px; margin-top:4px; color:var(--text);">${escapeHtml(res.eligibility.message)}</div>
     </div>
   `;
-    card.style.display = 'block';
-
-  // Tombol "Ajukan Usulan" berada di bawah tombol Hitung / Cek Eligibility dan HANYA MUNCUL
-  // jika hasil perhitungan ELIGIBLE.
-  const ajukanBtn = document.getElementById('ce_ajukanUsulanBtn');
-  if (ajukanBtn) {
-    if (isEligible && SESSION.user && SESSION.user.role !== 'normal') {
-      ajukanBtn.style.display = 'inline-flex';
-    } else {
-      ajukanBtn.style.display = 'none';
-    }
-  }
+  card.style.display = 'block';
+  // Tombol "Ajukan Usulan" SUDAH tampil sejak pegawai dipilih (lihat
+  // onSelectCheckEligibleSubject) -- tidak perlu di-toggle lagi di sini.
 }
 function fmtNum(n) { return Number(n || 0).toLocaleString('id-ID', { maximumFractionDigits: 2 }); }
 
@@ -3317,22 +3261,14 @@ function filterServiceTemplates(selectId, tipe) {
   const selectEl = document.getElementById(selectId);
   if (!selectEl) return;
   const templates = TEMPLATE_CACHE[selectId] || [];
-  let filtered = templates.filter(t => (t.tipe || 'gdocs') === tipe);
-  if (selectId === 'sk_templateSelect') {
-    const skTemplates = filtered.filter(t => {
-      const sub = t.subMenu || t.sub_menu || '';
-      return sub.startsWith('SK') || sub === 'SK Kenaikan Pangkat';
-    });
-    if (skTemplates.length > 0) filtered = skTemplates;
-  }
+  const filtered = templates.filter(t => (t.tipe || 'gdocs') === tipe);
   if (!filtered.length) {
     selectEl.innerHTML = `<option value="">Belum ada template ${tipe === 'docx' ? 'Word' : 'GDocs'} terdaftar</option>`;
     return;
   }
   selectEl.innerHTML = filtered.map(t => {
     const fileIdVal = t.id || t.fileId;
-    const subLabel = (t.subMenu || t.sub_menu) ? ` [${t.subMenu || t.sub_menu}]` : '';
-    return `<option value="${fileIdVal}" data-tipe="${t.tipe || 'gdocs'}">${escapeHtml(t.judul)}${escapeHtml(subLabel)}</option>`;
+    return `<option value="${fileIdVal}" data-tipe="${t.tipe || 'gdocs'}">${escapeHtml(t.judul)}</option>`;
   }).join('');
 }
 
@@ -3870,100 +3806,23 @@ function escapeHtml(str) {
  * ===================================================================== */
 let promosiDashboardData = null; // cache respons getPromosiDashboardSummary
 
-
-
-function bukaModalSyaratKp() {
-  document.getElementById('modalTitle').textContent = 'Syarat-Syarat Kenaikan Pangkat';
-  document.getElementById('modalBody').innerHTML = `
-    <div style="padding:16px 20px; max-height:75vh; overflow-y:auto; font-size:13.5px; line-height:1.6; color:#1e293b;">
-      <h3 style="margin-top:0; color:#1e40af; border-bottom:2px solid #bfdbfe; padding-bottom:6px; font-size:15px; font-weight:700;">A. KENAIKAN PANGKAT (KP) REGULER</h3>
-      <p style="font-size:13px; color:#475569; font-weight:500; margin-bottom:10px;">Berlaku bagi PNS Pelaksana atau yang sedang tugas belajar (tidak memegang jabatan fungsional/struktural).</p>
-      
-      <h4 style="margin:12px 0 6px 0; color:#0f172a; font-size:13.5px; font-weight:700;">1. Syarat Utama:</h4>
-      <ul style="margin:0 0 12px 20px; padding:0;">
-        <li><strong>Masa Kerja:</strong> Minimal 4 tahun dalam pangkat/golongan terakhir.</li>
-        <li><strong>Penilaian Kinerja:</strong> SKP bernilai minimal "Baik" dalam 2 tahun terakhir.</li>
-        <li><strong>Batas Atasan:</strong> Pangkat tidak boleh melampaui pangkat atasan langsung.</li>
-        <li><strong>Ujian Dinas:</strong> Wajib lulus Ujian Dinas jika pindah ruang golongan (misal: II/d ke III/a), kecuali memiliki ijazah lebih tinggi yang diakui.</li>
-      </ul>
-
-      <h4 style="margin:14px 0 6px 0; color:#0f172a; font-size:13.5px; font-weight:700;">2. Batas Maksimal Golongan (Berdasarkan Pendidikan Terakhir yang Diakui):</h4>
-      <ul style="margin:0 0 16px 20px; padding:0;">
-        <li><strong>SD / Sederajat:</strong> Maksimal II/a (Pengatur Muda)</li>
-        <li><strong>SMP / Sederajat:</strong> Maksimal II/c (Pengatur)</li>
-        <li><strong>SMA / SMK / D-I:</strong> Maksimal II/d (Pengatur Tingkat I)</li>
-        <li><strong>Diploma II (D-II):</strong> Maksimal III/a (Penata Muda)</li>
-        <li><strong>Diploma III (D-III):</strong> Maksimal III/b (Penata Muda Tingkat I)</li>
-        <li><strong>Sarjana (S-1) / D-IV:</strong> Maksimal III/c (Penata)</li>
-        <li><strong>Magister (S-2) / Spesialis I:</strong> Maksimal III/d (Penata Tingkat I)</li>
-        <li><strong>Doktor (S-3) / Spesialis II:</strong> Maksimal IV/a (Pembina)</li>
-      </ul>
-
-      <h3 style="margin-top:20px; color:#1e40af; border-bottom:2px solid #bfdbfe; padding-bottom:6px; font-size:15px; font-weight:700;">B. KENAIKAN PANGKAT JABATAN FUNGSIONAL (JF)</h3>
-      <p style="font-size:13px; color:#475569; font-weight:500; margin-bottom:10px;">Berlaku bagi PNS pemegang Jabatan Fungsional Keterampilan maupun Keahlian.</p>
-
-      <h4 style="margin:12px 0 6px 0; color:#0f172a; font-size:13.5px; font-weight:700;">1. Syarat Utama:</h4>
-      <ul style="margin:0 0 12px 20px; padding:0;">
-        <li><strong>Masa Kerja:</strong> Minimal 2 tahun dalam pangkat/golongan terakhir.</li>
-        <li><strong>Angka Kredit:</strong> Memenuhi Angka Kredit (AK) kumulatif yang disyaratkan (hasil konversi SKP tahunan).</li>
-        <li><strong>Penilaian Kinerja:</strong> SKP bernilai minimal "Baik" dalam 2 tahun terakhir.</li>
-        <li><strong>Syarat Tambahan (Jika sekaligus naik jenjang jabatan):</strong> Wajib Lulus Uji Kompetensi (Ukom) dan tersedia formasi/lowongan kebutuhan pada jenjang tujuan.</li>
-      </ul>
-
-      <h4 style="margin:14px 0 6px 0; color:#0f172a; font-size:13.5px; font-weight:700;">2. Batas Maksimal Golongan (Berdasarkan Jenjang Jabatan):</h4>
-      <div style="margin-left:6px;">
-        <p style="font-weight:600; margin:6px 0 4px 0;">Kategori Keterampilan:</p>
-        <ul style="margin:0 0 10px 20px; padding:0;">
-          <li><strong>Pemula:</strong> Maksimal II/b (Pengatur Muda Tingkat I)</li>
-          <li><strong>Terampil:</strong> Maksimal II/d (Pengatur Tingkat I)</li>
-          <li><strong>Mahir:</strong> Maksimal III/b (Penata Muda Tingkat I)</li>
-          <li><strong>Penyelia:</strong> Maksimal III/d (Penata Tingkat I)</li>
-        </ul>
-        <p style="font-weight:600; margin:6px 0 4px 0;">Kategori Keahlian:</p>
-        <ul style="margin:0 0 16px 20px; padding:0;">
-          <li><strong>Ahli Pertama:</strong> Maksimal III/b (Penata Muda Tingkat I)</li>
-          <li><strong>Ahli Muda:</strong> Maksimal III/d (Penata Tingkat I)</li>
-          <li><strong>Ahli Madya:</strong> Maksimal IV/c (Pembina Utama Muda)</li>
-          <li><strong>Ahli Utama:</strong> Maksimal IV/e (Pembina Utama)</li>
-        </ul>
-      </div>
-
-      <h3 style="margin-top:20px; color:#1e40af; border-bottom:2px solid #bfdbfe; padding-bottom:6px; font-size:15px; font-weight:700;">C. KELENGKAPAN DOKUMEN UMUM</h3>
-      <ul style="margin:10px 0 10px 20px; padding:0;">
-        <li>SK Kenaikan Pangkat terakhir.</li>
-        <li>SK Pengangkatan Jabatan terakhir (Jabatan Pelaksana untuk Reguler, atau SK JF untuk Fungsional).</li>
-        <li>Dokumen SKP 2 tahun terakhir (bernilai minimal Baik) dari sistem e-Kinerja.</li>
-        <li>PAK terbaru atau rekap konversi Angka Kredit (khusus JF).</li>
-        <li>Sertifikat Lulus Ujian Dinas (untuk KP Reguler pindah golongan) atau Sertifikat Lulus Ukom (untuk KP JF naik jenjang).</li>
-        <li>Ijazah &amp; Transkrip Nilai (jika ada pencantuman gelar/pendidikan baru).</li>
-      </ul>
-    </div>
-  `;
-  document.getElementById('modalOverlay').style.display = 'flex';
-}
-
 function loadPromosiDashboard() {
-  const targetEl = document.getElementById('ceDashboardTarget');
-  const level1El = document.getElementById('ceDashboardLevel1');
-  const btnSyarat = document.getElementById('ceBtnSyaratKp');
-  if (btnSyarat) btnSyarat.onclick = bukaModalSyaratKp;
-
   google.script.run
     .withSuccessHandler(res => {
-      if (!res || !res.success) {
-        if (level1El) level1El.innerHTML = '<div class="ce-dashboard-card cdc-empty" style="grid-column:1/-1;">Data dashboard belum tersedia untuk siklus TMT saat ini.</div>';
-        return;
-      }
+      if (!res.success) { showToast('error', res.message); return; }
       promosiDashboardData = res;
-      if (targetEl) targetEl.textContent = 'TMT diproses: ' + (res.targetTmt || '-');
-      renderPromosiDashboardLevel1(res.daftarUnit || []);
+      document.getElementById('ceDashboardTarget').textContent = 'TMT diproses: ' + res.targetTmt;
+      renderPromosiDashboardLevel1(res.daftarUnit);
 
+      // REF: tombol "Ajukan Usulan" di header dashboard -- muncul begitu
+      // dashboard termuat, TANPA perlu cari/pilih satu nama dulu (beda
+      // dari tombol di bawah field pencarian yang muncul setelah pilih
+      // pegawai). Sama-sama membuka modal yang SAMA (bisa tambah banyak
+      // nama + satu surat pengantar di dalamnya).
       const dashboardAjukanBtn = document.getElementById('ceDashboardAjukanUsulanBtn');
-      if (dashboardAjukanBtn) dashboardAjukanBtn.style.display = (SESSION.user && SESSION.user.role !== 'normal') ? 'inline-flex' : 'none';
+      if (dashboardAjukanBtn) dashboardAjukanBtn.style.display = (SESSION.user.role !== 'normal') ? 'inline-flex' : 'none';
     })
-    .withFailureHandler(err => {
-      if (level1El) level1El.innerHTML = '<div class="ce-dashboard-card cdc-empty" style="grid-column:1/-1;">Gagal memuat data dashboard eligible. Silakan refresh halaman.</div>';
-    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat dashboard eligible: ' + (err.message || err)))
     .getPromosiDashboardSummary(SESSION.token);
 }
 
@@ -4075,9 +3934,8 @@ function loadPensiunDashboardOnce() {
 function loadPensiunDashboard() {
   google.script.run
     .withSuccessHandler(res => {
-      if (!res || !res.success) { showToast('error', (res && res.message) || 'Gagal memuat dashboard pensiun'); return; }
-      const ambangEl = document.getElementById('pensiunDashboardAmbang');
-      if (ambangEl) ambangEl.textContent = `Ambang: < ${res.ambangTahun} tahun`;
+      if (!res.success) { showToast('error', res.message); return; }
+      document.getElementById('pensiunDashboardAmbang').textContent = `Ambang: < ${res.ambangTahun} tahun`;
       renderPensiunDashboardLevel1(res.daftarUnit);
     })
     .withFailureHandler(err => showToast('error', 'Gagal memuat dashboard pensiun: ' + (err.message || err)))
@@ -4296,11 +4154,7 @@ function pensiunMonthsFromPair(tahunId, bulanId) {
 }
 function pensiunDateDiffMonths(dateStr1, dateStr2) {
   if (!dateStr1 || !dateStr2) return 0;
-  let s1 = String(dateStr1).trim();
-  let s2 = String(dateStr2).trim();
-  if (s1.length === 7) s1 += '-01';
-  if (s2.length === 7) s2 += '-01';
-  const d1 = new Date(s1 + 'T00:00:00'), d2 = new Date(s2 + 'T00:00:00');
+  const d1 = new Date(dateStr1 + 'T00:00:00'), d2 = new Date(dateStr2 + 'T00:00:00');
   if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return 0;
   let months = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
   if (d2.getDate() < d1.getDate()) months -= 1;
@@ -4546,37 +4400,35 @@ function bindPensiunForm() {
 
   setupAutocomplete('subjectPensiun_input', 'subjectPensiun_list', 'subjectPensiun_nip', onSelectPensiunEmployee);
 
-  document.getElementById('pensiunGoToFormBtn')?.addEventListener('click', () => {
+  document.getElementById('pensiunGoToFormBtn').addEventListener('click', () => {
     if (SESSION.user.role === 'user') bukaModalAjukanUsulanPensiun();
     else pensiunGoToFormState();
   });
-  document.getElementById('pensiunBackToDashboard')?.addEventListener('click', pensiunBackToDashboardState);
-  document.getElementById('pensiunBackToUnit')?.addEventListener('click', () => {
-    const l1 = document.getElementById('pensiunDashboardLevel1');
-    const l2 = document.getElementById('pensiunDashboardLevel2');
-    if (l1) l1.style.display = 'grid';
-    if (l2) l2.style.display = 'none';
+  document.getElementById('pensiunBackToDashboard').addEventListener('click', pensiunBackToDashboardState);
+  document.getElementById('pensiunBackToUnit').addEventListener('click', () => {
+    document.getElementById('pensiunDashboardLevel1').style.display = 'grid';
+    document.getElementById('pensiunDashboardLevel2').style.display = 'none';
   });
 
-  document.getElementById('pensiun_jenisPensiun')?.addEventListener('change', pensiunToggleJenisPensiun);
-  document.getElementById('pensiun_tglPeristiwa')?.addEventListener('change', pensiunCalculateAutoTmtPensiun);
+  document.getElementById('pensiun_jenisPensiun').addEventListener('change', pensiunToggleJenisPensiun);
+  document.getElementById('pensiun_tglPeristiwa').addEventListener('change', pensiunCalculateAutoTmtPensiun);
   ['pensiun_tmtGol', 'pensiun_tmtCpns', 'pensiun_tmtPensiun', 'pensiun_bulanTerakhirBekerja'].forEach(id => {
-    document.getElementById(id)?.addEventListener('input', pensiunRunRealtimeCalculations);
+    document.getElementById(id).addEventListener('input', pensiunRunRealtimeCalculations);
   });
   ['pensiun_mkKpTahun', 'pensiun_mkKpBulan', 'pensiun_mkSebelumTahun', 'pensiun_mkSebelumBulan',
    'pensiun_cltnTahun', 'pensiun_cltnBulan', 'pensiun_pmkTahun', 'pensiun_pmkBulan'].forEach(id => {
-    document.getElementById(id)?.addEventListener('input', pensiunRunRealtimeCalculations);
+    document.getElementById(id).addEventListener('input', pensiunRunRealtimeCalculations);
   });
-  document.getElementById('pensiun_gajiPokok')?.addEventListener('blur', e => pensiunFormatRupiah(e.target));
-  document.getElementById('pensiun_fotoUpload')?.addEventListener('change', e => pensiunProcessImageToBase64(e.target));
+  document.getElementById('pensiun_gajiPokok').addEventListener('blur', e => pensiunFormatRupiah(e.target));
+  document.getElementById('pensiun_fotoUpload').addEventListener('change', e => pensiunProcessImageToBase64(e.target));
 
-  document.getElementById('pensiun_addPasangan')?.addEventListener('click', () => pensiunAddPasanganRow());
-  document.getElementById('pensiun_addAnak')?.addEventListener('click', () => pensiunAddAnakRow());
+  document.getElementById('pensiun_addPasangan').addEventListener('click', () => pensiunAddPasanganRow());
+  document.getElementById('pensiun_addAnak').addEventListener('click', () => pensiunAddAnakRow());
 
-  document.getElementById('pensiun_previewDpcpBtn')?.addEventListener('click', pensiunRunPreviewDpcp);
-  document.getElementById('pensiun_generateDpcpBtn')?.addEventListener('click', pensiunRunGenerateDpcp);
-  document.getElementById('pensiun_previewSuperBtn')?.addEventListener('click', pensiunRunPreviewSuper);
-  document.getElementById('pensiun_generateSuperBtn')?.addEventListener('click', pensiunRunGenerateSuper);
+  document.getElementById('pensiun_previewDpcpBtn').addEventListener('click', pensiunRunPreviewDpcp);
+  document.getElementById('pensiun_generateDpcpBtn').addEventListener('click', pensiunRunGenerateDpcp);
+  document.getElementById('pensiun_previewSuperBtn').addEventListener('click', pensiunRunPreviewSuper);
+  document.getElementById('pensiun_generateSuperBtn').addEventListener('click', pensiunRunGenerateSuper);
 }
 
 /* =====================================================================
@@ -5183,7 +5035,7 @@ function loadKontrakAksesKategoriList() {
           span.style.color = nowChecked ? '#4caf50' : '#888';
           google.script.run
             .withSuccessHandler(res => {
-              if (res && res.success) { showToast('success', res.message); }
+              if (res.success) { showToast('success', res.message); loadKontrakAksesKategoriList(); }
               else {
                 cb.checked = !nowChecked;
                 span.textContent = !nowChecked ? 'Diberikan Izin' : 'Tidak Diizinkan';
@@ -6084,7 +5936,7 @@ function bukaModalBuatSk(usulanId, nama, nip) {
   document.getElementById('modalOverlay').style.display = 'flex';
   
   // Load templates
-  loadServiceTemplates('Kenaikan Pangkat', null, 'sk_templateSelect');
+  loadServiceTemplates('Kenaikan Pangkat SK', 'SK Kenaikan Pangkat', 'sk_templateSelect');
   
   document.getElementById('buatSk_submitBtn').addEventListener('click', () => prosesBuatSkKp(usulanId));
 }

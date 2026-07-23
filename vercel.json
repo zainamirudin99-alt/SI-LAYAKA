@@ -1,7 +1,7 @@
 {
   "rewrites": [
     { "source": "/api/rpc", "destination": "/api/rpc.js" },
-    { "source": "/(.*)",     "destination": "/public/$1"  }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
