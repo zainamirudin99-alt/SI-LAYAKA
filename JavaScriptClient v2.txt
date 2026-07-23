@@ -853,6 +853,9 @@ function onSelectCheckEligibleSubject(nip, nama) {
       document.getElementById('ce_golonganAutoFillMsg').textContent =
         pesanStatusAutoFill_('Golongan', emp.golongan, golonganMatch, 'Otomatis dari data pegawai, dapat diubah bila perlu.');
 
+      document.getElementById('ce_tmtGolonganSaatIni').value = pensiunToDateInputValue(emp.tmt_gol);
+      document.getElementById('ce_tmtJabatanSaatIni').value = pensiunToDateInputValue(emp.tmt_jab);
+
       const jabatanSel = document.getElementById('ce_jabatan');
       const jabatanMatch = cariOpsiCocok_(FORM_OPTIONS.jabatan, emp.jabatan);
       jabatanSel.value = jabatanMatch;
@@ -934,6 +937,8 @@ function runCheckEligibility() {
     targetNip: nip,
     golongan: golongan,
     jabatan: jabatan,
+    tmt_gol_saat_ini: document.getElementById('ce_tmtGolonganSaatIni').value,
+    tmt_jab_saat_ini: document.getElementById('ce_tmtJabatanSaatIni').value,
     akIntegrasi: akIntegrasi,
     golonganIntegrasi: golonganIntegrasi,
     adaIjazahBaru2023: ijazahBaru,
@@ -959,6 +964,19 @@ function runCheckEligibility() {
     .checkEligibility(SESSION.token, payload);
 }
 
+function formatTanggalIndoClient(dateStr) {
+  if (!dateStr) return '-';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    const y = parts[0];
+    const m = parseInt(parts[1]) - 1;
+    const d = parseInt(parts[2]);
+    const listBulan = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    if (m >= 0 && m < 12) return `${d} ${listBulan[m]} ${y}`;
+  }
+  return dateStr;
+}
+
 function renderEligibilityResult(res) {
   const card = document.getElementById('ce_resultCard');
   const body = document.getElementById('ce_resultBody');
@@ -971,8 +989,8 @@ function renderEligibilityResult(res) {
     <div class="grid-2">
       <div><strong>Nama</strong><br>${escapeHtml(res.nama)}</div>
       <div><strong>NIP</strong><br>${escapeHtml(res.nip)}</div>
-      <div><strong>Golongan Sekarang</strong><br>${escapeHtml(res.golonganSekarang || '-')}</div>
-      <div><strong>Jabatan</strong><br>${escapeHtml(res.jabatan)}</div>
+      <div><strong>Golongan Sekarang</strong><br>${escapeHtml(res.golonganSekarang || '-')} (TMT: ${escapeHtml(formatTanggalIndoClient(res.tmtGolonganSaatIni))})</div>
+      <div><strong>Jabatan</strong><br>${escapeHtml(res.jabatan)} (TMT: ${escapeHtml(formatTanggalIndoClient(res.tmtJabatanSaatIni))})</div>
     </div>
     <hr style="border-color:var(--border); margin:14px 0;">
     <div style="font-size:13.5px; line-height:1.9;">
@@ -984,7 +1002,7 @@ function renderEligibilityResult(res) {
     </div>
     <div style="margin-top:14px; padding:12px 14px; border-radius:8px; background:${badgeColor}22; border:1px solid ${badgeColor}; color:${badgeColor}; font-weight:700;">
       ${escapeHtml(res.eligibility.status)}
-      <div style="font-weight:400; font-size:12.5px; margin-top:4px; color:var(--text);">${escapeHtml(res.eligibility.message)}</div>
+      <div style="font-weight:400; font-size:12.5px; margin-top:4px; color:var(--text); line-height:1.5;">${escapeHtml(res.eligibility.message)}</div>
     </div>
   `;
   card.style.display = 'block';

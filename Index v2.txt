@@ -185,9 +185,19 @@
                   <div class="helper-text" id="ce_golonganAutoFillMsg">Otomatis dari data pegawai, dapat diubah bila perlu.</div>
                 </div>
                 <div class="stack-field">
+                  <label>TMT Golongan (saat ini)</label>
+                  <input type="date" id="ce_tmtGolonganSaatIni" class="field-input" />
+                  <div class="helper-text">Otomatis dari data pegawai, dapat diubah jika perlu.</div>
+                </div>
+                <div class="stack-field">
                   <label>Jabatan</label>
                   <select id="ce_jabatan"></select>
                   <div class="helper-text" id="ce_jabatanAutoFillMsg">Otomatis dari data pegawai, dapat diubah bila perlu.</div>
+                </div>
+                <div class="stack-field">
+                  <label>TMT Jabatan (saat ini)</label>
+                  <input type="date" id="ce_tmtJabatanSaatIni" class="field-input" />
+                  <div class="helper-text">Otomatis dari data pegawai, dapat diubah jika perlu.</div>
                 </div>
                 <div class="stack-field grid-full" id="ce_tmtGolonganBaruWrap" style="display:none;">
                   <label>TMT Golongan (baru)</label>

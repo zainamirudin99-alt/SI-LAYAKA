@@ -1608,27 +1608,101 @@ const methods = {
 
   async checkEligibility([token, payload]) {
     verifyToken(token);
-    const {targetNip,jabatan,akIntegrasi,golonganIntegrasi,adaIjazahBaru2023,daftarPredikatSkp,golongan,tmt_gol,tmt_jab}=payload||{};
+    const {
+      targetNip,
+      jabatan,
+      akIntegrasi,
+      golonganIntegrasi,
+      adaIjazahBaru2023,
+      daftarPredikatSkp,
+      golongan,
+      tmt_gol,
+      tmt_jab,
+      tmt_gol_saat_ini,
+      tmt_jab_saat_ini
+    }=payload||{};
     if (!targetNip) return {success:false,message:'Pilih pegawai terlebih dahulu.'};
     if (!jabatan)   return {success:false,message:'Jabatan wajib dipilih.'};
     if (!golonganIntegrasi) return {success:false,message:'Golongan Saat Integrasi wajib dipilih.'};
     if (!adaIjazahBaru2023) return {success:false,message:'Ada Ijazah Baru Setelah 2023 wajib dipilih.'};
+
     const emp=await methods.getEmployeeFullData([token,targetNip]);
     const golonganSekarang=golongan||emp.golongan;
+    const jabatanSekarang=jabatan||emp.jabatan;
+    const tmtGol=tmt_gol_saat_ini||emp.tmt_gol;
+    const tmtJab=tmt_jab_saat_ini||emp.tmt_jab;
+
     const totalAkKonversi=(daftarPredikatSkp||[]).reduce((s,r)=>s+hitungAkKonversiTahunan(r.predikat,jabatan,r.bulanMulai,r.bulanAkhir),0);
     const nilaiPendidikan=hitungNilaiPendidikanBaru(adaIjazahBaru2023,golonganSekarang);
     const hangus=isIntegrasiHangus(golonganIntegrasi,golonganSekarang);
     const akIntegrasiEfektif=hangus?0:(Number(akIntegrasi)||0);
     const pengurangan=hitungPengurangan(golonganIntegrasi,golonganSekarang);
     const totalAkAkhir=akIntegrasiEfektif+totalAkKonversi+nilaiPendidikan-pengurangan;
+
     const kebutuhan=CONFIG.KEBUTUHAN_AK_GOLONGAN[normalisasiGolongan(golonganSekarang)];
-    const eligible=kebutuhan!==undefined&&totalAkAkhir>kebutuhan;
+    const cukupAk=kebutuhan!==undefined&&totalAkAkhir>=kebutuhan;
+
+    // Hitung Kelayakan Administratif
+    const targetPromosi = hitungTargetTmtPromosi(new Date());
+    const mockEmp = {
+      nip: emp.nip,
+      nama: emp.nama_lengkap || emp.nama,
+      jabatan: jabatanSekarang,
+      golongan: golonganSekarang,
+      tmt_gol: tmtGol,
+      status_bekerja: emp.status_bekerja,
+      pendidikan: emp.pendidikan
+    };
+    const promoCheck = cekEligiblePromosi(mockEmp, targetPromosi.targetDate);
+
+    // Kumpulkan kesimpulan & rekomendasi
+    let isOverallEligible = cukupAk && promoCheck.eligible;
+    let messages = [];
+
+    if (!cukupAk) {
+      messages.push(`Angka Kredit Akhir (${totalAkAkhir.toFixed(2)}) belum memenuhi kebutuhan minimal (${kebutuhan || 0}).`);
+    } else {
+      messages.push(`Angka Kredit Akhir (${totalAkAkhir.toFixed(2)}) sudah memenuhi kebutuhan minimal (${kebutuhan || 0}).`);
+    }
+
+    if (!promoCheck.statusInfo.eligibleSamaSekali) {
+      messages.push(`Status bekerja saat ini (${promoCheck.statusInfo.labelStatus}) tidak eligible untuk kenaikan pangkat.`);
+    }
+
+    if (promoCheck.sudahMencapaiBatas) {
+      messages.push(`Golongan saat ini (${golonganSekarang}) sudah mencapai batas golongan maksimal untuk jabatan ${jabatanSekarang} (${promoCheck.batasGolongan}).`);
+    } else if (promoCheck.batasTidakDiketahui) {
+      messages.push(`Batas golongan maksimal tidak dapat diidentifikasi untuk jabatan ${jabatanSekarang}.`);
+    }
+
+    let saranTmt = '';
+    if (!promoCheck.sudahMencapaiBatas && promoCheck.statusInfo.eligibleSamaSekali) {
+      if (promoCheck.masaKerjaTahun < promoCheck.syaratTahun) {
+        const dObj = toDate(tmtGol);
+        const targetYear = dObj ? dObj.getFullYear() + Number(promoCheck.syaratTahun) : new Date().getFullYear();
+        const tmtBulanId = dObj ? dObj.getMonth() : 11;
+        saranTmt = `1 ${BULAN_ID[tmtBulanId]} ${targetYear}`;
+        messages.push(`Masa kerja pada golongan saat ini baru berjalan ${promoCheck.masaKerjaTahun.toFixed(1)} tahun (kurang dari syarat ${promoCheck.syaratTahun} tahun).`);
+        messages.push(`Disarankan untuk diajukan pada usulan TMT periode ${saranTmt}.`);
+      } else {
+        messages.push(`Masa kerja pada golongan saat ini telah berjalan ${promoCheck.masaKerjaTahun.toFixed(1)} tahun (memenuhi syarat minimal ${promoCheck.syaratTahun} tahun).`);
+      }
+    }
+
+    const finalStatus = isOverallEligible ? 'Eligible' : 'Belum Eligible';
+
     return {
-      success:true,nip:emp.nip,nama:emp.nama_lengkap||emp.nama,golonganSekarang,jabatan,
+      success:true,nip:emp.nip,nama:emp.nama_lengkap||emp.nama,golonganSekarang,jabatan:jabatanSekarang,
+      tmtGolonganSaatIni:tmtGol,tmtJabatanSaatIni:tmtJab,
       tmtGolonganBaru:tmt_gol||'',tmtJabatanBaru:tmt_jab||'',
       totalAkAkhir:Math.round(totalAkAkhir*100)/100,
       rincian:{akIntegrasi:akIntegrasiEfektif,isIntegrasiHangus:hangus,totalAkKonversi,nilaiPendidikanBaru:nilaiPendidikan,pengurangan},
-      eligibility:{status:eligible?'Eligible':'Belum Eligible',kebutuhan:kebutuhan??null,message:eligible?`Total AK (${totalAkAkhir.toFixed(2)}) melebihi kebutuhan (${kebutuhan}).`:`Total AK (${totalAkAkhir.toFixed(2)}) belum memenuhi kebutuhan (${kebutuhan}).`}
+      eligibility:{
+        status:finalStatus,
+        kebutuhan:kebutuhan??null,
+        message:messages.join(' '),
+        saranTmt:saranTmt || null
+      }
     };
   },
 
