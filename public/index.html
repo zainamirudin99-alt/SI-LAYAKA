@@ -6720,12 +6720,12 @@ function handlePmkSearchInput(query) {
           return;
         }
         resultsEl.innerHTML = list.map(item => `
-          <div onclick="pilihPegawaiPmk('${escapeHtml(item.nip)}', '${escapeHtml(item.nama).replace(/'/g, "\\'")}')"
+          <div onclick="pilihPegawaiPmk('${escapeHtml(item.nip)}', '${escapeHtml(item.nama).replace(/'/g, "\\'")}', '${escapeHtml(item.jenis_pegawai||'').replace(/'/g, "\\'")}')"
                style="padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; cursor:pointer; display:flex; justify-content:space-between; align-items:center;"
                onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#f8fafc'">
             <div>
               <div style="font-weight:600; color:#1e293b;">${escapeHtml(item.nama)}</div>
-              <div style="font-size:12px; color:#64748b;">NIP: ${escapeHtml(item.nip)}</div>
+              <div style="font-size:12px; color:#64748b;">NIP: ${escapeHtml(item.nip)}${item.jenis_pegawai ? ' &middot; ' + escapeHtml(item.jenis_pegawai) : ''}</div>
             </div>
             <span style="font-size:12px; color:#2563eb; font-weight:600;">Pilih &rarr;</span>
           </div>
@@ -6738,18 +6738,39 @@ function handlePmkSearchInput(query) {
   }, 300);
 }
 
-function pilihPegawaiPmk(nip, nama) {
-  pmkSelectedEmployee = { nip, nama };
+function pilihPegawaiPmk(nip, nama, jenisPegawai) {
+  pmkSelectedEmployee = { nip, nama, jenis_pegawai: jenisPegawai };
   document.getElementById('pmkSelectedNama').textContent = nama;
-  document.getElementById('pmkSelectedNip').textContent = 'NIP: ' + nip;
+  const jpText = jenisPegawai ? ` (${jenisPegawai})` : '';
+  document.getElementById('pmkSelectedNip').textContent = 'NIP: ' + nip + jpText;
   document.getElementById('pmkStepCari').style.display = 'none';
   document.getElementById('pmkStepForm').style.display = 'block';
+
+  const isNonAsn = String(jenisPegawai || '').toLowerCase().includes('non asn') || String(jenisPegawai || '').toLowerCase().includes('non-asn');
+  const pmkRadio = document.getElementById('radio_usulan_pmk');
+  const pgRadio = document.getElementById('radio_usulan_pg');
+
+  if (isNonAsn) {
+    if (pmkRadio) {
+      pmkRadio.disabled = true;
+      pmkRadio.checked = false;
+    }
+    if (pgRadio) {
+      pgRadio.checked = true;
+    }
+    toggleFormJenisUsulanPmkPg('PG');
+    showToast('warning', 'Pegawai Undip Non ASN hanya dapat mengajukan Pencantuman Gelar (PG). Pilihan PMK dinonaktifkan.');
+  } else {
+    if (pmkRadio) pmkRadio.disabled = false;
+  }
 }
 
 function resetPmkSelectedEmployee() {
   pmkSelectedEmployee = null;
   document.getElementById('pmkStepCari').style.display = 'block';
   document.getElementById('pmkStepForm').style.display = 'none';
+  const pmkRadio = document.getElementById('radio_usulan_pmk');
+  if (pmkRadio) pmkRadio.disabled = false;
 }
 
 /** Helper untuk upload file langsung dari Browser ke Supabase Storage via Signed URL (Bypass Vercel 4.5MB body limit) */
@@ -6789,6 +6810,13 @@ async function submitFormUsulanPmk(e) {
 
   const jenisUsulan = document.querySelector('input[name="pmk_jenis_usulan"]:checked')?.value || 'PMK';
   const isPg = (jenisUsulan === 'PG');
+
+  const jenisPegawai = pmkSelectedEmployee.jenis_pegawai || '';
+  const isNonAsn = jenisPegawai.toLowerCase().includes('non asn') || jenisPegawai.toLowerCase().includes('non-asn');
+  if (isNonAsn && !isPg) {
+    showToast('error', 'Pegawai Undip Non ASN tidak dapat mengajukan Peninjauan Masa Kerja (PMK). PMK hanya berlaku untuk PNS/CPNS.');
+    return;
+  }
 
   const nomorSurat = isPg ? val('pg_nomor_surat_usul') : val('pmk_nomor_surat_usul');
   if (!nomorSurat) {
@@ -6962,9 +6990,9 @@ function loadPmkUsulanList() {
       container.innerHTML = `
         <div class="ce-dashboard-list" style="gap:12px;">
           ${daftar.map(item => {
-            const isSiapSiasn = item.status === 'siap diajukan di SIASN';
-            const badgeBg = isSiapSiasn ? '#10b981' : '#f59e0b';
-            const statusLabel = isSiapSiasn ? 'siap diajukan di SIASN' : (item.status || 'Diajukan');
+            const isCompletedStatus = (item.status === 'siap diajukan di SIASN' || item.status === 'Siap diajukan ke E-duk');
+            const badgeBg = isCompletedStatus ? '#10b981' : '#f59e0b';
+            const statusLabel = item.status || 'Diajukan';
             const tgl = item.tanggal_diajukan ? formatTanggalIndonesia(item.tanggal_diajukan) : '-';
             const isPg = (item.jenis_usulan === 'PG');
             const typeBadge = isPg ? '<span style="background:#8b5cf6; color:#fff; font-size:11px; padding:3px 8px; border-radius:12px; font-weight:700;">PG</span>' : '<span style="background:#3b82f6; color:#fff; font-size:11px; padding:3px 8px; border-radius:12px; font-weight:700;">PMK</span>';
@@ -7017,11 +7045,12 @@ function viewPmkUsulanDetail(usulanId) {
     .withSuccessHandler(res => {
       if (!res.success) { showToast('error', res.message); return; }
       const u = res.usulan;
-      const isSiapSiasn = u.status === 'siap diajukan di SIASN';
-      const badgeBg = isSiapSiasn ? '#10b981' : '#f59e0b';
-      const statusLabel = isSiapSiasn ? 'siap diajukan di SIASN' : (u.status || 'Diajukan');
+      const isCompletedStatus = (u.status === 'siap diajukan di SIASN' || u.status === 'Siap diajukan ke E-duk');
+      const badgeBg = isCompletedStatus ? '#10b981' : '#f59e0b';
+      const statusLabel = u.status || 'Diajukan';
       const tgl = u.tanggal_diajukan ? formatTanggalIndonesia(u.tanggal_diajukan) : '-';
       const isPg = (u.jenis_usulan === 'PG');
+      const targetStatusLabel = isPg ? 'Siap diajukan ke E-duk' : 'siap diajukan di SIASN';
       const isAdmin = (SESSION.user && (SESSION.user.role === 'admin' || SESSION.user.role === 'super_admin'));
 
       const docs = isPg ? [
@@ -7071,7 +7100,7 @@ function viewPmkUsulanDetail(usulanId) {
             </h4>
             <p style="margin:0 0 14px 0; color:#64748b; font-size:12.5px;">
               ${isAdmin
-                ? 'Periksa lampiran file satu per satu dan berikan centang (checkbox) untuk validasi. Setelah <strong>semua dokumen wajib dicentang</strong>, status usulan akan otomatis berubah menjadi <strong>"siap diajukan di SIASN"</strong>.'
+                ? 'Periksa lampiran file satu per satu dan berikan centang (checkbox) untuk validasi. Setelah <strong>semua dokumen wajib dicentang</strong>, status usulan akan otomatis berubah menjadi <strong>"' + targetStatusLabel + '"</strong>.'
                 : 'Berikut adalah rincian berkas lampiran usulan yang diajukan beserta status verifikasi oleh Tim Kepegawaian.'
               }
             </p>

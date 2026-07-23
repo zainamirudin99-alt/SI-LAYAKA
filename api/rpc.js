@@ -1181,7 +1181,7 @@ const methods = {
     if (q.length<1) return [];
     const db=getDb();
     let req = db.from('data_utama')
-      .select('nip,nama_lengkap,nama,unit_es_ii')
+      .select('nip,nama_lengkap,nama,unit_es_ii,jenis_pegawai')
       .or(`nama_lengkap.ilike.%${q}%,nama.ilike.%${q}%,nip.ilike.%${q}%`);
 
     // Pembatasan Akses: Jika peran akun adalah 'user', HANYA dapat mencari pegawai di unit_es_ii yang sama
@@ -1194,7 +1194,7 @@ const methods = {
 
     const {data,error} = await req.limit(20);
     if (error) throw error;
-    return (data||[]).map(e=>({nip:e.nip,nama:e.nama_lengkap||e.nama,unitEsIi:e.unit_es_ii}));
+    return (data||[]).map(e=>({nip:e.nip,nama:e.nama_lengkap||e.nama,unitEsIi:e.unit_es_ii,jenis_pegawai:e.jenis_pegawai||''}));
   },
 
   async getEmployeeFullData([token, nip]) {
@@ -3527,6 +3527,10 @@ const methods = {
     }
 
     const tipeUsulan = jenis_usulan === 'PG' ? 'PG' : 'PMK';
+    const isNonAsn = (emp.jenis_pegawai || '').toLowerCase().includes('non asn') || (emp.jenis_pegawai || '').toLowerCase().includes('non-asn');
+    if (isNonAsn && tipeUsulan === 'PMK') {
+      return { success: false, message: 'Pegawai Undip Non ASN tidak dapat mengajukan Peninjauan Masa Kerja (PMK). PMK hanya berlaku untuk PNS/CPNS.' };
+    }
 
     const fileSuratUsulUrl = in_surat_url || (file_surat_usul_pmk_b64 ? await uploadLampiran(file_surat_usul_pmk_b64, file_surat_usul_pmk_name || 'surat_pengantar.pdf', 'pmk') : '');
 
@@ -3674,11 +3678,12 @@ const methods = {
       );
     }
 
+    const targetStatus = isPg ? 'Siap diajukan ke E-duk' : 'siap diajukan di SIASN';
     let newStatus = updatedDoc.status;
-    if (allApproved && updatedDoc.status !== 'siap diajukan di SIASN') {
-      newStatus = 'siap diajukan di SIASN';
+    if (allApproved && updatedDoc.status !== targetStatus) {
+      newStatus = targetStatus;
       await db.from('usulan_pmk').update({ status: newStatus }).eq('id', id);
-    } else if (!allApproved && updatedDoc.status === 'siap diajukan di SIASN') {
+    } else if (!allApproved && (updatedDoc.status === 'siap diajukan di SIASN' || updatedDoc.status === 'Siap diajukan ke E-duk')) {
       newStatus = 'Diajukan';
       await db.from('usulan_pmk').update({ status: newStatus }).eq('id', id);
     }
