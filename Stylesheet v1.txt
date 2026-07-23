@@ -101,40 +101,7 @@
   a { color: var(--primary); }
   button { font-family: inherit; cursor: pointer; }
 
-  /* ---------- Sidebar Logo Switcher (Light vs Dark) ---------- */
-  .sidebar-brand {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-    margin-bottom: 22px;
-    padding: 0 4px;
-    width: 100%;
-  }
 
-  .sidebar-logo {
-    width: 100%;
-    max-width: 210px;
-    height: auto;
-    max-height: 58px;
-    object-fit: contain;
-    object-position: left center;
-    transition: all var(--transition);
-  }
-
-  .sidebar-brand span {
-    display: none !important;
-  }
-
-  body.theme-light .sidebar-logo-light { display: block !important; }
-  body.theme-light .sidebar-logo-dark { display: none !important; }
-
-  body.theme-dark .sidebar-logo-light { display: none !important; }
-  body.theme-dark .sidebar-logo-dark {
-    display: block !important;
-    mix-blend-mode: screen;
-    filter: drop-shadow(0 0 10px rgba(0, 229, 255, 0.4));
-  }
 
   /* ---------- Theme toggle ---------- */
   .theme-toggle {
