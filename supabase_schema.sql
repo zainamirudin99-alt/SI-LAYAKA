@@ -367,5 +367,28 @@ ALTER TABLE usulan_pmk ADD COLUMN IF NOT EXISTS file_sk_pengaktifan_approved    
 ALTER TABLE usulan_pmk ADD COLUMN IF NOT EXISTS file_penyetaraan_ijazah_url       TEXT;
 ALTER TABLE usulan_pmk ADD COLUMN IF NOT EXISTS file_penyetaraan_ijazah_approved  BOOLEAN DEFAULT FALSE;
 
+-- Migrasi aman untuk database usulan_kontrak yang sudah ada
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS form_data                   JSONB DEFAULT '{}';
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS ktp_url                     TEXT;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS ktp_approved                BOOLEAN DEFAULT FALSE;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS kk_url                      TEXT;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS kk_approved                 BOOLEAN DEFAULT FALSE;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS pas_foto_url                TEXT;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS pas_foto_approved           BOOLEAN DEFAULT FALSE;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS ijazah_transkrip_url        TEXT;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS ijazah_transkrip_approved   BOOLEAN DEFAULT FALSE;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS surat_pengantar_url         TEXT;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS surat_pengantar_approved    BOOLEAN DEFAULT FALSE;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS surat_lamaran_url           TEXT;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS surat_lamaran_approved      BOOLEAN DEFAULT FALSE;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS sim_ab_url                  TEXT;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS sim_ab_approved             BOOLEAN DEFAULT FALSE;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS str_aktif_url               TEXT;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS str_aktif_approved          BOOLEAN DEFAULT FALSE;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS keterangan_sehat_url        TEXT;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS keterangan_sehat_approved   BOOLEAN DEFAULT FALSE;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS perjanjian_dibuat           BOOLEAN DEFAULT FALSE;
+
+
 
 
