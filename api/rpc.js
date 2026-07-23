@@ -3435,9 +3435,11 @@ const methods = {
     const decoded = requireRole(token, ['user', 'admin', 'super_admin']);
     const {
       nip,
+      jenis_usulan,
       nomor_surat_usul_pmk,
       file_surat_usul_pmk_b64,
       file_surat_usul_pmk_name,
+      // PMK files:
       file_kp_terakhir_b64,
       file_kp_terakhir_name,
       file_sk_kerja_b64,
@@ -3451,11 +3453,23 @@ const methods = {
       file_kontrak_b64,
       file_kontrak_name,
       file_melamar_cpns_b64,
-      file_melamar_cpns_name
+      file_melamar_cpns_name,
+      // PG files & fields:
+      jenjang_pendidikan_terbaru,
+      file_ijazah_terbaru_b64,
+      file_ijazah_terbaru_name,
+      file_transkrip_terbaru_b64,
+      file_transkrip_terbaru_name,
+      file_sk_ijin_belajar_b64,
+      file_sk_ijin_belajar_name,
+      file_sk_pengaktifan_b64,
+      file_sk_pengaktifan_name,
+      file_penyetaraan_ijazah_b64,
+      file_penyetaraan_ijazah_name
     } = payload || {};
 
     if (!nip) return { success: false, message: 'NIP pegawai yang diusulkan wajib diisi.' };
-    if (!nomor_surat_usul_pmk) return { success: false, message: 'Nomor surat usul PMK wajib diisi.' };
+    if (!nomor_surat_usul_pmk) return { success: false, message: 'Nomor surat usul / pengantar wajib diisi.' };
 
     const emp = await findEmployeeByNip(nip);
     if (!emp) return { success: false, message: 'Data pegawai tidak ditemukan.' };
@@ -3465,42 +3479,81 @@ const methods = {
     if (decoded.role === 'user') {
       const callerUnit = await getCallerUnit(decoded, db);
       if (callerUnit && emp.unit_es_ii && emp.unit_es_ii !== callerUnit) {
-        return { success: false, message: `Anda hanya dapat mengajukan usulan PMK untuk pegawai di unit kerja Anda (${callerUnit}).` };
+        return { success: false, message: `Anda hanya dapat mengajukan usulan untuk pegawai di unit kerja Anda (${callerUnit}).` };
       }
     }
 
-    // Upload files to storage (bucket: lampiran-usulan, folder: pmk)
-    const fileSuratUsulUrl = file_surat_usul_pmk_b64 ? await uploadLampiran(file_surat_usul_pmk_b64, file_surat_usul_pmk_name || 'surat_usul_pmk.pdf', 'pmk') : '';
-    const fileKpUrl        = file_kp_terakhir_b64 ? await uploadLampiran(file_kp_terakhir_b64, file_kp_terakhir_name || 'kp_terakhir.pdf', 'pmk') : '';
-    const fileSkKerjaUrl   = file_sk_kerja_b64 ? await uploadLampiran(file_sk_kerja_b64, file_sk_kerja_name || 'sk_kerja.pdf', 'pmk') : '';
-    const fileSkPnsUrl     = file_sk_pns_b64 ? await uploadLampiran(file_sk_pns_b64, file_sk_pns_name || 'sk_pns.pdf', 'pmk') : '';
-    const filePhkUrl       = file_phk_b64 ? await uploadLampiran(file_phk_b64, file_phk_name || 'phk.pdf', 'pmk') : '';
-    const fileGajiUrl      = file_gaji_b64 ? await uploadLampiran(file_gaji_b64, file_gaji_name || 'gaji.pdf', 'pmk') : '';
-    const fileKontrakUrl   = file_kontrak_b64 ? await uploadLampiran(file_kontrak_b64, file_kontrak_name || 'kontrak.pdf', 'pmk') : '';
-    const fileMelamarUrl   = file_melamar_cpns_b64 ? await uploadLampiran(file_melamar_cpns_b64, file_melamar_cpns_name || 'ijazah_cpns.pdf', 'pmk') : '';
+    const tipeUsulan = jenis_usulan === 'PG' ? 'PG' : 'PMK';
+
+    // Upload Surat Pengantar / Surat Usul
+    const fileSuratUsulUrl = file_surat_usul_pmk_b64 ? await uploadLampiran(file_surat_usul_pmk_b64, file_surat_usul_pmk_name || 'surat_pengantar.pdf', 'pmk') : '';
 
     const insertData = {
       nip: emp.nip,
       nama: emp.nama_lengkap || emp.nama,
       unit: emp.unit_es_ii || '',
+      jenis_usulan: tipeUsulan,
       nomor_surat_usul_pmk: nomor_surat_usul_pmk,
       file_surat_usul_pmk_url: fileSuratUsulUrl,
-      file_kp_terakhir_url: fileKpUrl,
-      file_sk_kerja_url: fileSkKerjaUrl,
-      file_sk_pns_url: fileSkPnsUrl,
-      file_phk_url: filePhkUrl,
-      file_gaji_url: fileGajiUrl,
-      file_kontrak_url: fileKontrakUrl,
-      file_melamar_cpns_url: fileMelamarUrl,
       diajukan_oleh_nip: decoded.nip,
       nama_pengaju: decoded.nama || decoded.nip,
       status: 'Diajukan'
     };
 
+    if (tipeUsulan === 'PG') {
+      const [
+        fileIjazahUrl,
+        fileTranskripUrl,
+        fileIjinBelajarUrl,
+        filePengaktifanUrl,
+        filePenyetaraanUrl
+      ] = await Promise.all([
+        file_ijazah_terbaru_b64 ? uploadLampiran(file_ijazah_terbaru_b64, file_ijazah_terbaru_name || 'ijazah_terbaru.pdf', 'pmk') : Promise.resolve(''),
+        file_transkrip_terbaru_b64 ? uploadLampiran(file_transkrip_terbaru_b64, file_transkrip_terbaru_name || 'transkrip_terbaru.pdf', 'pmk') : Promise.resolve(''),
+        file_sk_ijin_belajar_b64 ? uploadLampiran(file_sk_ijin_belajar_b64, file_sk_ijin_belajar_name || 'sk_ijin_belajar.pdf', 'pmk') : Promise.resolve(''),
+        file_sk_pengaktifan_b64 ? uploadLampiran(file_sk_pengaktifan_b64, file_sk_pengaktifan_name || 'sk_pengaktifan.pdf', 'pmk') : Promise.resolve(''),
+        file_penyetaraan_ijazah_b64 ? uploadLampiran(file_penyetaraan_ijazah_b64, file_penyetaraan_ijazah_name || 'penyetaraan_ijazah.pdf', 'pmk') : Promise.resolve('')
+      ]);
+
+      insertData.jenjang_pendidikan_terbaru = jenjang_pendidikan_terbaru || '';
+      insertData.file_ijazah_terbaru_url = fileIjazahUrl;
+      insertData.file_transkrip_terbaru_url = fileTranskripUrl;
+      insertData.file_sk_ijin_belajar_url = fileIjinBelajarUrl;
+      insertData.file_sk_pengaktifan_url = filePengaktifanUrl;
+      insertData.file_penyetaraan_ijazah_url = filePenyetaraanUrl;
+
+    } else {
+      const [
+        fileKpUrl,
+        fileSkKerjaUrl,
+        fileSkPnsUrl,
+        filePhkUrl,
+        fileGajiUrl,
+        fileKontrakUrl,
+        fileMelamarUrl
+      ] = await Promise.all([
+        file_kp_terakhir_b64 ? uploadLampiran(file_kp_terakhir_b64, file_kp_terakhir_name || 'kp_terakhir.pdf', 'pmk') : Promise.resolve(''),
+        file_sk_kerja_b64 ? uploadLampiran(file_sk_kerja_b64, file_sk_kerja_name || 'sk_kerja.pdf', 'pmk') : Promise.resolve(''),
+        file_sk_pns_b64 ? uploadLampiran(file_sk_pns_b64, file_sk_pns_name || 'sk_pns.pdf', 'pmk') : Promise.resolve(''),
+        file_phk_b64 ? uploadLampiran(file_phk_b64, file_phk_name || 'phk.pdf', 'pmk') : Promise.resolve(''),
+        file_gaji_b64 ? uploadLampiran(file_gaji_b64, file_gaji_name || 'gaji.pdf', 'pmk') : Promise.resolve(''),
+        file_kontrak_b64 ? uploadLampiran(file_kontrak_b64, file_kontrak_name || 'kontrak.pdf', 'pmk') : Promise.resolve(''),
+        file_melamar_cpns_b64 ? uploadLampiran(file_melamar_cpns_b64, file_melamar_cpns_name || 'ijazah_cpns.pdf', 'pmk') : Promise.resolve('')
+      ]);
+
+      insertData.file_kp_terakhir_url = fileKpUrl;
+      insertData.file_sk_kerja_url = fileSkKerjaUrl;
+      insertData.file_sk_pns_url = fileSkPnsUrl;
+      insertData.file_phk_url = filePhkUrl;
+      insertData.file_gaji_url = fileGajiUrl;
+      insertData.file_kontrak_url = fileKontrakUrl;
+      insertData.file_melamar_cpns_url = fileMelamarUrl;
+    }
+
     const { data, error } = await db.from('usulan_pmk').insert(insertData).select().single();
     if (error) throw error;
 
-    return { success: true, message: 'Usulan PMK berhasil diajukan.', id: data.id };
+    return { success: true, message: `Usulan ${tipeUsulan} untuk ${emp.nama_lengkap || emp.nama} berhasil diajukan.`, id: data.id };
   },
 
   async getUsulanPmkList([token, filterStatus]) {
@@ -3529,7 +3582,7 @@ const methods = {
     const db = getDb();
     const { data, error } = await db.from('usulan_pmk').select('*').eq('id', id).maybeSingle();
     if (error) throw error;
-    if (!data) return { success: false, message: 'Usulan PMK tidak ditemukan.' };
+    if (!data) return { success: false, message: 'Usulan PMK / PG tidak ditemukan.' };
     return { success: true, usulan: data };
   },
 
@@ -3545,7 +3598,12 @@ const methods = {
       phk: 'file_phk_approved',
       gaji: 'file_gaji_approved',
       kontrak: 'file_kontrak_approved',
-      melamar_cpns: 'file_melamar_cpns_approved'
+      melamar_cpns: 'file_melamar_cpns_approved',
+      ijazah_terbaru: 'file_ijazah_terbaru_approved',
+      transkrip_terbaru: 'file_transkrip_terbaru_approved',
+      sk_ijin_belajar: 'file_sk_ijin_belajar_approved',
+      sk_pengaktifan: 'file_sk_pengaktifan_approved',
+      penyetaraan_ijazah: 'file_penyetaraan_ijazah_approved'
     };
 
     const colName = validDocKeys[docKey];
@@ -3566,16 +3624,31 @@ const methods = {
 
     if (updateErr) throw updateErr;
 
-    const allApproved = !!(
-      updatedDoc.file_surat_usul_pmk_approved &&
-      updatedDoc.file_kp_terakhir_approved &&
-      updatedDoc.file_sk_kerja_approved &&
-      updatedDoc.file_sk_pns_approved &&
-      updatedDoc.file_phk_approved &&
-      updatedDoc.file_gaji_approved &&
-      updatedDoc.file_kontrak_approved &&
-      updatedDoc.file_melamar_cpns_approved
-    );
+    const isPg = (updatedDoc.jenis_usulan === 'PG');
+    let allApproved = false;
+
+    if (isPg) {
+      const suratOk = !!updatedDoc.file_surat_usul_pmk_approved;
+      const ijazahOk = !!updatedDoc.file_ijazah_terbaru_approved;
+      const transkripOk = !!updatedDoc.file_transkrip_terbaru_approved;
+
+      const opt1Ok = !updatedDoc.file_sk_ijin_belajar_url || !!updatedDoc.file_sk_ijin_belajar_approved;
+      const opt2Ok = !updatedDoc.file_sk_pengaktifan_url || !!updatedDoc.file_sk_pengaktifan_approved;
+      const opt3Ok = !updatedDoc.file_penyetaraan_ijazah_url || !!updatedDoc.file_penyetaraan_ijazah_approved;
+
+      allApproved = suratOk && ijazahOk && transkripOk && opt1Ok && opt2Ok && opt3Ok;
+    } else {
+      allApproved = !!(
+        updatedDoc.file_surat_usul_pmk_approved &&
+        updatedDoc.file_kp_terakhir_approved &&
+        updatedDoc.file_sk_kerja_approved &&
+        updatedDoc.file_sk_pns_approved &&
+        updatedDoc.file_phk_approved &&
+        updatedDoc.file_gaji_approved &&
+        updatedDoc.file_kontrak_approved &&
+        updatedDoc.file_melamar_cpns_approved
+      );
+    }
 
     let newStatus = updatedDoc.status;
     if (allApproved && updatedDoc.status !== 'siap diajukan di SIASN') {

@@ -99,8 +99,8 @@
         <div class="nav-item" data-view="kontrak" data-title="Kontrak" style="display:none;">
           📄 Kontrak
         </div>
-        <div class="nav-item" data-view="pmk" data-title="Peninjauan Masa Kerja (PMK)" id="navPmk" style="display:none;">
-          📑 PMK
+        <div class="nav-item" data-view="pmk" data-title="Usul PMK &amp; PG" id="navPmk" style="display:none;">
+          📑 Usul PMK &amp; PG
         </div>
         <div class="nav-item" data-view="template" data-title="Manajemen Template">
           🧩 Template
@@ -901,12 +901,12 @@
           <div class="card kp-panel">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:16px;">
               <div>
-                <h3 style="margin:0; font-size:17px; font-weight:700;">Pengajuan &amp; Verifikasi Usulan PMK</h3>
-                <p style="margin:4px 0 0 0; color:var(--text-muted); font-size:13px;">Kelola usulan peninjauan masa kerja PNS dan lakukan verifikasi berkas secara berkala.</p>
+                <h3 style="margin:0; font-size:17px; font-weight:700;">Pengajuan &amp; Verifikasi Usulan PMK &amp; PG</h3>
+                <p style="margin:4px 0 0 0; color:var(--text-muted); font-size:13px;">Kelola usulan Peninjauan Masa Kerja (PMK) dan Pencantuman Gelar (PG) PNS serta lakukan verifikasi berkas secara berkala.</p>
               </div>
               <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
                 <button type="button" class="btn btn-outline" id="btnSyaratPmk" onclick="bukaModalSyaratPmk()" style="font-weight:600;">
-                  📋 Syarat-Syarat PMK
+                  📋 Syarat-Syarat PMK &amp; PG
                 </button>
                 <button type="button" class="btn btn-primary" id="btnAjukanPmk" onclick="bukaModalAjukanPmk()" style="font-weight:600;">
                   ➕ Ajukan Usulan
