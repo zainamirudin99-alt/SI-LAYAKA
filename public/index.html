@@ -1871,6 +1871,15 @@ const val = id => {
   return el ? el.value.trim() : '';
 };
 
+// Helper function to format date into Indonesian format
+function formatTanggalIndonesia(value) {
+  if (!value) return '-';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return String(value);
+  const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 let SESSION = { token: null, user: null };
 let FORM_OPTIONS = { golongan: [], jabatan: [], predikat: [], bulan: [], ijazahBaru: [] };
 let DOCGEN_FORM_OPTIONS = { predikat: [], ijazahBaru: [] };
