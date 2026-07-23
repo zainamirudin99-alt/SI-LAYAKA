@@ -353,4 +353,19 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- Migrasi aman untuk database usulan_pmk yang sudah ada sebelum penambahan PG
+ALTER TABLE usulan_pmk ADD COLUMN IF NOT EXISTS jenis_usulan                      TEXT DEFAULT 'PMK';
+ALTER TABLE usulan_pmk ADD COLUMN IF NOT EXISTS jenjang_pendidikan_terbaru        TEXT;
+ALTER TABLE usulan_pmk ADD COLUMN IF NOT EXISTS file_ijazah_terbaru_url           TEXT;
+ALTER TABLE usulan_pmk ADD COLUMN IF NOT EXISTS file_ijazah_terbaru_approved      BOOLEAN DEFAULT FALSE;
+ALTER TABLE usulan_pmk ADD COLUMN IF NOT EXISTS file_transkrip_terbaru_url        TEXT;
+ALTER TABLE usulan_pmk ADD COLUMN IF NOT EXISTS file_transkrip_terbaru_approved   BOOLEAN DEFAULT FALSE;
+ALTER TABLE usulan_pmk ADD COLUMN IF NOT EXISTS file_sk_ijin_belajar_url          TEXT;
+ALTER TABLE usulan_pmk ADD COLUMN IF NOT EXISTS file_sk_ijin_belajar_approved     BOOLEAN DEFAULT FALSE;
+ALTER TABLE usulan_pmk ADD COLUMN IF NOT EXISTS file_sk_pengaktifan_url           TEXT;
+ALTER TABLE usulan_pmk ADD COLUMN IF NOT EXISTS file_sk_pengaktifan_approved      BOOLEAN DEFAULT FALSE;
+ALTER TABLE usulan_pmk ADD COLUMN IF NOT EXISTS file_penyetaraan_ijazah_url       TEXT;
+ALTER TABLE usulan_pmk ADD COLUMN IF NOT EXISTS file_penyetaraan_ijazah_approved  BOOLEAN DEFAULT FALSE;
+
+
 
