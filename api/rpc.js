@@ -343,7 +343,28 @@ async function uploadLampiran(base64DataUrl, namaFile, subfolder) {
 // ================================================================
 function normalisasiGolongan(g) { return String(g||'').replace(/^Set\.\s*/i,'').trim(); }
 
+function isIntegrasiHangus(golonganIntegrasi, golonganSekarang) {
+  const u = CONFIG.GOLONGAN_URUTAN;
+  const idxInt = u.indexOf(normalisasiGolongan(golonganIntegrasi));
+  const idxSek = u.indexOf(normalisasiGolongan(golonganSekarang));
+  if (idxInt === -1 || idxSek === -1) return false;
+
+  const idxAA = u.indexOf('III/b'); // Batas Asisten Ahli (AA)
+  const idxL  = u.indexOf('III/d'); // Batas Lektor (L)
+  const idxLK = u.indexOf('IV/c'); // Batas Lektor Kepala (LK)
+
+  // 1. Integrasi di posisi AA (<= III/b), tapi posisi sekarang sudah melewatinya (> III/b)
+  if (idxInt <= idxAA && idxSek > idxAA) return true;
+  // 2. Integrasi di posisi Lektor (<= III/d), tapi posisi sekarang sudah melewatinya (> III/d)
+  if (idxInt <= idxL && idxSek > idxL) return true;
+  // 3. Integrasi di posisi LK (<= IV/c), tapi posisi sekarang sudah melewatinya (> IV/c)
+  if (idxInt <= idxLK && idxSek > idxLK) return true;
+
+  return false;
+}
+
 function hitungPengurangan(golonganIntegrasi, golonganSekarang) {
+  if (isIntegrasiHangus(golonganIntegrasi, golonganSekarang)) return 0;
   const u = CONFIG.GOLONGAN_URUTAN;
   const i1 = u.indexOf(normalisasiGolongan(golonganIntegrasi));
   const i2 = u.indexOf(normalisasiGolongan(golonganSekarang));
@@ -1480,15 +1501,17 @@ const methods = {
     const golonganSekarang=golongan||emp.golongan;
     const totalAkKonversi=(daftarPredikatSkp||[]).reduce((s,r)=>s+hitungAkKonversiTahunan(r.predikat,jabatan,r.bulanMulai,r.bulanAkhir),0);
     const nilaiPendidikan=hitungNilaiPendidikanBaru(adaIjazahBaru2023,golonganSekarang);
+    const hangus=isIntegrasiHangus(golonganIntegrasi,golonganSekarang);
+    const akIntegrasiEfektif=hangus?0:(Number(akIntegrasi)||0);
     const pengurangan=hitungPengurangan(golonganIntegrasi,golonganSekarang);
-    const totalAkAkhir=(Number(akIntegrasi)||0)+totalAkKonversi+nilaiPendidikan-pengurangan;
+    const totalAkAkhir=akIntegrasiEfektif+totalAkKonversi+nilaiPendidikan-pengurangan;
     const kebutuhan=CONFIG.KEBUTUHAN_AK_GOLONGAN[normalisasiGolongan(golonganSekarang)];
     const eligible=kebutuhan!==undefined&&totalAkAkhir>kebutuhan;
     return {
       success:true,nip:emp.nip,nama:emp.nama_lengkap||emp.nama,golonganSekarang,jabatan,
       tmtGolonganBaru:tmt_gol||'',tmtJabatanBaru:tmt_jab||'',
       totalAkAkhir:Math.round(totalAkAkhir*100)/100,
-      rincian:{akIntegrasi:Number(akIntegrasi)||0,totalAkKonversi,nilaiPendidikanBaru:nilaiPendidikan,pengurangan},
+      rincian:{akIntegrasi:akIntegrasiEfektif,isIntegrasiHangus:hangus,totalAkKonversi,nilaiPendidikanBaru:nilaiPendidikan,pengurangan},
       eligibility:{status:eligible?'Eligible':'Belum Eligible',kebutuhan:kebutuhan??null,message:eligible?`Total AK (${totalAkAkhir.toFixed(2)}) melebihi kebutuhan (${kebutuhan}).`:`Total AK (${totalAkAkhir.toFixed(2)}) belum memenuhi kebutuhan (${kebutuhan}).`}
     };
   },
@@ -3403,7 +3426,10 @@ function rpcBuildDerivedFields(employee, formData, subLayanan) {
     const jumlahAkSaatIntegrasi = Number(formData.jumlah_angka_kredit_diperoleh) || 0;
     const angkaDasarSaatIntegrasi = Number(formData.angka_dasar_saat_integrasi) || 0;
 
-    const akIntegrasiDidapat = jumlahAkSaatIntegrasi - angkaDasarSaatIntegrasi;
+    const golonganIntegrasi = formData.golongan_saat_integrasi || formData.golongan_integrasi || employee.golongan;
+    const hangus = isIntegrasiHangus(golonganIntegrasi, golongan);
+
+    const akIntegrasiDidapat = hangus ? 0 : Math.max(0, jumlahAkSaatIntegrasi - angkaDasarSaatIntegrasi);
     
     let totalKonversi = 0;
     (daftarPenilaianTahunan || []).forEach(r => {

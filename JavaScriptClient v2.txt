@@ -967,6 +967,8 @@ function renderEligibilityResult(res) {
   const isEligible = res.eligibility.status === 'Eligible';
   const badgeColor = isEligible ? 'var(--success)' : 'var(--danger)';
 
+  const hangusText = res.rincian.isIntegrasiHangus ? ' <span style="color:var(--danger); font-size:12px; font-weight:600;">(Kedaluwarsa / Hangus - Batas Jabatan)</span>' : '';
+
   body.innerHTML = `
     <div class="grid-2">
       <div><strong>Nama</strong><br>${escapeHtml(res.nama)}</div>
@@ -976,7 +978,7 @@ function renderEligibilityResult(res) {
     </div>
     <hr style="border-color:var(--border); margin:14px 0;">
     <div style="font-size:13.5px; line-height:1.9;">
-      AK Integrasi&emsp;&emsp;&emsp;&emsp;: ${fmtNum(res.rincian.akIntegrasi)}<br>
+      AK Integrasi&emsp;&emsp;&emsp;&emsp;: ${fmtNum(res.rincian.akIntegrasi)}${hangusText}<br>
       Total AK Konversi (SKP)&nbsp;&nbsp;: ${fmtNum(res.rincian.totalAkKonversi)}<br>
       Nilai Pendidikan Baru&nbsp;&nbsp;&nbsp;: ${fmtNum(res.rincian.nilaiPendidikanBaru)}<br>
       Pengurangan Golongan&nbsp;&nbsp;&nbsp;: - ${fmtNum(res.rincian.pengurangan)}<br>
