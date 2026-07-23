@@ -1064,31 +1064,90 @@ const methods = {
   // ---- ROLES ----
 
   async getAllUserRolesForAdmin([token]) {
-    requireRole(token,['super_admin']);
-    const db=getDb();
-    const {data:emps}=await db.from('data_utama').select('nip,nama_lengkap,nama,unit_es_ii').order('nama_lengkap');
-    const {data:roles}=await db.from('user_roles').select('nip,role,sub_role');
-    const rolesMap={};
-    (roles||[]).forEach(r=>{rolesMap[r.nip]={ role: r.role, sub_role: r.sub_role };});
-    const daftar=(emps||[]).filter(e=>e.nip).map(e=>({
-      nip:e.nip,
-      nama:e.nama_lengkap||e.nama||'',
-      unitEsIi:e.unit_es_ii||'',
-      role:(rolesMap[e.nip] && rolesMap[e.nip].role) || 'normal',
-      sub_role:(rolesMap[e.nip] && rolesMap[e.nip].sub_role) || null
-    }));
-    return {success:true,daftar};
+    requireRole(token, ['super_admin']);
+    const db = getDb();
+    
+    // Ambil SEMUA data pegawai dari data_utama (mengabaikan limit default 1000 row Supabase)
+    let emps = [];
+    let pageE = 0;
+    while (true) {
+      const { data, error } = await db
+        .from('data_utama')
+        .select('nip,nama_lengkap,nama,unit_es_ii')
+        .order('nama_lengkap')
+        .range(pageE * 1000, (pageE + 1) * 1000 - 1);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      emps.push(...data);
+      if (data.length < 1000) break;
+      pageE++;
+    }
+
+    // Ambil SEMUA data peran dari user_roles
+    let roles = [];
+    let pageR = 0;
+    while (true) {
+      const { data, error } = await db
+        .from('user_roles')
+        .select('nip,nama,role,sub_role')
+        .range(pageR * 1000, (pageR + 1) * 1000 - 1);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      roles.push(...data);
+      if (data.length < 1000) break;
+      pageR++;
+    }
+
+    const rolesMap = {};
+    (roles || []).forEach(r => {
+      rolesMap[r.nip] = { role: r.role, sub_role: r.sub_role, nama: r.nama };
+    });
+
+    const empNips = new Set();
+    const daftar = (emps || []).filter(e => e.nip).map(e => {
+      empNips.add(e.nip);
+      return {
+        nip: e.nip,
+        nama: e.nama_lengkap || e.nama || '',
+        unitEsIi: e.unit_es_ii || '',
+        role: (rolesMap[e.nip] && rolesMap[e.nip].role) || 'normal',
+        sub_role: (rolesMap[e.nip] && rolesMap[e.nip].sub_role) || null
+      };
+    });
+
+    // Sertakan akun terdaftar di user_roles yang belum ada di data_utama
+    (roles || []).forEach(r => {
+      if (r.nip && !empNips.has(r.nip)) {
+        daftar.push({
+          nip: r.nip,
+          nama: r.nama || r.nip,
+          unitEsIi: 'Terdaftar Mandiri',
+          role: r.role || 'normal',
+          sub_role: r.sub_role || null
+        });
+      }
+    });
+
+    return { success: true, daftar };
   },
 
   async ubahPeranAkun([token, targetNip, peranBaru]) {
-    const caller=requireRole(token,['super_admin']);
-    if (!['normal','user','admin'].includes(peranBaru)) return {success:false,message:'Peran tidak valid.'};
-    const { role: curRole }=await getUserRole(targetNip);
-    if (curRole==='super_admin') return {success:false,message:'Tidak bisa mengubah peran Super Admin.'};
-    const db=getDb();
-    const {error}=await db.from('user_roles').upsert({nip:targetNip,role:peranBaru,diubah_oleh:caller.nip,tanggal_diubah:new Date().toISOString()},{onConflict:'nip'});
+    const caller = requireRole(token, ['super_admin']);
+    if (!['normal', 'user', 'admin', 'super_admin'].includes(peranBaru)) return { success: false, message: 'Peran tidak valid.' };
+    const { role: curRole } = await getUserRole(targetNip);
+    if (curRole === 'super_admin' && caller.nip !== targetNip) return { success: false, message: 'Tidak bisa mengubah peran Super Admin.' };
+    const db = getDb();
+    const { error } = await db.from('user_roles').upsert({ nip: targetNip, role: peranBaru, diubah_oleh: caller.nip, tanggal_diubah: new Date().toISOString() }, { onConflict: 'nip' });
     if (error) throw error;
-    return {success:true,message:`Peran berhasil diubah menjadi "${peranBaru}".`};
+    return { success: true, message: `Peran berhasil diubah menjadi "${peranBaru}".` };
+  },
+
+  async setUserSubRole([token, targetNip, subRole]) {
+    const caller = requireRole(token, ['super_admin']);
+    const db = getDb();
+    const { error } = await db.from('user_roles').upsert({ nip: targetNip, sub_role: subRole || null, diubah_oleh: caller.nip, tanggal_diubah: new Date().toISOString() }, { onConflict: 'nip' });
+    if (error) throw error;
+    return { success: true, message: 'Sub-role berhasil disimpan.' };
   },
 
   // ---- TEMPLATES ----
