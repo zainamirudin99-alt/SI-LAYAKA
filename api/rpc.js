@@ -3527,9 +3527,16 @@ const methods = {
     }
 
     const tipeUsulan = jenis_usulan === 'PG' ? 'PG' : 'PMK';
-    const isNonAsn = (emp.jenis_pegawai || '').toLowerCase().includes('non asn') || (emp.jenis_pegawai || '').toLowerCase().includes('non-asn');
+    const jpStr = String(emp.jenis_pegawai || '').toLowerCase();
+    const isKontrak = ['tenaga profesional', 'kontrak penuh waktu', 'kontrak paruh waktu', 'tenaga kontrak penghargaan', 'kdrp'].some(k => k === jpStr) || jpStr.includes('kontrak');
+    const isNonAsn = jpStr.includes('non asn') || jpStr.includes('non-asn');
+
+    if (isKontrak) {
+      return { success: false, message: 'Pegawai berstatus Kontrak tidak dapat diusulkan Peninjauan Masa Kerja (PMK) maupun Pencantuman Gelar (PG).' };
+    }
+
     if (isNonAsn && tipeUsulan === 'PMK') {
-      return { success: false, message: 'Pegawai Undip Non ASN tidak dapat mengajukan Peninjauan Masa Kerja (PMK). PMK hanya berlaku untuk PNS/CPNS.' };
+      return { success: false, message: 'Pegawai Undip Non ASN tidak dapat diusulkan Peninjauan Masa Kerja (PMK). PMK hanya berlaku untuk PNS/CPNS.' };
     }
 
     const fileSuratUsulUrl = in_surat_url || (file_surat_usul_pmk_b64 ? await uploadLampiran(file_surat_usul_pmk_b64, file_surat_usul_pmk_name || 'surat_pengantar.pdf', 'pmk') : '');

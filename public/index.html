@@ -6746,22 +6746,30 @@ function pilihPegawaiPmk(nip, nama, jenisPegawai) {
   document.getElementById('pmkStepCari').style.display = 'none';
   document.getElementById('pmkStepForm').style.display = 'block';
 
-  const isNonAsn = String(jenisPegawai || '').toLowerCase().includes('non asn') || String(jenisPegawai || '').toLowerCase().includes('non-asn');
+  const jpStr = String(jenisPegawai || '').toLowerCase();
+  const isKontrak = ['tenaga profesional', 'kontrak penuh waktu', 'kontrak paruh waktu', 'tenaga kontrak penghargaan', 'kdrp'].some(k => k === jpStr) || jpStr.includes('kontrak');
+  const isNonAsn = jpStr.includes('non asn') || jpStr.includes('non-asn');
+
   const pmkRadio = document.getElementById('radio_usulan_pmk');
   const pgRadio = document.getElementById('radio_usulan_pg');
+  const submitBtn = document.getElementById('btnSubmitPmk');
 
-  if (isNonAsn) {
-    if (pmkRadio) {
-      pmkRadio.disabled = true;
-      pmkRadio.checked = false;
-    }
-    if (pgRadio) {
-      pgRadio.checked = true;
-    }
+  if (isKontrak) {
+    if (pmkRadio) { pmkRadio.disabled = true; pmkRadio.checked = false; }
+    if (pgRadio) { pgRadio.disabled = true; pgRadio.checked = false; }
+    if (submitBtn) submitBtn.disabled = true;
+    showToast('error', 'Pegawai berstatus Kontrak tidak dapat diusulkan Peninjauan Masa Kerja (PMK) maupun Pencantuman Gelar (PG).');
+  } else if (isNonAsn) {
+    if (pmkRadio) { pmkRadio.disabled = true; pmkRadio.checked = false; }
+    if (pgRadio) { pgRadio.disabled = false; pgRadio.checked = true; }
+    if (submitBtn) submitBtn.disabled = false;
     toggleFormJenisUsulanPmkPg('PG');
-    showToast('warning', 'Pegawai Undip Non ASN hanya dapat mengajukan Pencantuman Gelar (PG). Pilihan PMK dinonaktifkan.');
+    showToast('warning', 'Pegawai Undip Non ASN hanya dapat diusulkan Pencantuman Gelar (PG). Pilihan PMK dinonaktifkan.');
   } else {
     if (pmkRadio) pmkRadio.disabled = false;
+    if (pgRadio) pgRadio.disabled = false;
+    if (submitBtn) submitBtn.disabled = false;
+    if (pmkRadio && !pgRadio.checked) pmkRadio.checked = true;
   }
 }
 
@@ -6770,7 +6778,11 @@ function resetPmkSelectedEmployee() {
   document.getElementById('pmkStepCari').style.display = 'block';
   document.getElementById('pmkStepForm').style.display = 'none';
   const pmkRadio = document.getElementById('radio_usulan_pmk');
+  const pgRadio = document.getElementById('radio_usulan_pg');
+  const submitBtn = document.getElementById('btnSubmitPmk');
   if (pmkRadio) pmkRadio.disabled = false;
+  if (pgRadio) pgRadio.disabled = false;
+  if (submitBtn) submitBtn.disabled = false;
 }
 
 /** Helper untuk upload file langsung dari Browser ke Supabase Storage via Signed URL (Bypass Vercel 4.5MB body limit) */
@@ -6812,9 +6824,17 @@ async function submitFormUsulanPmk(e) {
   const isPg = (jenisUsulan === 'PG');
 
   const jenisPegawai = pmkSelectedEmployee.jenis_pegawai || '';
-  const isNonAsn = jenisPegawai.toLowerCase().includes('non asn') || jenisPegawai.toLowerCase().includes('non-asn');
+  const jpStr = jenisPegawai.toLowerCase();
+  const isKontrak = ['tenaga profesional', 'kontrak penuh waktu', 'kontrak paruh waktu', 'tenaga kontrak penghargaan', 'kdrp'].some(k => k === jpStr) || jpStr.includes('kontrak');
+  const isNonAsn = jpStr.includes('non asn') || jpStr.includes('non-asn');
+
+  if (isKontrak) {
+    showToast('error', 'Pegawai berstatus Kontrak tidak dapat diusulkan Peninjauan Masa Kerja (PMK) maupun Pencantuman Gelar (PG).');
+    return;
+  }
+
   if (isNonAsn && !isPg) {
-    showToast('error', 'Pegawai Undip Non ASN tidak dapat mengajukan Peninjauan Masa Kerja (PMK). PMK hanya berlaku untuk PNS/CPNS.');
+    showToast('error', 'Pegawai Undip Non ASN tidak dapat diusulkan Peninjauan Masa Kerja (PMK). PMK hanya berlaku untuk PNS/CPNS.');
     return;
   }
 
