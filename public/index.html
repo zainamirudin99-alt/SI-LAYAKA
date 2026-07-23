@@ -9,13 +9,17 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Orbitron:wght@600;700;800&family=JetBrains+Mono:wght@500;600&display=swap">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docx-preview@0.1.15/dist/docx-preview.min.css">
   <style>
+  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Orbitron:wght@600;700;800&family=JetBrains+Mono:wght@500;600&display=swap');
 
   :root {
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 20px;
     --radius: 12px;
-    --transition: 0.25s ease;
+    --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  /* ============ LIGHT THEME: formal biru-putih perkantoran ============ */
+  /* ============ 1. LIGHT THEME (Formal Office) ============ */
   body.theme-light {
     --bg: #eef3fb;
     --bg-gradient: linear-gradient(135deg, #eef3fb 0%, #dbe7f7 100%);
@@ -28,6 +32,7 @@
     --primary-hover: #134386;
     --primary-soft: #e6eefb;
     --accent: #2f7fe0;
+    --accent-glow: rgba(47, 127, 224, 0.25);
     --success: #1f9d55;
     --danger: #d64545;
     --shadow: 0 8px 28px rgba(24, 58, 110, 0.12);
@@ -39,7 +44,7 @@
     --font-display: 'Sora', 'Inter', system-ui, sans-serif;
   }
 
-  /* ============ DARK THEME: cyberpunk retro-vintage 80's ============ */
+  /* ============ 2. DARK THEME (Cyberpunk High-Fantasy) ============ */
   body.theme-dark {
     --bg: #08050f;
     --bg-gradient: radial-gradient(circle at 18% 15%, #1a0e2e 0%, #0a0716 45%, #08050f 100%);
@@ -48,11 +53,11 @@
     --border: #3a2a5c;
     --text: #eee6ff;
     --text-muted: #9c8fc2;
-    --primary: #00e5ff;
+    --primary: #00e5ff; /* Neon Cyan */
     --primary-hover: #00b8cc;
     --primary-soft: rgba(0, 229, 255, 0.12);
-    --accent: #ff2ee0;
-    --accent2: #ffd400;
+    --accent: #ff2ee0;  /* Neon Magenta */
+    --accent-glow: rgba(255, 46, 224, 0.4);
     --success: #39ff8a;
     --danger: #ff3b5c;
     --shadow: 0 8px 32px rgba(255, 46, 224, 0.18), 0 0 0 1px rgba(0, 229, 255, 0.1);
@@ -62,45 +67,64 @@
     --input-bg: #1c1530;
     --font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
     --font-display: 'Orbitron', 'Sora', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
   }
 
+  /* ---------- Dark Mode Global Effects ---------- */
+  body.theme-dark::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    background-image: 
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 3px),
+      linear-gradient(rgba(0,229,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,46,224,0.02) 1px, transparent 1px);
+    background-size: 100% 3px, 50px 50px, 50px 50px;
+    mix-blend-mode: screen;
+    opacity: 0.5;
+  }
+
+  /* ============ 3. BASE RESET & MAPPING ============ */
   * { box-sizing: border-box; }
   html, body {
-    margin: 0; padding: 0; height: 100%;
-    font-family: var(--font-body, 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif);
+    margin: 0; padding: 0;
     background: var(--bg-gradient);
+    background-attachment: fixed;
     color: var(--text);
+    font-family: var(--font-body);
     transition: background var(--transition), color var(--transition);
-  }
-  body.theme-dark { text-shadow: 0 0 1px rgba(0,229,255,0.05); position: relative; }
-
-  /* ---------- Dark mode: VHS scanlines + neon grid overlay ---------- */
-  body.theme-dark::before {
-    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
-    background-image:
-      repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 1px, transparent 1px, transparent 3px),
-      linear-gradient(rgba(0,229,255,0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,46,224,0.05) 1px, transparent 1px);
-    background-size: 100% 3px, 42px 42px, 42px 42px;
-    mix-blend-mode: screen;
-  }
-  body.theme-dark::after {
-    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
-    background: radial-gradient(ellipse at 50% 0%, rgba(255,46,224,0.08), transparent 55%),
-                radial-gradient(ellipse at 100% 100%, rgba(0,229,255,0.08), transparent 55%);
-  }
-  body.theme-dark .login-card, body.theme-dark .app-layout { position: relative; z-index: 1; }
-
-  h1, h2, h3, .sidebar-brand span, .login-card h1 {
-    font-family: var(--font-display, 'Sora', sans-serif);
+    min-height: 100vh;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    body.theme-dark .login-card h1, body.theme-dark .sidebar-brand span { animation: none !important; }
+  h1, h2, h3, h4, .brand-text, .nav-item.active, .sidebar-brand span, .login-card h1 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  body.theme-dark h1, body.theme-dark h2, body.theme-dark h3 {
+    text-shadow: 0 0 10px var(--primary-soft), 0 0 2px var(--primary);
+    color: var(--primary);
   }
 
   a { color: var(--primary); }
   button { font-family: inherit; cursor: pointer; }
+
+  /* ---------- Sidebar Logo Switcher (Light vs Dark) ---------- */
+  .sidebar-logo {
+    height: 44px;
+    width: auto;
+    max-width: 140px;
+    object-fit: contain;
+    transition: all var(--transition);
+  }
+
+  body.theme-light .sidebar-logo-light { display: block !important; }
+  body.theme-light .sidebar-logo-dark { display: none !important; }
+
+  body.theme-dark .sidebar-logo-light { display: none !important; }
+  body.theme-dark .sidebar-logo-dark { display: block !important; filter: drop-shadow(0 0 8px var(--primary-soft)); }
 
   /* ---------- Theme toggle ---------- */
   .theme-toggle {
@@ -124,14 +148,18 @@
   .login-card {
     width: 100%; max-width: 420px;
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); box-shadow: var(--shadow);
+    border-radius: var(--radius-md); box-shadow: var(--shadow);
     padding: 32px 28px; text-align: center;
   }
-  body.theme-dark .login-card { border-color: rgba(0,229,255,0.25); }
+  body.theme-dark .login-card {
+    backdrop-filter: blur(10px);
+    background: rgba(20, 15, 36, 0.7);
+    border-color: rgba(0,229,255,0.25);
+  }
 
   .login-logos {
     display: flex; align-items: center; justify-content: center; gap: 22px;
-    margin-bottom: 18px; padding: 14px 10px; border-radius: var(--radius);
+    margin-bottom: 18px; padding: 14px 10px; border-radius: var(--radius-md);
     background: var(--sidebar-bg);
   }
   .login-logo { height: 64px; width: auto; object-fit: contain; }
@@ -148,15 +176,11 @@
     text-shadow: 0 0 6px var(--primary), 0 0 16px rgba(0,229,255,0.6), 0 0 2px var(--accent);
     animation: neonFlicker 6s infinite;
   }
-  @keyframes neonFlicker {
-    0%, 92%, 94%, 100% { opacity: 1; }
-    93% { opacity: 0.75; }
-  }
 
   /* ---------- Auth switch (Masuk / Daftar Akun) ---------- */
   .auth-switch {
     display: flex; gap: 6px; margin-bottom: 18px; padding: 4px;
-    background: var(--surface-alt); border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius-sm);
   }
   .auth-switch-btn {
     flex: 1; border: none; background: transparent; color: var(--text-muted);
@@ -170,37 +194,60 @@
   .auth-pane { display: none; }
   .auth-pane.active { display: block; }
 
+  /* Inputs & Fields */
   .field { text-align: left; margin-bottom: 16px; }
   .field label {
     display: block; font-size: 12.5px; font-weight: 600;
     color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.4px;
   }
-  .field input, .field select, .field textarea {
-    width: 100%; padding: 11px 13px; border-radius: 8px;
-    border: 1px solid var(--border); background: var(--input-bg); color: var(--text);
-    font-size: 14px; transition: border var(--transition), box-shadow var(--transition);
+  input, select, textarea {
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    font-family: inherit;
+    transition: border var(--transition), box-shadow var(--transition);
   }
-  .field input:focus, .field select:focus, .field textarea:focus {
-    outline: none; border-color: var(--primary);
+  body.theme-dark input, body.theme-dark select, body.theme-dark textarea {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    border-color: var(--primary-soft);
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary);
     box-shadow: 0 0 0 3px var(--primary-soft);
   }
-  body.theme-dark .field input:focus, body.theme-dark .field select:focus {
+  body.theme-dark input:focus, body.theme-dark select:focus, body.theme-dark textarea:focus {
     box-shadow: 0 0 0 3px var(--primary-soft), 0 0 12px var(--primary);
   }
-  body.theme-dark .field input, body.theme-dark .field select, body.theme-dark .field textarea {
-    font-family: 'JetBrains Mono', monospace; border-color: rgba(0,229,255,0.25);
-  }
-  body.theme-dark .field input::placeholder { color: #6a5f96; }
+  body.theme-dark input::placeholder { color: #6a5f96; }
 
+  /* Buttons */
   .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    padding: 11px 18px; border-radius: 8px; border: none;
+    padding: 11px 18px; border-radius: var(--radius-sm); border: none;
     font-size: 14px; font-weight: 600; transition: all var(--transition);
   }
-  .btn-primary { background: var(--primary); color: #fff; width: 100%; }
-  .btn-primary:hover { background: var(--primary-hover); }
-  body.theme-dark .btn-primary { box-shadow: 0 0 14px var(--primary); }
-  body.theme-dark .btn-primary:hover { box-shadow: 0 0 22px var(--primary); }
+  .btn-primary {
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 10px 20px;
+    font-weight: 600;
+    width: 100%;
+    transition: all var(--transition);
+  }
+  .btn-primary:hover {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+  }
+  body.theme-dark .btn-primary {
+    box-shadow: 0 0 15px var(--primary-soft);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
 
   .btn-secondary {
     background: var(--surface-alt); color: var(--text); border: 1px solid var(--border);
@@ -214,7 +261,7 @@
   .error-box {
     background: rgba(214,69,69,0.1); border: 1px solid var(--danger);
     color: var(--danger); font-size: 13px; padding: 9px 12px;
-    border-radius: 8px; margin-bottom: 14px; text-align: left; display: none;
+    border-radius: var(--radius-sm); margin-bottom: 14px; text-align: left; display: none;
   }
 
   /* ---------- App shell ---------- */
@@ -224,20 +271,20 @@
   .sidebar {
     width: 240px; flex-shrink: 0; background: var(--sidebar-bg);
     color: var(--sidebar-text); padding: 22px 14px; display: flex; flex-direction: column;
+    border-right: 1px solid var(--border);
   }
   .sidebar-brand {
     display: flex; align-items: center; gap: 10px; margin-bottom: 26px; padding: 0 6px;
   }
-  .sidebar-brand img { height: 34px; }
-  .sidebar-brand span { font-weight: 700; font-size: 14px; line-height: 1.25; color: #fff; letter-spacing: 0.3px; }
+  .sidebar-brand span { font-weight: 700; font-size: 13px; line-height: 1.25; color: #fff; letter-spacing: 0.3px; }
   body.theme-dark .sidebar-brand span {
-    color: var(--primary); text-transform: uppercase; font-size: 12.5px; letter-spacing: 0.8px;
+    color: var(--primary); text-transform: uppercase; font-size: 12px; letter-spacing: 0.8px;
     text-shadow: 0 0 6px var(--primary), 0 0 14px rgba(0,229,255,0.55);
   }
 
   .nav-item {
     display: flex; align-items: center; gap: 10px; padding: 11px 14px;
-    border-radius: 8px; margin-bottom: 4px; cursor: pointer; font-size: 14px;
+    border-radius: var(--radius-sm); margin-bottom: 4px; cursor: pointer; font-size: 14px;
     color: var(--sidebar-text); transition: all var(--transition);
   }
   .nav-item:hover { background: rgba(255,255,255,0.08); }
@@ -249,7 +296,7 @@
 
   .sidebar-footer { margin-top: auto; }
   .user-chip {
-    background: rgba(255,255,255,0.06); border-radius: 8px; padding: 10px 12px;
+    background: rgba(255,255,255,0.06); border-radius: var(--radius-sm); padding: 10px 12px;
     font-size: 12.5px; margin-bottom: 8px;
   }
   .user-chip .u-name { font-weight: 700; color: #fff; display: block; margin-bottom: 2px; }
@@ -265,11 +312,20 @@
     text-shadow: 0 0 6px var(--accent), 0 0 16px rgba(255,46,224,0.45);
   }
 
+  /* Cards */
   .card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    box-shadow: var(--shadow); padding: 22px; margin-bottom: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow);
+    padding: 24px;
+    margin-bottom: 20px;
   }
-  body.theme-dark .card { border-color: rgba(0,229,255,0.2); }
+  body.theme-dark .card {
+    backdrop-filter: blur(10px);
+    background: rgba(20, 15, 36, 0.7);
+    border-color: rgba(0,229,255,0.2);
+  }
 
   .tabs { display: flex; gap: 6px; margin-bottom: 18px; border-bottom: 1px solid var(--border); }
   .tab-btn {
@@ -287,7 +343,7 @@
   .autocomplete-wrap { position: relative; }
   .autocomplete-list {
     position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
     box-shadow: var(--shadow); max-height: 220px; overflow-y: auto; display: none; margin-top: 4px;
   }
   .autocomplete-item { padding: 9px 13px; font-size: 13.5px; cursor: pointer; }
@@ -299,6 +355,25 @@
   @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
 
   .stack-field { margin-bottom: 14px; }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th {
+    background: var(--surface-alt);
+    color: var(--text-muted);
+    text-align: left;
+    padding: 12px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  td {
+    padding: 16px 12px;
+    border-bottom: 1px solid var(--border);
+  }
 
   table.dyn-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   table.dyn-table th, table.dyn-table td {
@@ -315,7 +390,7 @@
     display: none; align-items: center; justify-content: center; padding: 24px;
   }
   .modal-box {
-    background: var(--surface); border-radius: var(--radius); width: 100%; max-width: 860px;
+    background: var(--surface); border-radius: var(--radius-md); width: 100%; max-width: 860px;
     max-height: 88vh; display: flex; flex-direction: column; box-shadow: var(--shadow);
     border: 1px solid var(--border); overflow: hidden;
   }
@@ -332,7 +407,7 @@
   }
   .toast {
     background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--primary);
-    box-shadow: var(--shadow); border-radius: 8px; padding: 12px 16px; font-size: 13.5px;
+    box-shadow: var(--shadow); border-radius: var(--radius-sm); padding: 12px 16px; font-size: 13.5px;
     min-width: 240px; animation: toastIn 0.25s ease;
   }
   .toast.error { border-left-color: var(--danger); }
@@ -373,7 +448,7 @@
     gap: 14px; margin-bottom: 6px;
   }
   .glossary-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);
     padding: 16px; box-shadow: var(--shadow); transition: transform 0.2s ease, box-shadow var(--transition);
   }
   .glossary-card:hover { transform: translateY(-2px); }
@@ -397,7 +472,7 @@
     word-break: break-word; display: block; margin-bottom: 6px;
   }
   .glossary-card .btn-copy {
-    margin-top: 6px; padding: 5px 12px; font-size: 12px; border-radius: 8px;
+    margin-top: 6px; padding: 5px 12px; font-size: 12px; border-radius: var(--radius-sm);
     border: 1px solid var(--border); background: transparent; color: var(--primary);
   }
   .glossary-card .btn-copy:hover { background: var(--primary-soft); }
@@ -416,7 +491,7 @@
   body.theme-dark .glossary-card.accent-warning { box-shadow: 0 0 14px rgba(226,161,58,0.25); }
 
   .input-text {
-    padding: 11px 13px; border-radius: 8px; border: 1px solid var(--border);
+    padding: 11px 13px; border-radius: var(--radius-sm); border: 1px solid var(--border);
     background: var(--input-bg); color: var(--text); font-size: 14px;
   }
   .input-text:focus {
@@ -425,9 +500,6 @@
 
   /* =========================================================================
      KENAIKAN PANGKAT — Check Eligible / Opsi A / Opsi B
-     Light  : kolom terisi "pil" biru tua solid di atas kartu putih (formal).
-     Dark   : kolom kaca gelap + pinggiran neon (cyberpunk vintage 80's).
-     Kolom dibuat lebih tinggi & lega supaya terlihat rapi berjajar.
      ========================================================================= */
   body.theme-light .kp-panel {
     --kp-field-bg: #123467;
@@ -489,7 +561,6 @@
     box-shadow: 0 0 0 3px var(--primary-soft), 0 0 14px var(--primary);
     border-color: var(--primary);
   }
-  /* select arrow tetap kebaca di atas isian gelap */
   .kp-panel .stack-field select,
   .kp-panel select.field-input { color-scheme: dark; }
   body.theme-light .kp-panel .stack-field select,
@@ -561,13 +632,6 @@
 
   @media (max-width: 720px) { .kp-panel .grid-2.kp-grid { grid-template-columns: 1fr; } }
 
-  /* -------------------------------------------------------------------
-     JARING PENGAMAN: selector di atas bergantung pada class ".kp-panel"
-     di Index.html. Baris di bawah ini mengunci ulang aturan LEBAR PENUH
-     + LABEL DI ATAS INPUT lewat id #view-kenaikan-pangkat secara
-     langsung, supaya kolom tetap panjang/rapi walau class kp-panel
-     tidak ikut ter-load untuk alasan apa pun.
-     ------------------------------------------------------------------- */
   #view-kenaikan-pangkat .stack-field, #view-pensiun .stack-field { display: block; width: 100%; }
   #view-kenaikan-pangkat .stack-field > label, #view-pensiun .stack-field > label {
     display: block; width: 100%; margin-bottom: 7px;
@@ -586,9 +650,7 @@
   #view-kenaikan-pangkat .kp-entry-badge, #view-pensiun .kp-entry-badge { display: inline-flex; }
 
   /* -------------------------------------------------------------------
-     DASHBOARD ELIGIBLE (Kenaikan Pangkat > Check Eligible) & DASHBOARD
-     PENSIUN (Pensiun > DPCP) -- kartu unit/kategori/pegawai yang bisa
-     diklik, dipakai sama-sama oleh kedua dashboard.
+     DASHBOARD ELIGIBLE & DASHBOARD PENSIUN
      ------------------------------------------------------------------- */
   .ce-dashboard {
     background: var(--surface-alt); border: 1px solid var(--border); border-radius: 14px;
@@ -633,7 +695,7 @@
   .ce-dashboard-list { display: flex; flex-direction: column; gap: 8px; }
   .ce-dashboard-list-item {
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    padding: 11px 14px; border-radius: 9px; border: 1px solid var(--kp-card-border, var(--border));
+    padding: 11px 14px; border-radius: 999px; border: 1px solid var(--kp-card-border, var(--border));
     background: var(--kp-card-bg, var(--surface)); cursor: pointer;
     transition: border-color var(--transition), background var(--transition);
   }
@@ -652,8 +714,6 @@
   }
   body.theme-dark .cdli-warn { background: rgba(255, 200, 0, 0.12); color: #ffcc00; border: 1px solid rgba(255,200,0,0.4); }
 
-  /* Kartu info sederhana (dipakai saat memilih nama Tendik dari dashboard --
-     tidak ada mesin AK untuk Tendik, jadi cukup kartu konfirmasi). */
   .ce-info-card {
     padding: 16px 18px; border-radius: 11px; border: 1px dashed var(--primary);
     background: var(--surface-alt); font-size: 13.5px; line-height: 1.6; margin-top: 14px;
@@ -661,8 +721,7 @@
   body.theme-dark .ce-info-card { border-color: var(--accent); }
 
   /* -------------------------------------------------------------------
-     PENSIUN: pasangan input tahun+bulan (masa kerja) berdampingan,
-     dan baris ringkasan masa kerja hasil hitung otomatis.
+     PENSIUN
      ------------------------------------------------------------------- */
   .mk-input-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .mk-display-row {
@@ -674,7 +733,16 @@
   .mk-display-row strong { color: var(--primary); }
   body.theme-dark .mk-display-row strong { color: var(--accent); }
 
-  /* Enforcement font Times New Roman untuk seluruh dokumen preview/generate */
+  /* Neon animations */
+  @keyframes neonFlicker {
+    0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
+    20%, 24%, 55% { opacity: 0.7; }
+  }
+  body.theme-dark .neon-text {
+    animation: neonFlicker 5s infinite;
+  }
+
+  /* Enforcement font Times New Roman untuk dokumen preview */
   .docx-wrapper, .docx-wrapper *, #modalBody .docx, #modalBody section.docx, #modalBody table, #modalBody p, #modalBody span {
     font-family: 'Times New Roman', Times, serif !important;
   }
@@ -763,6 +831,8 @@
       <!-- SIDEBAR -->
       <div class="sidebar">
         <div class="sidebar-brand">
+          <img src="light mode.svg" class="sidebar-logo sidebar-logo-light" alt="Logo SILAYAKA Light" />
+          <img src="darkmode.png" class="sidebar-logo sidebar-logo-dark" alt="Logo SILAYAKA Dark" />
           <span>SISTEM LAYANAN<br>ADMINISTRASI KEPEGAWAIAN</span>
         </div>
 

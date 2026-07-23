@@ -84,6 +84,8 @@
       <!-- SIDEBAR -->
       <div class="sidebar">
         <div class="sidebar-brand">
+          <img src="light mode.svg" class="sidebar-logo sidebar-logo-light" alt="Logo SILAYAKA Light" />
+          <img src="darkmode.png" class="sidebar-logo sidebar-logo-dark" alt="Logo SILAYAKA Dark" />
           <span>SISTEM LAYANAN<br>ADMINISTRASI KEPEGAWAIAN</span>
         </div>
 
