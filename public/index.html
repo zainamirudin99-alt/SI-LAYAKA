@@ -6743,7 +6743,195 @@ function resetPmkSelectedEmployee() {
   document.getElementById('pmkStepForm').style.display = 'none';
 }
 
-/** Helper convert file input element to base64 */
+/** Helper untuk upload file langsung dari Browser ke Supabase Storage via Signed URL (Bypass Vercel 4.5MB body limit) */
+async function uploadFileToSupabaseStorage(fileObj, folderName = 'pmk') {
+  if (!fileObj) return '';
+
+  const urlRes = await new Promise((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler(reject)
+      .getPmkUploadUrl(SESSION.token, fileObj.name, folderName);
+  });
+
+  if (!urlRes || !urlRes.success) {
+    throw new Error(urlRes?.message || 'Gagal mendapatkan signed upload URL untuk ' + fileObj.name);
+  }
+
+  const uploadResp = await fetch(urlRes.signedUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': fileObj.type || 'application/pdf'
+    },
+    body: fileObj
+  });
+
+  if (!uploadResp.ok) {
+    throw new Error(`Gagal mengunggah file ${fileObj.name} ke storage.`);
+  }
+
+  return urlRes.publicUrl || urlRes.path;
+}
+
+/** Submit Usulan PMK & PG (Bypass 413 Payload Limit) */
+async function submitFormUsulanPmk(e) {
+  e.preventDefault();
+  if (!pmkSelectedEmployee) { showToast('error', 'Silakan pilih pegawai yang diusulkan terlebih dahulu.'); return; }
+
+  const jenisUsulan = document.querySelector('input[name="pmk_jenis_usulan"]:checked')?.value || 'PMK';
+  const isPg = (jenisUsulan === 'PG');
+
+  const nomorSurat = isPg ? val('pg_nomor_surat_usul') : val('pmk_nomor_surat_usul');
+  if (!nomorSurat) {
+    showToast('error', isPg ? 'Nomor Surat Pengantar PG wajib diisi.' : 'Nomor Surat Usul PMK wajib diisi.');
+    return;
+  }
+
+  const fileSuratUsulEl = isPg ? document.getElementById('pg_file_surat_usul') : document.getElementById('pmk_file_surat_usul');
+  if (!fileSuratUsulEl || !fileSuratUsulEl.files[0]) {
+    showToast('error', 'File Surat Pengantar / Usul wajib diunggah.');
+    return;
+  }
+
+  const fileSuratUsulSize = fileSuratUsulEl.files[0].size;
+  const MIN_SIZE_1MB = 1 * 1024 * 1024;
+  if (fileSuratUsulSize < MIN_SIZE_1MB) {
+    const sizeInKb = (fileSuratUsulSize / 1024).toFixed(1);
+    showToast('error', `Ukuran File Surat Pengantar / Usul minimal 1 MB! (Ukuran file Anda: ${sizeInKb} KB).`);
+    return;
+  }
+
+  const btn = document.getElementById('btnSubmitPmk');
+  setBtnLoading(btn, true, 'Mengunggah berkas ke storage...');
+
+  try {
+    const payload = {
+      nip: pmkSelectedEmployee.nip,
+      jenis_usulan: jenisUsulan,
+      nomor_surat_usul_pmk: nomorSurat
+    };
+
+    if (isPg) {
+      const jenjang = val('pg_jenjang_pendidikan');
+      if (!jenjang) {
+        setBtnLoading(btn, false, '🚀 Kirim Usulan PG (Pencantuman Gelar)');
+        showToast('error', 'Pilih Jenjang Pendidikan Terbaru.');
+        return;
+      }
+      payload.jenjang_pendidikan_terbaru = jenjang;
+
+      const fIjazahEl = document.getElementById('pg_file_ijazah_terbaru');
+      if (!fIjazahEl || !fIjazahEl.files[0]) {
+        setBtnLoading(btn, false, '🚀 Kirim Usulan PG (Pencantuman Gelar)');
+        showToast('error', 'File Ijazah Terbaru wajib diunggah.');
+        return;
+      }
+      const fTranskripEl = document.getElementById('pg_file_transkrip_terbaru');
+      if (!fTranskripEl || !fTranskripEl.files[0]) {
+        setBtnLoading(btn, false, '🚀 Kirim Usulan PG (Pencantuman Gelar)');
+        showToast('error', 'File Transkrip Ijazah Terbaru wajib diunggah.');
+        return;
+      }
+
+      setBtnLoading(btn, true, 'Mengunggah berkas PG...');
+
+      const [
+        urlSurat,
+        urlIjazah,
+        urlTranskrip,
+        urlIjin,
+        urlAktif,
+        urlPenyetaraan
+      ] = await Promise.all([
+        uploadFileToSupabaseStorage(fileSuratUsulEl.files[0], 'pmk'),
+        uploadFileToSupabaseStorage(fIjazahEl.files[0], 'pmk'),
+        uploadFileToSupabaseStorage(fTranskripEl.files[0], 'pmk'),
+        uploadFileToSupabaseStorage(document.getElementById('pg_file_sk_ijin_belajar')?.files[0], 'pmk'),
+        uploadFileToSupabaseStorage(document.getElementById('pg_file_sk_pengaktifan')?.files[0], 'pmk'),
+        uploadFileToSupabaseStorage(document.getElementById('pg_file_penyetaraan_ijazah')?.files[0], 'pmk')
+      ]);
+
+      payload.file_surat_usul_pmk_url = urlSurat;
+      payload.file_ijazah_terbaru_url = urlIjazah;
+      payload.file_transkrip_terbaru_url = urlTranskrip;
+      payload.file_sk_ijin_belajar_url = urlIjin;
+      payload.file_sk_pengaktifan_url = urlAktif;
+      payload.file_penyetaraan_ijazah_url = urlPenyetaraan;
+
+    } else {
+      const f2El = document.getElementById('pmk_file_kp_terakhir');
+      const f3El = document.getElementById('pmk_file_sk_kerja');
+      const f4El = document.getElementById('pmk_file_sk_pns');
+      const f5El = document.getElementById('pmk_file_phk');
+      const f6El = document.getElementById('pmk_file_gaji');
+      const f7El = document.getElementById('pmk_file_kontrak');
+      const f8El = document.getElementById('pmk_file_melamar_cpns');
+
+      if (!f2El?.files[0] || !f3El?.files[0] || !f4El?.files[0] || !f5El?.files[0] || !f6El?.files[0] || !f7El?.files[0] || !f8El?.files[0]) {
+        setBtnLoading(btn, false, '🚀 Kirim Usulan PMK');
+        showToast('error', 'Semua berkas wajib PMK (1 s/d 8) harus diunggah.');
+        return;
+      }
+
+      setBtnLoading(btn, true, 'Mengunggah berkas PMK (1 s/d 8)...');
+
+      const [
+        urlSurat,
+        url2,
+        url3,
+        url4,
+        url5,
+        url6,
+        url7,
+        url8
+      ] = await Promise.all([
+        uploadFileToSupabaseStorage(fileSuratUsulEl.files[0], 'pmk'),
+        uploadFileToSupabaseStorage(f2El.files[0], 'pmk'),
+        uploadFileToSupabaseStorage(f3El.files[0], 'pmk'),
+        uploadFileToSupabaseStorage(f4El.files[0], 'pmk'),
+        uploadFileToSupabaseStorage(f5El.files[0], 'pmk'),
+        uploadFileToSupabaseStorage(f6El.files[0], 'pmk'),
+        uploadFileToSupabaseStorage(f7El.files[0], 'pmk'),
+        uploadFileToSupabaseStorage(f8El.files[0], 'pmk')
+      ]);
+
+      payload.file_surat_usul_pmk_url = urlSurat;
+      payload.file_kp_terakhir_url = url2;
+      payload.file_sk_kerja_url = url3;
+      payload.file_sk_pns_url = url4;
+      payload.file_phk_url = url5;
+      payload.file_gaji_url = url6;
+      payload.file_kontrak_url = url7;
+      payload.file_melamar_cpns_url = url8;
+    }
+
+    setBtnLoading(btn, true, 'Menyimpan usulan...');
+
+    google.script.run
+      .withSuccessHandler(res => {
+        setBtnLoading(btn, false, isPg ? '🚀 Kirim Usulan PG (Pencantuman Gelar)' : '🚀 Kirim Usulan PMK');
+        if (res.success) {
+          showToast('success', res.message);
+          closeModal();
+          loadPmkUsulanList();
+        } else {
+          showToast('error', res.message);
+        }
+      })
+      .withFailureHandler(err => {
+        setBtnLoading(btn, false, isPg ? '🚀 Kirim Usulan PG (Pencantuman Gelar)' : '🚀 Kirim Usulan PMK');
+        showToast('error', 'Gagal menyimpan usulan: ' + (err.message || err));
+      })
+      .ajukanUsulanPmk(SESSION.token, payload);
+
+  } catch (err) {
+    setBtnLoading(btn, false, isPg ? '🚀 Kirim Usulan PG (Pencantuman Gelar)' : '🚀 Kirim Usulan PMK');
+    showToast('error', 'Gagal mengunggah berkas: ' + (err.message || err));
+  }
+}
+
+/** Load Daftar Usulan PMK & PG */
+function loadPmkUsulanList() {
   const container = document.getElementById('pmkUsulanListContainer');
   if (!container) return;
   const filterStatus = val('pmkFilterStatus') || 'ALL';
