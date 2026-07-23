@@ -99,6 +99,9 @@
         <div class="nav-item" data-view="kontrak" data-title="Kontrak" style="display:none;">
           📄 Kontrak
         </div>
+        <div class="nav-item" data-view="pmk" data-title="Peninjauan Masa Kerja (PMK)" id="navPmk" style="display:none;">
+          📑 PMK
+        </div>
         <div class="nav-item" data-view="template" data-title="Manajemen Template">
           🧩 Template
         </div>
@@ -874,6 +877,50 @@
               Anda masuk sebagai akun dengan akses terbatas — hanya bisa melihat data diri sendiri di bawah ini.
             </div>
             <div id="profilSayaContent" class="ce-dashboard-list"></div>
+          </div>
+        </div>
+
+        <!-- ============ VIEW: PMK (PENINJAUAN MASA KERJA) ============ -->
+        <div class="view-panel" id="view-pmk" style="display:none;">
+          <div class="card kp-panel">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px; border-bottom:1px solid #e2e8f0; padding-bottom:16px;">
+              <div>
+                <h3 style="margin:0; font-family:'Sora',sans-serif; font-size:18px; font-weight:700; color:#1e293b;">Peninjauan Masa Kerja (PMK) PNS</h3>
+                <p style="margin:4px 0 0 0; color:#64748b; font-size:13px;">Menu verifikasi &amp; pengajuan usulan peninjauan masa kerja pegawai</p>
+              </div>
+              <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-outline" id="btnSyaratPmk" onclick="bukaModalSyaratPmk()" style="border-color:#3b82f6; color:#2563eb; font-weight:600;">
+                  📋 Syarat-Syarat PMK
+                </button>
+                <button type="button" class="btn btn-primary" id="btnAjukanPmk" onclick="bukaModalAjukanPmk()" style="font-weight:600;">
+                  ➕ Ajukan Usulan
+                </button>
+              </div>
+            </div>
+
+            <!-- Filter Status Usulan -->
+            <div style="display:flex; gap:12px; margin-bottom:16px; align-items:center; flex-wrap:wrap; background:#f8fafc; padding:12px 16px; border-radius:8px; border:1px solid #e2e8f0;">
+              <div style="font-weight:600; font-size:14px; color:#334155;">Status Usulan:</div>
+              <select id="pmkFilterStatus" class="field-input" style="max-width:230px; padding:6px 12px; margin:0;" onchange="loadPmkUsulanList()">
+                <option value="ALL">Semua Status</option>
+                <option value="Diajukan">Diajukan</option>
+                <option value="siap diajukan di SIASN">Siap Diajukan di SIASN</option>
+              </select>
+              <button type="button" class="btn btn-secondary" onclick="loadPmkUsulanList()" style="padding:6px 14px;">🔄 Refresh List</button>
+            </div>
+
+            <!-- List State -->
+            <div id="pmkUsulanListState">
+              <div id="pmkUsulanListContainer">
+                <div class="ce-dashboard-card cdc-empty">Memuat daftar usulan PMK...</div>
+              </div>
+            </div>
+
+            <!-- Detail State (Verifikasi Berkas) -->
+            <div id="pmkUsulanDetailState" style="display:none;">
+              <button type="button" class="btn btn-secondary" onclick="backToPmkList()" style="margin-bottom:16px;">&larr; Kembali ke Daftar Usulan</button>
+              <div id="pmkDetailContainer"></div>
+            </div>
           </div>
         </div>
 

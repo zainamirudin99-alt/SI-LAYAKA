@@ -2940,6 +2940,156 @@ const methods = {
       fileName: `${tmpl.judul}.docx`,
       mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     };
+  },
+
+  // ---- USULAN PMK (PENINJAUAN MASA KERJA) ----
+
+  async ajukanUsulanPmk([token, payload]) {
+    const decoded = requireRole(token, ['user', 'admin', 'super_admin']);
+    const {
+      nip,
+      nomor_surat_usul_pmk,
+      file_surat_usul_pmk_b64,
+      file_surat_usul_pmk_name,
+      file_kp_terakhir_b64,
+      file_kp_terakhir_name,
+      file_sk_kerja_b64,
+      file_sk_kerja_name,
+      file_sk_pns_b64,
+      file_sk_pns_name,
+      file_phk_b64,
+      file_phk_name,
+      file_gaji_b64,
+      file_gaji_name,
+      file_kontrak_b64,
+      file_kontrak_name,
+      file_melamar_cpns_b64,
+      file_melamar_cpns_name
+    } = payload || {};
+
+    if (!nip) return { success: false, message: 'NIP pegawai yang diusulkan wajib diisi.' };
+    if (!nomor_surat_usul_pmk) return { success: false, message: 'Nomor surat usul PMK wajib diisi.' };
+
+    const emp = await findEmployeeByNip(nip);
+    if (!emp) return { success: false, message: 'Data pegawai tidak ditemukan.' };
+
+    // Upload files to storage (bucket: lampiran-usulan, folder: pmk)
+    const fileSuratUsulUrl = file_surat_usul_pmk_b64 ? await uploadLampiran(file_surat_usul_pmk_b64, file_surat_usul_pmk_name || 'surat_usul_pmk.pdf', 'pmk') : '';
+    const fileKpUrl        = file_kp_terakhir_b64 ? await uploadLampiran(file_kp_terakhir_b64, file_kp_terakhir_name || 'kp_terakhir.pdf', 'pmk') : '';
+    const fileSkKerjaUrl   = file_sk_kerja_b64 ? await uploadLampiran(file_sk_kerja_b64, file_sk_kerja_name || 'sk_kerja.pdf', 'pmk') : '';
+    const fileSkPnsUrl     = file_sk_pns_b64 ? await uploadLampiran(file_sk_pns_b64, file_sk_pns_name || 'sk_pns.pdf', 'pmk') : '';
+    const filePhkUrl       = file_phk_b64 ? await uploadLampiran(file_phk_b64, file_phk_name || 'phk.pdf', 'pmk') : '';
+    const fileGajiUrl      = file_gaji_b64 ? await uploadLampiran(file_gaji_b64, file_gaji_name || 'gaji.pdf', 'pmk') : '';
+    const fileKontrakUrl   = file_kontrak_b64 ? await uploadLampiran(file_kontrak_b64, file_kontrak_name || 'kontrak.pdf', 'pmk') : '';
+    const fileMelamarUrl   = file_melamar_cpns_b64 ? await uploadLampiran(file_melamar_cpns_b64, file_melamar_cpns_name || 'ijazah_cpns.pdf', 'pmk') : '';
+
+    const db = getDb();
+    const insertData = {
+      nip: emp.nip,
+      nama: emp.nama_lengkap || emp.nama,
+      unit: emp.unit_es_ii || '',
+      nomor_surat_usul_pmk: nomor_surat_usul_pmk,
+      file_surat_usul_pmk_url: fileSuratUsulUrl,
+      file_kp_terakhir_url: fileKpUrl,
+      file_sk_kerja_url: fileSkKerjaUrl,
+      file_sk_pns_url: fileSkPnsUrl,
+      file_phk_url: filePhkUrl,
+      file_gaji_url: fileGajiUrl,
+      file_kontrak_url: fileKontrakUrl,
+      file_melamar_cpns_url: fileMelamarUrl,
+      diajukan_oleh_nip: decoded.nip,
+      nama_pengaju: decoded.nama || decoded.nip,
+      status: 'Diajukan'
+    };
+
+    const { data, error } = await db.from('usulan_pmk').insert(insertData).select().single();
+    if (error) throw error;
+
+    return { success: true, message: 'Usulan PMK berhasil diajukan.', id: data.id };
+  },
+
+  async getUsulanPmkList([token, filterStatus]) {
+    requireRole(token, ['user', 'admin', 'super_admin']);
+    const db = getDb();
+    let query = db.from('usulan_pmk').select('*').order('tanggal_diajukan', { ascending: false });
+
+    if (filterStatus && filterStatus !== 'ALL') {
+      query = query.eq('status', filterStatus);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return { success: true, daftar: data || [] };
+  },
+
+  async getUsulanPmkById([token, id]) {
+    requireRole(token, ['user', 'admin', 'super_admin']);
+    const db = getDb();
+    const { data, error } = await db.from('usulan_pmk').select('*').eq('id', id).maybeSingle();
+    if (error) throw error;
+    if (!data) return { success: false, message: 'Usulan PMK tidak ditemukan.' };
+    return { success: true, usulan: data };
+  },
+
+  async approveUsulanPmkAttachment([token, id, docKey, disetujui]) {
+    const decoded = requireRole(token, ['user', 'admin', 'super_admin']);
+    const db = getDb();
+
+    const validDocKeys = {
+      surat_usul: 'file_surat_usul_pmk_approved',
+      kp_terakhir: 'file_kp_terakhir_approved',
+      sk_kerja: 'file_sk_kerja_approved',
+      sk_pns: 'file_sk_pns_approved',
+      phk: 'file_phk_approved',
+      gaji: 'file_gaji_approved',
+      kontrak: 'file_kontrak_approved',
+      melamar_cpns: 'file_melamar_cpns_approved'
+    };
+
+    const colName = validDocKeys[docKey];
+    if (!colName) return { success: false, message: 'Kunci dokumen tidak valid.' };
+
+    const updateObj = {
+      [colName]: !!disetujui,
+      diproses_oleh_nip: decoded.nip,
+      tanggal_diproses: new Date().toISOString()
+    };
+
+    const { data: updatedDoc, error: updateErr } = await db
+      .from('usulan_pmk')
+      .update(updateObj)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateErr) throw updateErr;
+
+    const allApproved = !!(
+      updatedDoc.file_surat_usul_pmk_approved &&
+      updatedDoc.file_kp_terakhir_approved &&
+      updatedDoc.file_sk_kerja_approved &&
+      updatedDoc.file_sk_pns_approved &&
+      updatedDoc.file_phk_approved &&
+      updatedDoc.file_gaji_approved &&
+      updatedDoc.file_kontrak_approved &&
+      updatedDoc.file_melamar_cpns_approved
+    );
+
+    let newStatus = updatedDoc.status;
+    if (allApproved && updatedDoc.status !== 'siap diajukan di SIASN') {
+      newStatus = 'siap diajukan di SIASN';
+      await db.from('usulan_pmk').update({ status: newStatus }).eq('id', id);
+    } else if (!allApproved && updatedDoc.status === 'siap diajukan di SIASN') {
+      newStatus = 'Diajukan';
+      await db.from('usulan_pmk').update({ status: newStatus }).eq('id', id);
+    }
+
+    return {
+      success: true,
+      message: disetujui ? 'Dokumen berhasil diverifikasi.' : 'Batal verifikasi dokumen.',
+      allApproved,
+      status: newStatus
+    };
   }
 };
 

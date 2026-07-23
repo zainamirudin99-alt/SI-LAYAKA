@@ -297,3 +297,49 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- ============================================================
+-- 11. TABEL: usulan_pmk
+--     Pengajuan usulan Peninjauan Masa Kerja (PMK) PNS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS usulan_pmk (
+  id                                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nip                               TEXT NOT NULL,
+  nama                              TEXT,
+  unit                              TEXT,
+  nomor_surat_usul_pmk              TEXT,
+  file_surat_usul_pmk_url           TEXT,
+  file_surat_usul_pmk_approved      BOOLEAN DEFAULT FALSE,
+  file_kp_terakhir_url              TEXT,
+  file_kp_terakhir_approved         BOOLEAN DEFAULT FALSE,
+  file_sk_kerja_url                 TEXT,
+  file_sk_kerja_approved            BOOLEAN DEFAULT FALSE,
+  file_sk_pns_url                   TEXT,
+  file_sk_pns_approved              BOOLEAN DEFAULT FALSE,
+  file_phk_url                      TEXT,
+  file_phk_approved                 BOOLEAN DEFAULT FALSE,
+  file_gaji_url                     TEXT,
+  file_gaji_approved                BOOLEAN DEFAULT FALSE,
+  file_kontrak_url                  TEXT,
+  file_kontrak_approved             BOOLEAN DEFAULT FALSE,
+  file_melamar_cpns_url             TEXT,
+  file_melamar_cpns_approved        BOOLEAN DEFAULT FALSE,
+  diajukan_oleh_nip                 TEXT,
+  nama_pengaju                      TEXT,
+  tanggal_diajukan                  TIMESTAMPTZ DEFAULT NOW(),
+  status                            TEXT DEFAULT 'Diajukan',
+  diproses_oleh_nip                 TEXT,
+  tanggal_diproses                  TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_usulan_pmk_nip    ON usulan_pmk(nip);
+CREATE INDEX IF NOT EXISTS idx_usulan_pmk_status ON usulan_pmk(status);
+CREATE INDEX IF NOT EXISTS idx_usulan_pmk_unit   ON usulan_pmk(unit);
+
+ALTER TABLE usulan_pmk ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='usulan_pmk' AND policyname='deny_public_usulan_pmk') THEN
+    CREATE POLICY "deny_public_usulan_pmk" ON usulan_pmk FOR ALL TO public USING (false);
+  END IF;
+END $$;
+
+

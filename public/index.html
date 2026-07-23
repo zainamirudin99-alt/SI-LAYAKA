@@ -778,6 +778,9 @@
         <div class="nav-item" data-view="kontrak" data-title="Kontrak" style="display:none;">
           📄 Kontrak
         </div>
+        <div class="nav-item" data-view="pmk" data-title="Peninjauan Masa Kerja (PMK)" id="navPmk" style="display:none;">
+          📑 PMK
+        </div>
         <div class="nav-item" data-view="template" data-title="Manajemen Template">
           🧩 Template
         </div>
@@ -1556,6 +1559,50 @@
           </div>
         </div>
 
+        <!-- ============ VIEW: PMK (PENINJAUAN MASA KERJA) ============ -->
+        <div class="view-panel" id="view-pmk" style="display:none;">
+          <div class="card kp-panel">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px; border-bottom:1px solid #e2e8f0; padding-bottom:16px;">
+              <div>
+                <h3 style="margin:0; font-family:'Sora',sans-serif; font-size:18px; font-weight:700; color:#1e293b;">Peninjauan Masa Kerja (PMK) PNS</h3>
+                <p style="margin:4px 0 0 0; color:#64748b; font-size:13px;">Menu verifikasi &amp; pengajuan usulan peninjauan masa kerja pegawai</p>
+              </div>
+              <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-outline" id="btnSyaratPmk" onclick="bukaModalSyaratPmk()" style="border-color:#3b82f6; color:#2563eb; font-weight:600;">
+                  📋 Syarat-Syarat PMK
+                </button>
+                <button type="button" class="btn btn-primary" id="btnAjukanPmk" onclick="bukaModalAjukanPmk()" style="font-weight:600;">
+                  ➕ Ajukan Usulan
+                </button>
+              </div>
+            </div>
+
+            <!-- Filter Status Usulan -->
+            <div style="display:flex; gap:12px; margin-bottom:16px; align-items:center; flex-wrap:wrap; background:#f8fafc; padding:12px 16px; border-radius:8px; border:1px solid #e2e8f0;">
+              <div style="font-weight:600; font-size:14px; color:#334155;">Status Usulan:</div>
+              <select id="pmkFilterStatus" class="field-input" style="max-width:230px; padding:6px 12px; margin:0;" onchange="loadPmkUsulanList()">
+                <option value="ALL">Semua Status</option>
+                <option value="Diajukan">Diajukan</option>
+                <option value="siap diajukan di SIASN">Siap Diajukan di SIASN</option>
+              </select>
+              <button type="button" class="btn btn-secondary" onclick="loadPmkUsulanList()" style="padding:6px 14px;">🔄 Refresh List</button>
+            </div>
+
+            <!-- List State -->
+            <div id="pmkUsulanListState">
+              <div id="pmkUsulanListContainer">
+                <div class="ce-dashboard-card cdc-empty">Memuat daftar usulan PMK...</div>
+              </div>
+            </div>
+
+            <!-- Detail State (Verifikasi Berkas) -->
+            <div id="pmkUsulanDetailState" style="display:none;">
+              <button type="button" class="btn btn-secondary" onclick="backToPmkList()" style="margin-bottom:16px;">&larr; Kembali ke Daftar Usulan</button>
+              <div id="pmkDetailContainer"></div>
+            </div>
+          </div>
+        </div>
+
         <!-- ============ VIEW: PERUBAHAN STATUS AKUN (khusus Super Admin) ============ -->
         <div class="view-panel" id="view-peran-akun" style="display:none;">
           <div class="card kp-panel">
@@ -2015,12 +2062,13 @@ function terapkanBatasanPeran_() {
   const navKP = document.querySelector('.nav-item[data-view="kenaikan-pangkat"]');
   const navPensiun = document.querySelector('.nav-item[data-view="pensiun"]');
   const navKontrak = document.querySelector('.nav-item[data-view="kontrak"]');
+  const navPmk = document.querySelector('.nav-item[data-view="pmk"]');
   const navTemplate = document.querySelector('.nav-item[data-view="template"]');
   const navPeranAkun = document.querySelector('.nav-item[data-view="peran-akun"]');
   const navLainnya = document.querySelector('.nav-item[data-view="lainnya"]');
 
   // Sembunyikan semua dulu (deny-by-default), baru tampilkan sesuai peran.
-  [navProfil, navKP, navPensiun, navKontrak, navTemplate, navPeranAkun, navLainnya].forEach(el => { if (el) el.style.display = 'none'; });
+  [navProfil, navKP, navPensiun, navKontrak, navPmk, navTemplate, navPeranAkun, navLainnya].forEach(el => { if (el) el.style.display = 'none'; });
 
   let viewAktif = 'kenaikan-pangkat';
   let judulAktif = 'Kenaikan Pangkat';
@@ -2042,6 +2090,7 @@ function terapkanBatasanPeran_() {
     if (navKP) navKP.style.display = 'flex';
     if (navPensiun) navPensiun.style.display = 'flex';
     if (navKontrak) navKontrak.style.display = 'flex';
+    if (['user', 'admin', 'super_admin'].includes(role) && navPmk) navPmk.style.display = 'flex';
     if (navLainnya) navLainnya.style.display = 'flex';
     if (role === 'admin' || role === 'super_admin') {
       if (navTemplate) navTemplate.style.display = 'flex';
@@ -2291,6 +2340,7 @@ function bindSidebarNav() {
       if (view === 'pensiun') loadPensiunDashboardOnce();
       if (view === 'peran-akun') loadPeranAkunList();
       if (view === 'kontrak') initKontrakViewForUser();
+      if (view === 'pmk') loadPmkUsulanList();
     });
   });
   document.getElementById('logoutBtn').addEventListener('click', logoutUser);
@@ -6163,6 +6213,447 @@ function prosesUploadSkFinal(usulanId) {
       .uploadSkFinalPdf(SESSION.token, usulanId, base64Data, file.name);
   };
   reader.readAsDataURL(file);
+}
+
+/* =====================================================================
+ * MODUL USULAN & VERIFIKASI PENINJAUAN MASA KERJA (PMK)
+ * ===================================================================== */
+
+let pmkSelectedEmployee = null;
+
+/** Tampilkan modal syarat-syarat PMK */
+function bukaModalSyaratPmk() {
+  document.getElementById('modalTitle').textContent = 'Syarat-Syarat Usulan Peninjauan Masa Kerja (PMK) PNS';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="padding:22px; max-height:80vh; overflow-y:auto; line-height:1.6; font-size:13.5px; color:#1e293b;">
+      <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:14px 18px; margin-bottom:18px;">
+        <h4 style="margin:0 0 4px 0; color:#1e40af; font-family:'Sora',sans-serif; font-size:15px; font-weight:700;">
+          DAFTAR SYARAT USULAN PENINJAUAN MASA KERJA (PMK) PNS
+        </h4>
+        <div style="font-size:12px; color:#3b82f6;">(Divalidasi berdasarkan form unggahan sistem dan ketentuan kepegawaian umum)</div>
+      </div>
+
+      <h5 style="margin:16px 0 8px 0; color:#0f172a; font-size:14px; font-weight:700; border-bottom:2px solid #e2e8f0; padding-bottom:4px;">
+        A. DOKUMEN WAJIB UNGGAH (Sesuai Sistem Aplikasi)
+      </h5>
+      <p style="margin:0 0 10px 0; color:#64748b; font-size:12.5px;">
+        Siapkan file scan PDF (asli/legalisir) yang jelas untuk menu berikut:
+      </p>
+      <ol style="margin:0 0 16px 20px; padding:0; display:flex; flex-direction:column; gap:8px;">
+        <li><strong>Dok SK KP</strong><br><span style="color:#475569;">(Salinan sah Surat Keputusan Kenaikan Pangkat terakhir).</span></li>
+        <li><strong>Dok Surat Keterangan Kerja</strong><br><span style="color:#475569;">(Surat referensi/keterangan dari instansi atau perusahaan lama yang menerangkan riwayat pekerjaan, kinerja, dan relevansinya dengan jabatan saat ini).</span></li>
+        <li><strong>Dok SK PNS</strong><br><span style="color:#475569;">(Salinan sah Surat Keputusan pengangkatan sebagai PNS).</span></li>
+        <li><strong>Dok Pemutusan Hubungan Kerja</strong><br><span style="color:#475569;">(Salinan sah SK Pemberhentian/PHK dari tempat kerja sebelumnya sebagai bukti masa kerja telah selesai sebelum diangkat CPNS).</span></li>
+        <li><strong>Dok Daftar Gaji Sebelum CPNS</strong><br><span style="color:#475569;">(Bukti sah penerimaan honorarium atau slip gaji selama masa kerja sebelumnya yang diusulkan).</span></li>
+        <li><strong>Dok Surat Kontrak Kerja</strong><br><span style="color:#475569;">(Salinan sah SK Pengangkatan awal atau Surat Perjanjian Kontrak Kerja di tempat kerja sebelumnya).</span></li>
+        <li><strong>Ijazah Saat Melamar CPNS</strong><br><span style="color:#475569;">(Salinan sah ijazah beserta transkrip nilai yang digunakan sebagai dasar saat melamar CPNS).</span></li>
+      </ol>
+
+      <h5 style="margin:16px 0 8px 0; color:#0f172a; font-size:14px; font-weight:700; border-bottom:2px solid #e2e8f0; padding-bottom:4px;">
+        B. DOKUMEN PENDUKUNG KELENGKAPAN BERKAS (Fisik/Sesuai Permintaan Instansi)
+      </h5>
+      <p style="margin:0 0 10px 0; color:#64748b; font-size:12.5px;">
+        Dokumen ini biasanya wajib dilampirkan ke bagian kepegawaian/BKD pengusul:
+      </p>
+      <ol style="margin:0 0 16px 20px; padding:0; display:flex; flex-direction:column; gap:6px; color:#334155;">
+        <li>Surat Pengantar usulan PMK dari Pejabat Pembina Kepegawaian (PPK) / BKD.</li>
+        <li>Salinan sah SK CPNS.</li>
+        <li>Fotokopi SKP (Sasaran Kinerja Pegawai) 1-2 tahun terakhir dengan nilai minimal "Baik".</li>
+        <li>Surat Pernyataan Tanggung Jawab Mutlak (SPTJM) dari pejabat yang berwenang.</li>
+        <li>Surat Keterangan Tidak Pernah Dijatuhi Hukuman Disiplin.</li>
+      </ol>
+
+      <div style="background:#fffbebf8; border:1px solid #fde68a; border-radius:8px; padding:12px 16px; margin-top:14px;">
+        <div style="font-weight:700; color:#b45309; margin-bottom:2px;">Catatan Penting:</div>
+        <div style="color:#92400e; font-size:12.5px;">
+          Pastikan riwayat masa kerja yang diusulkan (kontrak kerja hingga pemutusan hubungan kerja) bersifat terus-menerus atau tidak terputus.
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+
+/** Tampilkan modal pengajuan usulan PMK */
+function bukaModalAjukanPmk() {
+  pmkSelectedEmployee = null;
+  document.getElementById('modalTitle').textContent = 'Ajukan Usulan Peninjauan Masa Kerja (PMK)';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="padding:20px; max-height:85vh; overflow-y:auto;">
+      <!-- STEP 1: Cari Pegawai -->
+      <div id="pmkStepCari">
+        <h4 style="margin:0 0 12px 0; font-size:15px; font-weight:700; color:#1e293b;">1. Cari Nama / NIP Pegawai yang Diusulkan</h4>
+        <div class="stack-field" style="margin-bottom:12px;">
+          <input type="text" id="pmkSearchInput" class="field-input" placeholder="Ketik Nama atau NIP pegawai..." oninput="handlePmkSearchInput(this.value)" />
+        </div>
+        <div id="pmkSearchResults" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; padding:8px;">
+          <div style="color:#94a3b8; font-size:13px; text-align:center; padding:12px;">Ketik Nama atau NIP untuk mencari data...</div>
+        </div>
+      </div>
+
+      <!-- STEP 2: Form Unggah Berkas -->
+      <div id="pmkStepForm" style="display:none; margin-top:16px; border-top:1px solid #e2e8f0; padding-top:16px;">
+        <div style="background:#eff6ff; padding:10px 14px; border-radius:6px; border:1px solid #bfdbfe; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-weight:700; color:#1e40af;" id="pmkSelectedNama">-</div>
+            <div style="font-size:12px; color:#3b82f6;" id="pmkSelectedNip">-</div>
+          </div>
+          <button type="button" class="btn btn-secondary" onclick="resetPmkSelectedEmployee()" style="padding:4px 10px; font-size:12px;">Ganti Pegawai</button>
+        </div>
+
+        <form id="formUsulanPmk" onsubmit="submitFormUsulanPmk(event)" style="display:flex; flex-direction:column; gap:14px;">
+          <div class="stack-field">
+            <label style="font-weight:600; font-size:13px;">Nomor Surat Usul PMK <span style="color:#ef4444;">*</span></label>
+            <input type="text" id="pmk_nomor_surat_usul" class="field-input" placeholder="Contoh: 456/UN7.F/KP/2026" required />
+          </div>
+
+          <div style="background:#f8fafc; padding:14px; border-radius:8px; border:1px solid #e2e8f0; display:flex; flex-direction:column; gap:12px;">
+            <div style="font-weight:700; font-size:13.5px; color:#1e293b; border-bottom:1px solid #cbd5e1; padding-bottom:6px;">
+              Dokumen Wajib Unggah (PDF Scan Legalisir/Asli)
+            </div>
+
+            <div class="stack-field">
+              <label style="font-weight:600; font-size:12.5px;">1. File Surat Usul PMK <span style="color:#ef4444;">* (Minimal 1 MB)</span></label>
+              <input type="file" id="pmk_file_surat_usul" accept=".pdf" class="field-input" required />
+              <div class="helper-text" style="font-size:11.5px; color:#64748b;">Pastikan ukuran berkas minimal 1 MB.</div>
+            </div>
+
+            <div class="stack-field">
+              <label style="font-weight:600; font-size:12.5px;">2. File KP Terakhir <span style="color:#ef4444;">*</span></label>
+              <input type="file" id="pmk_file_kp_terakhir" accept=".pdf" class="field-input" required />
+            </div>
+
+            <div class="stack-field">
+              <label style="font-weight:600; font-size:12.5px;">3. File Dokumen Surat Keterangan Kerja <span style="color:#ef4444;">*</span></label>
+              <input type="file" id="pmk_file_sk_kerja" accept=".pdf" class="field-input" required />
+            </div>
+
+            <div class="stack-field">
+              <label style="font-weight:600; font-size:12.5px;">4. File SK PNS <span style="color:#ef4444;">*</span></label>
+              <input type="file" id="pmk_file_sk_pns" accept=".pdf" class="field-input" required />
+            </div>
+
+            <div class="stack-field">
+              <label style="font-weight:600; font-size:12.5px;">5. File Dokumen Pemutusan Hubungan Kerja (PHK) <span style="color:#ef4444;">*</span></label>
+              <input type="file" id="pmk_file_phk" accept=".pdf" class="field-input" required />
+            </div>
+
+            <div class="stack-field">
+              <label style="font-weight:600; font-size:12.5px;">6. File Dokumen Daftar Gaji Sebelum CPNS <span style="color:#ef4444;">*</span></label>
+              <input type="file" id="pmk_file_gaji" accept=".pdf" class="field-input" required />
+            </div>
+
+            <div class="stack-field">
+              <label style="font-weight:600; font-size:12.5px;">7. File Dokumen Surat Kontrak Kerja <span style="color:#ef4444;">*</span></label>
+              <input type="file" id="pmk_file_kontrak" accept=".pdf" class="field-input" required />
+            </div>
+
+            <div class="stack-field">
+              <label style="font-weight:600; font-size:12.5px;">8. File Saat Melamar CPNS (Ijazah &amp; Transkrip) <span style="color:#ef4444;">*</span></label>
+              <input type="file" id="pmk_file_melamar_cpns" accept=".pdf" class="field-input" required />
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" id="btnSubmitPmk" style="width:100%; margin-top:8px; font-weight:600;">
+            🚀 Kirim Usulan PMK
+          </button>
+        </form>
+      </div>
+    </div>
+  `;
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+
+let pmkSearchTimer = null;
+function handlePmkSearchInput(query) {
+  clearTimeout(pmkSearchTimer);
+  const resultsEl = document.getElementById('pmkSearchResults');
+  if (!query || query.trim().length < 2) {
+    resultsEl.innerHTML = '<div style="color:#94a3b8; font-size:13px; text-align:center; padding:12px;">Ketik minimal 2 karakter Nama atau NIP...</div>';
+    return;
+  }
+  resultsEl.innerHTML = '<div style="color:#64748b; font-size:13px; text-align:center; padding:12px;">Mencari pegawai...</div>';
+  pmkSearchTimer = setTimeout(() => {
+    google.script.run
+      .withSuccessHandler(list => {
+        if (!list || list.length === 0) {
+          resultsEl.innerHTML = '<div style="color:#ef4444; font-size:13px; text-align:center; padding:12px;">Pegawai tidak ditemukan.</div>';
+          return;
+        }
+        resultsEl.innerHTML = list.map(item => `
+          <div onclick="pilihPegawaiPmk('${escapeHtml(item.nip)}', '${escapeHtml(item.nama).replace(/'/g, "\\'")}')"
+               style="padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; cursor:pointer; display:flex; justify-content:space-between; align-items:center;"
+               onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#f8fafc'">
+            <div>
+              <div style="font-weight:600; color:#1e293b;">${escapeHtml(item.nama)}</div>
+              <div style="font-size:12px; color:#64748b;">NIP: ${escapeHtml(item.nip)}</div>
+            </div>
+            <span style="font-size:12px; color:#2563eb; font-weight:600;">Pilih &rarr;</span>
+          </div>
+        `).join('');
+      })
+      .withFailureHandler(err => {
+        resultsEl.innerHTML = `<div style="color:#ef4444; font-size:13px; text-align:center; padding:12px;">Error: ${escapeHtml(err.message||err)}</div>`;
+      })
+      .searchEmployees(SESSION.token, query);
+  }, 300);
+}
+
+function pilihPegawaiPmk(nip, nama) {
+  pmkSelectedEmployee = { nip, nama };
+  document.getElementById('pmkSelectedNama').textContent = nama;
+  document.getElementById('pmkSelectedNip').textContent = 'NIP: ' + nip;
+  document.getElementById('pmkStepCari').style.display = 'none';
+  document.getElementById('pmkStepForm').style.display = 'block';
+}
+
+function resetPmkSelectedEmployee() {
+  pmkSelectedEmployee = null;
+  document.getElementById('pmkStepCari').style.display = 'block';
+  document.getElementById('pmkStepForm').style.display = 'none';
+}
+
+/** Helper convert file input element to base64 */
+function fileToBase64(fileEl) {
+  return new Promise((resolve, reject) => {
+    const file = fileEl.files[0];
+    if (!file) { resolve(null); return; }
+    const reader = new FileReader();
+    reader.onload = () => resolve({ base64: reader.result, name: file.name, size: file.size });
+    reader.onerror = error => reject(error);
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Submit Usulan PMK */
+async function submitFormUsulanPmk(e) {
+  e.preventDefault();
+  if (!pmkSelectedEmployee) { showToast('error', 'Silakan pilih pegawai yang diusulkan terlebih dahulu.'); return; }
+
+  const nomorSurat = val('pmk_nomor_surat_usul');
+  if (!nomorSurat) { showToast('error', 'Nomor Surat Usul PMK wajib diisi.'); return; }
+
+  const fileSuratUsulEl = document.getElementById('pmk_file_surat_usul');
+  if (!fileSuratUsulEl.files[0]) { showToast('error', 'File Surat Usul PMK wajib diunggah.'); return; }
+
+  // Validasi minimal 1 MB untuk file surat usul PMK
+  const fileSuratUsulSize = fileSuratUsulEl.files[0].size;
+  const MIN_SIZE_1MB = 1 * 1024 * 1024; // 1 MB = 1048576 bytes
+  if (fileSuratUsulSize < MIN_SIZE_1MB) {
+    const sizeInKb = (fileSuratUsulSize / 1024).toFixed(1);
+    showToast('error', `Ukuran File Surat Usul PMK minimal 1 MB! (Ukuran file Anda: ${sizeInKb} KB).`);
+    return;
+  }
+
+  const btn = document.getElementById('btnSubmitPmk');
+  setBtnLoading(btn, true, 'Mengunggah berkas...');
+
+  try {
+    const f1 = await fileToBase64(document.getElementById('pmk_file_surat_usul'));
+    const f2 = await fileToBase64(document.getElementById('pmk_file_kp_terakhir'));
+    const f3 = await fileToBase64(document.getElementById('pmk_file_sk_kerja'));
+    const f4 = await fileToBase64(document.getElementById('pmk_file_sk_pns'));
+    const f5 = await fileToBase64(document.getElementById('pmk_file_phk'));
+    const f6 = await fileToBase64(document.getElementById('pmk_file_gaji'));
+    const f7 = await fileToBase64(document.getElementById('pmk_file_kontrak'));
+    const f8 = await fileToBase64(document.getElementById('pmk_file_melamar_cpns'));
+
+    const payload = {
+      nip: pmkSelectedEmployee.nip,
+      nomor_surat_usul_pmk: nomorSurat,
+      file_surat_usul_pmk_b64: f1 ? f1.base64 : '',
+      file_surat_usul_pmk_name: f1 ? f1.name : '',
+      file_kp_terakhir_b64: f2 ? f2.base64 : '',
+      file_kp_terakhir_name: f2 ? f2.name : '',
+      file_sk_kerja_b64: f3 ? f3.base64 : '',
+      file_sk_kerja_name: f3 ? f3.name : '',
+      file_sk_pns_b64: f4 ? f4.base64 : '',
+      file_sk_pns_name: f4 ? f4.name : '',
+      file_phk_b64: f5 ? f5.base64 : '',
+      file_phk_name: f5 ? f5.name : '',
+      file_gaji_b64: f6 ? f6.base64 : '',
+      file_gaji_name: f6 ? f6.name : '',
+      file_kontrak_b64: f7 ? f7.base64 : '',
+      file_kontrak_name: f7 ? f7.name : '',
+      file_melamar_cpns_b64: f8 ? f8.base64 : '',
+      file_melamar_cpns_name: f8 ? f8.name : ''
+    };
+
+    google.script.run
+      .withSuccessHandler(res => {
+        setBtnLoading(btn, false, '🚀 Kirim Usulan PMK');
+        if (res.success) {
+          showToast('success', res.message);
+          closeModal();
+          loadPmkUsulanList();
+        } else {
+          showToast('error', res.message);
+        }
+      })
+      .withFailureHandler(err => {
+        setBtnLoading(btn, false, '🚀 Kirim Usulan PMK');
+        showToast('error', 'Gagal mengajukan usulan PMK: ' + (err.message || err));
+      })
+      .ajukanUsulanPmk(SESSION.token, payload);
+
+  } catch (err) {
+    setBtnLoading(btn, false, '🚀 Kirim Usulan PMK');
+    showToast('error', 'Gagal memproses berkas: ' + (err.message || err));
+  }
+}
+
+/** Load Daftar Usulan PMK */
+function loadPmkUsulanList() {
+  const container = document.getElementById('pmkUsulanListContainer');
+  if (!container) return;
+  const filterStatus = val('pmkFilterStatus') || 'ALL';
+
+  container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat daftar usulan PMK...</div>';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      const daftar = res.daftar || [];
+      if (daftar.length === 0) {
+        container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Belum ada usulan PMK terdaftar.</div>';
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="ce-dashboard-list" style="gap:12px;">
+          ${daftar.map(item => {
+            const isSiapSiasn = item.status === 'siap diajukan di SIASN';
+            const badgeBg = isSiapSiasn ? '#10b981' : '#f59e0b';
+            const statusLabel = isSiapSiasn ? 'siap diajukan di SIASN' : (item.status || 'Diajukan');
+            const tgl = item.tanggal_diajukan ? formatTanggalIndonesia(item.tanggal_diajukan) : '-';
+
+            return `
+              <div class="ce-dashboard-list-item" style="cursor:pointer; flex-wrap:wrap; justify-content:space-between; align-items:center; padding:16px; border-left:4px solid ${badgeBg};" onclick="viewPmkUsulanDetail('${item.id}')">
+                <div style="flex:1; min-width:240px;">
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="cdli-name">${escapeHtml(item.nama)}</span>
+                    <span style="background:${badgeBg}; color:#fff; font-size:11px; padding:3px 10px; border-radius:12px; font-weight:700; text-transform:uppercase;">
+                      ${escapeHtml(statusLabel)}
+                    </span>
+                  </div>
+                  <div class="cdli-meta" style="margin-top:4px;">NIP ${escapeHtml(item.nip)} &middot; ${escapeHtml(item.unit || '-')}</div>
+                  <div class="cdli-meta" style="margin-top:2px; font-size:12px; color:#64748b;">
+                    No. Surat: <strong>${escapeHtml(item.nomor_surat_usul_pmk || '-')}</strong> &middot; Diajukan oleh: ${escapeHtml(item.nama_pengaju || '-')} (${tgl})
+                  </div>
+                </div>
+                <div>
+                  <button type="button" class="btn btn-primary kp-small-btn" onclick="event.stopPropagation(); viewPmkUsulanDetail('${item.id}')">
+                    🔍 Verifikasi &amp; Detail &rarr;
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat daftar PMK: ' + (err.message || err)))
+    .getUsulanPmkList(SESSION.token, filterStatus);
+}
+
+function backToPmkList() {
+  document.getElementById('pmkUsulanDetailState').style.display = 'none';
+  document.getElementById('pmkUsulanListState').style.display = 'block';
+  loadPmkUsulanList();
+}
+
+/** Tampilkan Detail & Verifikasi Checkbox Berkas PMK */
+function viewPmkUsulanDetail(usulanId) {
+  document.getElementById('pmkUsulanListState').style.display = 'none';
+  document.getElementById('pmkUsulanDetailState').style.display = 'block';
+  const container = document.getElementById('pmkDetailContainer');
+
+  container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat detail usulan...</div>';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      const u = res.usulan;
+      const isSiapSiasn = u.status === 'siap diajukan di SIASN';
+      const badgeBg = isSiapSiasn ? '#10b981' : '#f59e0b';
+      const statusLabel = isSiapSiasn ? 'siap diajukan di SIASN' : (u.status || 'Diajukan');
+      const tgl = u.tanggal_diajukan ? formatTanggalIndonesia(u.tanggal_diajukan) : '-';
+
+      const docs = [
+        { key: 'surat_usul', label: '1. Dok Surat Usul PMK', url: u.file_surat_usul_pmk_url, app: u.file_surat_usul_pmk_approved },
+        { key: 'kp_terakhir', label: '2. Dok SK KP Terakhir', url: u.file_kp_terakhir_url, app: u.file_kp_terakhir_approved },
+        { key: 'sk_kerja', label: '3. Dok Surat Keterangan Kerja', url: u.file_sk_kerja_url, app: u.file_sk_kerja_approved },
+        { key: 'sk_pns', label: '4. Dok SK PNS', url: u.file_sk_pns_url, app: u.file_sk_pns_approved },
+        { key: 'phk', label: '5. Dok Pemutusan Hubungan Kerja (PHK)', url: u.file_phk_url, app: u.file_phk_approved },
+        { key: 'gaji', label: '6. Dok Daftar Gaji Sebelum CPNS', url: u.file_gaji_url, app: u.file_gaji_approved },
+        { key: 'kontrak', label: '7. Dok Surat Kontrak Kerja', url: u.file_kontrak_url, app: u.file_kontrak_approved },
+        { key: 'melamar_cpns', label: '8. Ijazah / Berkas Saat Melamar CPNS', url: u.file_melamar_cpns_url, app: u.file_melamar_cpns_approved }
+      ];
+
+      container.innerHTML = `
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:20px; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:14px; border-bottom:1px solid #f1f5f9; padding-bottom:16px; margin-bottom:16px;">
+            <div>
+              <h3 style="margin:0 0 4px 0; color:#0f172a; font-family:'Sora',sans-serif; font-size:18px; font-weight:700;">${escapeHtml(u.nama)}</h3>
+              <div style="color:#64748b; font-size:13px;">NIP ${escapeHtml(u.nip)} &middot; ${escapeHtml(u.unit || '-')}</div>
+              <div style="margin-top:6px; font-size:12.5px; color:#475569;">
+                No. Surat Usul: <strong>${escapeHtml(u.nomor_surat_usul_pmk || '-')}</strong> &middot; Diajukan: ${tgl} oleh ${escapeHtml(u.nama_pengaju || '-')}
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:11px; color:#64748b; margin-bottom:4px; font-weight:600;">STATUS HAK AKSES &amp; VERIFIKASI</div>
+              <span id="pmkDetailStatusBadge" style="background:${badgeBg}; color:#fff; font-size:12.5px; padding:6px 14px; border-radius:20px; font-weight:700; display:inline-block;">
+                ${escapeHtml(statusLabel)}
+              </span>
+            </div>
+          </div>
+
+          <div style="margin-bottom:16px; background:#f8fafc; padding:14px; border-radius:8px; border:1px solid #e2e8f0;">
+            <h4 style="margin:0 0 10px 0; font-size:14px; font-weight:700; color:#1e293b;">
+              📋 Verifikasi Kelengkapan Berkas Lampiran PMK
+            </h4>
+            <p style="margin:0 0 14px 0; color:#64748b; font-size:12.5px;">
+              Periksa lampiran file satu per satu dan berikan centang (checkbox) untuk validasi. Setelah <strong>semua 8 dokumen dicentang</strong>, status usulan akan otomatis berubah menjadi <strong>"siap diajukan di SIASN"</strong>.
+            </p>
+
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              ${docs.map(doc => `
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:10px 14px; background:#fff; border:1px solid #e2e8f0; border-radius:6px;">
+                  <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:250px;">
+                    <input type="checkbox" id="chk_pmk_${doc.key}" ${doc.app ? 'checked' : ''}
+                           onchange="togglePmkDocApproval('${u.id}', '${doc.key}', this.checked)"
+                           style="width:20px; height:20px; cursor:pointer; accent-color:#10b981;" />
+                    <label for="chk_pmk_${doc.key}" style="font-weight:600; font-size:13.5px; cursor:pointer; color:#1e293b;">
+                      ${escapeHtml(doc.label)}
+                    </label>
+                  </div>
+                  <div>
+                    ${doc.url ? `<a href="${doc.url}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn" style="color:#2563eb; border-color:#93c5fd;">📄 Lihat File PDF</a>` : '<span style="color:#ef4444; font-size:12px;">Tidak ada file</span>'}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memuat detail PMK: ' + (err.message || err)))
+    .getUsulanPmkById(SESSION.token, usulanId);
+}
+
+/** Toggle Checkbox Approval Dokumen PMK */
+function togglePmkDocApproval(usulanId, docKey, disetujui) {
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) {
+        showToast('success', res.message);
+        viewPmkUsulanDetail(usulanId);
+      } else {
+        showToast('error', res.message);
+      }
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal mengupdate persetujuan: ' + (err.message || err)))
+    .approveUsulanPmkAttachment(SESSION.token, usulanId, docKey, disetujui);
 }
 </script>
 
