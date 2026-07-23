@@ -1498,31 +1498,43 @@ const methods = {
   async getPromosiDashboardSummary([token]) {
     const decoded = verifyToken(token);
     const db = getDb();
-    let query = db.from('data_utama').select('nip,nama_lengkap,nama,jabatan,golongan,tmt_gol,status_bekerja,pendidikan,unit_es_ii');
+    
+    // Ambil SEMUA data pegawai dengan paginasi agar tidak terpotong limit 1000 row Supabase
+    let emps = [];
+    let pageE = 0;
+    const callerUnit = decoded.role === 'user' ? await getCallerUnit(decoded, db) : null;
 
-    if (decoded.role === 'user') {
-      const callerUnit = await getCallerUnit(decoded, db);
+    while (true) {
+      let query = db.from('data_utama')
+        .select('nip,nama_lengkap,nama,jabatan,golongan,tmt_gol,status_bekerja,pendidikan,unit_es_ii')
+        .range(pageE * 1000, (pageE + 1) * 1000 - 1);
+
       if (callerUnit) {
         query = query.eq('unit_es_ii', callerUnit);
       }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      emps.push(...data);
+      if (data.length < 1000) break;
+      pageE++;
     }
 
-    const {data:emps, error} = await query;
-    if (error) throw error;
-    const target=hitungTargetTmtPromosi(new Date());
-    const perUnit={};
-    (emps||[]).forEach(emp=>{
-      const sb=klasifikasiStatusBekerja(emp.status_bekerja);
+    const target = hitungTargetTmtPromosi(new Date());
+    const perUnit = {};
+    (emps || []).forEach(emp => {
+      const sb = klasifikasiStatusBekerja(emp.status_bekerja);
       if (!sb.eligibleSamaSekali) return;
-      const hasil=cekEligiblePromosi(emp,target.targetDate);
+      const hasil = cekEligiblePromosi(emp, target.targetDate);
       if (!hasil.eligible) return;
-      const unit=String(emp.unit_es_ii||'(Tanpa Unit)').trim()||'(Tanpa Unit)';
-      if (!perUnit[unit]) perUnit[unit]={dosen:0,tendik:0};
-      if (hasil.kategori==='dosen') perUnit[unit].dosen++;
+      const unit = String(emp.unit_es_ii || '(Tanpa Unit)').trim() || '(Tanpa Unit)';
+      if (!perUnit[unit]) perUnit[unit] = { dosen: 0, tendik: 0 };
+      if (hasil.kategori === 'dosen') perUnit[unit].dosen++;
       else perUnit[unit].tendik++;
     });
-    const daftarUnit=Object.keys(perUnit).sort().map(u=>({unit:u,dosen:perUnit[u].dosen,tendik:perUnit[u].tendik,total:perUnit[u].dosen+perUnit[u].tendik}));
-    return {success:true,targetTmt:`1 ${BULAN_ID[target.targetMonth-1]} ${target.targetYear}`,daftarUnit};
+    const daftarUnit = Object.keys(perUnit).sort().map(u => ({ unit: u, dosen: perUnit[u].dosen, tendik: perUnit[u].tendik, total: perUnit[u].dosen + perUnit[u].tendik }));
+    return { success: true, targetTmt: `1 ${BULAN_ID[target.targetMonth - 1]} ${target.targetYear}`, daftarUnit };
   },
 
   async getPromosiEligibleList([token, unit, kategoriFilter]) {
@@ -1551,17 +1563,28 @@ const methods = {
   async getPensiunDashboardSummary([token]) {
     const decoded = verifyToken(token);
     const db = getDb();
-    let query = db.from('data_utama').select('nip,nama_lengkap,nama,jabatan,unit_es_ii,tmt_pensiun_bup');
+    
+    let emps = [];
+    let pageE = 0;
+    const callerUnit = decoded.role === 'user' ? await getCallerUnit(decoded, db) : null;
 
-    if (decoded.role === 'user') {
-      const callerUnit = await getCallerUnit(decoded, db);
+    while (true) {
+      let query = db.from('data_utama')
+        .select('nip,nama_lengkap,nama,jabatan,unit_es_ii,tmt_pensiun_bup')
+        .range(pageE * 1000, (pageE + 1) * 1000 - 1);
+
       if (callerUnit) {
         query = query.eq('unit_es_ii', callerUnit);
       }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      emps.push(...data);
+      if (data.length < 1000) break;
+      pageE++;
     }
 
-    const {data:emps, error} = await query;
-    if (error) throw error;
     const ambangHari=CONFIG.PENSIUN_DASHBOARD_AMBANG_TAHUN*365;
     const perUnit={};
     (emps||[]).forEach(emp=>{
