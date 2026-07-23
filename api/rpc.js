@@ -2485,38 +2485,46 @@ const methods = {
   async getUsulanKontrakSaya([token]) {
     const decoded = verifyToken(token);
     const db = getDb();
-    const { data, error } = await db.from('usulan_kontrak')
-      .select('*')
-      .eq('nip', decoded.nip)
-      .order('tanggal_diajukan', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) return { success: true, usulan: null };
-
-    const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat'];
-    const semuaYangAda = LAMP_KEYS.filter(k => data[k+'_url']);
-    const semuaApproved = semuaYangAda.every(k => data[k+'_approved']);
-    return {
-      success: true,
-      usulan: {
-        id: data.id,
-        status: data.status,
-        jenis_usulan: data.jenis_usulan,
-        tahun: data.tahun,
-        layanan: data.layanan,
-        sub_menu: data.sub_menu,
-        tanggal_diajukan: formatTanggalIndonesia(data.tanggal_diajukan),
-        semua_lampiran_disetujui: semuaApproved,
-        perjanjian_dibuat: data.perjanjian_dibuat,
-        form_data: data.form_data || {},
-        lampiran: LAMP_KEYS.map(k => ({
-          key: k,
-          url: data[k+'_url'] || '',
-          approved: !!data[k+'_approved']
-        })).filter(l => l.url)
+    try {
+      const { data, error } = await db.from('usulan_kontrak')
+        .select('*')
+        .eq('nip', decoded.nip)
+        .order('tanggal_diajukan', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) {
+        console.warn('[rpc] getUsulanKontrakSaya db warning:', error.message);
+        return { success: true, usulan: null };
       }
-    };
+      if (!data) return { success: true, usulan: null };
+
+      const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat'];
+      const semuaYangAda = LAMP_KEYS.filter(k => data[k+'_url']);
+      const semuaApproved = semuaYangAda.every(k => data[k+'_approved']);
+      return {
+        success: true,
+        usulan: {
+          id: data.id,
+          status: data.status,
+          jenis_usulan: data.jenis_usulan,
+          tahun: data.tahun,
+          layanan: data.layanan,
+          sub_menu: data.sub_menu,
+          tanggal_diajukan: formatTanggalIndonesia(data.tanggal_diajukan),
+          semua_lampiran_disetujui: semuaApproved,
+          perjanjian_dibuat: data.perjanjian_dibuat,
+          form_data: data.form_data || {},
+          lampiran: LAMP_KEYS.map(k => ({
+            key: k,
+            url: data[k+'_url'] || '',
+            approved: !!data[k+'_approved']
+          })).filter(l => l.url)
+        }
+      };
+    } catch (err) {
+      console.warn('[rpc] getUsulanKontrakSaya catch:', err.message);
+      return { success: true, usulan: null };
+    }
   },
 
   async getUsulanKontrakNotifikasiSummary([token]) {

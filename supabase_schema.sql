@@ -244,3 +244,56 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- ============================================================
+-- 10. TABEL: usulan_kontrak
+--     Pengajuan usulan Kontrak oleh pegawai / admin
+-- ============================================================
+CREATE TABLE IF NOT EXISTS usulan_kontrak (
+  id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nip                         TEXT,
+  nama                        TEXT,
+  unit                        TEXT,
+  email                       TEXT,
+  tahun                       TEXT,
+  jenis_usulan                TEXT,
+  evaluasi_kinerja            TEXT,
+  layanan                     TEXT,
+  sub_menu                    TEXT,
+  form_data                   JSONB DEFAULT '{}',
+  ktp_url                     TEXT,
+  ktp_approved                BOOLEAN DEFAULT FALSE,
+  kk_url                      TEXT,
+  kk_approved                 BOOLEAN DEFAULT FALSE,
+  pas_foto_url                TEXT,
+  pas_foto_approved           BOOLEAN DEFAULT FALSE,
+  ijazah_transkrip_url        TEXT,
+  ijazah_transkrip_approved   BOOLEAN DEFAULT FALSE,
+  surat_pengantar_url         TEXT,
+  surat_pengantar_approved    BOOLEAN DEFAULT FALSE,
+  surat_lamaran_url           TEXT,
+  surat_lamaran_approved      BOOLEAN DEFAULT FALSE,
+  sim_ab_url                  TEXT,
+  sim_ab_approved             BOOLEAN DEFAULT FALSE,
+  str_aktif_url               TEXT,
+  str_aktif_approved          BOOLEAN DEFAULT FALSE,
+  keterangan_sehat_url        TEXT,
+  keterangan_sehat_approved   BOOLEAN DEFAULT FALSE,
+  diajukan_oleh_nip           TEXT,
+  nama_pengaju                TEXT,
+  tanggal_diajukan            TIMESTAMPTZ DEFAULT NOW(),
+  status                      TEXT DEFAULT 'Diajukan',
+  perjanjian_dibuat           BOOLEAN DEFAULT FALSE,
+  diproses_oleh_nip           TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_usulan_kontrak_nip    ON usulan_kontrak(nip);
+CREATE INDEX IF NOT EXISTS idx_usulan_kontrak_status ON usulan_kontrak(status);
+CREATE INDEX IF NOT EXISTS idx_usulan_kontrak_unit   ON usulan_kontrak(unit);
+
+ALTER TABLE usulan_kontrak ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='usulan_kontrak' AND policyname='deny_public_usulan_kontrak') THEN
+    CREATE POLICY "deny_public_usulan_kontrak" ON usulan_kontrak FOR ALL TO public USING (false);
+  END IF;
+END $$;
+
