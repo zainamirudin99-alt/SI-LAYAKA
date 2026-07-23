@@ -140,7 +140,11 @@
   body.theme-light .sidebar-logo-dark { display: none !important; }
 
   body.theme-dark .sidebar-logo-light { display: none !important; }
-  body.theme-dark .sidebar-logo-dark { display: block !important; filter: drop-shadow(0 0 8px var(--primary-soft)); }
+  body.theme-dark .sidebar-logo-dark {
+    display: block !important;
+    mix-blend-mode: screen;
+    filter: drop-shadow(0 0 10px rgba(0, 229, 255, 0.4));
+  }
 
   /* ---------- Theme toggle ---------- */
   .theme-toggle {
