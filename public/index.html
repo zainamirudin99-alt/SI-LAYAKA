@@ -2187,22 +2187,26 @@ function loadProfilSaya() {
 }
 
 /* ------------------------- MENU PERUBAHAN STATUS AKUN (Super Admin) ------------------------- */
-let peranAkunDataAsli = [];
+let peranAkunSearchTimer = null;
 
-function loadPeranAkunList() {
+function loadPeranAkunList(query = '') {
+  const container = document.getElementById('peranAkunList');
+  if (container && !query) {
+    container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat daftar akun...</div>';
+  }
+
   google.script.run
     .withSuccessHandler(res => {
       if (!res.success) { showToast('error', res.message); return; }
-      peranAkunDataAsli = res.daftar;
-      renderPeranAkunList(peranAkunDataAsli);
+      renderPeranAkunList(res.daftar || []);
     })
     .withFailureHandler(err => showToast('error', 'Gagal memuat daftar akun: ' + (err.message || err)))
-    .getAllUserRolesForAdmin(SESSION.token);
+    .searchUserRolesForAdmin(SESSION.token, query);
 }
 
 function renderPeranAkunList(daftar) {
   const el = document.getElementById('peranAkunList');
-  if (!daftar.length) { el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada data.</div>'; return; }
+  if (!daftar.length) { el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada data pegawai yang cocok dengan pencarian.</div>'; return; }
 
   el.innerHTML = daftar.map(p => {
     const isSeedSuperAdmin = p.nip === '200103310225061024';
@@ -2261,6 +2265,8 @@ function renderPeranAkunList(daftar) {
       btn.disabled = true;
       btn.textContent = 'Menyimpan...';
 
+      const searchQ = val('peranAkun_search');
+
       google.script.run
         .withSuccessHandler(res => {
           if (!res.success) {
@@ -2274,16 +2280,16 @@ function renderPeranAkunList(daftar) {
             google.script.run
               .withSuccessHandler(resSub => {
                 showToast('success', 'Peran dan Sub-role berhasil disimpan.');
-                loadPeranAkunList();
+                loadPeranAkunList(searchQ);
               })
               .withFailureHandler(err => {
                 showToast('error', 'Gagal menyimpan sub-role: ' + (err.message || err));
-                loadPeranAkunList();
+                loadPeranAkunList(searchQ);
               })
               .setUserSubRole(SESSION.token, nip, newSubRole);
           } else {
             showToast('success', 'Peran berhasil disimpan.');
-            loadPeranAkunList();
+            loadPeranAkunList(searchQ);
           }
         })
         .withFailureHandler(err => {
@@ -2297,12 +2303,14 @@ function renderPeranAkunList(daftar) {
 }
 
 function bindPeranAkunSearch() {
-  document.getElementById('peranAkun_search').addEventListener('input', e => {
-    const q = e.target.value.trim().toLowerCase();
-    if (!q) { renderPeranAkunList(peranAkunDataAsli); return; }
-    renderPeranAkunList(peranAkunDataAsli.filter(p =>
-      String(p.nama).toLowerCase().includes(q) || String(p.nip).includes(q)
-    ));
+  const input = document.getElementById('peranAkun_search');
+  if (!input) return;
+  input.addEventListener('input', e => {
+    clearTimeout(peranAkunSearchTimer);
+    const q = e.target.value.trim();
+    peranAkunSearchTimer = setTimeout(() => {
+      loadPeranAkunList(q);
+    }, 300);
   });
 }
 

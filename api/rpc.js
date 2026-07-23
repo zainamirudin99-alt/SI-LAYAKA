@@ -1131,6 +1131,81 @@ const methods = {
     return { success: true, daftar };
   },
 
+  async searchUserRolesForAdmin([token, query]) {
+    requireRole(token, ['super_admin']);
+    const db = getDb();
+    const q = String(query || '').trim();
+
+    const { data: roles, error: rolesErr } = await db.from('user_roles').select('nip,role,sub_role,nama');
+    if (rolesErr) throw rolesErr;
+
+    const rolesMap = {};
+    (roles || []).forEach(r => {
+      rolesMap[r.nip] = { role: r.role, sub_role: r.sub_role, nama: r.nama };
+    });
+
+    let emps = [];
+    if (!q) {
+      const customRoleNips = (roles || []).filter(r => r.role && r.role !== 'normal').map(r => r.nip);
+      
+      if (customRoleNips.length > 0) {
+        const { data: customEmps } = await db.from('data_utama')
+          .select('nip,nama_lengkap,nama,unit_es_ii')
+          .in('nip', customRoleNips);
+        if (customEmps) emps.push(...customEmps);
+      }
+
+      const existingNips = new Set(emps.map(e => e.nip));
+      const { data: defaultEmps } = await db.from('data_utama')
+        .select('nip,nama_lengkap,nama,unit_es_ii')
+        .order('nama_lengkap')
+        .limit(30);
+
+      (defaultEmps || []).forEach(e => {
+        if (!existingNips.has(e.nip)) {
+          emps.push(e);
+          existingNips.add(e.nip);
+        }
+      });
+    } else {
+      const { data: searchedEmps, error: searchErr } = await db.from('data_utama')
+        .select('nip,nama_lengkap,nama,unit_es_ii')
+        .or(`nama_lengkap.ilike.%${q}%,nama.ilike.%${q}%,nip.ilike.%${q}%`)
+        .order('nama_lengkap')
+        .limit(50);
+
+      if (searchErr) throw searchErr;
+      emps = searchedEmps || [];
+
+      const empNips = new Set(emps.map(e => e.nip));
+      (roles || []).forEach(r => {
+        if (r.nip && !empNips.has(r.nip)) {
+          const matchName = String(r.nama || '').toLowerCase().includes(q.toLowerCase());
+          const matchNip = String(r.nip).toLowerCase().includes(q.toLowerCase());
+          if (matchName || matchNip) {
+            emps.push({
+              nip: r.nip,
+              nama_lengkap: r.nama || r.nip,
+              nama: r.nama || r.nip,
+              unit_es_ii: 'Terdaftar Mandiri'
+            });
+            empNips.add(r.nip);
+          }
+        }
+      });
+    }
+
+    const daftar = (emps || []).filter(e => e.nip).map(e => ({
+      nip: e.nip,
+      nama: e.nama_lengkap || e.nama || '',
+      unitEsIi: e.unit_es_ii || '',
+      role: (rolesMap[e.nip] && rolesMap[e.nip].role) || 'normal',
+      sub_role: (rolesMap[e.nip] && rolesMap[e.nip].sub_role) || null
+    }));
+
+    return { success: true, daftar };
+  },
+
   async ubahPeranAkun([token, targetNip, peranBaru]) {
     const caller = requireRole(token, ['super_admin']);
     if (!['normal', 'user', 'admin', 'super_admin'].includes(peranBaru)) return { success: false, message: 'Peran tidak valid.' };
