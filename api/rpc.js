@@ -400,9 +400,19 @@ function hitungTargetTmtPromosi(today) {
   return {targetMonth:tm,targetYear:ty,targetDate:new Date(ty,tm-1,1)};
 }
 
+function getDosenJabatanStandard(jabatan) {
+  const s = String(jabatan || '').trim();
+  if (/Guru\s+Besar|Profesor/i.test(s)) return 'Guru Besar';
+  if (/Lektor\s+Kepala/i.test(s)) return 'Lektor Kepala';
+  if (/Lektor/i.test(s)) return 'Lektor';
+  if (/Asisten\s+Ahli/i.test(s)) return 'Asisten Ahli';
+  return null;
+}
+
 function klasifikasiPegawai(jabatan) {
-  const j=String(jabatan||'').trim();
-  if (CONFIG.JABATAN_FUNGSIONAL_LIST.includes(j)) return 'dosen';
+  const stdDosen = getDosenJabatanStandard(jabatan);
+  if (stdDosen) return 'dosen';
+  const j = String(jabatan || '').trim();
   if (CONFIG.TENDIK_JABATAN_FUNGSIONAL_LIST.includes(j)) return 'tendik_jabatan_fungsional';
   return 'tendik_non_jabatan_fungsional';
 }
@@ -428,7 +438,8 @@ function sudahMencapaiBatasGolongan(kategori, emp) {
   const gi = golonganIndex(emp.golongan);
   if (gi===-1) return {determinable:false,batasGolongan:null,sudahMencapaiBatas:false};
   if (kategori==='dosen') {
-    const batas=CONFIG.JABATAN_GOLONGAN_TERTINGGI[String(emp.jabatan||'').trim()];
+    const stdDosen = getDosenJabatanStandard(emp.jabatan);
+    const batas = stdDosen ? CONFIG.JABATAN_GOLONGAN_TERTINGGI[stdDosen] : null;
     if (!batas) return {determinable:false,batasGolongan:null,sudahMencapaiBatas:false};
     return {determinable:true,batasGolongan:batas,sudahMencapaiBatas:gi>=golonganIndex(batas)};
   }
