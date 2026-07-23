@@ -161,6 +161,8 @@
                   </div>
                 </div>
 
+                <div id="ceSummaryWidgets" style="margin-top:18px;"></div>
+
                 <div id="ceDashboardLevel1" class="ce-dashboard-grid"></div>
 
                 <div id="ceDashboardLevel2" style="display:none;">

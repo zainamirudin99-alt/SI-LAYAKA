@@ -1736,6 +1736,9 @@ const methods = {
 
     const target = hitungTargetTmtPromosi(new Date());
     const perUnit = {};
+    let eligibleDosenCount = 0;
+    let eligibleTendikCount = 0;
+
     (emps || []).forEach(emp => {
       const sb = klasifikasiStatusBekerja(emp.status_bekerja);
       if (!sb.eligibleSamaSekali) return;
@@ -1743,11 +1746,76 @@ const methods = {
       if (!hasil.eligible) return;
       const unit = String(emp.unit_es_ii || '(Tanpa Unit)').trim() || '(Tanpa Unit)';
       if (!perUnit[unit]) perUnit[unit] = { dosen: 0, tendik: 0 };
-      if (hasil.kategori === 'dosen') perUnit[unit].dosen++;
-      else perUnit[unit].tendik++;
+      if (hasil.kategori === 'dosen') {
+        perUnit[unit].dosen++;
+        eligibleDosenCount++;
+      } else {
+        perUnit[unit].tendik++;
+        eligibleTendikCount++;
+      }
     });
+
     const daftarUnit = Object.keys(perUnit).sort().map(u => ({ unit: u, dosen: perUnit[u].dosen, tendik: perUnit[u].tendik, total: perUnit[u].dosen + perUnit[u].tendik }));
-    return { success: true, targetTmt: `1 ${BULAN_ID[target.targetMonth - 1]} ${target.targetYear}`, daftarUnit };
+
+    // Ambil data usulan_kp untuk hitung statistik Diusulkan & Diproses
+    let usulanRows = [];
+    try {
+      let queryUsulan = db.from('usulan_kp').select('id, nip, status, unit, opsi_a_selesai_pada, opsi_b_selesai_pada');
+      if (callerUnit) {
+        queryUsulan = queryUsulan.eq('unit', callerUnit);
+      }
+      const { data: uData } = await queryUsulan;
+      usulanRows = uData || [];
+    } catch (e) {
+      console.warn('[rpc] getPromosiDashboardSummary usulan_kp query notice:', e.message);
+    }
+
+    const empKategoriMap = {};
+    (emps || []).forEach(e => {
+      empKategoriMap[e.nip] = klasifikasiPegawai(e.jabatan);
+    });
+
+    let diusulkanDosen = 0;
+    let diusulkanTendik = 0;
+    let diprosesDosen = 0;
+    let diprosesTendik = 0;
+
+    (usulanRows || []).forEach(u => {
+      const kat = empKategoriMap[u.nip] || 'tendik_non_jabatan_fungsional';
+      const isDosen = (kat === 'dosen');
+      const isDiproses = u.status !== 'Diajukan' || u.opsi_a_selesai_pada || u.opsi_b_selesai_pada;
+
+      if (isDiproses) {
+        if (isDosen) diprosesDosen++;
+        else diprosesTendik++;
+      } else {
+        if (isDosen) diusulkanDosen++;
+        else diusulkanTendik++;
+      }
+    });
+
+    return {
+      success: true,
+      targetTmt: `1 ${BULAN_ID[target.targetMonth - 1]} ${target.targetYear}`,
+      daftarUnit,
+      widgets: {
+        eligible: {
+          total: eligibleDosenCount + eligibleTendikCount,
+          dosen: eligibleDosenCount,
+          tendik: eligibleTendikCount
+        },
+        diusulkan: {
+          total: diusulkanDosen + diusulkanTendik,
+          dosen: diusulkanDosen,
+          tendik: diusulkanTendik
+        },
+        diproses: {
+          total: diprosesDosen + diprosesTendik,
+          dosen: diprosesDosen,
+          tendik: diprosesTendik
+        }
+      }
+    };
   },
 
   async getPromosiEligibleList([token, unit, kategoriFilter]) {
