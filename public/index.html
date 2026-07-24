@@ -955,6 +955,10 @@
                   <input type="number" id="ce_akIntegrasi" step="any" />
                 </div>
                 <div class="stack-field">
+                  <label>Jabatan Saat Integrasi</label>
+                  <select id="ce_jabatanIntegrasi"></select>
+                </div>
+                <div class="stack-field">
                   <label>Golongan Saat Integrasi</label>
                   <select id="ce_golonganIntegrasi"></select>
                 </div>
@@ -2716,6 +2720,7 @@ function bindCheckEligibleForm() {
 
   populateSelect('ce_golongan', FORM_OPTIONS.golongan, { placeholder: 'Pilih Golongan...' });
   populateSelect('ce_jabatan', FORM_OPTIONS.jabatan);
+  populateSelect('ce_jabatanIntegrasi', FORM_OPTIONS.jabatan, { placeholder: 'Pilih Jabatan...' });
   populateSelect('ce_golonganIntegrasi', FORM_OPTIONS.golongan, { placeholder: 'Pilih Golongan...' });
   populateSelect('ce_ijazahBaru', FORM_OPTIONS.ijazahBaru);
 
@@ -2778,6 +2783,11 @@ function onSelectCheckEligibleSubject(nip, nama) {
       updateCeTmtJabatanVisibility();
       document.getElementById('ce_jabatanAutoFillMsg').textContent =
         pesanStatusAutoFill_('Jabatan', emp.jabatan, jabatanMatch, 'Otomatis dari data pegawai, dapat diubah bila perlu.');
+
+      const jabatanIntegrasiSel = document.getElementById('ce_jabatanIntegrasi');
+      if (jabatanIntegrasiSel) {
+        jabatanIntegrasiSel.value = cariOpsiCocok_(FORM_OPTIONS.jabatan, emp.jabatan);
+      }
     })
     .withFailureHandler(err => showToast('error', 'Gagal memuat data pegawai: ' + (err.message || err)))
     .getEmployeeFullData(SESSION.token, nip);
@@ -2828,12 +2838,14 @@ function runCheckEligibility() {
 
   const golongan = document.getElementById('ce_golongan').value;
   const jabatan = document.getElementById('ce_jabatan').value;
+  const jabatanIntegrasi = document.getElementById('ce_jabatanIntegrasi') ? document.getElementById('ce_jabatanIntegrasi').value : '';
   const golonganIntegrasi = document.getElementById('ce_golonganIntegrasi').value;
   const akIntegrasi = document.getElementById('ce_akIntegrasi').value;
   const ijazahBaru = document.getElementById('ce_ijazahBaru').value;
 
   if (!golongan) { showToast('error', 'Golongan (saat ini) wajib dipilih.'); return; }
   if (!jabatan) { showToast('error', 'Jabatan wajib dipilih.'); return; }
+  if (!jabatanIntegrasi) { showToast('error', 'Jabatan Saat Integrasi wajib dipilih.'); return; }
   if (!golonganIntegrasi) { showToast('error', 'Golongan Saat Integrasi wajib dipilih.'); return; }
   if (!ijazahBaru) { showToast('error', 'Ada Ijazah Baru Setelah 2023 wajib dipilih.'); return; }
 
@@ -2855,6 +2867,7 @@ function runCheckEligibility() {
     tmt_gol_saat_ini: document.getElementById('ce_tmtGolonganSaatIni').value,
     tmt_jab_saat_ini: document.getElementById('ce_tmtJabatanSaatIni').value,
     akIntegrasi: akIntegrasi,
+    jabatanIntegrasi: jabatanIntegrasi,
     golonganIntegrasi: golonganIntegrasi,
     adaIjazahBaru2023: ijazahBaru,
     daftarPredikatSkp: collectPredikatRows()

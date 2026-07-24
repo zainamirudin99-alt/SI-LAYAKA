@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <base target="_top">
@@ -219,6 +219,10 @@
                 <div class="stack-field">
                   <label>AK Integrasi</label>
                   <input type="number" id="ce_akIntegrasi" step="any" />
+                </div>
+                <div class="stack-field">
+                  <label>Jabatan Saat Integrasi</label>
+                  <select id="ce_jabatanIntegrasi"></select>
                 </div>
                 <div class="stack-field">
                   <label>Golongan Saat Integrasi</label>

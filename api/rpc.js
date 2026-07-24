@@ -343,28 +343,45 @@ async function uploadLampiran(base64DataUrl, namaFile, subfolder) {
 // ================================================================
 function normalisasiGolongan(g) { return String(g||'').replace(/^Set\.\s*/i,'').trim(); }
 
-function isIntegrasiHangus(golonganIntegrasi, golonganSekarang) {
+function isIntegrasiHangus(golonganIntegrasi, golonganSekarang, jabatanIntegrasi, jabatanSekarang) {
   const u = CONFIG.GOLONGAN_URUTAN;
   const idxInt = u.indexOf(normalisasiGolongan(golonganIntegrasi));
   const idxSek = u.indexOf(normalisasiGolongan(golonganSekarang));
-  if (idxInt === -1 || idxSek === -1) return false;
+  if (idxSek === -1 || idxInt === -1) return false;
+
+  const jabIntNorm = String(jabatanIntegrasi || '').trim();
+  const jabSekNorm = String(jabatanSekarang || '').trim();
+  const mapBatas = CONFIG.JABATAN_GOLONGAN_TERTINGGI || {
+    'Asisten Ahli': 'III/b',
+    'Lektor': 'III/d',
+    'Lektor Kepala': 'IV/c',
+    'Guru Besar': 'IV/e',
+    'Profesor': 'IV/e'
+  };
+
+  const targetJabatan = (jabIntNorm && mapBatas[jabIntNorm]) ? jabIntNorm : (jabSekNorm && mapBatas[jabSekNorm] ? jabSekNorm : null);
+
+  if (targetJabatan && mapBatas[targetJabatan]) {
+    const batasGol = mapBatas[targetJabatan];
+    const idxBatas = u.indexOf(normalisasiGolongan(batasGol));
+    if (idxBatas !== -1) {
+      return idxSek > idxBatas;
+    }
+  }
 
   const idxAA = u.indexOf('III/b'); // Batas Asisten Ahli (AA)
   const idxL  = u.indexOf('III/d'); // Batas Lektor (L)
   const idxLK = u.indexOf('IV/c'); // Batas Lektor Kepala (LK)
 
-  // 1. Integrasi di posisi AA (<= III/b), tapi posisi sekarang sudah melewatinya (> III/b)
   if (idxInt <= idxAA && idxSek > idxAA) return true;
-  // 2. Integrasi di posisi Lektor (<= III/d), tapi posisi sekarang sudah melewatinya (> III/d)
   if (idxInt <= idxL && idxSek > idxL) return true;
-  // 3. Integrasi di posisi LK (<= IV/c), tapi posisi sekarang sudah melewatinya (> IV/c)
   if (idxInt <= idxLK && idxSek > idxLK) return true;
 
   return false;
 }
 
-function hitungPengurangan(golonganIntegrasi, golonganSekarang) {
-  if (isIntegrasiHangus(golonganIntegrasi, golonganSekarang)) return 0;
+function hitungPengurangan(golonganIntegrasi, golonganSekarang, jabatanIntegrasi, jabatanSekarang) {
+  if (isIntegrasiHangus(golonganIntegrasi, golonganSekarang, jabatanIntegrasi, jabatanSekarang)) return 0;
   const u = CONFIG.GOLONGAN_URUTAN;
   const i1 = u.indexOf(normalisasiGolongan(golonganIntegrasi));
   const i2 = u.indexOf(normalisasiGolongan(golonganSekarang));
@@ -1636,6 +1653,7 @@ const methods = {
       jabatan,
       akIntegrasi,
       golonganIntegrasi,
+      jabatanIntegrasi,
       adaIjazahBaru2023,
       daftarPredikatSkp,
       golongan,
@@ -1646,20 +1664,22 @@ const methods = {
     }=payload||{};
     if (!targetNip) return {success:false,message:'Pilih pegawai terlebih dahulu.'};
     if (!jabatan)   return {success:false,message:'Jabatan wajib dipilih.'};
+    if (!jabatanIntegrasi) return {success:false,message:'Jabatan Saat Integrasi wajib dipilih.'};
     if (!golonganIntegrasi) return {success:false,message:'Golongan Saat Integrasi wajib dipilih.'};
     if (!adaIjazahBaru2023) return {success:false,message:'Ada Ijazah Baru Setelah 2023 wajib dipilih.'};
 
     const emp=await methods.getEmployeeFullData([token,targetNip]);
     const golonganSekarang=golongan||emp.golongan;
     const jabatanSekarang=jabatan||emp.jabatan;
+    const jabIntegrasi=jabatanIntegrasi||emp.jabatan;
     const tmtGol=tmt_gol_saat_ini||emp.tmt_gol;
     const tmtJab=tmt_jab_saat_ini||emp.tmt_jab;
 
     const totalAkKonversi=(daftarPredikatSkp||[]).reduce((s,r)=>s+hitungAkKonversiTahunan(r.predikat,jabatan,r.bulanMulai,r.bulanAkhir),0);
     const nilaiPendidikan=hitungNilaiPendidikanBaru(adaIjazahBaru2023,golonganSekarang);
-    const hangus=isIntegrasiHangus(golonganIntegrasi,golonganSekarang);
+    const hangus=isIntegrasiHangus(golonganIntegrasi,golonganSekarang,jabIntegrasi,jabatanSekarang);
     const akIntegrasiEfektif=hangus?0:(Number(akIntegrasi)||0);
-    const pengurangan=hitungPengurangan(golonganIntegrasi,golonganSekarang);
+    const pengurangan=hitungPengurangan(golonganIntegrasi,golonganSekarang,jabIntegrasi,jabatanSekarang);
     const totalAkAkhir=akIntegrasiEfektif+totalAkKonversi+nilaiPendidikan-pengurangan;
 
     const kebutuhan=CONFIG.KEBUTUHAN_AK_GOLONGAN[normalisasiGolongan(golonganSekarang)];
@@ -3817,7 +3837,8 @@ function rpcBuildDerivedFields(employee, formData, subLayanan) {
     const angkaDasarSaatIntegrasi = Number(formData.angka_dasar_saat_integrasi) || 0;
 
     const golonganIntegrasi = formData.golongan_saat_integrasi || formData.golongan_integrasi || employee.golongan;
-    const hangus = isIntegrasiHangus(golonganIntegrasi, golongan);
+    const jabatanIntegrasi = formData.jabatan_saat_integrasi || formData.jabatan_integrasi || employee.jabatan;
+    const hangus = isIntegrasiHangus(golonganIntegrasi, golongan, jabatanIntegrasi, jabatan);
 
     const akIntegrasiDidapat = hangus ? 0 : Math.max(0, jumlahAkSaatIntegrasi - angkaDasarSaatIntegrasi);
     
