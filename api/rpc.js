@@ -3346,6 +3346,12 @@ const methods = {
         if (firstEntry.formData && firstEntry.formData[val] !== undefined && alias[key] === undefined) alias[key] = firstEntry.formData[val];
       }
       dataCtx = Object.assign({}, employee, firstEntry.formData, alias, derived);
+      const rawJnsKel = dataCtx.jns_kel || dataCtx.jenis_kelamin;
+      if (rawJnsKel !== undefined && rawJnsKel !== null) {
+        const formattedJnsKel = rpcFormatJnsKel(rawJnsKel);
+        dataCtx.jns_kel = formattedJnsKel;
+        dataCtx.jenis_kelamin = formattedJnsKel;
+      }
     } else if (layanan === 'Pensiun') {
       if (subLayanan === 'DPCP') {
         dataCtx = rpcBuildDpcpContext(firstEntry.formData);
@@ -3428,6 +3434,12 @@ const methods = {
         if (firstEntry.formData && firstEntry.formData[val] !== undefined && alias[key] === undefined) alias[key] = firstEntry.formData[val];
       }
       dataCtx = Object.assign({}, employee, firstEntry.formData, alias, derived);
+      const rawJnsKel = dataCtx.jns_kel || dataCtx.jenis_kelamin;
+      if (rawJnsKel !== undefined && rawJnsKel !== null) {
+        const formattedJnsKel = rpcFormatJnsKel(rawJnsKel);
+        dataCtx.jns_kel = formattedJnsKel;
+        dataCtx.jenis_kelamin = formattedJnsKel;
+      }
     } else if (layanan === 'Pensiun') {
       if (subLayanan === 'DPCP') {
         dataCtx = rpcBuildDpcpContext(firstEntry.formData);
@@ -3772,6 +3784,14 @@ const methods = {
   }
 };
 
+function rpcFormatJnsKel(val) {
+  if (!val) return '';
+  const s = String(val).trim().toUpperCase();
+  if (s.startsWith('P') || s.includes('PEREMPUAN') || s.includes('WANITA')) return 'P';
+  if (s.startsWith('L') || s.includes('LAKI') || s.includes('PRIA')) return 'L';
+  return String(val).trim();
+}
+
 // ================================================================
 // CONSTANTS & HELPERS FOR DOCGEN ENGINE (PORTED FROM SCRIPT SIDE)
 // ================================================================
@@ -3865,31 +3885,33 @@ function rpcBuildDerivedFields(employee, formData, subLayanan) {
     const jabatanIntegrasi = formData.jabatan_saat_integrasi || formData.jabatan_integrasi || employee.jabatan;
     const hangus = isIntegrasiHangus(golonganIntegrasi, golongan, jabatanIntegrasi, jabatan);
 
-    const akIntegrasiDidapat = hangus ? 0 : Math.max(0, jumlahAkSaatIntegrasi - angkaDasarSaatIntegrasi);
+    const akIntegrasiDidapat = docxCeil2Decimal(hangus ? 0 : Math.max(0, jumlahAkSaatIntegrasi - angkaDasarSaatIntegrasi));
     
     let totalKonversi = 0;
     (daftarPenilaianTahunan || []).forEach(r => {
       const koef = DOCGEN_KOEFISIEN_JABATAN[r.jabatan] || 0;
       const pred = r.predikat === 'Baik' ? 1 : 1.5;
       const jumlahBulan = (Number(r.bulanAkhir) - Number(r.bulanAwal) + 1) / 12;
-      totalKonversi += (jumlahBulan * koef * pred);
+      const ak = jumlahBulan * koef * pred;
+      const roundedAk = docxCeil2Decimal(ak);
+      totalKonversi = docxCeil2Decimal(totalKonversi + roundedAk);
     });
-    const totalAkKonversiIntegrasi = akIntegrasiDidapat + totalKonversi;
+    const totalAkKonversiIntegrasi = docxCeil2Decimal(akIntegrasiDidapat + totalKonversi);
 
     const akDasarSeharusnya = DOCGEN_AK_DASAR_SEHARUSNYA[golongan] || 0;
     const nilaiLama = DOCGEN_NILAI_LAMA_GOLONGAN[golongan] || 0;
-    const nilaiLamaDiakui = akDasarSeharusnya > angkaDasarSaatIntegrasi
+    const nilaiLamaDiakui = docxCeil2Decimal(akDasarSeharusnya > angkaDasarSaatIntegrasi
       ? (akDasarSeharusnya - angkaDasarSaatIntegrasi) + nilaiLama
-      : nilaiLama;
+      : nilaiLama);
 
-    const totalKonversiBaru = totalAkKonversiIntegrasi - nilaiLamaDiakui;
+    const totalKonversiBaru = docxCeil2Decimal(totalAkKonversiIntegrasi - nilaiLamaDiakui);
     
     const hitungIjazah = formData.ada_ijazah_baru_2023 === 'Ada'
-      ? (DOCGEN_KEBUTUHAN_AK_GOLONGAN[golongan] || 0) * 0.25
+      ? docxCeil2Decimal((DOCGEN_KEBUTUHAN_AK_GOLONGAN[golongan] || 0) * 0.25)
       : 0;
 
-    const totalAkBaru = totalKonversiBaru + hitungIjazah;
-    const totalJumlahAk = nilaiLamaDiakui + totalKonversiBaru + hitungIjazah;
+    const totalAkBaru = docxCeil2Decimal(totalKonversiBaru + hitungIjazah);
+    const totalJumlahAk = docxCeil2Decimal(nilaiLamaDiakui + totalKonversiBaru + hitungIjazah);
 
     let rekomendasi = 'TIDAK DAPAT DIPERTIMBANGKAN UNTUK KENAIKAN PANGKAT/JENJANG SETINGKAT LEBIH TINGGI';
     const mentok = jabatan === 'Guru Besar' && (golongan === 'IV/e' || golongan === 'Set. IV/e');
