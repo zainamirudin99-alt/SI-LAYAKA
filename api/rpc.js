@@ -3705,6 +3705,18 @@ const methods = {
 
     const { data, error } = await query;
     if (error) throw error;
+
+    if (data && data.length > 0) {
+      const nips = [...new Set(data.map(d => d.nip).filter(Boolean))];
+      if (nips.length > 0) {
+        const { data: emps } = await db.from('pegawai').select('nip, status_kepegawaian').in('nip', nips);
+        const empMap = new Map((emps || []).map(e => [e.nip, e.status_kepegawaian]));
+        data.forEach(item => {
+          item.status_kepegawaian = empMap.get(item.nip) || '';
+        });
+      }
+    }
+
     return { success: true, daftar: data || [] };
   },
 
@@ -3714,6 +3726,12 @@ const methods = {
     const { data, error } = await db.from('usulan_pmk').select('*').eq('id', id).maybeSingle();
     if (error) throw error;
     if (!data) return { success: false, message: 'Usulan PMK / PG tidak ditemukan.' };
+
+    if (data.nip) {
+      const { data: empData } = await db.from('pegawai').select('status_kepegawaian').eq('nip', data.nip).maybeSingle();
+      if (empData) data.status_kepegawaian = empData.status_kepegawaian || '';
+    }
+
     return { success: true, usulan: data };
   },
 
@@ -3781,12 +3799,27 @@ const methods = {
       );
     }
 
-    const targetStatus = isPg ? 'Siap diajukan ke E-duk' : 'siap diajukan di SIASN';
+    let statusKepegawaian = '';
+    if (updatedDoc.nip) {
+      const { data: empData } = await db.from('pegawai').select('status_kepegawaian').eq('nip', updatedDoc.nip).maybeSingle();
+      if (empData) statusKepegawaian = empData.status_kepegawaian || '';
+    }
+
+    const isPns = /PNS|CPNS/i.test(statusKepegawaian);
+    const targetStatus = isPns ? 'Siap diajukan ke SIASN dan update E-duk' : 'Siap update E-duk';
+
+    const isCompletedStatus = (
+      updatedDoc.status === 'Siap diajukan ke SIASN dan update E-duk' ||
+      updatedDoc.status === 'Siap update E-duk' ||
+      updatedDoc.status === 'siap diajukan di SIASN' ||
+      updatedDoc.status === 'Siap diajukan ke E-duk'
+    );
+
     let newStatus = updatedDoc.status;
     if (allApproved && updatedDoc.status !== targetStatus) {
       newStatus = targetStatus;
       await db.from('usulan_pmk').update({ status: newStatus }).eq('id', id);
-    } else if (!allApproved && (updatedDoc.status === 'siap diajukan di SIASN' || updatedDoc.status === 'Siap diajukan ke E-duk')) {
+    } else if (!allApproved && isCompletedStatus) {
       newStatus = 'Diajukan';
       await db.from('usulan_pmk').update({ status: newStatus }).eq('id', id);
     }

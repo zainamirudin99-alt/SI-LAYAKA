@@ -1656,10 +1656,11 @@
             <!-- Filter Status Usulan -->
             <div style="display:flex; gap:12px; margin-bottom:18px; align-items:center; flex-wrap:wrap; background:var(--surface-alt); padding:10px 14px; border-radius:8px; border:1px solid var(--border);">
               <div style="font-weight:600; font-size:13.5px; color:var(--text-muted);">Status Usulan:</div>
-              <select id="pmkFilterStatus" class="field-input" style="max-width:220px; padding:6px 12px; margin:0; font-size:13px;" onchange="loadPmkUsulanList()">
+              <select id="pmkFilterStatus" class="field-input" style="max-width:280px; padding:6px 12px; margin:0; font-size:13px;" onchange="loadPmkUsulanList()">
                 <option value="ALL">Semua Status</option>
                 <option value="Diajukan">Diajukan</option>
-                <option value="siap diajukan di SIASN">Siap Diajukan di SIASN</option>
+                <option value="Siap diajukan ke SIASN dan update E-duk">Siap Diajukan ke SIASN &amp; Update E-duk</option>
+                <option value="Siap update E-duk">Siap Update E-duk</option>
               </select>
               <button type="button" class="btn btn-secondary" onclick="loadPmkUsulanList()" style="padding:6px 14px; font-size:13px;">🔄 Refresh List</button>
             </div>
@@ -7082,7 +7083,12 @@ function loadPmkUsulanList() {
       container.innerHTML = `
         <div class="ce-dashboard-list" style="gap:12px;">
           ${daftar.map(item => {
-            const isCompletedStatus = (item.status === 'siap diajukan di SIASN' || item.status === 'Siap diajukan ke E-duk');
+            const isCompletedStatus = (
+              item.status === 'Siap diajukan ke SIASN dan update E-duk' ||
+              item.status === 'Siap update E-duk' ||
+              item.status === 'siap diajukan di SIASN' ||
+              item.status === 'Siap diajukan ke E-duk'
+            );
             const badgeBg = isCompletedStatus ? '#10b981' : '#f59e0b';
             const statusLabel = item.status || 'Diajukan';
             const tgl = item.tanggal_diajukan ? formatTanggalIndonesia(item.tanggal_diajukan) : '-';
@@ -7137,12 +7143,18 @@ function viewPmkUsulanDetail(usulanId) {
     .withSuccessHandler(res => {
       if (!res.success) { showToast('error', res.message); return; }
       const u = res.usulan;
-      const isCompletedStatus = (u.status === 'siap diajukan di SIASN' || u.status === 'Siap diajukan ke E-duk');
+      const isCompletedStatus = (
+        u.status === 'Siap diajukan ke SIASN dan update E-duk' ||
+        u.status === 'Siap update E-duk' ||
+        u.status === 'siap diajukan di SIASN' ||
+        u.status === 'Siap diajukan ke E-duk'
+      );
       const badgeBg = isCompletedStatus ? '#10b981' : '#f59e0b';
       const statusLabel = u.status || 'Diajukan';
       const tgl = u.tanggal_diajukan ? formatTanggalIndonesia(u.tanggal_diajukan) : '-';
       const isPg = (u.jenis_usulan === 'PG');
-      const targetStatusLabel = isPg ? 'Siap diajukan ke E-duk' : 'siap diajukan di SIASN';
+      const isPns = /PNS|CPNS/i.test(u.status_kepegawaian || '');
+      const targetStatusLabel = isPns ? 'Siap diajukan ke SIASN dan update E-duk' : 'Siap update E-duk';
       const isAdmin = (SESSION.user && (SESSION.user.role === 'admin' || SESSION.user.role === 'super_admin'));
 
       const docs = isPg ? [

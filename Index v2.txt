@@ -922,10 +922,11 @@
             <!-- Filter Status Usulan -->
             <div style="display:flex; gap:12px; margin-bottom:18px; align-items:center; flex-wrap:wrap; background:var(--surface-alt); padding:10px 14px; border-radius:8px; border:1px solid var(--border);">
               <div style="font-weight:600; font-size:13.5px; color:var(--text-muted);">Status Usulan:</div>
-              <select id="pmkFilterStatus" class="field-input" style="max-width:220px; padding:6px 12px; margin:0; font-size:13px;" onchange="loadPmkUsulanList()">
+              <select id="pmkFilterStatus" class="field-input" style="max-width:280px; padding:6px 12px; margin:0; font-size:13px;" onchange="loadPmkUsulanList()">
                 <option value="ALL">Semua Status</option>
                 <option value="Diajukan">Diajukan</option>
-                <option value="siap diajukan di SIASN">Siap Diajukan di SIASN</option>
+                <option value="Siap diajukan ke SIASN dan update E-duk">Siap Diajukan ke SIASN &amp; Update E-duk</option>
+                <option value="Siap update E-duk">Siap Update E-duk</option>
               </select>
               <button type="button" class="btn btn-secondary" onclick="loadPmkUsulanList()" style="padding:6px 14px; font-size:13px;">🔄 Refresh List</button>
             </div>
