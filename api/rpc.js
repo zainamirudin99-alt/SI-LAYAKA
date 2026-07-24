@@ -1128,7 +1128,14 @@ function docxRenderTemplate(templateBuffer, dataCtx) {
 // ================================================================
 // DOWNLOAD TEMPLATE DOCX DARI STORAGE (DENGAN SDK ATAU FETCH)
 // ================================================================
+const TEMPLATE_BUFFER_CACHE = new Map();
+
 async function downloadTemplateBuffer(fileIdOrUrl) {
+  if (!fileIdOrUrl) throw new Error('File ID atau URL template tidak boleh kosong');
+  if (TEMPLATE_BUFFER_CACHE.has(fileIdOrUrl)) {
+    return TEMPLATE_BUFFER_CACHE.get(fileIdOrUrl);
+  }
+
   const db = getDb();
   let path = fileIdOrUrl;
   
@@ -1138,23 +1145,32 @@ async function downloadTemplateBuffer(fileIdOrUrl) {
     path = path.split('/storage/v1/object/sign/lampiran-usulan/')[1].split('?')[0];
   }
   
+  let buf = null;
   if (!path.startsWith('http://') && !path.startsWith('https://')) {
     try {
       const { data, error } = await db.storage.from('lampiran-usulan').download(path);
       if (!error && data) {
         const arrayBuf = await data.arrayBuffer();
-        return Buffer.from(arrayBuf);
+        buf = Buffer.from(arrayBuf);
+      } else {
+        console.warn(`[rpc download] SDK download failed for path=${path}:`, error?.message || error);
       }
-      console.warn(`[rpc download] SDK download failed for path=${path}:`, error?.message || error);
     } catch (e) {
       console.warn(`[rpc download] SDK download exception for path=${path}:`, e.message);
     }
   }
   
-  const fetchResp = await fetch(fileIdOrUrl);
-  if (!fetchResp.ok) throw new Error(`Fetch failed with status ${fetchResp.status}`);
-  const arrayBuf = await fetchResp.arrayBuffer();
-  return Buffer.from(arrayBuf);
+  if (!buf) {
+    const fetchResp = await fetch(fileIdOrUrl);
+    if (!fetchResp.ok) throw new Error(`Fetch failed with status ${fetchResp.status}`);
+    const arrayBuf = await fetchResp.arrayBuffer();
+    buf = Buffer.from(arrayBuf);
+  }
+
+  if (buf && buf.length > 0) {
+    TEMPLATE_BUFFER_CACHE.set(fileIdOrUrl, buf);
+  }
+  return buf;
 }
 
 // ================================================================
