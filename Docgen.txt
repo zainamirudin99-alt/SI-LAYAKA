@@ -191,7 +191,8 @@ function docGen_bulanNamaKeAngka_(namaBulan) {
 }
 
 function docGen_bulatkan_(n) {
-  return Math.round((Number(n) || 0) * 100) / 100;
+  const num = Number(n) || 0;
+  return Math.ceil(Math.round(num * 100 * 1e9) / 1e9) / 100;
 }
 
 /**

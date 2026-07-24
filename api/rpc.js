@@ -913,6 +913,29 @@ function docxEvaluateExpression(expr, dataCtx) {
 
 const SET_EXPR_RE = /^set\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$/i;
 
+function docxCeil2Decimal(val) {
+  if (val === null || val === undefined || val === '') return val;
+  if (typeof val === 'number') {
+    if (!isFinite(val) || Number.isInteger(val)) return val;
+    return Math.ceil(Math.round(val * 100 * 1e9) / 1e9) / 100;
+  }
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    const numStr = trimmed.replace(',', '.');
+    if (/^-?\d+\.\d+$/.test(numStr)) {
+      const num = parseFloat(numStr);
+      if (!isNaN(num)) {
+        const ceiled = Math.ceil(Math.round(num * 100 * 1e9) / 1e9) / 100;
+        if (trimmed.includes(',')) {
+          return String(ceiled).replace('.', ',');
+        }
+        return String(ceiled);
+      }
+    }
+  }
+  return val;
+}
+
 function docxEvaluateTag(rawExpr, dataCtx) {
   let expr = docxNormalizeSmartQuotes(rawExpr).trim();
 
@@ -929,6 +952,7 @@ function docxEvaluateTag(rawExpr, dataCtx) {
   if (setMatch) {
     let value;
     try { value = docxEvaluateExpression(setMatch[2], dataCtx); } catch { value = 0; }
+    value = docxCeil2Decimal(value);
     dataCtx[setMatch[1]] = value;
     return '';
   }
@@ -938,14 +962,15 @@ function docxEvaluateTag(rawExpr, dataCtx) {
   const mainExpr = segments[0].trim();
   const filters = segments.slice(1).map(s => s.trim());
 
-  // Identifier tunggal → auto-format tanggal
+  // Identifier tunggal → auto-format tanggal / auto-ceil desimal
   const isBareIdent = /^[A-Za-z_][A-Za-z0-9_]*$/.test(mainExpr);
   if (isBareIdent && filters.length === 0) {
     const isDateField = DATE_TAG_PREFIXES.some(p => mainExpr.indexOf(p) === 0);
     const raw = dataCtx[mainExpr];
     if (isDateField) return docxFormatTanggal(raw);
     if (typeof raw === 'object' && raw !== null) return raw;
-    return raw === undefined || raw === null ? '' : String(raw);
+    const processed = docxCeil2Decimal(raw);
+    return processed === undefined || processed === null ? '' : String(processed);
   }
 
   // Dropdown hint: identifier[Opsi1, Opsi2]
@@ -956,16 +981,14 @@ function docxEvaluateTag(rawExpr, dataCtx) {
     const raw = dataCtx[key];
     if (isDateField) return docxFormatTanggal(raw);
     if (typeof raw === 'object' && raw !== null) return raw;
-    return raw === undefined || raw === null ? '' : String(raw);
+    const processed = docxCeil2Decimal(raw);
+    return processed === undefined || processed === null ? '' : String(processed);
   }
 
   let result = docxEvaluateExpression(mainExpr, dataCtx);
 
-  // Auto-round ke 2 desimal
-  if (typeof result === 'number' && isFinite(result) && !Number.isInteger(result)) {
-    const ceiled = Math.ceil(Math.round(result * 100 * 1e9) / 1e9) / 100;
-    if (ceiled !== result) result = ceiled;
-  }
+  // Auto-round ke 2 desimal (dibulatkan ke atas / ceiling)
+  result = docxCeil2Decimal(result);
 
   for (const f of filters) result = docxApplyFilter(f, result);
   if (typeof result === 'object' && result !== null) return result;
@@ -3760,7 +3783,7 @@ function rpcBuildDerivedFields(employee, formData, subLayanan) {
     const jumlahBulan = (Number(bulanAkhir) - Number(bulanAwal) + 1) / 12;
     const ak = jumlahBulan * koefisien * pred;
     return {
-      ak_konversi_tahunan: Math.round(ak * 100) / 100
+      ak_konversi_tahunan: docxCeil2Decimal(ak)
     };
   }
 
@@ -3779,7 +3802,7 @@ function rpcBuildDerivedFields(employee, formData, subLayanan) {
       const pred = row.predikat_skp === 'Baik' ? 1 : 1.5;
       const jumlahBulan = (Number(bulanAkhir) - Number(bulanAwal) + 1) / 12;
       const ak = jumlahBulan * koefisien * pred;
-      const roundedAk = Math.round(ak * 100) / 100;
+      const roundedAk = docxCeil2Decimal(ak);
       return {
         tahun_penilaian: row.tahun_penilaian,
         bulan_awal_penilaian: row.bulan_awal_penilaian,
@@ -3843,7 +3866,7 @@ function rpcBuildDerivedFields(employee, formData, subLayanan) {
       }
     }
 
-    const round2 = n => Math.round(n * 100) / 100;
+    const round2 = n => docxCeil2Decimal(n);
     return {
       penilaian: penilaianUntukTemplate,
       ak_integrasi_didapat: round2(akIntegrasiDidapat),
