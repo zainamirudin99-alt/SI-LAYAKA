@@ -1181,7 +1181,7 @@ const methods = {
     if (q.length<1) return [];
     const db=getDb();
     let req = db.from('data_utama')
-      .select('nip,nama_lengkap,nama,unit_es_ii,jenis_pegawai')
+      .select('nip,nama_lengkap,nama,unit_es_ii,jenis_peg')
       .or(`nama_lengkap.ilike.%${q}%,nama.ilike.%${q}%,nip.ilike.%${q}%`);
 
     // Pembatasan Akses: Jika peran akun adalah 'user', HANYA dapat mencari pegawai di unit_es_ii yang sama
@@ -1194,7 +1194,7 @@ const methods = {
 
     const {data,error} = await req.limit(20);
     if (error) throw error;
-    return (data||[]).map(e=>({nip:e.nip,nama:e.nama_lengkap||e.nama,unitEsIi:e.unit_es_ii,jenis_pegawai:e.jenis_pegawai||''}));
+    return (data||[]).map(e=>({nip:e.nip,nama:e.nama_lengkap||e.nama,unitEsIi:e.unit_es_ii,jenis_pegawai:e.jenis_peg||e.jenis_pegawai||''}));
   },
 
   async getEmployeeFullData([token, nip]) {
@@ -3527,7 +3527,7 @@ const methods = {
     }
 
     const tipeUsulan = jenis_usulan === 'PG' ? 'PG' : 'PMK';
-    const jpStr = String(emp.jenis_pegawai || '').toLowerCase();
+    const jpStr = String(emp.jenis_peg || emp.jenis_pegawai || '').toLowerCase();
     const isKontrak = ['tenaga profesional', 'kontrak penuh waktu', 'kontrak paruh waktu', 'tenaga kontrak penghargaan', 'kdrp'].some(k => k === jpStr) || jpStr.includes('kontrak');
     const isNonAsn = jpStr.includes('non asn') || jpStr.includes('non-asn');
 
