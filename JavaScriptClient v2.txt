@@ -1002,18 +1002,21 @@ function renderEligibilityResult(res) {
   const badgeColor = isEligible ? 'var(--success)' : 'var(--danger)';
 
   const hangusText = res.rincian.isIntegrasiHangus ? ' <span style="color:var(--danger); font-size:12px; font-weight:600;">(Kedaluwarsa / Hangus - Batas Jabatan)</span>' : '';
+  const jabKalkulasiLabel = (res.rincian.jabatanKalkulasi && res.rincian.jabatanKalkulasi !== res.jabatan) 
+    ? ` <span style="font-size:12px; color:var(--text-muted); font-weight:normal;">(Perhitungan: ${escapeHtml(res.rincian.jabatanKalkulasi)})</span>` 
+    : '';
 
   body.innerHTML = `
     <div class="grid-2">
       <div><strong>Nama</strong><br>${escapeHtml(res.nama)}</div>
       <div><strong>NIP</strong><br>${escapeHtml(res.nip)}</div>
       <div><strong>Golongan Sekarang</strong><br>${escapeHtml(res.golonganSekarang || '-')} (TMT: ${escapeHtml(formatTanggalIndoClient(res.tmtGolonganSaatIni))})</div>
-      <div><strong>Jabatan</strong><br>${escapeHtml(res.jabatan)} (TMT: ${escapeHtml(formatTanggalIndoClient(res.tmtJabatanSaatIni))})</div>
+      <div><strong>Jabatan</strong><br>${escapeHtml(res.jabatan)}${jabKalkulasiLabel} (TMT: ${escapeHtml(formatTanggalIndoClient(res.tmtJabatanSaatIni))})</div>
     </div>
     <hr style="border-color:var(--border); margin:14px 0;">
     <div style="font-size:13.5px; line-height:1.9;">
       AK Integrasi&emsp;&emsp;&emsp;&emsp;: ${fmtNum(res.rincian.akIntegrasi)}${hangusText}<br>
-      Total AK Konversi (SKP)&nbsp;&nbsp;: ${fmtNum(res.rincian.totalAkKonversi)}<br>
+      Total AK Konversi (SKP)&nbsp;&nbsp;: ${fmtNum(res.rincian.totalAkKonversi)}${res.rincian.jabatanKalkulasi ? ' (' + escapeHtml(res.rincian.jabatanKalkulasi) + ')' : ''}<br>
       Nilai Pendidikan Baru&nbsp;&nbsp;&nbsp;: ${fmtNum(res.rincian.nilaiPendidikanBaru)}<br>
       Pengurangan Golongan&nbsp;&nbsp;&nbsp;: - ${fmtNum(res.rincian.pengurangan)}<br>
       <strong style="font-size:15px;">Total AK Akhir&emsp;&emsp;&emsp;: ${fmtNum(res.totalAkAkhir)}</strong>

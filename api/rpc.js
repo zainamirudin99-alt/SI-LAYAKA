@@ -434,6 +434,20 @@ function klasifikasiPegawai(jabatan) {
   return 'tendik_non_jabatan_fungsional';
 }
 
+function getJabatanByGolongan(golongan) {
+  const g = normalisasiGolongan(golongan);
+  const u = CONFIG.GOLONGAN_URUTAN;
+  const idx = u.indexOf(g);
+  if (idx === -1) return null;
+  const idx3b = u.indexOf('III/b');
+  const idx3d = u.indexOf('III/d');
+  const idx4c = u.indexOf('IV/c');
+  if (idx <= idx3b) return 'Asisten Ahli';
+  if (idx <= idx3d) return 'Lektor';
+  if (idx <= idx4c) return 'Lektor Kepala';
+  return 'Guru Besar';
+}
+
 function golonganIndex(g) { return CONFIG.GOLONGAN_URUTAN.indexOf(normalisasiGolongan(g)); }
 
 function pendidikanTier(p) {
@@ -1675,7 +1689,14 @@ const methods = {
     const tmtGol=tmt_gol_saat_ini||emp.tmt_gol;
     const tmtJab=tmt_jab_saat_ini||emp.tmt_jab;
 
-    const totalAkKonversi=(daftarPredikatSkp||[]).reduce((s,r)=>s+hitungAkKonversiTahunan(r.predikat,jabatan,r.bulanMulai,r.bulanAkhir),0);
+    const stdDosen = getDosenJabatanStandard(jabatanSekarang);
+    let jabKalkulasi = jabatanSekarang;
+    if (stdDosen) {
+      const jabGol = getJabatanByGolongan(golonganSekarang);
+      if (jabGol) jabKalkulasi = jabGol;
+    }
+
+    const totalAkKonversi=(daftarPredikatSkp||[]).reduce((s,r)=>s+hitungAkKonversiTahunan(r.predikat,jabKalkulasi,r.bulanMulai,r.bulanAkhir),0);
     const nilaiPendidikan=hitungNilaiPendidikanBaru(adaIjazahBaru2023,golonganSekarang);
     const hangus=isIntegrasiHangus(golonganIntegrasi,golonganSekarang,jabIntegrasi,jabatanSekarang);
     const akIntegrasiEfektif=hangus?0:(Number(akIntegrasi)||0);
@@ -1706,6 +1727,10 @@ const methods = {
       messages.push(`Angka Kredit Akhir (${totalAkAkhir.toFixed(2)}) belum memenuhi kebutuhan minimal (${kebutuhan || 0}).`);
     } else {
       messages.push(`Angka Kredit Akhir (${totalAkAkhir.toFixed(2)}) sudah memenuhi kebutuhan minimal (${kebutuhan || 0}).`);
+    }
+
+    if (stdDosen && jabKalkulasi !== jabatanSekarang) {
+      messages.push(`Perhitungan AK Konversi SKP untuk Golongan ${golonganSekarang} disesuaikan menggunakan koefisien jabatan ${jabKalkulasi} (koefisien: ${CONFIG.KOEFISIEN_JABATAN[jabKalkulasi] || 0}).`);
     }
 
     if (!promoCheck.statusInfo.eligibleSamaSekali) {
@@ -1739,7 +1764,7 @@ const methods = {
       tmtGolonganSaatIni:tmtGol,tmtJabatanSaatIni:tmtJab,
       tmtGolonganBaru:tmt_gol||'',tmtJabatanBaru:tmt_jab||'',
       totalAkAkhir:Math.round(totalAkAkhir*100)/100,
-      rincian:{akIntegrasi:akIntegrasiEfektif,isIntegrasiHangus:hangus,totalAkKonversi,nilaiPendidikanBaru:nilaiPendidikan,pengurangan},
+      rincian:{akIntegrasi:akIntegrasiEfektif,isIntegrasiHangus:hangus,totalAkKonversi,jabatanKalkulasi:jabKalkulasi,nilaiPendidikanBaru:nilaiPendidikan,pengurangan},
       eligibility:{
         status:finalStatus,
         kebutuhan:kebutuhan??null,
