@@ -491,10 +491,7 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old S
 
   const zip = new PizZip(templateBuffer);
 
-  // 1. Sisipkan foto gambar OpenXML asli ke dalam {{foto}} / {foto} TERLEBIH DAHULU sebelum Docxtemplater/Text replacement!
-  injectDocxImage(zip, dataCtx);
-
-  // 2. Bersihkan pecahan XML run di dalam paragraf sebelum di-parse Docxtemplater
+  // 1. Bersihkan pecahan XML run di dalam paragraf terlebih dahulu agar tag {{foto}} menyatu sempurna
   const xmlFiles = Object.keys(zip.files).filter(fn => fn.startsWith('word/') && fn.endsWith('.xml'));
   for (const fileName of xmlFiles) {
     const f = zip.file(fileName);
@@ -502,6 +499,10 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old S
       zip.file(fileName, cleanWordXmlParagraphBraces(f.asText()));
     }
   }
+
+  // 2. Sisipkan foto gambar OpenXML asli ke dalam {{foto}} / {foto} pada tag run <w:r> yang telah menyatu
+  injectDocxImage(zip, dataCtx);
+
 
   // 3. Saring data teks (ABAIKAN SELURUH string base64 / foto dari penggantian teks biasa!)
   const sanitizedData = {};
@@ -670,7 +671,7 @@ function injectDocxImage(zip, dataCtx) {
       zip.file('word/_rels/document.xml.rels', relsXml);
     }
 
-    // 3. Ganti placeholder foto di word/document.xml dengan inline OpenXML drawing yang valid
+    // 3. Ganti placeholder foto di word/document.xml pada tingkat tag run <w:r> secara presisi
     const docFile = zip.file('word/document.xml');
     if (!docFile) return;
 
@@ -680,8 +681,17 @@ function injectDocxImage(zip, dataCtx) {
     const keysToReplace = [photoKey, 'foto', 'pas_foto', 'photo', 'pasfoto', 'FOTO', 'PAS_FOTO', 'PHOTO'];
     for (const k of keysToReplace) {
       if (!k) continue;
+      // Ganti seluruh node run <w:r>...</w:r> yang memuat placeholder {{foto}} atau {foto}
+      const regRunDbl = new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\{\\s*${k}\\s*\\}\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi');
+      docXml = docXml.replace(regRunDbl, imageXml);
+
+      const regRunSgl = new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\s*${k}\\s*\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi');
+      docXml = docXml.replace(regRunSgl, imageXml);
+
+      // Fallback ganti langsung jika berada di luar tag run biasa
       const regDbl = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
       docXml = docXml.replace(regDbl, imageXml);
+
       const regSgl = new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi');
       docXml = docXml.replace(regSgl, imageXml);
     }
@@ -691,6 +701,7 @@ function injectDocxImage(zip, dataCtx) {
     console.warn('[injectDocxImage] Error inserting image into docx:', errImg);
   }
 }
+
 
 
 function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = 'Bookman Old Style') {
