@@ -5642,8 +5642,43 @@ const GAJI_POKOK_CLIENT_TABLE = {
   'IV/E': [{m:0,g:3880400},{m:2,g:4002700},{m:4,g:4128700},{m:6,g:4258700},{m:8,g:4392900},{m:10,g:4531200},{m:12,g:4673900},{m:14,g:4821100},{m:16,g:4973000},{m:18,g:5129600},{m:20,g:5291200},{m:22,g:5457800},{m:24,g:5629700},{m:26,g:5807000},{m:28,g:5989900},{m:30,g:6178600},{m:32,g:6373200}]
 };
 
+function cleanGolonganString(golStr) {
+  if (!golStr) return '';
+  let cleaned = String(golStr)
+    .replace(/^Set\.\s*/i, '')
+    .replace(/^Setara\s*/i, '')
+    .replace(/^Gol\.\s*/i, '')
+    .replace(/^Golongan\s*/i, '')
+    .trim();
+
+  const match = cleaned.match(/(I{1,3}|IV|V)\/([a-eA-E])/i);
+  if (match) {
+    const roman = match[1].toUpperCase();
+    const sub = match[2].toLowerCase();
+    return `${roman}/${sub}`;
+  }
+  return cleaned;
+}
+
+function getNextGolonganAndPangkat(golLama, pangkatLama) {
+  const normGol = cleanGolonganString(golLama);
+  const nextInfo = GOLONGAN_NEXT_MAP[normGol] || GOLONGAN_NEXT_MAP[normGol.toLowerCase()] || { gol: '', pangkat: '' };
+
+  if (!nextInfo.gol) return { golBaru: '', pangkatBaru: '' };
+
+  const hasSet = /^Set\.\s*/i.test(String(golLama || ''));
+  const golBaru = hasSet ? `Set. ${nextInfo.gol}` : nextInfo.gol;
+
+  let pangkatBaru = nextInfo.pangkat;
+  if (/^Setara\s*/i.test(String(pangkatLama || ''))) {
+    pangkatBaru = `Setara ${nextInfo.pangkat}`;
+  }
+
+  return { golBaru, pangkatBaru };
+}
+
 function cariGajiPokokClient(gol, mkgThn) {
-  const normGol = String(gol || '').trim().toUpperCase();
+  const normGol = cleanGolonganString(gol).toUpperCase();
   const list = GAJI_POKOK_CLIENT_TABLE[normGol];
   if (!list || !list.length) return 0;
   const mkg = Math.floor(Number(mkgThn) || 0);
@@ -5661,6 +5696,7 @@ function formatRupiahFull(angka) {
   const formatted = String(val).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return `Rp. ${formatted},00`;
 }
+
 
 function hitungMasaKerjaClient(startDateStr, endDateStr) {
   if (!startDateStr || !endDateStr) return { tahun: 0, bulan: 0, text: '0 TAHUN 0 BULAN' };
@@ -5925,9 +5961,11 @@ function renderSkKpDynamicFormFields(placeholders) {
   const todayStr = formatTanggalIndonesia(new Date());
 
   const golLama = emp.golongan || '';
-  const nextInfo = GOLONGAN_NEXT_MAP[golLama] || { gol: '', pangkat: '' };
-  const golBaru = nextInfo.gol || '';
-  const pangkatBaru = nextInfo.pangkat || '';
+  const pangkatLama = emp.pangkat || '';
+  const nextInfo = getNextGolonganAndPangkat(golLama, pangkatLama);
+  const golBaru = nextInfo.golBaru || '';
+  const pangkatBaru = nextInfo.pangkatBaru || '';
+
 
   const fieldMapping = {
     nip: emp.nip || '',
