@@ -5172,33 +5172,37 @@ function loadApprovalSkBadge() {
 // --- 1. TAMPIL DAFTAR SIAP BUAT SK ---
 function loadSiapSkList() {
   const el = document.getElementById('siapSkList');
+  if (!el) return;
   el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat...</div>';
   google.script.run
     .withSuccessHandler(res => {
       if (!res.success) { showToast('error', res.message); return; }
       if (!res.daftar || !res.daftar.length) {
-        el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada usulan berstatus Siap Dibuat SK saat ini.</div>';
+        if (el) el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada usulan berstatus Siap Dibuat SK saat ini.</div>';
         return;
       }
-      el.innerHTML = res.daftar.map(u => `
-        <div class="ce-dashboard-list-item" style="cursor:default; flex-wrap:wrap; align-items:center;">
-          <div style="flex:1; min-width:200px;">
-            <div class="cdli-name">${escapeHtml(u.nama)}</div>
-            <div class="cdli-meta">NIP ${escapeHtml(u.nip)} &middot; ${escapeHtml(u.unit)}</div>
-            <div class="cdli-meta" style="margin-top:4px;">
-              Surat Usul Unit: <strong>${escapeHtml(u.nomor_surat_usul)}</strong> (${escapeHtml(u.tgl_surat_usul)})
+      if (el) {
+        el.innerHTML = res.daftar.map(u => `
+          <div class="ce-dashboard-list-item" style="cursor:default; flex-wrap:wrap; align-items:center;">
+            <div style="flex:1; min-width:200px;">
+              <div class="cdli-name">${escapeHtml(u.nama)}</div>
+              <div class="cdli-meta">NIP ${escapeHtml(u.nip)} &middot; ${escapeHtml(u.unit)}</div>
+              <div class="cdli-meta" style="margin-top:4px;">
+                Surat Usul Unit: <strong>${escapeHtml(u.nomor_surat_usul)}</strong> (${escapeHtml(u.tgl_surat_usul)})
+              </div>
+            </div>
+            <div style="display:flex; gap:8px;">
+              ${u.file_surat_usul_url ? `<a href="${u.file_surat_usul_url}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn">View Surat Usul</a>` : ''}
+              <button type="button" class="btn btn-primary kp-small-btn" onclick="bukaModalBuatSk('${u.id}', '${escapeHtml(u.nama).replace(/'/g, "\\'")}', '${escapeHtml(u.nip)}')">📝 Buat SK</button>
             </div>
           </div>
-          <div style="display:flex; gap:8px;">
-            ${u.file_surat_usul_url ? `<a href="${u.file_surat_usul_url}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn">View Surat Usul</a>` : ''}
-            <button type="button" class="btn btn-primary kp-small-btn" onclick="bukaModalBuatSk('${u.id}', '${escapeHtml(u.nama).replace(/'/g, "\\'")}', '${escapeHtml(u.nip)}')">📝 Buat SK</button>
-          </div>
-        </div>
-      `).join('');
+        `).join('');
+      }
     })
     .withFailureHandler(err => showToast('error', 'Gagal memuat daftar siap SK: ' + (err.message || err)))
     .getUsulanSiapSk(SESSION.token);
 }
+
 
 // --- 2. MODAL FORM BUAT SK ---
 function bukaModalBuatSk(usulanId, nama, nip) {
