@@ -356,6 +356,27 @@ async function downloadTemplateBuffer(fileIdOrUrl) {
   return Buffer.from(arrayBuffer);
 }
 
+function cleanWordXmlRunSplits(xml) {
+  if (!xml) return '';
+  let cleaned = xml;
+
+  // 1. Gabungkan kurung kurawal pembuka/penutup yang terpisah akibat XML run splits di Word
+  let prev = '';
+  while (prev !== cleaned) {
+    prev = cleaned;
+    cleaned = cleaned.replace(/(<w:t[^>]*>)([^<]*?)\{<\/w:t>(?:<[^>]+>)*?<w:t[^>]*>\{([^<]*?<\/w:t>)/gi, '$1$2{{$3');
+    cleaned = cleaned.replace(/(<w:t[^>]*>)([^<]*?)\}<\/w:t>(?:<[^>]+>)*?<w:t[^>]*>\}([^<]*?<\/w:t>)/gi, '$1$2}}$3');
+  }
+
+  // 2. Bersihkan tag XML internal di dalam ekspresi {{ placeholder }}
+  cleaned = cleaned.replace(/\{\{([^{}]+?)\}\}/g, (match, tagContent) => {
+    const cleanTag = tagContent.replace(/<[^>]+>/g, '').trim();
+    return `{{${cleanTag}}}`;
+  });
+
+  return cleaned;
+}
+
 function escapeXmlText(str) {
   if (str === null || str === undefined) return '';
   return String(str)
@@ -405,8 +426,21 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old S
   const Docxtemplater = require('docxtemplater');
 
   const zip = new PizZip(templateBuffer);
-  const sanitizedData = {};
 
+  // Bersihkan XML Run Splits pada document.xml & styles.xml sebelum di-parse Docxtemplater
+  try {
+    ['word/document.xml', 'word/styles.xml', 'word/header1.xml', 'word/footer1.xml'].forEach(fn => {
+      const f = zip.file(fn);
+      if (f) {
+        const cleaned = cleanWordXmlRunSplits(f.asText());
+        zip.file(fn, cleaned);
+      }
+    });
+  } catch (errClean) {
+    console.warn('XML run clean warning:', errClean);
+  }
+
+  const sanitizedData = {};
   for (const [k, v] of Object.entries(dataCtx || {})) {
     if (v === null || v === undefined) {
       sanitizedData[k] = '';
@@ -463,6 +497,9 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = '
   const zip = new PizZip(templateBuffer);
   let xml = zip.file('word/document.xml')?.asText() || '';
 
+  // Clean Word XML run splits
+  xml = cleanWordXmlRunSplits(xml);
+
   for (const [k, v] of Object.entries(dataCtx)) {
     const val = escapeXmlText(v);
     const regDouble = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
@@ -470,6 +507,23 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = '
     const regSingle = new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi');
     xml = xml.replace(regSingle, val);
   }
+
+  // Fallback regex callback untuk tag {{key}} yang mungkin belum terganti
+  xml = xml.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/gi, (match, key) => {
+    const k = key.toLowerCase();
+    for (const [dataKey, dataVal] of Object.entries(dataCtx)) {
+      if (dataKey.toLowerCase() === k) return escapeXmlText(dataVal);
+    }
+    return '';
+  });
+
+  xml = xml.replace(/\{\s*([a-zA-Z0-9_]+)\s*\}/gi, (match, key) => {
+    const k = key.toLowerCase();
+    for (const [dataKey, dataVal] of Object.entries(dataCtx)) {
+      if (dataKey.toLowerCase() === k) return escapeXmlText(dataVal);
+    }
+    return '';
+  });
 
   zip.file('word/document.xml', xml);
   if (targetFont) {
@@ -481,6 +535,7 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = '
   }
   return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
+
 
 
 
