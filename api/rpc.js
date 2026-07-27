@@ -517,25 +517,17 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old S
       renderedZip = docSingle.getZip();
     } catch (e2) {
       console.warn('Docxtemplater fallback to direct regex replacement:', e1.message || e1);
-      return replaceDocxPlaceholdersDirectly(templateBuffer, sanitizedData, targetFont);
+      return replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont);
     }
   }
 
-  if (renderedZip && targetFont) {
-    try {
-      enforceDocxFont(renderedZip, targetFont);
-    } catch (errFont) {
-      console.warn('Failed enforcing docx font:', errFont);
-    }
-  }
-
-  return renderedZip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
+  // Pass 2: Jalankan direct regex replacement untuk memastikan placeholder yang terpecah XML tetap ter-generate 100%
+  return replaceDocxPlaceholdersDirectly(renderedZip || zip, dataCtx, targetFont);
 }
 
 function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = 'Bookman Old Style') {
   const PizZip = require('pizzip');
-  const zip = new PizZip(templateBuffer);
-  let xml = zip.file('word/document.xml')?.asText() || '';
+  const zip = (templateBuffer && templateBuffer.files) ? templateBuffer : new PizZip(templateBuffer);
 
   const sanitizedData = {};
   for (const [k, v] of Object.entries(dataCtx || {})) {
@@ -544,25 +536,43 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = '
     } else if (typeof v === 'string' && v.startsWith('data:image/')) {
       sanitizedData[k] = '';
     } else {
-      sanitizedData[k] = escapeXmlText(String(v));
+      sanitizedData[k] = String(v);
     }
   }
 
   const fullData = {};
   for (const [k, v] of Object.entries(sanitizedData)) {
-    fullData[k] = v;
-    fullData[k.toLowerCase()] = v;
-    fullData[k.toUpperCase()] = v;
+    if (!v && v !== 0) continue;
+    const escapedVal = escapeXmlText(String(v));
+    fullData[k] = escapedVal;
+    fullData[k.toLowerCase()] = escapedVal;
+    fullData[k.toUpperCase()] = escapedVal;
   }
 
-  for (const [k, val] of Object.entries(fullData)) {
-    const regDouble = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
-    xml = xml.replace(regDouble, val);
-    const regSingle = new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi');
-    xml = xml.replace(regSingle, val);
+  const xmlFiles = Object.keys(zip.files).filter(fn => fn.startsWith('word/') && fn.endsWith('.xml'));
+
+  for (const fileName of xmlFiles) {
+    const file = zip.file(fileName);
+    if (!file) continue;
+    let xml = file.asText();
+
+    for (const [k, val] of Object.entries(fullData)) {
+      // 1. Ganti tag langsung {{k}} atau {k}
+      const regDouble = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
+      xml = xml.replace(regDouble, val);
+      const regSingle = new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi');
+      xml = xml.replace(regSingle, val);
+
+      // 2. Ganti tag yang terpecah oleh XML run tags internal di Word
+      const regSplitDouble = new RegExp(`\\{\\{[\\s\\S]*?${k}[\\s\\S]*?\\}\\}`, 'gi');
+      xml = xml.replace(regSplitDouble, val);
+      const regSplitSingle = new RegExp(`\\{[\\s\\S]*?${k}[\\s\\S]*?\\}`, 'gi');
+      xml = xml.replace(regSplitSingle, val);
+    }
+
+    zip.file(fileName, xml);
   }
 
-  zip.file('word/document.xml', xml);
   if (targetFont) {
     try {
       enforceDocxFont(zip, targetFont);
@@ -572,6 +582,7 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = '
   }
   return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
+
 
 
 
