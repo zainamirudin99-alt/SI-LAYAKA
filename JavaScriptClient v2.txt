@@ -2798,7 +2798,6 @@ function bindPensiunForm() {
   const defaultJenisPensiun = [
     'DPCP',
     'SUPER',
-    'Buat SK Pensiun Pegawai Undip Non ASN',
     'SK Pensiun BUP Pegawai Undip Non ASN',
     'SK Pensiun Meninggal Pegawai Undip Non ASN',
     'SK Pensiun Uzur Pegawai Undip Non ASN',

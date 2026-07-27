@@ -105,7 +105,7 @@ const CONFIG = {
   KONTRAK_JENIS_PEG_ELIGIBLE: ['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','KDRP'],
   KONTRAK_UPAH_TIER: {tier1:2903600,tier2:3026400},
   ROLE_LIST: ['normal','user','admin','super_admin'],
-  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER','Buat SK Pensiun Pegawai Undip Non ASN','SK Pensiun BUP Pegawai Undip Non ASN','SK Pensiun Meninggal Pegawai Undip Non ASN','SK Pensiun Uzur Pegawai Undip Non ASN','SK Pensiun Undur Diri Pegawai Undip Non ASN'],'Kontrak Tendik':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','KDRP','Tenaga Profesional'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan']},
+  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER','SK Pensiun BUP Pegawai Undip Non ASN','SK Pensiun Meninggal Pegawai Undip Non ASN','SK Pensiun Uzur Pegawai Undip Non ASN','SK Pensiun Undur Diri Pegawai Undip Non ASN'],'Kontrak Tendik':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','KDRP','Tenaga Profesional'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan']},
   USULAN_KP_KATA_KUNCI_PNS: ['pns'],
   USULAN_KP_NOTIF_SIASN: 'Siap diusulkan ke-SIASN',
   USULAN_KP_NOTIF_SK:    'Siap Dibuat SK',
@@ -1954,14 +1954,23 @@ const methods = {
     verifyToken(token);
     const db = getDb();
     let query = db.from('templates').select('*').order('dibuat_pada', { ascending: false });
+
     if (layanan) {
       if (layanan === 'Kenaikan Pangkat SK') {
-        query = query.or('layanan.eq.Kenaikan Pangkat SK,layanan.eq.Kenaikan Pangkat');
+        query = query.or('layanan.eq."Kenaikan Pangkat SK",layanan.eq."Kenaikan Pangkat"');
       } else {
         query = query.eq('layanan', layanan);
       }
     }
-    if (subMenu) query = query.eq('sub_menu', subMenu);
+
+    if (subMenu) {
+      if (layanan === 'Pensiun' && subMenu !== 'DPCP' && subMenu !== 'SUPER') {
+        query = query.or(`sub_menu.eq."${subMenu}",sub_menu.eq."Buat SK Pensiun Pegawai Undip Non ASN"`);
+      } else {
+        query = query.eq('sub_menu', subMenu);
+      }
+    }
+
     const { data, error } = await query;
     if (error) throw error;
     return (data || []).map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || 'gdocs', dibuatPada: t.dibuat_pada }));
@@ -1985,21 +1994,6 @@ const methods = {
     const {error}=await getDb().from('templates').delete().eq('id',templateId);
     if (error) throw error;
     return {success:true,message:'Template dihapus.'};
-  },
-
-  async getTemplates(args) {
-    const [token, layanan, subMenu] = extractArgs(args);
-    verifyToken(token);
-    const db = getDb();
-    let query = db.from('templates').select('*').eq('layanan', layanan);
-    if (layanan === 'Pensiun' && subMenu && subMenu !== 'DPCP' && subMenu !== 'SUPER') {
-      query = query.or(`sub_menu.eq."${subMenu}",sub_menu.eq."Buat SK Pensiun Pegawai Undip Non ASN"`);
-    } else {
-      query = query.eq('sub_menu', subMenu);
-    }
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data || []).map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || 'gdocs' }));
   },
 
   async getTemplatesForService(args) {
