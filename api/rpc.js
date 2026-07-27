@@ -434,21 +434,29 @@ function processDataCtxFormatting(dataCtx, isDpcp = false) {
 function enforceDocxFont(zip, fontName) {
   if (!zip || !fontName) return;
 
-  const fontXmlTag = `<w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}" w:cs="${fontName}" w:eastAsia="${fontName}"/>`;
-  const targetFiles = Object.keys(zip.files).filter(fn => fn.startsWith('word/') && fn.endsWith('.xml'));
+  const fontXmlTag = `<w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}" w:cs="${fontName}"/>`;
+  
+  // HANYA perbarui berkas dokumen, header, footer, dan styles secara terbatas. JANGAN sentuh fontTable/settings/theme!
+  const targetFiles = Object.keys(zip.files).filter(fn => 
+    fn === 'word/document.xml' || 
+    fn === 'word/styles.xml' || 
+    (fn.startsWith('word/header') && fn.endsWith('.xml')) || 
+    (fn.startsWith('word/footer') && fn.endsWith('.xml'))
+  );
 
   for (const fileName of targetFiles) {
     const file = zip.file(fileName);
     if (!file) continue;
     let xml = file.asText();
 
-    // 1. Bersihkan w:asciiTheme & w:hAnsiTheme agar Word menggunakan font eksplisit
+    // 1. Bersihkan w:asciiTheme, w:hAnsiTheme, w:eastAsiaTheme, w:eastAsia agar Word tidak mencoba memuat font CJK/Asia (penyebab Word lambat)
     xml = xml.replace(/w:asciiTheme="[^"]*"/gi, '');
     xml = xml.replace(/w:hAnsiTheme="[^"]*"/gi, '');
     xml = xml.replace(/w:cstheme="[^"]*"/gi, '');
     xml = xml.replace(/w:eastAsiaTheme="[^"]*"/gi, '');
+    xml = xml.replace(/w:eastAsia="[^"]*"/gi, '');
 
-    // 2. Ganti elemen <w:rFonts ... /> dengan font baru tanpa mengubah struktur XML
+    // 2. Ganti elemen <w:rFonts ... /> dengan font eksplisit Western secara presisi
     if (/<w:rFonts\b/i.test(xml)) {
       xml = xml.replace(/<w:rFonts\b[^>]*\/>/gi, fontXmlTag);
       xml = xml.replace(/<w:rFonts\b[^>]*>.*?<\/w:rFonts>/gi, fontXmlTag);
@@ -457,6 +465,7 @@ function enforceDocxFont(zip, fontName) {
     zip.file(fileName, xml);
   }
 }
+
 
 function cleanWordXmlParagraphBraces(xml) {
   if (!xml) return '';
