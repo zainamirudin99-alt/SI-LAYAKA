@@ -11,7 +11,15 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const jwt              = require('jsonwebtoken');
-const { v4: uuidv4 }   = require('uuid');
+const crypto           = require('crypto');
+
+function uuidv4() {
+  if (crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
 
 // ----------------------------------------------------------------
 // SUPABASE CLIENT
@@ -2868,7 +2876,6 @@ const methods = {
     const gasUrl = process.env.GOOGLE_SCRIPT_URL;
     if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi.' };
 
-    const { v4: uuidv4 } = require('uuid');
     const shortId = uuidv4();
     const remoteSession = {
       id: shortId,
@@ -3887,8 +3894,7 @@ const methods = {
       const gasUrl = process.env.GOOGLE_SCRIPT_URL;
       if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi (diperlukan untuk konversi PDF).' };
 
-      const { v4: uuidv4x } = require('uuid');
-      const shortId = uuidv4x();
+      const shortId = uuidv4();
       const remoteSession = { id: shortId, data: { nip: decoded.nip, nama_lengkap: decoded.nama, nama: decoded.nama, role } };
 
       const response = await fetch(gasUrl, {
@@ -3983,7 +3989,7 @@ const methods = {
     const gasUrl = process.env.GOOGLE_SCRIPT_URL;
     if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi.' };
 
-    const shortId = require('uuid').v4();
+    const shortId = uuidv4();
     const remoteSession = {
       id: shortId,
       data: {
@@ -4206,8 +4212,7 @@ const methods = {
         const gasUrl = process.env.GOOGLE_SCRIPT_URL;
         if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi (diperlukan untuk konversi PDF).' };
 
-        const { v4: uuidv4x } = require('uuid');
-        const shortId = uuidv4x();
+        const shortId = uuidv4();
         const remoteSession = { id: shortId, data: { nip: decoded.nip, nama_lengkap: decoded.nama, nama: decoded.nama, role } };
 
         const response = await fetch(gasUrl, {
@@ -4240,7 +4245,6 @@ const methods = {
     const gasUrl = process.env.GOOGLE_SCRIPT_URL;
     if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi.' };
 
-    const { v4: uuidv4 } = require('uuid');
     const shortId = uuidv4();
     const remoteSession = {
       id: shortId,
@@ -4452,8 +4456,7 @@ const methods = {
       const gasUrl = process.env.GOOGLE_SCRIPT_URL;
       if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi (diperlukan untuk konversi PDF).' };
       
-      const { v4: uuidv4x } = require('uuid');
-      const shortId = uuidv4x();
+      const shortId = uuidv4();
       const remoteSession = { id: shortId, data: { nip: decoded.nip, role: decoded.role } };
       
       const response = await fetch(gasUrl, {
