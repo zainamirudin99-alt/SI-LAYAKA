@@ -2006,9 +2006,7 @@ function loadTemplateList() {
         const tipeBadge = t.tipe === 'docx'
           ? '<span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">Word</span>'
           : '<span style="background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">GDocs</span>';
-        const previewBtn = t.tipe === 'docx'
-          ? `<button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="previewDocxTemplate('${t.id}')">Preview</button>`
-          : '';
+        const previewBtn = `<button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="previewDocxTemplate('${t.id}')">Preview</button>`;
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${escapeHtml(t.judul)}</td>
@@ -2038,17 +2036,28 @@ function previewDocxTemplate(id) {
   google.script.run
     .withSuccessHandler(res => {
       if (res.success) {
-        // Microsoft Office Online Viewer dengan signed URL (bucket private aman)
-        const viewerUrl = 'https://view.officeapps.live.com/op/embed.aspx?src=' + encodeURIComponent(res.signedUrl);
-
         document.getElementById('modalTitle').textContent = 'Preview: ' + res.judul;
-        document.getElementById('modalBody').innerHTML =
-          '<div style="width:100%;height:600px;overflow:hidden;border-radius:4px;">' +
-            '<iframe src="' + viewerUrl + '" width="100%" height="100%" frameborder="0" style="border:none;" allow="fullscreen"></iframe>' +
-          '</div>' +
-          '<div style="text-align:center;margin-top:12px;">' +
-            '<a href="' + escapeHtml(res.signedUrl) + '" target="_blank" rel="noopener" class="btn btn-outline" style="font-size:13px;">Download File Asli</a>' +
-          '</div>';
+        if (res.tipe === 'gdocs') {
+          const embedUrl = res.previewUrl || `https://docs.google.com/document/d/${res.fileId}/preview`;
+          const editUrl = res.viewUrl || `https://docs.google.com/document/d/${res.fileId}/edit`;
+          document.getElementById('modalBody').innerHTML =
+            '<div style="width:100%;height:600px;overflow:hidden;border-radius:8px;background:#f8fafc;">' +
+              '<iframe src="' + embedUrl + '" width="100%" height="100%" frameborder="0" style="border:none;" allow="fullscreen"></iframe>' +
+            '</div>' +
+            '<div style="text-align:center;margin-top:12px;display:flex;justify-content:center;gap:10px;">' +
+              '<a href="' + escapeHtml(editUrl) + '" target="_blank" rel="noopener" class="btn btn-primary" style="font-size:13px;">Buka & Edit di Google Docs ↗</a>' +
+            '</div>';
+        } else {
+          // Microsoft Office Online Viewer dengan signed URL (bucket private aman)
+          const viewerUrl = 'https://view.officeapps.live.com/op/embed.aspx?src=' + encodeURIComponent(res.signedUrl);
+          document.getElementById('modalBody').innerHTML =
+            '<div style="width:100%;height:600px;overflow:hidden;border-radius:8px;">' +
+              '<iframe src="' + viewerUrl + '" width="100%" height="100%" frameborder="0" style="border:none;" allow="fullscreen"></iframe>' +
+            '</div>' +
+            '<div style="text-align:center;margin-top:12px;">' +
+              '<a href="' + escapeHtml(res.signedUrl) + '" target="_blank" rel="noopener" class="btn btn-outline" style="font-size:13px;">Download File Asli</a>' +
+            '</div>';
+        }
         document.getElementById('modalOverlay').style.display = 'flex';
       } else {
         showToast('error', res.message);

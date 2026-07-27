@@ -3606,7 +3606,23 @@ const methods = {
     const { data: tmpl, error: tmplErr } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
     if (tmplErr) throw tmplErr;
     if (!tmpl) return { success: false, message: 'Template tidak ditemukan.' };
-    if (tmpl.tipe !== 'docx') return { success: false, message: 'Template ini bukan tipe DOCX.' };
+
+    if (tmpl.tipe === 'gdocs' || tmpl.tipe === 'gdrive') {
+      const fileId = extractDriveFileId(tmpl.file_id) || tmpl.file_id;
+      const previewUrl = `https://docs.google.com/document/d/${fileId}/preview`;
+      const viewUrl = `https://docs.google.com/document/d/${fileId}/edit`;
+      return {
+        success: true,
+        tipe: 'gdocs',
+        fileId: fileId,
+        previewUrl: previewUrl,
+        viewUrl: viewUrl,
+        signedUrl: viewUrl,
+        judul: tmpl.judul
+      };
+    }
+
+    if (tmpl.tipe !== 'docx') return { success: false, message: 'Tipe template tidak didukung.' };
 
     let path = tmpl.file_id;
     if (path.includes('/storage/v1/object/public/lampiran-usulan/')) {
