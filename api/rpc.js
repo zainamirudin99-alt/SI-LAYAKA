@@ -649,50 +649,59 @@ function createDocxInlineImageXml(relId, widthPx = 120, heightPx = 160) {
 function injectDocxImage(zip, dataCtx) {
   if (!zip || !dataCtx) return;
 
+  // 1. Bersihkan pecahan XML run di dalam word/document.xml TERLEBIH DAHULU agar tag {{foto}} menyatu
+  const docFile = zip.file('word/document.xml');
+  if (!docFile) return;
+  let docXml = cleanWordXmlParagraphBraces(docFile.asText());
+
   let photoDataUrl = '';
   let photoKey = '';
   for (const [k, v] of Object.entries(dataCtx)) {
     if (!v) continue;
     const vStr = String(v).trim();
-    if (vStr.startsWith('data:image/') || vStr.includes('base64,')) {
-      photoDataUrl = vStr;
+    if (vStr.startsWith('data:image/') || vStr.includes('base64,') || /^[a-zA-Z0-9+/=]{100,}$/.test(vStr)) {
+      photoDataUrl = vStr.startsWith('data:') ? vStr : `data:image/jpeg;base64,${vStr}`;
       photoKey = k;
       break;
     }
   }
 
-  // Jika tidak ada foto base64 diunggah, hapus placeholder {{foto}} agar tidak menyisakan tag mentah
+  const photoKeys = [photoKey, 'foto', 'pas_foto', 'photo', 'pasfoto', 'FOTO', 'PAS_FOTO', 'PHOTO'].filter(Boolean);
+
+  // Jika tidak ada foto diunggah, hapus seluruh placeholder foto dari XML agar tidak menyisakan tag atau teks mentah
   if (!photoDataUrl) {
-    const docFile = zip.file('word/document.xml');
-    if (!docFile) return;
-    let docXml = docFile.asText();
-    const photoKeys = ['foto', 'pas_foto', 'photo', 'pasfoto', 'FOTO', 'PAS_FOTO', 'PHOTO'];
     for (const k of photoKeys) {
-      const regDbl = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
-      docXml = docXml.replace(regDbl, '');
-      const regSgl = new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi');
-      docXml = docXml.replace(regSgl, '');
+      docXml = docXml.replace(new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\{\\s*${k}\\s*\\}\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi'), '');
+      docXml = docXml.replace(new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\s*${k}\\s*\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi'), '');
+      docXml = docXml.replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi'), '');
+      docXml = docXml.replace(new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi'), '');
     }
     zip.file('word/document.xml', docXml);
     return;
   }
 
   try {
-    // Bersihkan karakter baris baru (\r, \n, spasi) dari string base64
     const cleanDataUrl = photoDataUrl.replace(/[\r\n\s]+/g, '');
     const matches = cleanDataUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
-    if (!matches) return;
+    if (!matches) {
+      // Jika format base64 tidak valid, bersihkan tag foto dari XML
+      for (const k of photoKeys) {
+        docXml = docXml.replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi'), '');
+        docXml = docXml.replace(new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi'), '');
+      }
+      zip.file('word/document.xml', docXml);
+      return;
+    }
 
     let ext = matches[1].toLowerCase();
     if (ext === 'jpeg') ext = 'jpg';
     const base64Data = matches[2];
     const imageBuffer = Buffer.from(base64Data, 'base64');
 
-
     const imageFileName = `word/media/foto_pegawai.${ext}`;
     zip.file(imageFileName, imageBuffer);
 
-    // 1. Update [Content_Types].xml untuk menambahkan MIME type image/jpeg atau image/png
+    // 1. Update [Content_Types].xml
     const contentTypesFile = zip.file('[Content_Types].xml');
     if (contentTypesFile) {
       let ctXml = contentTypesFile.asText();
@@ -706,40 +715,23 @@ function injectDocxImage(zip, dataCtx) {
 
     // 2. Update word/_rels/document.xml.rels
     const relsFile = zip.file('word/_rels/document.xml.rels');
-    if (!relsFile) return;
-
-    let relsXml = relsFile.asText();
-    const relId = 'rIdFotoPegawai99';
-
-    if (!relsXml.includes(relId)) {
-      const newRel = `<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/foto_pegawai.${ext}"/>`;
-      relsXml = relsXml.replace('</Relationships>', `${newRel}</Relationships>`);
-      zip.file('word/_rels/document.xml.rels', relsXml);
+    if (relsFile) {
+      let relsXml = relsFile.asText();
+      const relId = 'rIdFotoPegawai99';
+      if (!relsXml.includes(relId)) {
+        const newRel = `<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/foto_pegawai.${ext}"/>`;
+        relsXml = relsXml.replace('</Relationships>', `${newRel}</Relationships>`);
+        zip.file('word/_rels/document.xml.rels', relsXml);
+      }
     }
 
-    // 3. Ganti placeholder foto di word/document.xml pada tingkat tag run <w:r> secara presisi
-    const docFile = zip.file('word/document.xml');
-    if (!docFile) return;
-
-    let docXml = docFile.asText();
-    const imageXml = createDocxInlineImageXml(relId, 120, 160);
-
-    const keysToReplace = [photoKey, 'foto', 'pas_foto', 'photo', 'pasfoto', 'FOTO', 'PAS_FOTO', 'PHOTO'];
-    for (const k of keysToReplace) {
-      if (!k) continue;
-      // Ganti seluruh node run <w:r>...</w:r> yang memuat placeholder {{foto}} atau {foto}
-      const regRunDbl = new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\{\\s*${k}\\s*\\}\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi');
-      docXml = docXml.replace(regRunDbl, imageXml);
-
-      const regRunSgl = new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\s*${k}\\s*\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi');
-      docXml = docXml.replace(regRunSgl, imageXml);
-
-      // Fallback ganti langsung jika berada di luar tag run biasa
-      const regDbl = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
-      docXml = docXml.replace(regDbl, imageXml);
-
-      const regSgl = new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi');
-      docXml = docXml.replace(regSgl, imageXml);
+    // 3. Sisipkan gambar OpenXML ke dalam word/document.xml
+    const imageXml = createDocxInlineImageXml('rIdFotoPegawai99', 120, 160);
+    for (const k of photoKeys) {
+      docXml = docXml.replace(new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\{\\s*${k}\\s*\\}\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi'), imageXml);
+      docXml = docXml.replace(new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\s*${k}\\s*\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi'), imageXml);
+      docXml = docXml.replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi'), imageXml);
+      docXml = docXml.replace(new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi'), imageXml);
     }
 
     zip.file('word/document.xml', docXml);
@@ -3719,12 +3711,14 @@ const methods = {
           data: { nip: decoded.nip || '', role: decoded.role || 'normal' }
         };
 
+        const cleanFileId = extractDriveFileId(tmpl.file_id) || tmpl.file_id;
+
         const response = await fetch(gasUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             method: 'scanTemplateFormulas',
-            params: [shortId, { sourceType: 'gdrive', fileId: tmpl.file_id }],
+            params: [shortId, { sourceType: 'gdrive', fileId: cleanFileId }],
             remoteSession
           })
         });
