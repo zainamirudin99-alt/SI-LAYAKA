@@ -691,11 +691,15 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = '
   const PizZip = require('pizzip');
   const zip = (templateBuffer && templateBuffer.files) ? templateBuffer : new PizZip(templateBuffer);
 
+  // 1. Sisipkan foto gambar OpenXML asli ke dalam {{foto}} TERLEBIH DAHULU sebelum text replacement
+  injectDocxImage(zip, dataCtx);
+
+  // 2. Saring data teks (ABAIKAN string foto & data:image/ dari penggantian teks biasa)
   const sanitizedData = {};
   for (const [k, v] of Object.entries(dataCtx || {})) {
     if (v === null || v === undefined) {
       sanitizedData[k] = '';
-    } else if (typeof v === 'string' && v.startsWith('data:image/')) {
+    } else if (typeof v === 'string' && (v.startsWith('data:image/') || v.length > 500)) {
       sanitizedData[k] = '';
     } else {
       sanitizedData[k] = String(v);
@@ -705,6 +709,10 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = '
   const fullData = {};
   for (const [k, v] of Object.entries(sanitizedData)) {
     if (!v && v !== 0) continue;
+    const keyLower = String(k).toLowerCase();
+    if (keyLower.includes('foto') || keyLower.includes('photo') || keyLower.includes('pas_foto')) {
+      continue; // Cegah pencetakan teks base64 foto pada dokumen
+    }
     const escapedVal = escapeXmlText(String(v));
     fullData[k] = escapedVal;
     fullData[k.toLowerCase()] = escapedVal;
@@ -721,7 +729,7 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = '
     // 1. Bersihkan pecahan tag XML di dalam kurung kurawal per paragraf
     xml = cleanWordXmlParagraphBraces(xml);
 
-    // 2. Ganti presisi setiap placeholder {{ key }} atau { key }
+    // 2. Ganti presisi setiap placeholder teks {{ key }} atau { key }
     for (const [k, val] of Object.entries(fullData)) {
       const regDouble = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
       xml = xml.replace(regDouble, val);
@@ -733,9 +741,6 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = '
     zip.file(fileName, xml);
   }
 
-  // 3. Sisipkan file foto asli jika ada placeholder {{foto}}
-  injectDocxImage(zip, dataCtx);
-
   if (targetFont) {
     try {
       enforceDocxFont(zip, targetFont);
@@ -745,6 +750,7 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = '
   }
   return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
+
 
 
 
