@@ -1975,13 +1975,13 @@ const methods = {
     };
   },
 
-  async getLayananOptions([]) {
+  async getLayananOptions() {
     return CONFIG.LAYANAN_LIST;
   },
 
   // ---- FORM OPTIONS (sebelumnya hanya di Apps Script) ----
 
-  async getEligibilityFormOptions([]) {
+  async getEligibilityFormOptions() {
     return {
       golongan: CONFIG.GOLONGAN_PILIHAN,
       jabatan:  CONFIG.JABATAN_FUNGSIONAL_LIST,
@@ -1991,14 +1991,14 @@ const methods = {
     };
   },
 
-  async getDocGenFormOptions([]) {
+  async getDocGenFormOptions() {
     return {
       predikat:   ['Sangat Baik','Baik'],
       ijazahBaru: CONFIG.IJAZAH_BARU_2023_LIST
     };
   },
 
-  async getKontrakFormOptions([]) {
+  async getKontrakFormOptions() {
     const tahunSekarang = new Date().getFullYear();
     const daftarTahun = [];
     for (let t = tahunSekarang - 1; t <= tahunSekarang + 3; t++) daftarTahun.push(t);
@@ -2012,7 +2012,7 @@ const methods = {
     };
   },
 
-  async getPensiunFormOptions([]) {
+  async getPensiunFormOptions() {
     return {
       jenisPensiun: CONFIG.JENIS_PENSIUN_LIST
     };
@@ -2808,8 +2808,9 @@ const methods = {
   /**
    * Kembalikan daftar sub-role untuk dropdown UI.
    */
-  async getSubRoleOptions([token]) {
-    verifyToken(token);
+  async getSubRoleOptions(args) {
+    const token = Array.isArray(args) ? args[0] : (typeof args === 'string' ? args : null);
+    if (token) verifyToken(token);
     return {
       success: true,
       daftar: CONFIG.SK_KP_SUB_ROLE_LIST.map(v => ({ value: v, label: CONFIG.SK_KP_APPROVAL_LABEL[v] || v }))
