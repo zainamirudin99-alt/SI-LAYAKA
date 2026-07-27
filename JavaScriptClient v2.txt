@@ -3883,8 +3883,13 @@ function onSkKpFormChange() {
       const fallbackPlaceholders = [
         'nip', 'nama_lengkap', 'unit_es_ii', 'jabatan', 'golongan', 'pangkat',
         'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan', 'tmt_gol', 'status_kepegawaian',
-        'nomor_sk', 'tmt_sk_efektif', 'nomor_surat_usul', 'tgl_surat_usul', 'nama_ttd_rektor'
+        'nomor_sk', 'foto', 'tmt_sk_efektif', 'nomor_surat_usul', 'tgl_surat_usul', 'nama_ttd_rektor'
       ];
+      renderSkKpDynamicFormFields(fallbackPlaceholders);
+    })
+    .getTemplatePlaceholders(SESSION.token, templateId);
+}
+
 function isPhotoPlaceholder(key) {
   const k = String(key || '').toLowerCase();
   return k === 'foto' || k === 'pas_foto' || k === 'photo' || k === 'pasfoto' || k.includes('foto');
