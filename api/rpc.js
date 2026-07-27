@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ================================================================
  * api/rpc.js — Vercel Serverless Function
  * SIMPEG: Sistem Layanan Administrasi Kepegawaian
@@ -1707,7 +1707,8 @@ const methods = {
 
   // ---- DATA PEGAWAI ----
 
-  async searchEmployees([token, query]) {
+  async searchEmployees(args) {
+    const [token, query] = extractArgs(args);
     const decoded = verifyToken(token);
     const q=String(query||'').trim().toLowerCase();
     if (q.length<1) return [];
@@ -1729,7 +1730,8 @@ const methods = {
     return (data||[]).map(e=>({nip:e.nip,nama:e.nama_lengkap||e.nama,unitEsIi:e.unit_es_ii,jenis_pegawai:e.jenis_peg||e.jenis_pegawai||''}));
   },
 
-  async getEmployeeFullData([token, nip]) {
+  async getEmployeeFullData(args) {
+    const [token, nip] = extractArgs(args);
     verifyToken(token);
     const db=getDb();
     const {data,error}=await db.from('data_utama').select('*').eq('nip',String(nip||'').trim()).maybeSingle();
@@ -1738,7 +1740,8 @@ const methods = {
     return data;
   },
 
-  async getProfilSaya([token]) {
+  async getProfilSaya(args) {
+    const [token] = extractArgs(args);
     const decoded=verifyToken(token);
     const db=getDb();
     const {data,error}=await db.from('data_utama').select('*').eq('nip',decoded.nip).maybeSingle();
@@ -1751,7 +1754,8 @@ const methods = {
 
   // ---- ROLES ----
 
-  async getAllUserRolesForAdmin([token]) {
+  async getAllUserRolesForAdmin(args) {
+    const [token] = extractArgs(args);
     requireRole(token, ['super_admin']);
     const db = getDb();
     
@@ -1819,7 +1823,8 @@ const methods = {
     return { success: true, daftar };
   },
 
-  async searchUserRolesForAdmin([token, query]) {
+  async searchUserRolesForAdmin(args) {
+    const [token, query] = extractArgs(args);
     requireRole(token, ['super_admin']);
     const db = getDb();
     const q = String(query || '').trim();
@@ -1894,7 +1899,8 @@ const methods = {
     return { success: true, daftar };
   },
 
-  async ubahPeranAkun([token, targetNip, peranBaru]) {
+  async ubahPeranAkun(args) {
+    const [token, targetNip, peranBaru] = extractArgs(args);
     const caller = requireRole(token, ['super_admin']);
     if (!['normal', 'user', 'admin', 'super_admin'].includes(peranBaru)) return { success: false, message: 'Peran tidak valid.' };
     const { role: curRole } = await getUserRole(targetNip);
@@ -1905,7 +1911,8 @@ const methods = {
     return { success: true, message: `Peran berhasil diubah menjadi "${peranBaru}".` };
   },
 
-  async setUserSubRole([token, targetNip, subRole]) {
+  async setUserSubRole(args) {
+    const [token, targetNip, subRole] = extractArgs(args);
     const caller = requireRole(token, ['super_admin']);
     const db = getDb();
     const { error } = await db.from('user_roles').upsert({ nip: targetNip, sub_role: subRole || null, diubah_oleh: caller.nip, tanggal_diubah: new Date().toISOString() }, { onConflict: 'nip' });
@@ -1915,14 +1922,16 @@ const methods = {
 
   // ---- TEMPLATES ----
 
-  async getAllTemplates([token]) {
+  async getAllTemplates(args) {
+    const [token] = extractArgs(args);
     verifyToken(token);
     const {data,error}=await getDb().from('templates').select('*').order('dibuat_pada',{ascending:false});
     if (error) throw error;
     return (data||[]).map(t=>({id:t.id,judul:t.judul,fileId:t.file_id,layanan:t.layanan,subMenu:t.sub_menu,tipe:t.tipe || 'gdocs',dibuatPada:t.dibuat_pada}));
   },
 
-  async getTemplates([token, layanan, subMenu]) {
+  async getTemplates(args) {
+    const [token, layanan, subMenu] = extractArgs(args);
     verifyToken(token);
     const db = getDb();
     let query = db.from('templates').select('*').order('dibuat_pada', { ascending: false });
@@ -1939,7 +1948,8 @@ const methods = {
     return (data || []).map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || 'gdocs', dibuatPada: t.dibuat_pada }));
   },
 
-  async addTemplate([token, templateData]) {
+  async addTemplate(args) {
+    const [token, templateData] = extractArgs(args);
     requireRole(token,['admin','super_admin']);
     const {driveLink,judul,layanan,subMenu}=templateData||{};
     if (!judul||!layanan||!subMenu||!driveLink) return {success:false,message:'Judul, Layanan, Sub-menu, dan Link Drive wajib diisi.'};
@@ -1950,14 +1960,16 @@ const methods = {
     return {success:true,message:`Template "${judul}" berhasil ditambahkan.`,id:data.id};
   },
 
-  async deleteTemplate([token, templateId]) {
+  async deleteTemplate(args) {
+    const [token, templateId] = extractArgs(args);
     requireRole(token,['admin','super_admin']);
     const {error}=await getDb().from('templates').delete().eq('id',templateId);
     if (error) throw error;
     return {success:true,message:'Template dihapus.'};
   },
 
-  async getTemplates([token, layanan, subMenu]) {
+  async getTemplates(args) {
+    const [token, layanan, subMenu] = extractArgs(args);
     verifyToken(token);
     const db = getDb();
     let query = db.from('templates').select('*').eq('layanan', layanan);
@@ -1971,13 +1983,14 @@ const methods = {
     return (data || []).map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || 'gdocs' }));
   },
 
-  async getTemplatesForService([token, layanan, subMenu]) {
+  async getTemplatesForService(args) {
+    const [token, layanan, subMenu] = extractArgs(args);
     return methods.getTemplates([token, layanan, subMenu]);
   },
 
   // ---- CONFIG / OPTIONS ----
 
-  async getConfigPublic([]) {
+  async getConfigPublic(args) {
     return {
       golonganPilihan:  CONFIG.GOLONGAN_PILIHAN,
       jabatanFungsional:CONFIG.JABATAN_FUNGSIONAL_LIST,
@@ -2039,7 +2052,8 @@ const methods = {
     };
   },
 
-  async getStatusAksesKontrakSaya([token]) {
+  async getStatusAksesKontrakSaya(args) {
+    const [token] = extractArgs(args);
     const decoded = verifyToken(token);
     const db = getDb();
     const emp = await findEmployeeByNip(decoded.nip);
@@ -2091,7 +2105,8 @@ const methods = {
     return { success: true, eligible: true, diizinkan, kategori: kategoriCocok, jenisPeg: statusKep || jenisPeg };
   },
 
-  async getSemuaStatusAksesKontrakKategori([token]) {
+  async getSemuaStatusAksesKontrakKategori(args) {
+    const [token] = extractArgs(args);
     requireRole(token, ['admin','super_admin']);
     const db = getDb();
     const eligibleList = CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE || [
@@ -2108,7 +2123,8 @@ const methods = {
     return { success: true, daftar };
   },
 
-  async aturAksesKontrakKategori([token, kategori, diizinkan]) {
+  async aturAksesKontrakKategori(args) {
+    const [token, kategori, diizinkan] = extractArgs(args);
     requireRole(token, ['admin','super_admin']);
     const decoded = verifyToken(token);
     const db = getDb();
@@ -2141,7 +2157,8 @@ const methods = {
     return { success: true, message: `Akses mandiri untuk "${kat}" berhasil ${isAllowed ? 'diberikan' : 'dicabut'}.` };
   },
 
-  async getLatestSavedGenerateData([token, nip]) {
+  async getLatestSavedGenerateData(args) {
+    const [token, nip] = extractArgs(args);
     verifyToken(token);
     const db = getDb();
     // Coba dari tabel save_data (atau usulan_pensiun jika tersedia)
@@ -2153,7 +2170,8 @@ const methods = {
 
   // ---- CHECK ELIGIBLE ----
 
-  async checkEligibility([token, payload]) {
+  async checkEligibility(args) {
+    const [token, payload] = extractArgs(args);
     verifyToken(token);
     const {
       targetNip,
@@ -2269,7 +2287,8 @@ const methods = {
 
   // ---- PROMOSI DASHBOARD ----
 
-  async getPromosiDashboardSummary([token]) {
+  async getPromosiDashboardSummary(args) {
+    const [token] = extractArgs(args);
     const decoded = verifyToken(token);
     const db = getDb();
     
@@ -2379,7 +2398,8 @@ const methods = {
     };
   },
 
-  async getPromosiEligibleList([token, unit, kategoriFilter]) {
+  async getPromosiEligibleList(args) {
+    const [token, unit, kategoriFilter] = extractArgs(args);
     const decoded = verifyToken(token);
     const db = getDb();
     let targetUnit = unit;
@@ -2402,7 +2422,8 @@ const methods = {
 
   // ---- PENSIUN DASHBOARD ----
 
-  async getPensiunDashboardSummary([token]) {
+  async getPensiunDashboardSummary(args) {
+    const [token] = extractArgs(args);
     const decoded = verifyToken(token);
     const db = getDb();
     
@@ -2440,7 +2461,8 @@ const methods = {
     return {success:true,ambangTahun:CONFIG.PENSIUN_DASHBOARD_AMBANG_TAHUN,daftarUnit};
   },
 
-  async getPensiunEligibleList([token, unit]) {
+  async getPensiunEligibleList(args) {
+    const [token, unit] = extractArgs(args);
     const decoded = verifyToken(token);
     const db = getDb();
     let targetUnit = unit;
@@ -2465,7 +2487,8 @@ const methods = {
 
   // ---- USULAN KP ----
 
-  async ajukanUsulanKP([token, payload]) {
+  async ajukanUsulanKP(args) {
+    const [token, payload] = extractArgs(args);
     const decoded=requireRole(token,['user','admin','super_admin']);
     const {
       daftarPegawai=[],
@@ -2512,7 +2535,8 @@ const methods = {
   },
 
 
-  async getUsulanNotifikasiSummary([token]) {
+  async getUsulanNotifikasiSummary(args) {
+    const [token] = extractArgs(args);
     requireRole(token,['admin','super_admin']);
     const {data}=await getDb().from('usulan_kp').select('unit').eq('status','Diajukan');
     const perUnit={};
@@ -2521,14 +2545,16 @@ const methods = {
     return {success:true,totalUsulanBaru:(data||[]).length,daftarUnit};
   },
 
-  async getUsulanListByUnit([token, unit]) {
+  async getUsulanListByUnit(args) {
+    const [token, unit] = extractArgs(args);
     requireRole(token,['admin','super_admin']);
     const {data}=await getDb().from('usulan_kp').select('*').eq('status','Diajukan').eq('unit',unit);
     const daftar=(data||[]).map(u=>({id:u.id,nip:u.nip,nama:u.nama,namaPengaju:u.nama_pengaju,tanggalDiajukan:formatTanggalIndonesia(u.tanggal_diajukan),fileUrl:u.file_url,opsiASelesai:!!u.opsi_a_selesai_pada,opsiBSelesai:!!u.opsi_b_selesai_pada})).sort((a,b)=>String(a.nama).localeCompare(String(b.nama)));
     return {success:true,daftar};
   },
 
-  async getUsulanSayaForUser([token]) {
+  async getUsulanSayaForUser(args) {
+    const [token] = extractArgs(args);
     const decoded=requireRole(token,['user','admin','super_admin']);
     const {data}=await getDb().from('usulan_kp').select('*').eq('diajukan_oleh_nip',decoded.nip).order('tanggal_diajukan',{ascending:false});
     const daftar=(data||[]).map(u=>({
@@ -2543,7 +2569,8 @@ const methods = {
     return {success:true,daftar};
   },
 
-  async tandaiOpsiKpSelesai([token, nip, subLayanan]) {
+  async tandaiOpsiKpSelesai(args) {
+    const [token, nip, subLayanan] = extractArgs(args);
     const decoded=requireRole(token,['admin','super_admin']);
     const db=getDb();
     const {data:rows}=await db.from('usulan_kp').select('*').eq('nip',nip).eq('status','Diajukan');
@@ -2569,7 +2596,8 @@ const methods = {
    * Menghitung otomatis: pangkat_baru, gol_baru, gaji_pokok_baru_kp, tmt_kp_baru.
    * Meng-generate dokumen dari template SK (GDocs atau DOCX) dan menyimpan sk_file_id.
    */
-  async buatSkKp([token, usulanId, payload]) {
+  async buatSkKp(args) {
+    const [token, usulanId, payload] = extractArgs(args);
     const decoded = requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
     const { data: row, error: rowErr } = await db.from('usulan_kp').select('*').eq('id', usulanId).maybeSingle();
@@ -2634,7 +2662,8 @@ const methods = {
    * dengan sk_approval_step saat ini dapat melakukan approve.
    * Urutan: staff → supervisor → manajer → wakil_direktur → direktur → wakil_rektor
    */
-  async approveSkKp([token, usulanId, catatan]) {
+  async approveSkKp(args) {
+    const [token, usulanId, catatan] = extractArgs(args);
     const decoded = requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
 
@@ -2692,7 +2721,8 @@ const methods = {
    * Admin/Super Admin upload PDF SK yang sudah ditandatangani dan dicap.
    * Setelah upload, status berubah ke "SK Selesai" dan user/pegawai bisa download.
    */
-  async uploadSkFinalPdf([token, usulanId, base64Pdf, namaFile]) {
+  async uploadSkFinalPdf(args) {
+    const [token, usulanId, base64Pdf, namaFile] = extractArgs(args);
     requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
     const { data: row } = await db.from('usulan_kp').select('*').eq('id', usulanId).maybeSingle();
@@ -2729,7 +2759,8 @@ const methods = {
    * User melihat status SK miliknya atau SK atas namanya.
    * Jika "SK Selesai" → tampilkan URL download.
    */
-  async getSkStatusForUser([token]) {
+  async getSkStatusForUser(args) {
+    const [token] = extractArgs(args);
     const decoded = requireRole(token, ['normal', 'user', 'admin', 'super_admin']);
     const db = getDb();
     // Ambil yang diajukan oleh user ini ATAU yang NIP-nya adalah user ini
@@ -2756,7 +2787,8 @@ const methods = {
   /**
    * Admin melihat daftar usulan yang sudah Siap Dibuat SK.
    */
-  async getUsulanSiapSk([token]) {
+  async getUsulanSiapSk(args) {
+    const [token] = extractArgs(args);
     requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
     const { data } = await db.from('usulan_kp').select('*').eq('status', CONFIG.SK_KP_STATUS_SIAP).order('tanggal_diajukan', { ascending: true });
@@ -2772,7 +2804,8 @@ const methods = {
   /**
    * Admin melihat daftar usulan yang sudah Disetujui (Siap Upload PDF).
    */
-  async getUsulanSiapUploadSk([token]) {
+  async getUsulanSiapUploadSk(args) {
+    const [token] = extractArgs(args);
     requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
     const { data } = await db.from('usulan_kp').select('*').eq('status', 'SK Disetujui - Siap Upload').order('tanggal_diajukan', { ascending: true });
@@ -2788,7 +2821,8 @@ const methods = {
   /**
    * Approver (super_admin ber-sub_role) melihat antrian SK yang menunggu approval mereka.
    */
-  async getSkApprovalQueue([token]) {
+  async getSkApprovalQueue(args) {
+    const [token] = extractArgs(args);
     const decoded = requireRole(token, ['admin', 'super_admin']);
     const subRole = await getUserSubRole(decoded.nip);
     if (!subRole) return { success: true, daftar: [], subRole: null };
@@ -2813,7 +2847,8 @@ const methods = {
   /**
    * Super Admin mengatur sub_role akun admin/super_admin.
    */
-  async setUserSubRole([token, targetNip, subRole]) {
+  async setUserSubRole(args) {
+    const [token, targetNip, subRole] = extractArgs(args);
     requireRole(token, ['super_admin']);
     const db = getDb();
     const allowed = [...CONFIG.SK_KP_SUB_ROLE_LIST, null, ''];
@@ -2838,7 +2873,8 @@ const methods = {
     };
   },
 
-  async generateSkDraftVercel([token, usulanId]) {
+  async generateSkDraftVercel(args) {
+    const [token, usulanId] = extractArgs(args);
     const decoded = verifyToken(token);
     const db = getDb();
 
@@ -2923,7 +2959,8 @@ const methods = {
 
   // ---- USULAN PENSIUN ----
 
-  async ajukanUsulanPensiun([token, payload]) {
+  async ajukanUsulanPensiun(args) {
+    const [token, payload] = extractArgs(args);
     const decoded=requireRole(token,['user','admin','super_admin']);
     const {nip,nama,jenisPensiun,suratPengantarBase64,namaFileSuratPengantar,fileTambahan1Base64,namaFileTambahan1,fileTambahan2Base64,namaFileTambahan2}=payload||{};
     if (!nip||!nama) return {success:false,message:'Pilih pegawai terlebih dahulu.'};
@@ -2944,7 +2981,8 @@ const methods = {
     return {success:true,message:`Usulan pensiun untuk ${nama} berhasil diajukan.`};
   },
 
-  async getUsulanPensiunNotifikasiSummary([token]) {
+  async getUsulanPensiunNotifikasiSummary(args) {
+    const [token] = extractArgs(args);
     requireRole(token,['admin','super_admin']);
     const {data}=await getDb().from('usulan_pensiun').select('unit').eq('status','Diajukan');
     const perUnit={};
@@ -2953,14 +2991,16 @@ const methods = {
     return {success:true,totalUsulanBaru:(data||[]).length,daftarUnit};
   },
 
-  async getUsulanPensiunListByUnit([token, unit]) {
+  async getUsulanPensiunListByUnit(args) {
+    const [token, unit] = extractArgs(args);
     requireRole(token,['admin','super_admin']);
     const {data}=await getDb().from('usulan_pensiun').select('*').eq('status','Diajukan').eq('unit',unit);
     const daftar=(data||[]).map(u=>({nip:u.nip,nama:u.nama,jenisPensiun:u.jenis_pensiun,namaPengaju:u.nama_pengaju,tanggalDiajukan:formatTanggalIndonesia(u.tanggal_diajukan),fileUrl:u.file_url,fileTambahan1Url:u.file_tambahan1_url,fileTambahan1Label:u.file_tambahan1_label,fileTambahan2Url:u.file_tambahan2_url,fileTambahan2Label:u.file_tambahan2_label,dpcpSelesai:!!u.dpcp_selesai_pada,superSelesai:!!u.super_selesai_pada})).sort((a,b)=>String(a.nama).localeCompare(String(b.nama)));
     return {success:true,daftar};
   },
 
-  async getUsulanPensiunSayaForUser([token]) {
+  async getUsulanPensiunSayaForUser(args) {
+    const [token] = extractArgs(args);
     const decoded = requireRole(token, ['user', 'admin', 'super_admin']);
     const { data } = await getDb().from('usulan_pensiun').select('*').eq('diajukan_oleh_nip', decoded.nip).order('tanggal_diajukan', { ascending: false });
     const daftar = (data || []).map(u => ({
@@ -2977,7 +3017,8 @@ const methods = {
     return { success: true, daftar };
   },
 
-  async tandaiDokumenPensiunSelesai([token, nip, jenisDokumen]) {
+  async tandaiDokumenPensiunSelesai(args) {
+    const [token, nip, jenisDokumen] = extractArgs(args);
     const decoded = requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
     const { data: rows } = await db.from('usulan_pensiun').select('*').eq('nip', nip).eq('status', 'Diajukan');
@@ -2996,7 +3037,8 @@ const methods = {
     return { success: true };
   },
 
-  async getUsulanPensiunNonAsnList([token]) {
+  async getUsulanPensiunNonAsnList(args) {
+    const [token] = extractArgs(args);
     requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
 
@@ -3043,7 +3085,8 @@ const methods = {
     return { success: true, daftar };
   },
 
-  async getSkPdfUploadUrl([token, usulanId, fileName]) {
+  async getSkPdfUploadUrl(args) {
+    const [token, usulanId, fileName] = extractArgs(args);
     requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
     const safeName = String(fileName || 'sk_final.pdf').replace(/[^a-zA-Z0-9._-]/g, '-');
@@ -3066,7 +3109,8 @@ const methods = {
     };
   },
 
-  async uploadFinalSkPensiun([token, payload]) {
+  async uploadFinalSkPensiun(args) {
+    const [token, payload] = extractArgs(args);
     const decoded = requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
     const { usulanId, skNomor, publicUrl } = payload || {};
@@ -3087,7 +3131,8 @@ const methods = {
     return { success: true, message: 'File PDF SK Pensiun berhasil diunggah.' };
   },
 
-  async getSiapSkList([token]) {
+  async getSiapSkList(args) {
+    const [token] = extractArgs(args);
     requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
     const { data: rows, error } = await db.from('usulan_kp')
@@ -3102,7 +3147,8 @@ const methods = {
     return { success: true, daftar: rows || [] };
   },
 
-  async generateSkKpNonAsn([token, payload]) {
+  async generateSkKpNonAsn(args) {
+    const [token, payload] = extractArgs(args);
     const decoded = requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
     const { usulanId, targetNip, subLayanan, templateId, formData = {} } = payload || {};
@@ -3225,7 +3271,8 @@ const methods = {
     return resultOutput;
   },
 
-  async getNonAsnEmployeesList([token]) {
+  async getNonAsnEmployeesList(args) {
+    const [token] = extractArgs(args);
     requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
 
@@ -3239,7 +3286,8 @@ const methods = {
     return { success: true, daftar: rows || [] };
   },
 
-  async generateSkPensiunNonAsn([token, payload]) {
+  async generateSkPensiunNonAsn(args) {
+    const [token, payload] = extractArgs(args);
     const decoded = requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
     const { usulanId, targetNip, jenisPensiun, templateId, formData = {} } = payload || {};
@@ -3393,7 +3441,8 @@ const methods = {
 
   // ---- GLOSARIUM TAG ----
 
-  async getGlosariumTag([token]) {
+  async getGlosariumTag(args) {
+    const [token] = extractArgs(args);
     verifyToken(token);
 
     // Kolom Data Utama yang sudah diketahui (fallback jika tabel masih kosong)
@@ -3445,7 +3494,8 @@ const methods = {
 
   // ---- TEMPLATE MANAGEMENT ----
 
-  async addTemplate([token, payload]) {
+  async addTemplate(args) {
+    const [token, payload] = extractArgs(args);
     requireRole(token, ['admin', 'super_admin']);
     // Accept the original browser payload as well as the DOCX-aware shape.
     // This keeps existing Google Drive templates working while allowing the
@@ -3492,7 +3542,8 @@ const methods = {
    * Browser menggunakan URL ini untuk upload LANGSUNG ke Supabase Storage
    * tanpa melewati Vercel Function (bypass body limit & timeout).
    */
-  async getTemplateUploadUrl([token, judul, layanan, sub_menu]) {
+  async getTemplateUploadUrl(args) {
+    const [token, judul, layanan, sub_menu] = extractArgs(args);
     requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
 
@@ -3520,7 +3571,8 @@ const methods = {
    * Membuat signed read URL untuk file template DOCX agar bisa di-preview oleh
    * Microsoft Office Online Viewer secara aman (bucket private).
    */
-  async getTemplateViewUrl([token, templateId]) {
+  async getTemplateViewUrl(args) {
+    const [token, templateId] = extractArgs(args);
     verifyToken(token);
     const db = getDb();
 
@@ -3549,7 +3601,8 @@ const methods = {
     };
   },
 
-  async getTemplatePlaceholders([token, templateId]) {
+  async getTemplatePlaceholders(args) {
+    const [token, templateId] = extractArgs(args);
     verifyToken(token);
     const db = getDb();
     const { data: tmpl, error } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
@@ -3648,7 +3701,8 @@ const methods = {
     return { success: true, placeholders: defaultFields };
   },
 
-  async scanTemplateFormulas([token, payload]) {
+  async scanTemplateFormulas(args) {
+    const [token, payload] = extractArgs(args);
     verifyToken(token);
     const input = payload || {};
     const sourceType = input.sourceType;
@@ -3855,7 +3909,8 @@ const methods = {
     return { success: false, message: 'sourceType tidak dikenali' };
   },
 
-  async getTemplates([token, layanan, sub_menu]) {
+  async getTemplates(args) {
+    const [token, layanan, sub_menu] = extractArgs(args);
     verifyToken(token);
     const db = getDb();
     let q = db.from('templates').select('*');
@@ -3866,7 +3921,8 @@ const methods = {
     return { success: true, templates: data || [] };
   },
 
-  async deleteTemplate([token, id]) {
+  async deleteTemplate(args) {
+    const [token, id] = extractArgs(args);
     requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
     const { error } = await db.from('templates').delete().eq('id', id);
@@ -3879,7 +3935,8 @@ const methods = {
    * Output: base64 file .docx (untuk semua role kecuali normal/user di Kontrak).
    * Untuk normal/user di menu Kontrak: hasilkan .docx lalu kirim ke GAS untuk dikonversi ke PDF.
    */
-  async generateDocxFromTemplate([token, templateId, dataContext, isKontrak]) {
+  async generateDocxFromTemplate(args) {
+    const [token, templateId, dataContext, isKontrak] = extractArgs(args);
     const decoded = verifyToken(token);
     const role = decoded.role || 'normal';
     const db = getDb();
@@ -3939,7 +3996,8 @@ const methods = {
    * Preview template DOCX — render dengan data contoh/live dan kembalikan base64
    * agar client bisa me-render preview menggunakan docx-preview (CDN).
    */
-  async previewDocxTemplate([token, templateId, dataContext]) {
+  async previewDocxTemplate(args) {
+    const [token, templateId, dataContext] = extractArgs(args);
     if (token !== 'TOKEN_TEST_BYPASS') {
       verifyToken(token);
     }
@@ -3968,7 +4026,8 @@ const methods = {
 
 
 
-  async ajukanUsulanKontrak([token, payload]) {
+  async ajukanUsulanKontrak(args) {
+    const [token, payload] = extractArgs(args);
     const decoded = verifyToken(token);
     const role = decoded.role || 'normal';
     const db = getDb();
@@ -4056,7 +4115,8 @@ const methods = {
     }
   },
 
-  async getUsulanKontrakSaya([token]) {
+  async getUsulanKontrakSaya(args) {
+    const [token] = extractArgs(args);
     const decoded = verifyToken(token);
     const db = getDb();
     try {
@@ -4101,7 +4161,8 @@ const methods = {
     }
   },
 
-  async getUsulanKontrakNotifikasiSummary([token]) {
+  async getUsulanKontrakNotifikasiSummary(args) {
+    const [token] = extractArgs(args);
     requireRole(token, ['admin','super_admin']);
     const db = getDb();
     const { data } = await db.from('usulan_kontrak').select('unit').eq('status','Diajukan');
@@ -4114,7 +4175,8 @@ const methods = {
     return { success: true, totalUsulanBaru: (data || []).length, daftarUnit };
   },
 
-  async getUsulanKontrakListByUnit([token, unit]) {
+  async getUsulanKontrakListByUnit(args) {
+    const [token, unit] = extractArgs(args);
     requireRole(token, ['admin','super_admin']);
     const db = getDb();
     const { data, error } = await db.from('usulan_kontrak').select('*').eq('status','Diajukan').eq('unit', unit);
@@ -4135,7 +4197,8 @@ const methods = {
     return { success: true, daftar };
   },
 
-  async approveUsulanKontrakAttachment([token, usulanId, lampKey, disetujui]) {
+  async approveUsulanKontrakAttachment(args) {
+    const [token, usulanId, lampKey, disetujui] = extractArgs(args);
     const decoded = requireRole(token, ['admin','super_admin']);
     const VALID_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat'];
     if (!VALID_KEYS.includes(lampKey)) return { success: false, message: 'Kunci lampiran tidak valid.' };
@@ -4158,7 +4221,8 @@ const methods = {
     return { success: true, message: disetujui ? 'Lampiran disetujui.' : 'Persetujuan lampiran dibatalkan.' };
   },
 
-  async tandaiPerjanjianKontrakDibuat([token, usulanId]) {
+  async tandaiPerjanjianKontrakDibuat(args) {
+    const [token, usulanId] = extractArgs(args);
     const decoded = requireRole(token, ['admin','super_admin']);
     const db = getDb();
     const { error } = await db.from('usulan_kontrak').update({ perjanjian_dibuat: true, diproses_oleh_nip: decoded.nip }).eq('id', usulanId);
@@ -4166,7 +4230,8 @@ const methods = {
     return { success: true };
   },
 
-  async getUsulanKontrakById([token, usulanId]) {
+  async getUsulanKontrakById(args) {
+    const [token, usulanId] = extractArgs(args);
     verifyToken(token);
     const db = getDb();
     const { data, error } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
@@ -4175,7 +4240,8 @@ const methods = {
     return { success: true, usulan: data };
   },
 
-  async generateKontrakFromUsulanVercel([token, templateRef, usulanId]) {
+  async generateKontrakFromUsulanVercel(args) {
+    const [token, templateRef, usulanId] = extractArgs(args);
     const decoded = requireRole(token, ['admin', 'super_admin', 'normal', 'user']);
     const role = decoded.role || 'normal';
     const db = getDb();
@@ -4295,7 +4361,8 @@ const methods = {
     }
   },
 
-  async previewDocumentVercel([token, payload]) {
+  async previewDocumentVercel(args) {
+    const [token, payload] = extractArgs(args);
     const decoded = verifyToken(token);
     const db = getDb();
     
@@ -4383,7 +4450,8 @@ const methods = {
     };
   },
 
-  async generateDocumentVercel([token, payload]) {
+  async generateDocumentVercel(args) {
+    const [token, payload] = extractArgs(args);
     const decoded = verifyToken(token);
     const db = getDb();
     
@@ -4509,7 +4577,8 @@ const methods = {
    * Enables the browser to upload large files directly to Supabase Storage,
    * completely bypassing Vercel Serverless Function 4.5MB payload limits (HTTP 413).
    */
-  async getPmkUploadUrl([token, filename, folder]) {
+  async getPmkUploadUrl(args) {
+    const [token, filename, folder] = extractArgs(args);
     verifyToken(token);
     const db = getDb();
 
@@ -4534,7 +4603,8 @@ const methods = {
     };
   },
 
-  async ajukanUsulanPmk([token, payload]) {
+  async ajukanUsulanPmk(args) {
+    const [token, payload] = extractArgs(args);
     const decoded = requireRole(token, ['user', 'admin', 'super_admin']);
     const {
       nip,
@@ -4664,7 +4734,8 @@ const methods = {
     return { success: true, message: `Usulan ${tipeUsulan} untuk ${emp.nama_lengkap || emp.nama} berhasil diajukan.`, id: data.id };
   },
 
-  async getUsulanPmkList([token, filterStatus]) {
+  async getUsulanPmkList(args) {
+    const [token, filterStatus] = extractArgs(args);
     const decoded = requireRole(token, ['user', 'admin', 'super_admin']);
     const db = getDb();
     let query = db.from('usulan_pmk').select('*').order('tanggal_diajukan', { ascending: false });
@@ -4697,7 +4768,8 @@ const methods = {
     return { success: true, daftar: data || [] };
   },
 
-  async getUsulanPmkById([token, id]) {
+  async getUsulanPmkById(args) {
+    const [token, id] = extractArgs(args);
     requireRole(token, ['user', 'admin', 'super_admin']);
     const db = getDb();
     const { data, error } = await db.from('usulan_pmk').select('*').eq('id', id).maybeSingle();
@@ -4712,7 +4784,8 @@ const methods = {
     return { success: true, usulan: data };
   },
 
-  async approveUsulanPmkAttachment([token, id, docKey, disetujui]) {
+  async approveUsulanPmkAttachment(args) {
+    const [token, id, docKey, disetujui] = extractArgs(args);
     const decoded = requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
 
@@ -5318,3 +5391,4 @@ module.exports = async (req, res) => {
     res.status(200).json({ success: false, message: topErr.message || 'Terjadi kesalahan server.' });
   }
 };
+
