@@ -49,23 +49,45 @@ document.addEventListener('DOMContentLoaded', () => {
   bindTemplateManagerForm();
   restoreSessionIfAny();
 
+  const defaultFormOptions = {
+    golongan: ['I/a','I/b','I/c','I/d','II/a','II/b','II/c','II/d','III/a','III/b','III/c','III/d','IV/a','IV/b','IV/c','IV/d','IV/e','Set. I/a','Set. I/b','Set. I/c','Set. I/d','Set. II/a','Set. II/b','Set. II/c','Set. II/d','Set. III/a','Set. III/b','Set. III/c','Set. III/d','Set. IV/a','Set. IV/b','Set. IV/c','Set. IV/d','Set. IV/e'],
+    jabatan: ['Asisten Ahli','Lektor','Lektor Kepala','Guru Besar'],
+    predikat: ['Sangat Baik','Baik','Butuh Perbaikan','Kurang','Sangat Kurang'],
+    bulan: [{value:1,label:'Januari'},{value:2,label:'Februari'},{value:3,label:'Maret'},{value:4,label:'April'},{value:5,label:'Mei'},{value:6,label:'Juni'},{value:7,label:'Juli'},{value:8,label:'Agustus'},{value:9,label:'September'},{value:10,label:'Oktober'},{value:11,label:'November'},{value:12,label:'Desember'}],
+    ijazahBaru: ['Ada','Tidak']
+  };
+
+  const defaultDocGenOptions = {
+    predikat: ['Sangat Baik','Baik'],
+    ijazahBaru: ['Ada','Tidak']
+  };
+
+  FORM_OPTIONS = defaultFormOptions;
+  DOCGEN_FORM_OPTIONS = defaultDocGenOptions;
+
+  bindKenaikanPangkatForms();
+  bindCheckEligibleForm();
+  bindPensiunForm();
+  bindSkPensiunNonAsnForm();
+  bindKontrakForm();
+
   google.script.run
     .withSuccessHandler(opts => {
-      FORM_OPTIONS = opts;
-      google.script.run
-        .withSuccessHandler(docGenOpts => {
-          DOCGEN_FORM_OPTIONS = docGenOpts;
-          bindKenaikanPangkatForms();
-          bindCheckEligibleForm();
-          bindPensiunForm();
-          bindSkPensiunNonAsnForm();
-          bindKontrakForm();
-        })
-        .withFailureHandler(err => showToast('error', 'Gagal memuat opsi form DocGen: ' + (err.message || err)))
-        .getDocGenFormOptions();
+      if (opts && typeof opts === 'object' && opts.golongan) {
+        FORM_OPTIONS = opts;
+        bindCheckEligibleForm();
+      }
     })
-    .withFailureHandler(err => showToast('error', 'Gagal memuat opsi form: ' + (err.message || err)))
     .getEligibilityFormOptions();
+
+  google.script.run
+    .withSuccessHandler(docGenOpts => {
+      if (docGenOpts && typeof docGenOpts === 'object' && docGenOpts.predikat) {
+        DOCGEN_FORM_OPTIONS = docGenOpts;
+        bindKenaikanPangkatForms();
+      }
+    })
+    .getDocGenFormOptions();
 });
 
 /* ------------------------- THEME ------------------------- */
