@@ -5948,12 +5948,39 @@ function onSkKpFormChange() {
         'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan', 'tmt_gol', 'status_kepegawaian',
         'nomor_sk', 'tmt_sk_efektif', 'nomor_surat_usul', 'tgl_surat_usul', 'nama_ttd_rektor'
       ];
-      renderSkKpDynamicFormFields(fallbackPlaceholders);
-    })
-    .getTemplatePlaceholders(SESSION.token, templateId);
+function isPhotoPlaceholder(key) {
+  const k = String(key || '').toLowerCase();
+  return k === 'foto' || k === 'pas_foto' || k === 'photo' || k === 'pasfoto' || k.includes('foto');
+}
+
+function handleSkPhotoUpload(fileInput, fieldKey) {
+  const file = fileInput.files && fileInput.files[0];
+  if (!file) return;
+
+  if (file.size > 2 * 1024 * 1024) {
+    showToast('error', 'Ukuran file foto melebihi 2 MB.');
+    fileInput.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    const hiddenInput = document.getElementById(`sk_foto_hidden_${fieldKey}`);
+    const previewImg = document.getElementById(`sk_foto_preview_${fieldKey}`);
+    const previewWrap = document.getElementById(`sk_foto_preview_wrap_${fieldKey}`);
+
+    if (hiddenInput) hiddenInput.value = dataUrl;
+    if (previewImg) previewImg.src = dataUrl;
+    if (previewWrap) previewWrap.style.display = 'block';
+
+    showToast('success', `Foto untuk {{${fieldKey}}} berhasil dimuat.`);
+  };
+  reader.readAsDataURL(file);
 }
 
 function renderSkKpDynamicFormFields(placeholders) {
+
   const fieldsDiv = document.getElementById('skKp_dynamicFields');
   if (!fieldsDiv) return;
 

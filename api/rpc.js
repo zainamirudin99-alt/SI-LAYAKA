@@ -548,6 +548,72 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old S
   return replaceDocxPlaceholdersDirectly(renderedZip || zip, dataCtx, targetFont);
 }
 
+function createDocxInlineImageXml(relId, widthPx = 120, heightPx = 160) {
+  const cx = widthPx * 9525;
+  const cy = heightPx * 9525;
+  const docPrId = Math.floor(Math.random() * 100000) + 1;
+
+  return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${docPrId}" name="Picture"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="0" name="Picture"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></wp:inline></w:drawing></w:r>`;
+}
+
+function injectDocxImage(zip, dataCtx) {
+  if (!zip || !dataCtx) return;
+
+  let photoDataUrl = '';
+  let photoKey = 'foto';
+  for (const [k, v] of Object.entries(dataCtx)) {
+    if (typeof v === 'string' && v.startsWith('data:image/')) {
+      photoDataUrl = v;
+      photoKey = k;
+      break;
+    }
+  }
+
+  if (!photoDataUrl) return;
+
+  try {
+    const matches = photoDataUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+    if (!matches) return;
+
+    const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+    const base64Data = matches[2];
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+
+    const imageFileName = `word/media/foto_pegawai.${ext}`;
+    zip.file(imageFileName, imageBuffer);
+
+    const relsFile = zip.file('word/_rels/document.xml.rels');
+    if (!relsFile) return;
+
+    let relsXml = relsFile.asText();
+    const relId = 'rIdFotoPegawai99';
+
+    if (!relsXml.includes(relId)) {
+      const newRel = `<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/foto_pegawai.${ext}"/>`;
+      relsXml = relsXml.replace('</Relationships>', `${newRel}</Relationships>`);
+      zip.file('word/_rels/document.xml.rels', relsXml);
+    }
+
+    const docFile = zip.file('word/document.xml');
+    if (!docFile) return;
+
+    let docXml = docFile.asText();
+    const imageXml = createDocxInlineImageXml(relId, 120, 160);
+
+    const keysToReplace = [photoKey, 'foto', 'pas_foto', 'photo', 'pasfoto', 'FOTO', 'PAS_FOTO', 'PHOTO'];
+    for (const k of keysToReplace) {
+      const regDbl = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
+      docXml = docXml.replace(regDbl, imageXml);
+      const regSgl = new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi');
+      docXml = docXml.replace(regSgl, imageXml);
+    }
+
+    zip.file('word/document.xml', docXml);
+  } catch (errImg) {
+    console.warn('[injectDocxImage] Error inserting image into docx:', errImg);
+  }
+}
+
 function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = 'Bookman Old Style') {
   const PizZip = require('pizzip');
   const zip = (templateBuffer && templateBuffer.files) ? templateBuffer : new PizZip(templateBuffer);
@@ -594,6 +660,9 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = '
     zip.file(fileName, xml);
   }
 
+  // 3. Sisipkan file foto asli jika ada placeholder {{foto}}
+  injectDocxImage(zip, dataCtx);
+
   if (targetFont) {
     try {
       enforceDocxFont(zip, targetFont);
@@ -603,6 +672,7 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = '
   }
   return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
+
 
 
 
@@ -3083,6 +3153,10 @@ const methods = {
       tmt_pensiun_bup: emp.tmt_pensiun_bup ? formatTanggalIndonesia(emp.tmt_pensiun_bup) : '',
       status_kepegawaian: emp.status_kepegawaian || '',
       jenis_pensiun: jenisPensiun,
+      nomor_sk: formData.nomor_sk || formData.no_sk || formData.sk_nomor || formData.nomor || '',
+      no_sk: formData.nomor_sk || formData.no_sk || formData.sk_nomor || formData.nomor || '',
+      nomor: formData.nomor_sk || formData.no_sk || formData.sk_nomor || formData.nomor || '',
+      sk_nomor: formData.nomor_sk || formData.no_sk || formData.sk_nomor || formData.nomor || '',
       today: tglSekarang,
       tanggal_sk: tglSekarang,
       tgl_sk: tglSekarang,
@@ -3091,6 +3165,7 @@ const methods = {
       tgl_generate: tglSekarang,
       ...formData
     };
+
 
     const isDpcp = String(tmpl.nama_layanan || tmpl.jenis_layanan || tmpl.nama || '').toUpperCase().includes('DPCP');
     const dataCtx = processDataCtxFormatting(rawDataCtx, isDpcp);
