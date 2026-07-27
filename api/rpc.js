@@ -1993,13 +1993,14 @@ const methods = {
   },
 
   async getLayananOptions() {
-    return CONFIG.LAYANAN_LIST;
+    return Object.assign({ success: true }, CONFIG.LAYANAN_LIST);
   },
 
   // ---- FORM OPTIONS (sebelumnya hanya di Apps Script) ----
 
   async getEligibilityFormOptions() {
     return {
+      success: true,
       golongan: CONFIG.GOLONGAN_PILIHAN,
       jabatan:  CONFIG.JABATAN_FUNGSIONAL_LIST,
       predikat: CONFIG.PREDIKAT_SKP_LIST,
@@ -2010,6 +2011,7 @@ const methods = {
 
   async getDocGenFormOptions() {
     return {
+      success: true,
       predikat:   ['Sangat Baik','Baik'],
       ijazahBaru: CONFIG.IJAZAH_BARU_2023_LIST
     };
@@ -2032,6 +2034,7 @@ const methods = {
 
   async getPensiunFormOptions() {
     return {
+      success: true,
       jenisPensiun: CONFIG.JENIS_PENSIUN_LIST
     };
   },

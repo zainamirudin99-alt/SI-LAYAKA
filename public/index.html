@@ -4860,9 +4860,23 @@ function pensiunRunGenerateSuper() {
 
 /* ---------- BIND SEMUA EVENT MODUL PENSIUN ---------- */
 function bindPensiunForm() {
+  const defaultJenisPensiun = [
+    'DPCP',
+    'SUPER',
+    'Buat SK Pensiun Pegawai Undip Non ASN',
+    'SK Pensiun BUP Pegawai Undip Non ASN',
+    'SK Pensiun Meninggal Pegawai Undip Non ASN',
+    'SK Pensiun Uzur Pegawai Undip Non ASN',
+    'SK Pensiun Undur Diri Pegawai Undip Non ASN'
+  ];
+  populateSelect('pensiun_jenisPensiun', defaultJenisPensiun, { placeholder: 'Pilih Jenis Pensiun...' });
+
   google.script.run
-    .withSuccessHandler(opts => populateSelect('pensiun_jenisPensiun', opts.jenisPensiun, { placeholder: 'Pilih Jenis Pensiun...' }))
-    .withFailureHandler(err => showToast('error', 'Gagal memuat opsi Pensiun: ' + (err.message || err)))
+    .withSuccessHandler(opts => {
+      if (opts && opts.jenisPensiun) {
+        populateSelect('pensiun_jenisPensiun', opts.jenisPensiun, { placeholder: 'Pilih Jenis Pensiun...' });
+      }
+    })
     .getPensiunFormOptions();
 
   setupAutocomplete('subjectPensiun_input', 'subjectPensiun_list', 'subjectPensiun_nip', onSelectPensiunEmployee);
