@@ -3710,11 +3710,14 @@ function renderSkNonAsnDynamicFormFields(placeholders) {
     nip: emp.nip || '',
     nama: emp.nama || emp.nama_lengkap || '',
     nama_lengkap: emp.nama_lengkap || emp.nama || '',
-    unit: emp.unit_es_ii || emp.unit || '',
-    unit_kerja: emp.unit_es_ii || emp.unit || '',
+    nama_pegawai: emp.nama_lengkap || emp.nama || '',
+    unit: emp.unit_es_ii || emp.unit_es_iii || emp.unit || '',
+    unit_kerja: emp.unit_es_ii || emp.unit_es_iii || emp.unit || '',
     unit_es_ii: emp.unit_es_ii || emp.unit || '',
+    fakultas: emp.unit_es_ii || emp.unit || '',
     jabatan: emp.jabatan || '',
     golongan: emp.golongan || '',
+    gol: emp.golongan || '',
     pangkat: emp.pangkat || '',
     tmp_lhr: emp.tmp_lhr || '',
     tempat_lahir: emp.tmp_lhr || '',
@@ -3722,15 +3725,19 @@ function renderSkNonAsnDynamicFormFields(placeholders) {
     tanggal_lahir: emp.tgl_lhr ? formatTanggalIndonesia(emp.tgl_lhr) : '',
     tmt_pengangkatan: emp.tmt_pengangkatan ? formatTanggalIndonesia(emp.tmt_pengangkatan) : '',
     tmt_cpns: emp.tmt_pengangkatan ? formatTanggalIndonesia(emp.tmt_pengangkatan) : '',
+    tmt_awal: emp.tmt_pengangkatan ? formatTanggalIndonesia(emp.tmt_pengangkatan) : '',
     tmt_pensiun_bup: emp.tmt_pensiun_bup ? formatTanggalIndonesia(emp.tmt_pensiun_bup) : '',
     tmt_pensiun: emp.tmt_pensiun_bup ? formatTanggalIndonesia(emp.tmt_pensiun_bup) : '',
     status_kepegawaian: emp.status_kepegawaian || '',
+    status: emp.status_kepegawaian || '',
     gaji_pokok: emp.gaji_pokok ? formatRupiahFull(emp.gaji_pokok) : '',
+    gaji: emp.gaji_pokok ? formatRupiahFull(emp.gaji_pokok) : '',
     tgl_buat: todayStr,
     tgl_sk: todayStr,
     tanggal_sk: todayStr,
     today: todayStr,
-    tanggal_buat: todayStr
+    tanggal_buat: todayStr,
+    tgl_generate: todayStr
   };
 
   const formatLabel = (key) => {

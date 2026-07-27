@@ -3320,35 +3320,158 @@ const methods = {
     const now = new Date();
     const tglSekarang = formatTanggalIndonesia(now);
 
-    // Gabungkan data utama pegawai (auto-fill) dengan isian manual formData
+    const ensureIndonesianDate = (val) => {
+      if (!val) return '';
+      const strVal = String(val).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(strVal)) {
+        return formatTanggalIndonesia(strVal);
+      }
+      return strVal;
+    };
+
+    const formattedFormData = {};
+    for (const [k, v] of Object.entries(formData)) {
+      const isDateKey = k.startsWith('tgl_') || k.startsWith('tmt_') || k.includes('tanggal') || k.includes('tmt');
+      if (isDateKey && typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.trim())) {
+        formattedFormData[k] = formatTanggalIndonesia(v.trim());
+      } else {
+        formattedFormData[k] = v;
+      }
+    }
+
+    const tmtPensiunEfektifVal = ensureIndonesianDate(
+      formattedFormData.tmt_pensiun_efektif ||
+      formattedFormData.tmt_sk_efektif ||
+      formattedFormData.tmt_efektif ||
+      formattedFormData.tmt_pensiun ||
+      (emp.tmt_pensiun_bup ? formatTanggalIndonesia(emp.tmt_pensiun_bup) : '')
+    );
+
+    const alasanPensiunVal = (
+      formattedFormData.alasan_pensiun ||
+      formattedFormData.alasan ||
+      formattedFormData.alasan_berhenti ||
+      formattedFormData.keterangan_pensiun ||
+      ''
+    );
+
+    const nomorSuratUsulVal = (
+      formattedFormData.nomor_surat_usul ||
+      formattedFormData.no_surat_usul ||
+      formattedFormData.nomor_usul ||
+      formattedFormData.no_usul ||
+      formattedFormData.surat_usul_nomor ||
+      formattedFormData.no_surat_usulan ||
+      formattedFormData.nomor_surat ||
+      ''
+    );
+
+    const tglSuratUsulVal = ensureIndonesianDate(
+      formattedFormData.tgl_surat_usul ||
+      formattedFormData.tanggal_surat_usul ||
+      formattedFormData.tgl_usul ||
+      formattedFormData.tanggal_usul ||
+      formattedFormData.tgl_surat_usulan ||
+      ''
+    );
+
+    const namaTtdRektorVal = (
+      formattedFormData.nama_ttd_rektor ||
+      formattedFormData.ttd_rektor ||
+      formattedFormData.nama_rektor ||
+      formattedFormData.rektor ||
+      formattedFormData.penandatangan ||
+      ''
+    );
+
+    const nomorSkVal = (
+      formattedFormData.nomor_sk ||
+      formattedFormData.no_sk ||
+      formattedFormData.sk_nomor ||
+      formattedFormData.nomor ||
+      ''
+    );
+
+    // Gabungkan data utama pegawai (auto-fill) dengan isian manual formData & seluruh aliasnya
     const rawDataCtx = {
       nip: emp.nip,
       nama: emp.nama || emp.nama_lengkap,
       nama_lengkap: emp.nama_lengkap || emp.nama,
-      unit_kerja: emp.unit_es_ii || emp.unit_es_iii || '',
-      unit_es_ii: emp.unit_es_ii || '',
+      nama_pegawai: emp.nama_lengkap || emp.nama,
+      unit_kerja: emp.unit_es_ii || emp.unit_es_iii || emp.unit || '',
+      unit_es_ii: emp.unit_es_ii || emp.unit || '',
+      unit: emp.unit_es_ii || emp.unit || '',
+      fakultas: emp.unit_es_ii || emp.unit || '',
       jabatan: emp.jabatan || '',
       golongan: emp.golongan || '',
+      gol: emp.golongan || '',
       pangkat: emp.pangkat || '',
       tmp_lhr: emp.tmp_lhr || '',
+      tempat_lahir: emp.tmp_lhr || '',
       tgl_lhr: emp.tgl_lhr ? formatTanggalIndonesia(emp.tgl_lhr) : '',
+      tanggal_lahir: emp.tgl_lhr ? formatTanggalIndonesia(emp.tgl_lhr) : '',
       tmt_pengangkatan: emp.tmt_pengangkatan ? formatTanggalIndonesia(emp.tmt_pengangkatan) : '',
+      tmt_cpns: emp.tmt_pengangkatan ? formatTanggalIndonesia(emp.tmt_pengangkatan) : '',
+      tmt_awal: emp.tmt_pengangkatan ? formatTanggalIndonesia(emp.tmt_pengangkatan) : '',
       tmt_pensiun_bup: emp.tmt_pensiun_bup ? formatTanggalIndonesia(emp.tmt_pensiun_bup) : '',
       status_kepegawaian: emp.status_kepegawaian || '',
+      status: emp.status_kepegawaian || '',
+      gaji_pokok: emp.gaji_pokok ? formatRupiahFull(emp.gaji_pokok) : '',
+      gaji: emp.gaji_pokok ? formatRupiahFull(emp.gaji_pokok) : '',
       jenis_pensiun: jenisPensiun,
-      nomor_sk: formData.nomor_sk || formData.no_sk || formData.sk_nomor || formData.nomor || '',
-      no_sk: formData.nomor_sk || formData.no_sk || formData.sk_nomor || formData.nomor || '',
-      nomor: formData.nomor_sk || formData.no_sk || formData.sk_nomor || formData.nomor || '',
-      sk_nomor: formData.nomor_sk || formData.no_sk || formData.sk_nomor || formData.nomor || '',
+
+      // Nomor SK & Aliases
+      nomor_sk: nomorSkVal,
+      no_sk: nomorSkVal,
+      nomor: nomorSkVal,
+      sk_nomor: nomorSkVal,
+
+      // TMT Pensiun Efektif & Aliases
+      tmt_pensiun_efektif: tmtPensiunEfektifVal,
+      tmt_sk_efektif: tmtPensiunEfektifVal,
+      tmt_pensiun: tmtPensiunEfektifVal,
+      tmt_efektif: tmtPensiunEfektifVal,
+
+      // Alasan Pensiun & Aliases
+      alasan_pensiun: alasanPensiunVal,
+      alasan: alasanPensiunVal,
+      alasan_berhenti: alasanPensiunVal,
+      keterangan_pensiun: alasanPensiunVal,
+
+      // Nomor Surat Usul & Aliases
+      nomor_surat_usul: nomorSuratUsulVal,
+      no_surat_usul: nomorSuratUsulVal,
+      nomor_usul: nomorSuratUsulVal,
+      no_usul: nomorSuratUsulVal,
+      surat_usul_nomor: nomorSuratUsulVal,
+      no_surat_usulan: nomorSuratUsulVal,
+      nomor_surat: nomorSuratUsulVal,
+
+      // Tgl Surat Usul & Aliases
+      tgl_surat_usul: tglSuratUsulVal,
+      tanggal_surat_usul: tglSuratUsulVal,
+      tgl_usul: tglSuratUsulVal,
+      tanggal_usul: tglSuratUsulVal,
+      tgl_surat_usulan: tglSuratUsulVal,
+      tanggal_surat_usulan: tglSuratUsulVal,
+
+      // Nama Ttd Rektor & Aliases
+      nama_ttd_rektor: namaTtdRektorVal,
+      ttd_rektor: namaTtdRektorVal,
+      nama_rektor: namaTtdRektorVal,
+      rektor: namaTtdRektorVal,
+      penandatangan: namaTtdRektorVal,
+
+      // System dates
       today: tglSekarang,
       tanggal_sk: tglSekarang,
       tgl_sk: tglSekarang,
       tgl_buat: tglSekarang,
       tanggal_buat: tglSekarang,
       tgl_generate: tglSekarang,
-      ...formData
-    };
 
+      ...formattedFormData
+    };
 
     const isDpcp = String(tmpl.nama_layanan || tmpl.jenis_layanan || tmpl.nama || '').toUpperCase().includes('DPCP');
     const dataCtx = processDataCtxFormatting(rawDataCtx, isDpcp);
@@ -3645,6 +3768,27 @@ const methods = {
 
     if (!tmpl) return { success: true, placeholders: defaultFields };
 
+    const keys = new Set();
+    const IGNORE_KEYS = new Set([
+      'set', 'diff_years', 'diff_months', 'diff_days', 'terbilang', 'rupiah', 'tanggal',
+      'sum', 'num', 'bulan_ke_angka', 'today', 'tanggal_sk', 'tanggal_buat', 'tgl_buat', 'tgl_generate',
+      'if', 'else', 'true', 'false', 'null', 'and', 'or', 'not'
+    ]);
+
+    const extractKeysFromString = (str) => {
+      if (!str || typeof str !== 'string') return;
+      let clean = str.replace(/^\{+/, '').replace(/\}+$/, '').trim();
+      if (clean.includes('|')) clean = clean.split('|')[0].trim();
+      clean = clean.replace(/^[#^\/]/, '').trim();
+      const matches = clean.match(/[a-zA-Z_][a-zA-Z0-9_]*/g) || [];
+      matches.forEach(m => {
+        const lower = m.toLowerCase();
+        if (!IGNORE_KEYS.has(lower) && !/^\d+$/.test(m)) {
+          keys.add(m);
+        }
+      });
+    };
+
     // 1. Jika template berjenis DOCX di Supabase Storage
     if (tmpl.file_id && (tmpl.tipe === 'docx' || tmpl.file_id.endsWith('.docx'))) {
       try {
@@ -3653,7 +3797,6 @@ const methods = {
         const zip = new PizZip(buffer);
         
         const xmlFiles = Object.keys(zip.files).filter(fn => fn.startsWith('word/') && fn.endsWith('.xml'));
-        const keys = new Set();
 
         for (const fileName of xmlFiles) {
           const f = zip.file(fileName);
@@ -3670,20 +3813,7 @@ const methods = {
           const text = decodeXmlEntities(docXml.replace(/<[^>]+>/g, ''));
           const rawTags = text.match(/\{+[^{}]+\}+/g) || [];
 
-          rawTags.forEach(raw => {
-            let inner = raw.replace(/^\{+/, '').replace(/\}+$/, '').trim();
-            if (inner.includes('|')) inner = inner.split('|')[0].trim();
-            if (inner.includes('(')) {
-              const m = inner.match(/([a-zA-Z0-9_]+)\s*\(/);
-              if (m) inner = m[1];
-            }
-            inner = inner.replace(/^[#^\/]/, '').trim();
-            if (/^set\s+/i.test(inner)) return;
-            const mKey = inner.match(/^[a-zA-Z_][a-zA-Z0-9_]*/);
-            if (mKey && mKey[0] && !['today', 'tanggal_sk', 'tanggal_buat', 'tgl_buat'].includes(mKey[0])) {
-              keys.add(mKey[0]);
-            }
-          });
+          rawTags.forEach(raw => extractKeysFromString(raw));
         }
 
         if (keys.size > 0) {
@@ -3712,16 +3842,27 @@ const methods = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             method: 'scanTemplateFormulas',
-            params: [shortId, { sourceType: 'gdrive', fileId: cleanFileId }],
+            params: [shortId, { sourceType: 'gdrive', driveUrl: cleanFileId }],
             remoteSession
           })
         });
 
         const gasRes = await response.json();
-        if (gasRes && gasRes.success) {
-          const gasPlaceholders = gasRes.placeholders || gasRes.tags || (gasRes.formulas ? gasRes.formulas.map(f => f.tag || f.key || f) : []);
-          if (gasPlaceholders && gasPlaceholders.length > 0) {
-            return { success: true, placeholders: gasPlaceholders };
+        if (gasRes) {
+          const rawList = [
+            ...(gasRes.tagNilai || []),
+            ...(gasRes.tagSetVariable || []),
+            ...(gasRes.tagDropdown || []),
+            ...(gasRes.placeholders || []),
+            ...(gasRes.tags || [])
+          ];
+          if (gasRes.formulas && Array.isArray(gasRes.formulas)) {
+            gasRes.formulas.forEach(f => rawList.push(typeof f === 'string' ? f : (f.tag || f.key || '')));
+          }
+          rawList.forEach(item => extractKeysFromString(item));
+
+          if (keys.size > 0) {
+            return { success: true, placeholders: Array.from(keys) };
           }
         }
       } catch (errGas) {
