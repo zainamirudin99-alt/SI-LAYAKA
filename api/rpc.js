@@ -358,20 +358,33 @@ async function downloadTemplateBuffer(fileIdOrUrl) {
 
 function enforceDocxFont(zip, fontName) {
   if (!zip || !fontName) return;
-  const filesToUpdate = ['word/document.xml', 'word/styles.xml'];
-  for (const fileName of filesToUpdate) {
+
+  const fontXmlTag = `<w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}" w:cs="${fontName}" w:eastAsia="${fontName}"/>`;
+  const targetFiles = Object.keys(zip.files).filter(fn => fn.startsWith('word/') && fn.endsWith('.xml'));
+
+  for (const fileName of targetFiles) {
     const file = zip.file(fileName);
     if (!file) continue;
     let xml = file.asText();
 
-    xml = xml.replace(/w:ascii="[^"]*"/gi, `w:ascii="${fontName}"`);
-    xml = xml.replace(/w:hAnsi="[^"]*"/gi, `w:hAnsi="${fontName}"`);
-    xml = xml.replace(/w:cs="[^"]*"/gi, `w:cs="${fontName}"`);
-    xml = xml.replace(/w:eastAsia="[^"]*"/gi, `w:eastAsia="${fontName}"`);
+    // 1. Remove theme font attributes so Word uses explicit font family
+    xml = xml.replace(/w:asciiTheme="[^"]*"/gi, '');
+    xml = xml.replace(/w:hAnsiTheme="[^"]*"/gi, '');
+    xml = xml.replace(/w:cstheme="[^"]*"/gi, '');
+    xml = xml.replace(/w:eastAsiaTheme="[^"]*"/gi, '');
+
+    // 2. Replace existing <w:rFonts ... /> elements
+    if (/<w:rFonts\b/i.test(xml)) {
+      xml = xml.replace(/<w:rFonts\b[^>]*\/?>/gi, fontXmlTag);
+    }
+
+    // 3. Inject <w:rFonts ... /> into <w:rPr> tags if not present
+    xml = xml.replace(/(<w:rPr\b[^>]*>)(?![\s\S]*?<w:rFonts)/gi, `$1${fontXmlTag}`);
 
     zip.file(fileName, xml);
   }
 }
+
 
 function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old Style') {
   const PizZip = require('pizzip');
