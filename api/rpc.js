@@ -29,7 +29,34 @@ function getDb() {
   if (supabase) return supabase;
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || '';
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-  if (!url || !key) throw new Error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY belum diset di Vercel env vars!');
+  if (!url || !key) {
+    console.warn('[rpc getDb] SUPABASE_URL atau SUPABASE_SERVICE_ROLE_KEY belum diset di Vercel environment variables.');
+    return {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: null, error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') }),
+            order: async () => ({ data: [], error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') })
+          }),
+          or: () => ({
+            order: async () => ({ data: [], error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') })
+          }),
+          maybeSingle: async () => ({ data: null, error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') }),
+          order: async () => ({ data: [], error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') })
+        }),
+        insert: async () => ({ error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') }),
+        update: () => ({ eq: async () => ({ error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') }) }),
+        delete: () => ({ eq: async () => ({ error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') }) })
+      }),
+      storage: {
+        from: () => ({
+          upload: async () => ({ error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') }),
+          getPublicUrl: () => ({ data: { publicUrl: '' } }),
+          download: async () => ({ data: null, error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') })
+        })
+      }
+    };
+  }
   supabase = createClient(url, key);
   return supabase;
 }
@@ -5398,4 +5425,5 @@ module.exports = async (req, res) => {
     res.status(200).json({ success: false, message: topErr.message || 'Terjadi kesalahan server.' });
   }
 };
+module.exports.default = module.exports;
 
