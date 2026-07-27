@@ -458,13 +458,37 @@ function enforceDocxFont(zip, fontName) {
   }
 }
 
+function cleanWordXmlParagraphBraces(xml) {
+  if (!xml) return '';
+  return xml.replace(/<w:p\b[^>]*>([\s\S]*?)<\/w:p>/gi, (pMatch, pBody) => {
+    if (!pBody.includes('{') || !pBody.includes('}')) return pMatch;
+
+    // Bersihkan tag XML internal di dalam kurung kurawal HANYA di dalam paragraf yang sama
+    const cleanedBody = pBody.replace(/\{([^{}]+)\}/g, (match, content) => {
+      const cleanContent = content.replace(/<[^>]+>/g, '').trim();
+      return `{${cleanContent}}`;
+    });
+
+    return pMatch.replace(pBody, cleanedBody);
+  });
+}
+
 function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old Style') {
   const PizZip = require('pizzip');
   const Docxtemplater = require('docxtemplater');
 
   const zip = new PizZip(templateBuffer);
-  const sanitizedData = {};
 
+  // Bersihkan pecahan XML run di dalam paragraf sebelum di-parse Docxtemplater
+  const xmlFiles = Object.keys(zip.files).filter(fn => fn.startsWith('word/') && fn.endsWith('.xml'));
+  for (const fileName of xmlFiles) {
+    const f = zip.file(fileName);
+    if (f) {
+      zip.file(fileName, cleanWordXmlParagraphBraces(f.asText()));
+    }
+  }
+
+  const sanitizedData = {};
   for (const [k, v] of Object.entries(dataCtx || {})) {
     let valStr = '';
     if (v !== null && v !== undefined) {
@@ -521,7 +545,6 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old S
     }
   }
 
-  // Pass 2: Jalankan direct regex replacement untuk memastikan placeholder yang terpecah XML tetap ter-generate 100%
   return replaceDocxPlaceholdersDirectly(renderedZip || zip, dataCtx, targetFont);
 }
 
@@ -556,18 +579,16 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = '
     if (!file) continue;
     let xml = file.asText();
 
+    // 1. Bersihkan pecahan tag XML di dalam kurung kurawal per paragraf
+    xml = cleanWordXmlParagraphBraces(xml);
+
+    // 2. Ganti presisi setiap placeholder {{ key }} atau { key }
     for (const [k, val] of Object.entries(fullData)) {
-      // 1. Ganti tag langsung {{k}} atau {k}
       const regDouble = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
       xml = xml.replace(regDouble, val);
+
       const regSingle = new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi');
       xml = xml.replace(regSingle, val);
-
-      // 2. Ganti tag yang terpecah oleh XML run tags internal di Word
-      const regSplitDouble = new RegExp(`\\{\\{[\\s\\S]*?${k}[\\s\\S]*?\\}\\}`, 'gi');
-      xml = xml.replace(regSplitDouble, val);
-      const regSplitSingle = new RegExp(`\\{[\\s\\S]*?${k}[\\s\\S]*?\\}`, 'gi');
-      xml = xml.replace(regSplitSingle, val);
     }
 
     zip.file(fileName, xml);
@@ -582,6 +603,7 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = '
   }
   return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
+
 
 
 
