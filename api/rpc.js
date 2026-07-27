@@ -3625,8 +3625,7 @@ const methods = {
     }
 
     return { success: true, placeholders: defaultFields };
-  }
-,
+  },
 
   async scanTemplateFormulas([token, payload]) {
     verifyToken(token);
