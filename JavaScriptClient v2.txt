@@ -4338,15 +4338,7 @@ function bindKontrakForm() {
                 
                 const isDriver = String(r.jabatan || '').toLowerCase().includes('pengemudi');
                 const isMedis = isJabatanMedis(r.jabatan);
-                const simWrap = document.getElementById('kontrakUser_simWrap');
-                const strWrap = document.getElementById('kontrakUser_strWrap');
-                if (simWrap) simWrap.style.display = isDriver ? 'block' : 'none';
-                if (strWrap) strWrap.style.display = isMedis ? 'block' : 'none';
-              });
-              userSearchList.appendChild(item);
-            });
-            userSearchList.style.display = 'block';
-          })
+          .withSuccessHandler(renderKontrakSearchResults_)
           .searchEmployees(SESSION.token, q);
       }, 300);
     });
@@ -4362,8 +4354,11 @@ function bindKontrakForm() {
   document.getElementById('kontrak_generateBtn').addEventListener('click', () => runKontrakPreviewGenerate('generate'));
 
   google.script.run
-    .withSuccessHandler(opts => { kontrakFormOptionsCache = opts; })
-    .withFailureHandler(err => showToast('error', 'Gagal memuat opsi Kontrak: ' + (err.message || err)))
+    .withSuccessHandler(opts => {
+      if (opts && typeof opts === 'object' && opts.jangkaWaktuBulan) {
+        kontrakFormOptionsCache = opts;
+      }
+    })
     .getKontrakFormOptions();
 }
 

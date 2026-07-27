@@ -2020,6 +2020,7 @@ const methods = {
     const daftarTahun = [];
     for (let t = tahunSekarang - 1; t <= tahunSekarang + 3; t++) daftarTahun.push(t);
     return {
+      success: true,
       jangkaWaktuBulan: [1,2,3,4,5,6,7,8,9,10,11,12],
       bulan:            CONFIG.BULAN_LIST,
       tahun:            daftarTahun,
