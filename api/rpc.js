@@ -3669,7 +3669,7 @@ const methods = {
           const rawTags = text.match(/\{+[^{}]+\}+/g) || [];
 
           rawTags.forEach(raw => {
-            let inner = raw.replace(/^\{+/, '').replace(/\}$+/, '').trim();
+            let inner = raw.replace(/^\{+/, '').replace(/\}+$/, '').trim();
             if (inner.includes('|')) inner = inner.split('|')[0].trim();
             if (inner.includes('(')) {
               const m = inner.match(/([a-zA-Z0-9_]+)\s*\(/);
