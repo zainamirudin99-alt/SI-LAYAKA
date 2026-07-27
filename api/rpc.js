@@ -431,40 +431,43 @@ function processDataCtxFormatting(dataCtx, isDpcp = false) {
 }
 
 
-function enforceDocxFont(zip, fontName) {
+function enforceDocxFont(zip, fontName = 'Bookman Old Style') {
   if (!zip || !fontName) return;
 
   const fontXmlTag = `<w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}" w:cs="${fontName}"/>`;
-  
-  // HANYA perbarui berkas dokumen, header, footer, dan styles secara terbatas. JANGAN sentuh fontTable/settings/theme!
-  const targetFiles = Object.keys(zip.files).filter(fn => 
-    fn === 'word/document.xml' || 
-    fn === 'word/styles.xml' || 
-    (fn.startsWith('word/header') && fn.endsWith('.xml')) || 
-    (fn.startsWith('word/footer') && fn.endsWith('.xml'))
-  );
 
-  for (const fileName of targetFiles) {
-    const file = zip.file(fileName);
-    if (!file) continue;
-    let xml = file.asText();
+  // 1. Terapkan font pada word/styles.xml (default document style)
+  const stylesFile = zip.file('word/styles.xml');
+  if (stylesFile) {
+    let xml = stylesFile.asText();
 
-    // 1. Bersihkan w:asciiTheme, w:hAnsiTheme, w:eastAsiaTheme, w:eastAsia agar Word tidak mencoba memuat font CJK/Asia (penyebab Word lambat)
     xml = xml.replace(/w:asciiTheme="[^"]*"/gi, '');
     xml = xml.replace(/w:hAnsiTheme="[^"]*"/gi, '');
     xml = xml.replace(/w:cstheme="[^"]*"/gi, '');
     xml = xml.replace(/w:eastAsiaTheme="[^"]*"/gi, '');
     xml = xml.replace(/w:eastAsia="[^"]*"/gi, '');
 
-    // 2. Ganti elemen <w:rFonts ... /> dengan font eksplisit Western secara presisi
     if (/<w:rFonts\b/i.test(xml)) {
       xml = xml.replace(/<w:rFonts\b[^>]*\/>/gi, fontXmlTag);
-      xml = xml.replace(/<w:rFonts\b[^>]*>.*?<\/w:rFonts>/gi, fontXmlTag);
+    } else if (/<w:rPrDefault>/i.test(xml)) {
+      xml = xml.replace(/<w:rPrDefault>/i, `<w:rPrDefault><w:rPr>${fontXmlTag}</w:rPr>`);
     }
 
-    zip.file(fileName, xml);
+    zip.file('word/styles.xml', xml);
+  }
+
+  // 2. Bersihkan atribut w:eastAsia di word/document.xml agar Word tidak hang mencari font Asia/CJK
+  const docFile = zip.file('word/document.xml');
+  if (docFile) {
+    let xml = docFile.asText();
+    if (xml.includes('w:eastAsia')) {
+      xml = xml.replace(/w:eastAsia="[^"]*"/gi, '');
+      xml = xml.replace(/w:eastAsiaTheme="[^"]*"/gi, '');
+      zip.file('word/document.xml', xml);
+    }
   }
 }
+
 
 
 function cleanWordXmlParagraphBraces(xml) {
