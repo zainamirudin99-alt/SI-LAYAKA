@@ -3950,41 +3950,71 @@ function renderSkKpDynamicFormFields(placeholders) {
   fieldsDiv.innerHTML = html;
 
   // Event Listener Otomatisasi Perhitungan Masa Kerja & Gaji Pokok Baru
-  const tmtGolBaruInput = fieldsDiv.querySelector('[data-sk-field="tmt_gol_baru"]') ||
-                          fieldsDiv.querySelector('[data-sk-field="tmt_sk_efektif"]') ||
-                          fieldsDiv.querySelector('[data-sk-field="tmt_kp"]');
+  const doRecalc = () => {
+    // 1. Terapkan Golongan & Pangkat Baru jika belum diisi
+    const golBaruInput = fieldsDiv.querySelector('[data-sk-field="gol_baru"]') ||
+                         fieldsDiv.querySelector('[data-sk-field="golongan_baru"]');
+    const pangkatBaruInput = fieldsDiv.querySelector('[data-sk-field="pangkat_baru"]');
 
-  if (tmtGolBaruInput) {
-    const doRecalc = () => {
-      const tmtGolBaruVal = tmtGolBaruInput.value;
-      const tmtPengangkatanVal = emp.tmt_pengangkatan || '';
-      if (tmtGolBaruVal && tmtPengangkatanVal) {
-        const mk = hitungMasaKerjaClient(tmtPengangkatanVal, tmtGolBaruVal);
-        const setFieldValue = (fName, val) => {
-          const inp = fieldsDiv.querySelector(`[data-sk-field="${fName}"]`);
-          if (inp) inp.value = val;
-        };
-        setFieldValue('masa_kerja_baru_tahun', mk.tahun);
-        setFieldValue('masa_kerja_baru_bulan', mk.bulan);
-        setFieldValue('masa_kerja_baru', mk.text);
-        setFieldValue('masa_kerja', mk.text);
+    if (golBaruInput && (!golBaruInput.value || golBaruInput.value.trim() === '') && golBaru) {
+      golBaruInput.value = golBaru;
+    }
+    if (pangkatBaruInput && (!pangkatBaruInput.value || pangkatBaruInput.value.trim() === '') && pangkatBaru) {
+      pangkatBaruInput.value = pangkatBaru;
+    }
 
-        const currentGolBaruInput = fieldsDiv.querySelector('[data-sk-field="gol_baru"]') || fieldsDiv.querySelector('[data-sk-field="golongan_baru"]');
-        const targetGol = currentGolBaruInput ? currentGolBaruInput.value : golBaru;
-        const gajiNum = cariGajiPokokClient(targetGol, mk.tahun);
-        const gajiStr = formatRupiahFull(gajiNum);
+    const targetGol = (golBaruInput ? golBaruInput.value : golBaru) || golBaru;
 
-        setFieldValue('gaji_pokok_baru', gajiStr);
-        setFieldValue('gaji_pokok_baru_kp', gajiStr);
-        setFieldValue('gaji_pokok', gajiStr);
-      }
-    };
+    // 2. Cari Input TMT KP Baru (misal tmt_kp_baru, tmt_gol_baru, tmt_sk_efektif, tmt_kp)
+    const tmtKpBaruInput = fieldsDiv.querySelector('[data-sk-field="tmt_kp_baru"]') ||
+                           fieldsDiv.querySelector('[data-sk-field="tmt_gol_baru"]') ||
+                           fieldsDiv.querySelector('[data-sk-field="tmt_sk_efektif"]') ||
+                           fieldsDiv.querySelector('[data-sk-field="tmt_kp"]');
 
-    tmtGolBaruInput.addEventListener('change', doRecalc);
-    tmtGolBaruInput.addEventListener('input', doRecalc);
-    doRecalc();
-  }
+    const tmtKpBaruVal = tmtKpBaruInput ? tmtKpBaruInput.value : '';
+    const tmtPengangkatanVal = emp.tmt_pengangkatan || emp.tmt_cpns || '';
+
+    if (tmtKpBaruVal && tmtPengangkatanVal) {
+      const mk = hitungMasaKerjaClient(tmtPengangkatanVal, tmtKpBaruVal);
+
+      const setFieldValue = (fName, val) => {
+        const inp = fieldsDiv.querySelector(`[data-sk-field="${fName}"]`);
+        if (inp) inp.value = val;
+      };
+
+      // Populate Masa Kerja Baru
+      setFieldValue('masa_kerja_kp_baru_tahun', mk.tahun);
+      setFieldValue('masa_kerja_baru_tahun', mk.tahun);
+      setFieldValue('masa_kerja_tahun', mk.tahun);
+
+      setFieldValue('masa_kerja_kp_baru_bulan', mk.bulan);
+      setFieldValue('masa_kerja_baru_bulan', mk.bulan);
+      setFieldValue('masa_kerja_bulan', mk.bulan);
+
+      setFieldValue('masa_kerja_kp_baru', mk.text);
+      setFieldValue('masa_kerja_baru', mk.text);
+      setFieldValue('masa_kerja', mk.text);
+
+      // Populate Gaji Pokok Baru
+      const gajiNum = cariGajiPokokClient(targetGol, mk.tahun);
+      const gajiStr = formatRupiahFull(gajiNum);
+
+      setFieldValue('gaji_pokok_baru_kp', gajiStr);
+      setFieldValue('gaji_pokok_baru', gajiStr);
+      setFieldValue('gaji_pokok', gajiStr);
+    }
+  };
+
+  // Pasang listener pada seluruh elemen input
+  fieldsDiv.querySelectorAll('input').forEach(input => {
+    input.addEventListener('change', doRecalc);
+    input.addEventListener('input', doRecalc);
+  });
+
+  // Run initial calculation immediately
+  doRecalc();
 }
+
 
 
 function submitGenerateSkKpNonAsn() {
