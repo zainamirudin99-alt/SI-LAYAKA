@@ -27,11 +27,17 @@ function uuidv4() {
 let supabase = null;
 function getDb() {
   if (supabase) return supabase;
-  const url = process.env.SUPABASE_URL || '';
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || '';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
   if (!url || !key) throw new Error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY belum diset di Vercel env vars!');
   supabase = createClient(url, key);
   return supabase;
+}
+
+function extractArgs(args) {
+  if (!Array.isArray(args)) return [];
+  if (args.length === 1 && Array.isArray(args[0])) return args[0];
+  return args;
 }
 
 // Global in-memory cache for akses_kontrak_mandiri
@@ -1653,7 +1659,8 @@ const methods = {
   // ---- AUTH ----
 
 
-  async login([nip, password]) {
+  async login(args) {
+    const [nip, password] = extractArgs(args);
     if (!nip||!password) return {success:false,message:'NIP dan password wajib diisi.'};
     const emp = await findEmployeeByNip(nip);
     if (!emp) return {success:false,message:'NIP tidak ditemukan.'};
@@ -1664,7 +1671,8 @@ const methods = {
     return {success:true,message:'Login berhasil.',token,user:{nip:emp.nip,nama:emp.nama_lengkap||emp.nama,jabatan:emp.jabatan||'',status_kepegawaian:emp.status_kepegawaian||'',unitEsIi:emp.unit_es_ii||'',role,sub_role}};
   },
 
-  async register([nama, nipInput, unitKerja]) {
+  async register(args) {
+    const [nama, nipInput, unitKerja] = extractArgs(args);
     const namaTrim=String(nama||'').trim(),nipTrim=String(nipInput||'').trim(),unitTrim=String(unitKerja||'').trim();
     if (!namaTrim||!nipTrim||!unitTrim) return {success:false,message:'Nama, NIP, dan Unit Kerja wajib diisi.'};
     if (nipTrim.replace(/\D/g,'').length<CONFIG.PASSWORD_DIGIT_LENGTH) return {success:false,message:`NIP harus berisi minimal ${CONFIG.PASSWORD_DIGIT_LENGTH} digit angka.`};
@@ -1681,13 +1689,14 @@ const methods = {
     return {success:true,message:`Registrasi berhasil. Password Anda: ${pw} (${CONFIG.PASSWORD_DIGIT_LENGTH} digit pertama NIP).`,token,user:{nip:emp.nip,nama:emp.nama_lengkap||emp.nama,jabatan:'',status_kepegawaian:'',unitEsIi:emp.unit_es_ii||unitTrim,role}};
   },
 
-  async logout([token]) {
+  async logout(args) {
     // Stateless JWT — tidak ada yang perlu dihapus di server
     return {success:true};
   },
 
-  async validateSession([token]) {
+  async validateSession(args) {
     try {
+      const [token] = extractArgs(args);
       const decoded=verifyToken(token);
       const db=getDb();
       const { role, sub_role } = await getUserRole(decoded.nip);
