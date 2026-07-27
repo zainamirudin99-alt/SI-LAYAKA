@@ -611,8 +611,10 @@ function injectDocxImage(zip, dataCtx) {
   let photoDataUrl = '';
   let photoKey = '';
   for (const [k, v] of Object.entries(dataCtx)) {
-    if (typeof v === 'string' && v.startsWith('data:image/')) {
-      photoDataUrl = v;
+    if (!v) continue;
+    const vStr = String(v).trim();
+    if (vStr.startsWith('data:image/') || vStr.includes('base64,')) {
+      photoDataUrl = vStr;
       photoKey = k;
       break;
     }
@@ -635,13 +637,16 @@ function injectDocxImage(zip, dataCtx) {
   }
 
   try {
-    const matches = photoDataUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+    // Bersihkan karakter baris baru (\r, \n, spasi) dari string base64
+    const cleanDataUrl = photoDataUrl.replace(/[\r\n\s]+/g, '');
+    const matches = cleanDataUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
     if (!matches) return;
 
     let ext = matches[1].toLowerCase();
     if (ext === 'jpeg') ext = 'jpg';
     const base64Data = matches[2];
     const imageBuffer = Buffer.from(base64Data, 'base64');
+
 
     const imageFileName = `word/media/foto_pegawai.${ext}`;
     zip.file(imageFileName, imageBuffer);
@@ -3532,19 +3537,26 @@ const methods = {
     const defaultFields = [
       'nip', 'nama_lengkap', 'unit_es_ii', 'jabatan', 'golongan', 'pangkat',
       'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan', 'tmt_pensiun_bup', 'status_kepegawaian',
-      'nomor_sk', 'tmt_pensiun_efektif', 'alasan_pensiun', 'nomor_surat_usul', 'tgl_surat_usul', 'nama_ttd_rektor'
+      'nomor_sk', 'foto', 'tmt_pensiun_efektif', 'alasan_pensiun', 'nomor_surat_usul', 'tgl_surat_usul', 'nama_ttd_rektor'
     ];
 
     if (!tmpl) return { success: true, placeholders: defaultFields };
 
-    if (tmpl.tipe === 'docx' && tmpl.file_id) {
+    // 1. Jika template berjenis DOCX di Supabase Storage
+    if (tmpl.file_id && (tmpl.tipe === 'docx' || tmpl.file_id.endsWith('.docx'))) {
       try {
         const PizZip = require('pizzip');
         const buffer = await downloadTemplateBuffer(tmpl.file_id);
         const zip = new PizZip(buffer);
-        const docFile = zip.file('word/document.xml');
-        if (docFile) {
-          const docXml = docFile.asText();
+        
+        const xmlFiles = Object.keys(zip.files).filter(fn => fn.startsWith('word/') && fn.endsWith('.xml'));
+        const keys = new Set();
+
+        for (const fileName of xmlFiles) {
+          const f = zip.file(fileName);
+          if (!f) continue;
+          let docXml = cleanWordXmlParagraphBraces(f.asText());
+
           const decodeXmlEntities = str => str
             .replace(/&amp;/g, '&')
             .replace(/&lt;/g, '<')
@@ -3552,13 +3564,11 @@ const methods = {
             .replace(/&quot;/g, '"')
             .replace(/&apos;/g, "'");
 
-          const xmlToPlainText = xml => decodeXmlEntities(xml.replace(/<[^>]+>/g, ''));
-          const text = xmlToPlainText(docXml);
-          const rawTags = text.match(/\{\{[^{}]+\}\}/g) || [];
-          const keys = new Set();
+          const text = decodeXmlEntities(docXml.replace(/<[^>]+>/g, ''));
+          const rawTags = text.match(/\{+[^{}]+\}+/g) || [];
 
           rawTags.forEach(raw => {
-            let inner = raw.slice(2, -2).trim();
+            let inner = raw.replace(/^\{+/, '').replace(/\}$+/, '').trim();
             if (inner.includes('|')) inner = inner.split('|')[0].trim();
             if (inner.includes('(')) {
               const m = inner.match(/([a-zA-Z0-9_]+)\s*\(/);
@@ -3567,22 +3577,56 @@ const methods = {
             inner = inner.replace(/^[#^\/]/, '').trim();
             if (/^set\s+/i.test(inner)) return;
             const mKey = inner.match(/^[a-zA-Z_][a-zA-Z0-9_]*/);
-            if (mKey && mKey[0] && !['today', 'tanggal_sk'].includes(mKey[0])) {
+            if (mKey && mKey[0] && !['today', 'tanggal_sk', 'tanggal_buat', 'tgl_buat'].includes(mKey[0])) {
               keys.add(mKey[0]);
             }
           });
+        }
 
-          if (keys.size > 0) {
-            return { success: true, placeholders: Array.from(keys) };
-          }
+        if (keys.size > 0) {
+          return { success: true, placeholders: Array.from(keys) };
         }
       } catch (err) {
         console.warn('[rpc getTemplatePlaceholders] Gagal scan template DOCX:', err.message);
       }
     }
 
+    // 2. Jika template berjenis GDOCS / GDrive
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (gasUrl && tmpl.file_id) {
+      try {
+        const decoded = verifyToken(token);
+        const shortId = uuidv4();
+        const remoteSession = {
+          id: shortId,
+          data: { nip: decoded.nip || '', role: decoded.role || 'normal' }
+        };
+
+        const response = await fetch(gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            method: 'scanTemplateFormulas',
+            params: [shortId, { sourceType: 'gdrive', fileId: tmpl.file_id }],
+            remoteSession
+          })
+        });
+
+        const gasRes = await response.json();
+        if (gasRes && gasRes.success) {
+          const gasPlaceholders = gasRes.placeholders || gasRes.tags || (gasRes.formulas ? gasRes.formulas.map(f => f.tag || f.key || f) : []);
+          if (gasPlaceholders && gasPlaceholders.length > 0) {
+            return { success: true, placeholders: gasPlaceholders };
+          }
+        }
+      } catch (errGas) {
+        console.warn('[rpc getTemplatePlaceholders] Gagal scan template GDOCS via GAS:', errGas.message);
+      }
+    }
+
     return { success: true, placeholders: defaultFields };
-  },
+  }
+,
 
   async scanTemplateFormulas([token, payload]) {
     verifyToken(token);
