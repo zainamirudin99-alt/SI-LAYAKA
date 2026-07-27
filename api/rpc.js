@@ -3088,16 +3088,6 @@ const methods = {
       console.warn('[generateSkPensiunNonAsn] DOCX rendering fallback to GDocs:', errDocx.message);
     }
 
-        base64: renderedBuffer.toString('base64'),
-        fileName: `SK_Pensiun_Non_ASN_${emp.nip}_${jenisPensiun}.docx`,
-        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        message: 'SK Pensiun Pegawai Undip Non ASN berhasil diterbitkan.'
-      };
-      isDocxProcessed = true;
-    } catch (errDocx) {
-      console.warn('[generateSkPensiunNonAsn] DOCX rendering fallback to GDocs:', errDocx.message);
-    }
-
     if (!isDocxProcessed) {
       const gasUrl = process.env.GOOGLE_SCRIPT_URL;
       if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi untuk GDocs template.' };
