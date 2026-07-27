@@ -356,27 +356,6 @@ async function downloadTemplateBuffer(fileIdOrUrl) {
   return Buffer.from(arrayBuffer);
 }
 
-function cleanWordXmlRunSplits(xml) {
-  if (!xml) return '';
-  let cleaned = xml;
-
-  // 1. Gabungkan kurung kurawal pembuka/penutup yang terpisah akibat XML run splits di Word
-  let prev = '';
-  while (prev !== cleaned) {
-    prev = cleaned;
-    cleaned = cleaned.replace(/(<w:t[^>]*>)([^<]*?)\{<\/w:t>(?:<[^>]+>)*?<w:t[^>]*>\{([^<]*?<\/w:t>)/gi, '$1$2{{$3');
-    cleaned = cleaned.replace(/(<w:t[^>]*>)([^<]*?)\}<\/w:t>(?:<[^>]+>)*?<w:t[^>]*>\}([^<]*?<\/w:t>)/gi, '$1$2}}$3');
-  }
-
-  // 2. Bersihkan tag XML internal di dalam ekspresi {{ placeholder }}
-  cleaned = cleaned.replace(/\{\{([^{}]+?)\}\}/g, (match, tagContent) => {
-    const cleanTag = tagContent.replace(/<[^>]+>/g, '').trim();
-    return `{{${cleanTag}}}`;
-  });
-
-  return cleaned;
-}
-
 function escapeXmlText(str) {
   if (str === null || str === undefined) return '';
   return String(str)
@@ -398,155 +377,116 @@ function enforceDocxFont(zip, fontName) {
     if (!file) continue;
     let xml = file.asText();
 
-    // 1. Remove theme font attributes so Word uses explicit font family
+    // 1. Bersihkan w:asciiTheme & w:hAnsiTheme agar Word menggunakan font eksplisit
     xml = xml.replace(/w:asciiTheme="[^"]*"/gi, '');
     xml = xml.replace(/w:hAnsiTheme="[^"]*"/gi, '');
     xml = xml.replace(/w:cstheme="[^"]*"/gi, '');
     xml = xml.replace(/w:eastAsiaTheme="[^"]*"/gi, '');
 
-    // 2. Replace existing <w:rFonts ... /> elements
+    // 2. Ganti elemen <w:rFonts ... /> dengan font baru tanpa mengubah struktur XML
     if (/<w:rFonts\b/i.test(xml)) {
-      xml = xml.replace(/<w:rFonts\b[^>]*\/?>/gi, fontXmlTag);
+      xml = xml.replace(/<w:rFonts\b[^>]*\/>/gi, fontXmlTag);
+      xml = xml.replace(/<w:rFonts\b[^>]*>.*?<\/w:rFonts>/gi, fontXmlTag);
     }
-
-    // 3. Safely inject <w:rFonts ... /> into <w:rPr> tags that don't have <w:rFonts>
-    xml = xml.replace(/<w:rPr\b([^>]*)>([\s\S]*?)<\/w:rPr>/gi, (match, attrs, content) => {
-      if (!/<w:rFonts\b/i.test(content)) {
-        return `<w:rPr${attrs}>${fontXmlTag}${content}</w:rPr>`;
-      }
-      return match;
-    });
 
     zip.file(fileName, xml);
   }
 }
 
 function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old Style') {
+  const PizZip = require('pizzip');
+  const Docxtemplater = require('docxtemplater');
+
+  const zip = new PizZip(templateBuffer);
+  const sanitizedData = {};
+
+  for (const [k, v] of Object.entries(dataCtx || {})) {
+    if (v === null || v === undefined) {
+      sanitizedData[k] = '';
+    } else if (typeof v === 'string' && v.startsWith('data:image/')) {
+      sanitizedData[k] = ''; // Abaikan base64 Data URL dari tag teks agar XML tetap valid
+    } else if (typeof v === 'object') {
+      sanitizedData[k] = JSON.stringify(v);
+    } else {
+      sanitizedData[k] = String(v);
+    }
+  }
+
+  let renderedZip = null;
   try {
-    const PizZip = require('pizzip');
-    const Docxtemplater = require('docxtemplater');
-
-    const zip = new PizZip(templateBuffer);
-
-    // Bersihkan XML Run Splits pada document.xml & styles.xml sebelum di-parse Docxtemplater
-    try {
-      ['word/document.xml', 'word/styles.xml', 'word/header1.xml', 'word/footer1.xml'].forEach(fn => {
-        const f = zip.file(fn);
-        if (f) {
-          const cleaned = cleanWordXmlRunSplits(f.asText());
-          zip.file(fn, cleaned);
-        }
-      });
-    } catch (errClean) {
-      console.warn('XML run clean warning:', errClean);
-    }
-
-    const sanitizedData = {};
-    for (const [k, v] of Object.entries(dataCtx || {})) {
-      if (v === null || v === undefined) {
-        sanitizedData[k] = '';
-      } else if (typeof v === 'object') {
-        sanitizedData[k] = JSON.stringify(v);
-      } else {
-        sanitizedData[k] = String(v);
+    const doc = new Docxtemplater(zip, {
+      delimiters: { start: '{{', end: '}}' },
+      paragraphLoop: true,
+      linebreaks: true,
+      nullGetter(part) {
+        return sanitizedData[part.value] !== undefined ? sanitizedData[part.value] : '';
       }
-    }
-
-    let renderedZip = null;
+    });
+    doc.render(sanitizedData);
+    renderedZip = doc.getZip();
+  } catch (e1) {
     try {
-      const doc = new Docxtemplater(zip, {
-        delimiters: { start: '{{', end: '}}' },
+      const docSingle = new Docxtemplater(new PizZip(templateBuffer), {
+        delimiters: { start: '{', end: '}' },
         paragraphLoop: true,
         linebreaks: true,
         nullGetter(part) {
           return sanitizedData[part.value] !== undefined ? sanitizedData[part.value] : '';
         }
       });
-      doc.render(sanitizedData);
-      renderedZip = doc.getZip();
-    } catch (e1) {
-      try {
-        const docSingle = new Docxtemplater(new PizZip(templateBuffer), {
-          delimiters: { start: '{', end: '}' },
-          paragraphLoop: true,
-          linebreaks: true,
-          nullGetter(part) {
-            return sanitizedData[part.value] !== undefined ? sanitizedData[part.value] : '';
-          }
-        });
-        docSingle.render(sanitizedData);
-        renderedZip = docSingle.getZip();
-      } catch (e2) {
-        console.warn('Docxtemplater fallback to direct regex replacement:', e1.message || e1);
-        return replaceDocxPlaceholdersDirectly(templateBuffer, sanitizedData, targetFont);
-      }
+      docSingle.render(sanitizedData);
+      renderedZip = docSingle.getZip();
+    } catch (e2) {
+      console.warn('Docxtemplater fallback to direct regex replacement:', e1.message || e1);
+      return replaceDocxPlaceholdersDirectly(templateBuffer, sanitizedData, targetFont);
     }
-
-    if (renderedZip && targetFont) {
-      try {
-        enforceDocxFont(renderedZip, targetFont);
-      } catch (errFont) {
-        console.warn('Failed enforcing docx font:', errFont);
-      }
-    }
-
-    return renderedZip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
-  } catch (errTop) {
-    console.warn('Top-level docxRenderTemplate exception intercepted:', errTop);
-    return replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont);
   }
+
+  if (renderedZip && targetFont) {
+    try {
+      enforceDocxFont(renderedZip, targetFont);
+    } catch (errFont) {
+      console.warn('Failed enforcing docx font:', errFont);
+    }
+  }
+
+  return renderedZip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
 
 function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = 'Bookman Old Style') {
-  try {
-    const PizZip = require('pizzip');
-    const zip = new PizZip(templateBuffer);
-    let xml = zip.file('word/document.xml')?.asText() || '';
+  const PizZip = require('pizzip');
+  const zip = new PizZip(templateBuffer);
+  let xml = zip.file('word/document.xml')?.asText() || '';
 
-    // Clean Word XML run splits
-    xml = cleanWordXmlRunSplits(xml);
-
-    for (const [k, v] of Object.entries(dataCtx)) {
-      const val = escapeXmlText(v);
-      const regDouble = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
-      xml = xml.replace(regDouble, val);
-      const regSingle = new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi');
-      xml = xml.replace(regSingle, val);
+  const sanitizedData = {};
+  for (const [k, v] of Object.entries(dataCtx || {})) {
+    if (v === null || v === undefined) {
+      sanitizedData[k] = '';
+    } else if (typeof v === 'string' && v.startsWith('data:image/')) {
+      sanitizedData[k] = '';
+    } else {
+      sanitizedData[k] = escapeXmlText(String(v));
     }
-
-    // Fallback regex callback untuk tag {{key}} atau {key} yang mungkin belum terganti
-    xml = xml.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/gi, (match, key) => {
-      const k = key.toLowerCase();
-      for (const [dataKey, dataVal] of Object.entries(dataCtx)) {
-        if (dataKey.toLowerCase() === k) return escapeXmlText(dataVal);
-      }
-      return '';
-    });
-
-    xml = xml.replace(/\{\s*([a-zA-Z0-9_]+)\s*\}/gi, (match, key) => {
-      const k = key.toLowerCase();
-      for (const [dataKey, dataVal] of Object.entries(dataCtx)) {
-        if (dataKey.toLowerCase() === k) return escapeXmlText(dataVal);
-      }
-      return '';
-    });
-
-    zip.file('word/document.xml', xml);
-    if (targetFont) {
-      try {
-        enforceDocxFont(zip, targetFont);
-      } catch (errFont) {
-        console.warn('Failed enforcing docx font in direct replacement:', errFont);
-      }
-    }
-    return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
-  } catch (errDirect) {
-    console.error('replaceDocxPlaceholdersDirectly error:', errDirect);
-    const PizZip = require('pizzip');
-    const zip = new PizZip(templateBuffer);
-    return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
   }
+
+  for (const [k, val] of Object.entries(sanitizedData)) {
+    const regDouble = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
+    xml = xml.replace(regDouble, val);
+    const regSingle = new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi');
+    xml = xml.replace(regSingle, val);
+  }
+
+  zip.file('word/document.xml', xml);
+  if (targetFont) {
+    try {
+      enforceDocxFont(zip, targetFont);
+    } catch (errFont) {
+      console.warn('Failed enforcing docx font in direct replacement:', errFont);
+    }
+  }
+  return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
+
 
 
 
