@@ -5326,51 +5326,24 @@ function bindSkPensiunNonAsnForm() {
     btn.addEventListener('click', submitGenerateSkPensiunNonAsn);
   }
 
-  // Setup Autocomplete Manual Search
+  // Setup Real-time Autocomplete Manual Search via RPC searchEmployees
   const manualInput = document.getElementById('skNonAsn_manualInput');
   const manualList = document.getElementById('skNonAsn_manualList');
   const manualNip = document.getElementById('skNonAsn_manualNip');
   if (manualInput && manualList && manualNip) {
-    let debounceTimer = null;
-    manualInput.addEventListener('input', () => {
-      const q = manualInput.value.trim().toLowerCase();
-      clearTimeout(debounceTimer);
-      if (q.length < 2) { manualList.style.display = 'none'; return; }
-      debounceTimer = setTimeout(() => {
-        const matches = skNonAsnNonAsnEmployeesCache.filter(e => 
-          (e.nama_lengkap && e.nama_lengkap.toLowerCase().includes(q)) ||
-          (e.nama && e.nama.toLowerCase().includes(q)) ||
-          (e.nip && String(e.nip).toLowerCase().includes(q))
-        ).slice(0, 15);
-
-        manualList.innerHTML = '';
-        if (!matches.length) {
-          manualList.innerHTML = '<div style="padding:8px 12px; color:#64748b; font-size:12px;">Tidak ditemukan pegawai Non-ASN.</div>';
-          manualList.style.display = 'block';
-          return;
-        }
-
-        matches.forEach(r => {
-          const item = document.createElement('div');
-          item.className = 'autocomplete-item';
-          item.innerHTML = `<strong>${escapeHtml(r.nama_lengkap || r.nama)}</strong><br><small style="color:#64748b;">NIP: ${escapeHtml(r.nip)} &middot; ${escapeHtml(r.unit_es_ii || '')}</small>`;
-          item.addEventListener('click', () => {
-            manualInput.value = `${r.nama_lengkap || r.nama} (${r.nip})`;
-            manualNip.value = r.nip || '';
-            manualList.style.display = 'none';
-            skNonAsnSelectedEmployee = r;
-            onSkNonAsnFormChange();
-          });
-          manualList.appendChild(item);
-        });
-        manualList.style.display = 'block';
-      }, 250);
+    setupAutocompleteEl(manualInput, manualList, manualNip, (nip, nama) => {
+      google.script.run
+        .withSuccessHandler(emp => {
+          skNonAsnSelectedEmployee = emp;
+          onSkNonAsnFormChange();
+        })
+        .withFailureHandler(err => showToast('error', 'Gagal memuat data pegawai: ' + (err.message || err)))
+        .getEmployeeFullData(SESSION.token, nip);
     });
   }
 
-  // Pre-load data
+  // Pre-load data usulan
   loadSkNonAsnUsulanList();
-  loadSkNonAsnEmployeesList();
 }
 
 function toggleSkNonAsnSearchMode(mode) {
