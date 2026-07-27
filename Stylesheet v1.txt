@@ -719,13 +719,8 @@
     animation: neonFlicker 5s infinite;
   }
 
-  /* Enforcement font: Khusus untuk Buat SK font yang digunakan adalah Bookman Old Style, selain buat SK adalah Times New Roman */
-  body {
-    font-family: 'Times New Roman', Times, serif;
-  }
-
-  #tab-skPensiunNonAsn, #tab-siapSk,
-  #tab-skPensiunNonAsn *, #tab-siapSk * {
-    font-family: 'Bookman Old Style', 'Bookman', Georgia, serif !important;
+  /* Enforcement font: Seluruh UI antarmuka sistem menggunakan Times New Roman */
+  body, button, input, select, textarea, table {
+    font-family: 'Times New Roman', Times, serif !important;
   }
 </style>

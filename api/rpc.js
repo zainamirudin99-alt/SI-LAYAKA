@@ -356,7 +356,24 @@ async function downloadTemplateBuffer(fileIdOrUrl) {
   return Buffer.from(arrayBuffer);
 }
 
-function docxRenderTemplate(templateBuffer, dataCtx) {
+function enforceDocxFont(zip, fontName) {
+  if (!zip || !fontName) return;
+  const filesToUpdate = ['word/document.xml', 'word/styles.xml'];
+  for (const fileName of filesToUpdate) {
+    const file = zip.file(fileName);
+    if (!file) continue;
+    let xml = file.asText();
+
+    xml = xml.replace(/w:ascii="[^"]*"/gi, `w:ascii="${fontName}"`);
+    xml = xml.replace(/w:hAnsi="[^"]*"/gi, `w:hAnsi="${fontName}"`);
+    xml = xml.replace(/w:cs="[^"]*"/gi, `w:cs="${fontName}"`);
+    xml = xml.replace(/w:eastAsia="[^"]*"/gi, `w:eastAsia="${fontName}"`);
+
+    zip.file(fileName, xml);
+  }
+}
+
+function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old Style') {
   const PizZip = require('pizzip');
   const Docxtemplater = require('docxtemplater');
 
@@ -373,7 +390,7 @@ function docxRenderTemplate(templateBuffer, dataCtx) {
     }
   }
 
-  let renderedBuffer = null;
+  let renderedZip = null;
   try {
     const doc = new Docxtemplater(zip, {
       delimiters: { start: '{{', end: '}}' },
@@ -384,7 +401,7 @@ function docxRenderTemplate(templateBuffer, dataCtx) {
       }
     });
     doc.render(sanitizedData);
-    renderedBuffer = doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' });
+    renderedZip = doc.getZip();
   } catch (e1) {
     try {
       const docSingle = new Docxtemplater(new PizZip(templateBuffer), {
@@ -396,17 +413,21 @@ function docxRenderTemplate(templateBuffer, dataCtx) {
         }
       });
       docSingle.render(sanitizedData);
-      renderedBuffer = docSingle.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' });
+      renderedZip = docSingle.getZip();
     } catch (e2) {
       console.warn('Docxtemplater fallback to direct regex replacement:', e1.message);
-      renderedBuffer = replaceDocxPlaceholdersDirectly(templateBuffer, sanitizedData);
+      return replaceDocxPlaceholdersDirectly(templateBuffer, sanitizedData, targetFont);
     }
   }
 
-  return renderedBuffer;
+  if (renderedZip && targetFont) {
+    enforceDocxFont(renderedZip, targetFont);
+  }
+
+  return renderedZip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
 
-function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx) {
+function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = 'Bookman Old Style') {
   const PizZip = require('pizzip');
   const zip = new PizZip(templateBuffer);
   let xml = zip.file('word/document.xml')?.asText() || '';
@@ -420,8 +441,12 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx) {
   }
 
   zip.file('word/document.xml', xml);
+  if (targetFont) {
+    enforceDocxFont(zip, targetFont);
+  }
   return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
+
 
 // ================================================================
 // ELIGIBILITY HELPERS (dari EligibilityService.gs)
