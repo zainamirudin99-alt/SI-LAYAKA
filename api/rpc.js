@@ -401,15 +401,19 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old S
   const sanitizedData = {};
 
   for (const [k, v] of Object.entries(dataCtx || {})) {
-    if (v === null || v === undefined) {
-      sanitizedData[k] = '';
-    } else if (typeof v === 'string' && v.startsWith('data:image/')) {
-      sanitizedData[k] = ''; // Abaikan base64 Data URL dari tag teks agar XML tetap valid
-    } else if (typeof v === 'object') {
-      sanitizedData[k] = JSON.stringify(v);
-    } else {
-      sanitizedData[k] = String(v);
+    let valStr = '';
+    if (v !== null && v !== undefined) {
+      if (typeof v === 'string' && v.startsWith('data:image/')) {
+        valStr = ''; // Abaikan base64 Data URL dari tag teks agar XML tetap valid
+      } else if (typeof v === 'object') {
+        valStr = JSON.stringify(v);
+      } else {
+        valStr = String(v);
+      }
     }
+    sanitizedData[k] = valStr;
+    sanitizedData[k.toLowerCase()] = valStr;
+    sanitizedData[k.toUpperCase()] = valStr;
   }
 
   let renderedZip = null;
@@ -419,7 +423,12 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old S
       paragraphLoop: true,
       linebreaks: true,
       nullGetter(part) {
-        return sanitizedData[part.value] !== undefined ? sanitizedData[part.value] : '';
+        if (!part || !part.value) return '';
+        const key = String(part.value).trim();
+        if (sanitizedData[key] !== undefined) return sanitizedData[key];
+        if (sanitizedData[key.toLowerCase()] !== undefined) return sanitizedData[key.toLowerCase()];
+        if (sanitizedData[key.toUpperCase()] !== undefined) return sanitizedData[key.toUpperCase()];
+        return '';
       }
     });
     doc.render(sanitizedData);
@@ -431,7 +440,12 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old S
         paragraphLoop: true,
         linebreaks: true,
         nullGetter(part) {
-          return sanitizedData[part.value] !== undefined ? sanitizedData[part.value] : '';
+          if (!part || !part.value) return '';
+          const key = String(part.value).trim();
+          if (sanitizedData[key] !== undefined) return sanitizedData[key];
+          if (sanitizedData[key.toLowerCase()] !== undefined) return sanitizedData[key.toLowerCase()];
+          if (sanitizedData[key.toUpperCase()] !== undefined) return sanitizedData[key.toUpperCase()];
+          return '';
         }
       });
       docSingle.render(sanitizedData);
@@ -469,7 +483,14 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = '
     }
   }
 
-  for (const [k, val] of Object.entries(sanitizedData)) {
+  const fullData = {};
+  for (const [k, v] of Object.entries(sanitizedData)) {
+    fullData[k] = v;
+    fullData[k.toLowerCase()] = v;
+    fullData[k.toUpperCase()] = v;
+  }
+
+  for (const [k, val] of Object.entries(fullData)) {
     const regDouble = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
     xml = xml.replace(regDouble, val);
     const regSingle = new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi');
@@ -486,6 +507,7 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = '
   }
   return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
+
 
 
 
