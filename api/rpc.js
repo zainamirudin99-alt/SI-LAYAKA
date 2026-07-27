@@ -5280,7 +5280,7 @@ function extractDriveFileId(url) {
 // MAIN HANDLER — Vercel Serverless Entry Point
 // ================================================================
 // ================================================================
-module.exports = async (req, res) => {
+module.exports = async function handler(req, res) {
   try {
     if (res && typeof res.setHeader === 'function') {
       res.setHeader('Access-Control-Allow-Origin', '*');
@@ -5425,5 +5425,4 @@ module.exports = async (req, res) => {
     res.status(200).json({ success: false, message: topErr.message || 'Terjadi kesalahan server.' });
   }
 };
-module.exports.default = module.exports;
 
