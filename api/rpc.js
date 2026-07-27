@@ -5163,34 +5163,44 @@ function extractDriveFileId(url) {
 // ================================================================
 // MAIN HANDLER — Vercel Serverless Entry Point
 // ================================================================
+// ================================================================
 module.exports = async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') { res.status(200).end(); return; }
-  if (req.method !== 'POST') { res.status(405).json({error:'Method not allowed'}); return; }
-
-  let body;
   try {
-    body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-  } catch {
-    res.status(400).json({error:'Invalid JSON body'}); return;
-  }
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  const { method, params=[] } = body||{};
-  if (!method) { res.status(400).json({error:'method wajib diisi'}); return; }
+    if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
-  const fn = methods[method];
-  if (!fn) {
+    let body;
+    try {
+      body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    } catch {
+      res.status(400).json({ error: 'Invalid JSON body' }); return;
+    }
+
+    const { method } = body || {};
+    if (!method) { res.status(400).json({ error: 'method wajib diisi' }); return; }
+
+    const rawParams = body ? body.params : [];
+    const params = Array.isArray(rawParams) ? rawParams : (rawParams !== undefined && rawParams !== null ? [rawParams] : []);
+
+    const fn = methods[method];
+    if (fn) {
+      try {
+        const result = await fn(params);
+        res.status(200).json(result !== undefined && result !== null ? result : { success: true });
+      } catch (fnErr) {
+        console.error(`[rpc] ${method} ERROR:`, fnErr.stack || fnErr.message);
+        res.status(200).json({ success: false, message: fnErr.message || 'Terjadi kesalahan server.' });
+      }
+      return;
+    }
+
     const gasUrl = process.env.GOOGLE_SCRIPT_URL;
     if (gasUrl) {
       try {
-        // ─── JWT → UUID session injection ────────────────────────────────
-        // Google Apps Script's CacheService has a 250-char KEY limit.
-        // JWT tokens are ~300 chars, so we must replace params[0] (the JWT)
-        // with a short UUID and send the decoded user data as `remoteSession`
-        // so that Apps Script can inject it into its CacheService on the fly.
         let proxiedParams = params.slice(); // shallow copy
         
         // Resolve GDocs template UUID to real Google Drive file ID if passed to Apps Script
@@ -5227,10 +5237,9 @@ module.exports = async (req, res) => {
 
         const firstParam = proxiedParams[0];
         if (firstParam && typeof firstParam === 'string' && firstParam.split('.').length === 3) {
-          // Looks like a JWT — try to verify it
           try {
             const decoded = jwt.verify(firstParam, JWT_SECRET);
-            const shortId = uuidv4(); // short UUID (~36 chars) safe as CacheService key
+            const shortId = uuidv4();
             remoteSession = {
               id: shortId,
               data: {
@@ -5242,23 +5251,28 @@ module.exports = async (req, res) => {
                 role:               decoded.role              || 'normal'
               }
             };
-            proxiedParams[0] = shortId; // replace long JWT with short UUID
+            proxiedParams[0] = shortId;
           } catch (jwtErr) {
-            // Not a valid JWT or wrong secret — forward as-is and let Apps Script
-            // return its own "sesi tidak valid" error gracefully.
             console.warn(`[rpc proxy] JWT decode failed for method=${method}:`, jwtErr.message);
           }
         }
-        // ─────────────────────────────────────────────────────────────────
 
         const response = await fetch(gasUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ method, params: proxiedParams, remoteSession })
         });
-        const result = await response.json();
-        
-        // Post-processing: Jika generateDocument sukses via GAS, sinkronkan status usulan ke Supabase
+
+        let result;
+        try {
+          result = await response.json();
+        } catch (jsonErr) {
+          const textResp = await response.text().catch(() => '');
+          console.error(`[rpc proxy] ${method} returned non-JSON from GAS:`, textResp);
+          res.status(200).json({ success: false, message: `Gagal membaca respons dari Google Apps Script.` });
+          return;
+        }
+
         if (result && result.success && method === 'generateDocument') {
           const payload = params[1];
           if (payload && payload.layanan === 'Kenaikan Pangkat' && payload.entries) {
@@ -5281,15 +5295,10 @@ module.exports = async (req, res) => {
         return;
       }
     }
-    res.status(200).json({ success: false, message: `Method "${method}" tidak ditemukan` });
-    return;
-  }
 
-  try {
-    const result = await fn(params);
-    res.status(200).json(result);
-  } catch(err) {
-    console.error(`[rpc] ${method} ERROR:`, err.message);
-    res.status(200).json({success:false, message: err.message || 'Terjadi kesalahan server.'});
+    res.status(200).json({ success: false, message: `Method "${method}" tidak ditemukan` });
+  } catch (topErr) {
+    console.error('[rpc top-level ERROR]:', topErr);
+    res.status(200).json({ success: false, message: topErr.message || 'Terjadi kesalahan server.' });
   }
 };
