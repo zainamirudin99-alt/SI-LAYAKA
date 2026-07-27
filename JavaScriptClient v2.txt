@@ -3480,6 +3480,18 @@ function onSelectSkNonAsnUsulan() {
   }
 }
 
+function onJenisPensiunChangeSkNonAsn() {
+  const jenis = document.getElementById('skNonAsn_jenisPensiun')?.value || '';
+  let subMenuTarget = 'Buat SK Pensiun Pegawai Undip Non ASN';
+  if (jenis === 'BUP') subMenuTarget = 'SK Pensiun BUP Pegawai Undip Non ASN';
+  else if (jenis === 'Meninggal') subMenuTarget = 'SK Pensiun Meninggal Pegawai Undip Non ASN';
+  else if (jenis === 'Uzur') subMenuTarget = 'SK Pensiun Uzur Pegawai Undip Non ASN';
+  else if (jenis === 'Undur Diri') subMenuTarget = 'SK Pensiun Undur Diri Pegawai Undip Non ASN';
+
+  loadServiceTemplates('Pensiun', subMenuTarget, 'skNonAsn_templateSelect');
+  onSkNonAsnFormChange();
+}
+
 function onSelectSkNonAsnTemplate() {
   onSkNonAsnFormChange();
 }

@@ -627,7 +627,7 @@
               <!-- Jenis Pensiun -->
               <div class="stack-field" style="margin-bottom:16px;">
                 <label style="font-weight:600; margin-bottom:6px; display:block;">Pilihan Jenis Pensiun</label>
-                <select id="skNonAsn_jenisPensiun" class="field-input" onchange="onSkNonAsnFormChange()">
+                <select id="skNonAsn_jenisPensiun" class="field-input" onchange="onJenisPensiunChangeSkNonAsn()">
                   <option value="">-- Pilih Jenis Pensiun --</option>
                   <option value="BUP">1. BUP (Batas Usia Pensiun)</option>
                   <option value="Meninggal">2. Meninggal</option>

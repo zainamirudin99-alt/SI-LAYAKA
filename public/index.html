@@ -1361,7 +1361,7 @@
               <!-- Jenis Pensiun -->
               <div class="stack-field" style="margin-bottom:16px;">
                 <label style="font-weight:600; margin-bottom:6px; display:block;">Pilihan Jenis Pensiun</label>
-                <select id="skNonAsn_jenisPensiun" class="field-input" onchange="onSkNonAsnFormChange()">
+                <select id="skNonAsn_jenisPensiun" class="field-input" onchange="onJenisPensiunChangeSkNonAsn()">
                   <option value="">-- Pilih Jenis Pensiun --</option>
                   <option value="BUP">1. BUP (Batas Usia Pensiun)</option>
                   <option value="Meninggal">2. Meninggal</option>
@@ -5462,6 +5462,18 @@ function onSelectSkNonAsnUsulan() {
     skNonAsnSelectedEmployee = null;
     onSkNonAsnFormChange();
   }
+}
+
+function onJenisPensiunChangeSkNonAsn() {
+  const jenis = document.getElementById('skNonAsn_jenisPensiun')?.value || '';
+  let subMenuTarget = 'Buat SK Pensiun Pegawai Undip Non ASN';
+  if (jenis === 'BUP') subMenuTarget = 'SK Pensiun BUP Pegawai Undip Non ASN';
+  else if (jenis === 'Meninggal') subMenuTarget = 'SK Pensiun Meninggal Pegawai Undip Non ASN';
+  else if (jenis === 'Uzur') subMenuTarget = 'SK Pensiun Uzur Pegawai Undip Non ASN';
+  else if (jenis === 'Undur Diri') subMenuTarget = 'SK Pensiun Undur Diri Pegawai Undip Non ASN';
+
+  loadServiceTemplates('Pensiun', subMenuTarget, 'skNonAsn_templateSelect');
+  onSkNonAsnFormChange();
 }
 
 function onSelectSkNonAsnTemplate() {
