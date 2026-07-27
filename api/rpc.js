@@ -366,6 +366,71 @@ function escapeXmlText(str) {
     .replace(/'/g, '&apos;');
 }
 
+function toTitleCase(str) {
+  if (!str) return '';
+  const s = String(str).trim();
+  if (!s) return '';
+  // Format tanggal Indonesia tetap utuh (contoh: "17 Juli 2026", "1 Agustus 2034")
+  if (/^\d{1,2}\s+[A-Za-z]+\s+\d{4}$/.test(s)) return s;
+  // Angka murni tetap utuh
+  if (/^\d+$/.test(s)) return s;
+  // Format Rupiah tetap utuh (contoh: "Rp. 3.000.000,00")
+  if (/^Rp\.\s*/i.test(s)) return s;
+
+  // Format Capital Each Word (Title Case)
+  return s.toLowerCase().replace(/(?:^|\s|-|\/|\()([a-z\u00C0-\u00FF])/g, m => m.toUpperCase());
+}
+
+function formatGolonganDisplay(str) {
+  if (!str) return '';
+  let s = String(str).trim();
+  if (/^set\.\s*/i.test(s)) {
+    s = 'Set. ' + s.replace(/^set\.\s*/i, '').toUpperCase();
+  } else if (/^gol\.\s*/i.test(s)) {
+    s = 'Gol. ' + s.replace(/^gol\.\s*/i, '').toUpperCase();
+  }
+  return s;
+}
+
+function processDataCtxFormatting(dataCtx, isDpcp = false) {
+  const result = {};
+  for (const [k, v] of Object.entries(dataCtx || {})) {
+    if (v === null || v === undefined) {
+      result[k] = '';
+      continue;
+    }
+    if (typeof v !== 'string') {
+      result[k] = v;
+      continue;
+    }
+
+    const keyLower = k.toLowerCase();
+    // Biarkan NIP, URL, file, foto tanpa diubah kapitalisasinya
+    if (keyLower.includes('nip') || keyLower.includes('url') || keyLower.includes('foto') || keyLower.includes('file')) {
+      result[k] = v;
+      continue;
+    }
+
+    if (isDpcp) {
+      // Khusus DPCP: UPPERCASE untuk teks
+      if (keyLower.includes('golongan') || keyLower.includes('gol')) {
+        result[k] = formatGolonganDisplay(v);
+      } else {
+        result[k] = v.toUpperCase();
+      }
+    } else {
+      // Untuk Buat SK (Pensiun / KP / Surat): Capital Each Word (Title Case)
+      if (keyLower.includes('golongan') || keyLower.includes('gol')) {
+        result[k] = formatGolonganDisplay(v);
+      } else {
+        result[k] = toTitleCase(v);
+      }
+    }
+  }
+  return result;
+}
+
+
 function enforceDocxFont(zip, fontName) {
   if (!zip || !fontName) return;
 
@@ -2811,70 +2876,6 @@ const methods = {
     }
     return { success: true, daftar: rows || [] };
   },
-
-function toTitleCase(str) {
-  if (!str) return '';
-  const s = String(str).trim();
-  if (!s) return '';
-  // Format tanggal Indonesia tetap utuh (contoh: "17 Juli 2026", "1 Agustus 2034")
-  if (/^\d{1,2}\s+[A-Za-z]+\s+\d{4}$/.test(s)) return s;
-  // Angka murni tetap utuh
-  if (/^\d+$/.test(s)) return s;
-  // Format Rupiah tetap utuh (contoh: "Rp. 3.000.000,00")
-  if (/^Rp\.\s*/i.test(s)) return s;
-
-  // Format Capital Each Word (Title Case)
-  return s.toLowerCase().replace(/(?:^|\s|-|\/|\()([a-z\u00C0-\u00FF])/g, m => m.toUpperCase());
-}
-
-function formatGolonganDisplay(str) {
-  if (!str) return '';
-  let s = String(str).trim();
-  if (/^set\.\s*/i.test(s)) {
-    s = 'Set. ' + s.replace(/^set\.\s*/i, '').toUpperCase();
-  } else if (/^gol\.\s*/i.test(s)) {
-    s = 'Gol. ' + s.replace(/^gol\.\s*/i, '').toUpperCase();
-  }
-  return s;
-}
-
-function processDataCtxFormatting(dataCtx, isDpcp = false) {
-  const result = {};
-  for (const [k, v] of Object.entries(dataCtx || {})) {
-    if (v === null || v === undefined) {
-      result[k] = '';
-      continue;
-    }
-    if (typeof v !== 'string') {
-      result[k] = v;
-      continue;
-    }
-
-    const keyLower = k.toLowerCase();
-    // Biarkan NIP, URL, file, foto tanpa diubah kapitalisasinya
-    if (keyLower.includes('nip') || keyLower.includes('url') || keyLower.includes('foto') || keyLower.includes('file')) {
-      result[k] = v;
-      continue;
-    }
-
-    if (isDpcp) {
-      // Khusus DPCP: UPPERCASE untuk teks
-      if (keyLower.includes('golongan') || keyLower.includes('gol')) {
-        result[k] = formatGolonganDisplay(v);
-      } else {
-        result[k] = v.toUpperCase();
-      }
-    } else {
-      // Untuk Buat SK (Pensiun / KP / Surat): Capital Each Word (Title Case)
-      if (keyLower.includes('golongan') || keyLower.includes('gol')) {
-        result[k] = formatGolonganDisplay(v);
-      } else {
-        result[k] = toTitleCase(v);
-      }
-    }
-  }
-  return result;
-}
 
   async generateSkKpNonAsn([token, payload]) {
     const decoded = requireRole(token, ['admin', 'super_admin']);
