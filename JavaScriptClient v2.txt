@@ -1544,12 +1544,14 @@ function filterServiceTemplates(selectId, tipe) {
   const filtered = templates.filter(t => (t.tipe || 'gdocs') === tipe);
   if (!filtered.length) {
     selectEl.innerHTML = `<option value="">Belum ada template ${tipe === 'docx' ? 'Word' : 'GDocs'} terdaftar</option>`;
+    if (selectId === 'skNonAsn_templateSelect') onSkNonAsnFormChange();
     return;
   }
   selectEl.innerHTML = filtered.map(t => {
     const fileIdVal = t.id || t.fileId;
     return `<option value="${fileIdVal}" data-tipe="${t.tipe || 'gdocs'}">${escapeHtml(t.judul)}</option>`;
   }).join('');
+  if (selectId === 'skNonAsn_templateSelect') onSkNonAsnFormChange();
 }
 
 function loadServiceTemplates(layanan, subMenu, selectId) {
@@ -3480,59 +3482,87 @@ function onSkNonAsnFormChange() {
   }
 
   if (container) container.style.display = 'block';
-  fieldsDiv.innerHTML = '<div style="grid-column: 1 / -1; padding:12px; color:var(--text-muted);">Memuat field template...</div>';
+  fieldsDiv.innerHTML = '<div style="grid-column: 1 / -1; padding:12px; color:var(--text-muted);">Memuat kolom isian template...</div>';
 
-  // Standard fields mapped from data_utama
+  google.script.run
+    .withSuccessHandler(res => {
+      const placeholders = (res && res.placeholders && res.placeholders.length) ? res.placeholders : [
+        'nip', 'nama_lengkap', 'unit_es_ii', 'jabatan', 'golongan', 'pangkat',
+        'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan', 'tmt_pensiun_bup', 'status_kepegawaian',
+        'nomor_sk', 'tmt_pensiun_efektif', 'alasan_pensiun', 'nomor_surat_usul', 'tgl_surat_usul', 'nama_ttd_rektor'
+      ];
+      renderSkNonAsnDynamicFormFields(placeholders);
+    })
+    .withFailureHandler(err => {
+      const fallbackPlaceholders = [
+        'nip', 'nama_lengkap', 'unit_es_ii', 'jabatan', 'golongan', 'pangkat',
+        'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan', 'tmt_pensiun_bup', 'status_kepegawaian',
+        'nomor_sk', 'tmt_pensiun_efektif', 'alasan_pensiun', 'nomor_surat_usul', 'tgl_surat_usul', 'nama_ttd_rektor'
+      ];
+      renderSkNonAsnDynamicFormFields(fallbackPlaceholders);
+    })
+    .getTemplatePlaceholders(SESSION.token, templateId);
+}
+
+function renderSkNonAsnDynamicFormFields(placeholders) {
+  const fieldsDiv = document.getElementById('skNonAsn_dynamicFields');
+  if (!fieldsDiv) return;
+
   const emp = skNonAsnSelectedEmployee || {};
-  const standardAutoFields = [
-    { key: 'nip', label: 'NIP', val: emp.nip || '' },
-    { key: 'nama_lengkap', label: 'Nama Lengkap', val: emp.nama_lengkap || emp.nama || '' },
-    { key: 'unit_es_ii', label: 'Unit Kerja / Fakultas', val: emp.unit_es_ii || emp.unit || '' },
-    { key: 'jabatan', label: 'Jabatan', val: emp.jabatan || '' },
-    { key: 'golongan', label: 'Golongan', val: emp.golongan || '' },
-    { key: 'pangkat', label: 'Pangkat', val: emp.pangkat || '' },
-    { key: 'tmp_lhr', label: 'Tempat Lahir', val: emp.tmp_lhr || '' },
-    { key: 'tgl_lhr', label: 'Tanggal Lahir', val: emp.tgl_lhr ? formatTanggalIndonesia(emp.tgl_lhr) : '' },
-    { key: 'status_kepegawaian', label: 'Status Kepegawaian', val: emp.status_kepegawaian || '' },
-    { key: 'tmt_pensiun_bup', label: 'TMT Pensiun BUP', val: emp.tmt_pensiun_bup ? formatTanggalIndonesia(emp.tmt_pensiun_bup) : '' }
-  ];
 
-  // Custom manual fields for SK Pensiun
-  const customManualFields = [
-    { key: 'nomor_sk', label: 'Nomor SK Pensiun', placeholder: 'cth. 1234/UN7.A/KP/2026', type: 'text' },
-    { key: 'tmt_pensiun_efektif', label: 'TMT Pensiun Efektif', placeholder: '', type: 'date' },
-    { key: 'alasan_pensiun', label: 'Alasan / Keterangan Pensiun', placeholder: 'cth. Memasuki Batas Usia Pensiun (BUP)', type: 'text' },
-    { key: 'nomor_surat_usul', label: 'Nomor Surat Usul Unit', placeholder: 'cth. 567/UN7.F1/KP/2026', type: 'text' },
-    { key: 'tgl_surat_usul', label: 'Tanggal Surat Usul Unit', placeholder: '', type: 'date' },
-    { key: 'nama_ttd_rektor', label: 'Nama Pejabat Penandatangan', placeholder: 'cth. Prof. Dr. Yos Johan Utama, S.H., M.Hum.', type: 'text' }
-  ];
+  const fieldMapping = {
+    nip: emp.nip || '',
+    nama: emp.nama || emp.nama_lengkap || '',
+    nama_lengkap: emp.nama_lengkap || emp.nama || '',
+    unit: emp.unit_es_ii || emp.unit || '',
+    unit_kerja: emp.unit_es_ii || emp.unit || '',
+    unit_es_ii: emp.unit_es_ii || emp.unit || '',
+    jabatan: emp.jabatan || '',
+    golongan: emp.golongan || '',
+    pangkat: emp.pangkat || '',
+    tmp_lhr: emp.tmp_lhr || '',
+    tempat_lahir: emp.tmp_lhr || '',
+    tgl_lhr: emp.tgl_lhr ? formatTanggalIndonesia(emp.tgl_lhr) : '',
+    tanggal_lahir: emp.tgl_lhr ? formatTanggalIndonesia(emp.tgl_lhr) : '',
+    tmt_pengangkatan: emp.tmt_pengangkatan ? formatTanggalIndonesia(emp.tmt_pengangkatan) : '',
+    tmt_cpns: emp.tmt_pengangkatan ? formatTanggalIndonesia(emp.tmt_pengangkatan) : '',
+    tmt_pensiun_bup: emp.tmt_pensiun_bup ? formatTanggalIndonesia(emp.tmt_pensiun_bup) : '',
+    tmt_pensiun: emp.tmt_pensiun_bup ? formatTanggalIndonesia(emp.tmt_pensiun_bup) : '',
+    status_kepegawaian: emp.status_kepegawaian || '',
+    gaji_pokok: emp.gaji_pokok || ''
+  };
+
+  const formatLabel = (key) => {
+    return key
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
+  };
 
   let html = '';
 
-  // Render Auto-filled fields
-  standardAutoFields.forEach(f => {
-    html += `
-      <div class="stack-field">
-        <label>${escapeHtml(f.label)} <span style="color:#10b981; font-weight:600; font-size:11px;">[Auto-filled]</span></label>
-        <input type="text" data-sk-field="${f.key}" class="field-input" value="${escapeHtml(f.val)}" />
-      </div>
-    `;
-  });
+  placeholders.forEach(key => {
+    const valFromDb = fieldMapping[key] !== undefined ? fieldMapping[key] : (emp[key] || '');
+    const isAutoFilled = valFromDb !== '' && valFromDb !== null && valFromDb !== undefined;
+    const labelText = formatLabel(key);
 
-  // Render Custom Manual fields
-  customManualFields.forEach(f => {
-    if (f.type === 'date') {
+    const badgeHtml = isAutoFilled
+      ? `<span style="color:#10b981; font-weight:600; font-size:11px; margin-left:6px;">[Auto-filled]</span>`
+      : `<span style="color:#3b82f6; font-weight:600; font-size:11px; margin-left:6px;">[Manual Input]</span>`;
+
+    const isDateField = key.startsWith('tgl_') || key.startsWith('tmt_') || key.includes('tanggal') || key.includes('tmt');
+
+    if (isDateField && !isAutoFilled) {
       html += `
         <div class="stack-field">
-          <label>${escapeHtml(f.label)} <span style="color:#3b82f6; font-weight:600; font-size:11px;">[Manual Input]</span></label>
-          <input type="date" data-sk-field="${f.key}" class="field-input" />
+          <label>${escapeHtml(labelText)} ${badgeHtml}</label>
+          <input type="date" data-sk-field="${escapeHtml(key)}" class="field-input" value="${escapeHtml(valFromDb)}" />
         </div>
       `;
     } else {
       html += `
         <div class="stack-field">
-          <label>${escapeHtml(f.label)} <span style="color:#3b82f6; font-weight:600; font-size:11px;">[Manual Input]</span></label>
-          <input type="text" data-sk-field="${f.key}" class="field-input" placeholder="${escapeHtml(f.placeholder)}" />
+          <label>${escapeHtml(labelText)} ${badgeHtml}</label>
+          <input type="text" data-sk-field="${escapeHtml(key)}" class="field-input" value="${escapeHtml(valFromDb)}" placeholder="Masukkan ${escapeHtml(labelText)}..." />
         </div>
       `;
     }
@@ -3540,6 +3570,7 @@ function onSkNonAsnFormChange() {
 
   fieldsDiv.innerHTML = html;
 }
+
 
 function submitGenerateSkPensiunNonAsn() {
   const searchMode = document.querySelector('input[name="skNonAsn_modeSearch"]:checked')?.value || 'usulan';

@@ -2862,6 +2862,67 @@ const methods = {
     };
   },
 
+  async getTemplatePlaceholders([token, templateId]) {
+    verifyToken(token);
+    const db = getDb();
+    const { data: tmpl, error } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
+    if (error) throw error;
+
+    const defaultFields = [
+      'nip', 'nama_lengkap', 'unit_es_ii', 'jabatan', 'golongan', 'pangkat',
+      'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan', 'tmt_pensiun_bup', 'status_kepegawaian',
+      'nomor_sk', 'tmt_pensiun_efektif', 'alasan_pensiun', 'nomor_surat_usul', 'tgl_surat_usul', 'nama_ttd_rektor'
+    ];
+
+    if (!tmpl) return { success: true, placeholders: defaultFields };
+
+    if (tmpl.tipe === 'docx' && tmpl.file_id) {
+      try {
+        const PizZip = require('pizzip');
+        const buffer = await downloadTemplateBuffer(tmpl.file_id);
+        const zip = new PizZip(buffer);
+        const docFile = zip.file('word/document.xml');
+        if (docFile) {
+          const docXml = docFile.asText();
+          const decodeXmlEntities = str => str
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&apos;/g, "'");
+
+          const xmlToPlainText = xml => decodeXmlEntities(xml.replace(/<[^>]+>/g, ''));
+          const text = xmlToPlainText(docXml);
+          const rawTags = text.match(/\{\{[^{}]+\}\}/g) || [];
+          const keys = new Set();
+
+          rawTags.forEach(raw => {
+            let inner = raw.slice(2, -2).trim();
+            if (inner.includes('|')) inner = inner.split('|')[0].trim();
+            if (inner.includes('(')) {
+              const m = inner.match(/([a-zA-Z0-9_]+)\s*\(/);
+              if (m) inner = m[1];
+            }
+            inner = inner.replace(/^[#^\/]/, '').trim();
+            if (/^set\s+/i.test(inner)) return;
+            const mKey = inner.match(/^[a-zA-Z_][a-zA-Z0-9_]*/);
+            if (mKey && mKey[0] && !['today', 'tanggal_sk'].includes(mKey[0])) {
+              keys.add(mKey[0]);
+            }
+          });
+
+          if (keys.size > 0) {
+            return { success: true, placeholders: Array.from(keys) };
+          }
+        }
+      } catch (err) {
+        console.warn('[rpc getTemplatePlaceholders] Gagal scan template DOCX:', err.message);
+      }
+    }
+
+    return { success: true, placeholders: defaultFields };
+  },
+
   async scanTemplateFormulas([token, payload]) {
     verifyToken(token);
     const input = payload || {};
