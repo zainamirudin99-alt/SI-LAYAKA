@@ -729,8 +729,8 @@
     animation: neonFlicker 5s infinite;
   }
 
-  /* Enforcement font: Seluruh UI antarmuka sistem menggunakan Times New Roman */
-  body, button, input, select, textarea, table {
+  /* Enforcement font: Seluruh UI antarmuka sistem secara 100% mutlak dan seragam menggunakan Times New Roman */
+  *, *::before, *::after, body, button, input, select, textarea, table, th, td, h1, h2, h3, h4, h5, h6, p, span, div, a, label {
     font-family: 'Times New Roman', Times, serif !important;
   }
 </style>
@@ -6037,15 +6037,16 @@ function renderSkKpDynamicFormFields(placeholders) {
     const tmtKpBaruVal = tmtKpBaruInput ? tmtKpBaruInput.value : '';
     const tmtPengangkatanVal = emp.tmt_pengangkatan || emp.tmt_cpns || '';
 
+    const setFieldValue = (fName, val) => {
+      const inp = fieldsDiv.querySelector(`[data-sk-field="${fName}"]`);
+      if (inp) inp.value = val;
+    };
+
+    let mkTahun = 0;
     if (tmtKpBaruVal && tmtPengangkatanVal) {
       const mk = hitungMasaKerjaClient(tmtPengangkatanVal, tmtKpBaruVal);
+      mkTahun = mk.tahun;
 
-      const setFieldValue = (fName, val) => {
-        const inp = fieldsDiv.querySelector(`[data-sk-field="${fName}"]`);
-        if (inp) inp.value = val;
-      };
-
-      // Populate Masa Kerja Baru
       setFieldValue('masa_kerja_kp_baru_tahun', mk.tahun);
       setFieldValue('masa_kerja_baru_tahun', mk.tahun);
       setFieldValue('masa_kerja_tahun', mk.tahun);
@@ -6057,15 +6058,22 @@ function renderSkKpDynamicFormFields(placeholders) {
       setFieldValue('masa_kerja_kp_baru', mk.text);
       setFieldValue('masa_kerja_baru', mk.text);
       setFieldValue('masa_kerja', mk.text);
-
-      // Populate Gaji Pokok Baru
-      const gajiNum = cariGajiPokokClient(targetGol, mk.tahun);
-      const gajiStr = formatRupiahFull(gajiNum);
-
-      setFieldValue('gaji_pokok_baru_kp', gajiStr);
-      setFieldValue('gaji_pokok_baru', gajiStr);
-      setFieldValue('gaji_pokok', gajiStr);
+    } else {
+      const mkThnInput = fieldsDiv.querySelector('[data-sk-field="masa_kerja_kp_baru_tahun"]') ||
+                         fieldsDiv.querySelector('[data-sk-field="masa_kerja_baru_tahun"]') ||
+                         fieldsDiv.querySelector('[data-sk-field="masa_kerja_tahun"]');
+      if (mkThnInput && mkThnInput.value !== '') {
+        mkTahun = parseInt(mkThnInput.value, 10) || 0;
+      }
     }
+
+    // 3. Hitung & Set Gaji Pokok Baru berdasarkan Golongan Baru & Masa Kerja Baru (Tahun)
+    const gajiNum = cariGajiPokokClient(targetGol, mkTahun);
+    const gajiStr = formatRupiahFull(gajiNum);
+
+    setFieldValue('gaji_pokok_baru_kp', gajiStr);
+    setFieldValue('gaji_pokok_baru', gajiStr);
+    setFieldValue('gaji_pokok', gajiStr);
   };
 
   // Pasang listener pada seluruh elemen input
@@ -6077,6 +6085,7 @@ function renderSkKpDynamicFormFields(placeholders) {
   // Run initial calculation immediately
   doRecalc();
 }
+
 
 
 

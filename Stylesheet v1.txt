@@ -719,8 +719,8 @@
     animation: neonFlicker 5s infinite;
   }
 
-  /* Enforcement font: Seluruh UI antarmuka sistem menggunakan Times New Roman */
-  body, button, input, select, textarea, table {
+  /* Enforcement font: Seluruh UI antarmuka sistem secara 100% mutlak dan seragam menggunakan Times New Roman */
+  *, *::before, *::after, body, button, input, select, textarea, table, th, td, h1, h2, h3, h4, h5, h6, p, span, div, a, label {
     font-family: 'Times New Roman', Times, serif !important;
   }
 </style>
