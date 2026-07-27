@@ -384,6 +384,7 @@
               <button class="tab-btn active" data-tab-target="tab-dpcp">DPCP</button>
               <button class="tab-btn" data-tab-target="tab-statusUsulanPensiun" id="tabBtnStatusUsulanPensiun" style="display:none;">Status Usulan Saya</button>
               <button class="tab-btn" data-tab-target="tab-usulanMasukPensiun" id="tabBtnUsulanMasukPensiun" style="display:none;">📨 Usulan Masuk <span id="usulanMasukPensiunBadge" class="cdli-badge" style="display:none;"></span></button>
+              <button class="tab-btn" data-tab-target="tab-skPensiunNonAsn" id="tabBtnSkPensiunNonAsn" style="display:none;">📜 Buat SK Pensiun Pegawai Undip Non ASN</button>
             </div>
 
             <div class="tab-panel active" data-tab-group-panel="pensiun" id="tab-dpcp">
@@ -586,6 +587,78 @@
               <div id="usulanMasukPensiunLevel2" style="display:none;">
                 <button type="button" class="ce-dashboard-back" id="usulanMasukPensiunBackBtn">&larr; Kembali ke daftar unit</button>
                 <div id="usulanMasukPensiunLevel2List" class="ce-dashboard-list"></div>
+              </div>
+            </div>
+
+            <!-- ---------- BUAT SK PENSIUN PEGAWAI UNDIP NON ASN (peran admin/super_admin) ---------- -->
+            <div class="tab-panel" data-tab-group-panel="pensiun" id="tab-skPensiunNonAsn">
+              <div class="helper-text" style="margin-bottom:14px;">
+                Pembuatan SK Pensiun khusus <strong>Pegawai Undip Non ASN</strong>. Anda dapat memilih pegawai dari usulan user atau mencari manual.
+              </div>
+
+              <!-- Sumber Data Selection -->
+              <div class="stack-field" style="margin-bottom:16px;">
+                <label style="font-weight:600; margin-bottom:6px; display:block;">Mekanisme Cari Data Pegawai</label>
+                <div style="display:flex; gap:16px; margin-bottom:8px;">
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="skNonAsn_modeSearch" value="usulan" checked onchange="toggleSkNonAsnSearchMode('usulan')"> Pilih dari Usulan User
+                  </label>
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="skNonAsn_modeSearch" value="manual" onchange="toggleSkNonAsnSearchMode('manual')"> Cari Manual Pegawai Non-ASN
+                  </label>
+                </div>
+              </div>
+
+              <!-- Option A: Select from Usulan -->
+              <div id="skNonAsn_usulanWrap" class="stack-field" style="margin-bottom:16px;">
+                <label class="kp-label">Pilih Pegawai dari Daftar Usulan Non-ASN</label>
+                <select id="skNonAsn_usulanSelect" class="field-input" onchange="onSelectSkNonAsnUsulan()"></select>
+                <div class="helper-text" id="skNonAsn_usulanInfo" style="display:none; margin-top:4px;"></div>
+              </div>
+
+              <!-- Option B: Manual Search -->
+              <div id="skNonAsn_manualWrap" class="stack-field autocomplete-wrap" style="display:none; margin-bottom:16px;">
+                <label class="kp-label">Cari Nama / NIP Pegawai Non-ASN</label>
+                <input type="text" id="skNonAsn_manualInput" class="field-input" placeholder="Ketik NIP atau Nama Pegawai Undip Non ASN..." autocomplete="off" />
+                <input type="hidden" id="skNonAsn_manualNip" />
+                <div class="autocomplete-list" id="skNonAsn_manualList"></div>
+              </div>
+
+              <!-- Jenis Pensiun -->
+              <div class="stack-field" style="margin-bottom:16px;">
+                <label style="font-weight:600; margin-bottom:6px; display:block;">Pilihan Jenis Pensiun</label>
+                <select id="skNonAsn_jenisPensiun" class="field-input" onchange="onSkNonAsnFormChange()">
+                  <option value="">-- Pilih Jenis Pensiun --</option>
+                  <option value="BUP">1. BUP (Batas Usia Pensiun)</option>
+                  <option value="Meninggal">2. Meninggal</option>
+                  <option value="Uzur">3. Uzur</option>
+                  <option value="Undur Diri">4. Undur Diri</option>
+                </select>
+              </div>
+
+              <!-- Template Selection -->
+              <div class="stack-field" style="margin-bottom: 16px;">
+                <label style="font-weight:600; margin-bottom:6px; display:block;">Pilih Tipe & Template SK Pensiun Non-ASN</label>
+                <div style="display:flex; gap:16px; margin-bottom:8px;">
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="skNonAsn_templateSelectType" value="gdocs" checked onchange="filterServiceTemplates('skNonAsn_templateSelect', 'gdocs')"> Google Docs (GDocs)
+                  </label>
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="skNonAsn_templateSelectType" value="docx" onchange="filterServiceTemplates('skNonAsn_templateSelect', 'docx')"> Microsoft Word (.docx)
+                  </label>
+                </div>
+                <select id="skNonAsn_templateSelect" class="field-input" required onchange="onSelectSkNonAsnTemplate()"></select>
+              </div>
+
+              <!-- Dynamic Form Container -->
+              <div id="skNonAsn_dynamicContainer" style="display:none; margin-top:20px; padding:16px; border:1px solid var(--border-color); border-radius:8px; background:var(--card-bg-subtle, rgba(0,0,0,0.02));">
+                <h4 style="margin-top:0; margin-bottom:12px; font-size:14px; color:var(--text-color);">Form Isian Dynamic SK Pensiun</h4>
+                <div class="helper-text" style="margin-bottom:12px;">Field dengan label <span style="color:#10b981; font-weight:600;">[Auto-filled]</span> terisi otomatis dari database pegawai, dan field lainnya dapat diisi secara manual.</div>
+                <div id="skNonAsn_dynamicFields" class="grid-2 kp-grid"></div>
+              </div>
+
+              <div class="actions-bar" style="margin-top:20px;">
+                <button class="btn btn-primary" id="skNonAsn_generateBtn">Generate & Terbitkan SK Pensiun</button>
               </div>
             </div>
           </div>

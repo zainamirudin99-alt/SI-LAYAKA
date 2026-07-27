@@ -389,6 +389,12 @@ ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS keterangan_sehat_url        
 ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS keterangan_sehat_approved   BOOLEAN DEFAULT FALSE;
 ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS perjanjian_dibuat           BOOLEAN DEFAULT FALSE;
 
-
-
-
+-- ============================================================
+-- 12. TAMBAHAN UNTUK ALUR SK PENSIUN (PEGAWAI UNDIP NON-ASN)
+-- ============================================================
+ALTER TABLE usulan_pensiun ADD COLUMN IF NOT EXISTS sk_nomor       TEXT;
+ALTER TABLE usulan_pensiun ADD COLUMN IF NOT EXISTS sk_tmt         TEXT;
+ALTER TABLE usulan_pensiun ADD COLUMN IF NOT EXISTS sk_file_id     TEXT;
+ALTER TABLE usulan_pensiun ADD COLUMN IF NOT EXISTS sk_pdf_url     TEXT;
+ALTER TABLE usulan_pensiun ADD COLUMN IF NOT EXISTS sk_dibuat_pada TIMESTAMPTZ;
+ALTER TABLE usulan_pensiun ADD COLUMN IF NOT EXISTS form_data      JSONB DEFAULT '{}';

@@ -1118,6 +1118,7 @@
               <button class="tab-btn active" data-tab-target="tab-dpcp">DPCP</button>
               <button class="tab-btn" data-tab-target="tab-statusUsulanPensiun" id="tabBtnStatusUsulanPensiun" style="display:none;">Status Usulan Saya</button>
               <button class="tab-btn" data-tab-target="tab-usulanMasukPensiun" id="tabBtnUsulanMasukPensiun" style="display:none;">📨 Usulan Masuk <span id="usulanMasukPensiunBadge" class="cdli-badge" style="display:none;"></span></button>
+              <button class="tab-btn" data-tab-target="tab-skPensiunNonAsn" id="tabBtnSkPensiunNonAsn" style="display:none;">📜 Buat SK Pensiun Pegawai Undip Non ASN</button>
             </div>
 
             <div class="tab-panel active" data-tab-group-panel="pensiun" id="tab-dpcp">
@@ -1320,6 +1321,78 @@
               <div id="usulanMasukPensiunLevel2" style="display:none;">
                 <button type="button" class="ce-dashboard-back" id="usulanMasukPensiunBackBtn">&larr; Kembali ke daftar unit</button>
                 <div id="usulanMasukPensiunLevel2List" class="ce-dashboard-list"></div>
+              </div>
+            </div>
+
+            <!-- ---------- BUAT SK PENSIUN PEGAWAI UNDIP NON ASN (peran admin/super_admin) ---------- -->
+            <div class="tab-panel" data-tab-group-panel="pensiun" id="tab-skPensiunNonAsn">
+              <div class="helper-text" style="margin-bottom:14px;">
+                Pembuatan SK Pensiun khusus <strong>Pegawai Undip Non ASN</strong>. Anda dapat memilih pegawai dari usulan user atau mencari manual.
+              </div>
+
+              <!-- Sumber Data Selection -->
+              <div class="stack-field" style="margin-bottom:16px;">
+                <label style="font-weight:600; margin-bottom:6px; display:block;">Mekanisme Cari Data Pegawai</label>
+                <div style="display:flex; gap:16px; margin-bottom:8px;">
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="skNonAsn_modeSearch" value="usulan" checked onchange="toggleSkNonAsnSearchMode('usulan')"> Pilih dari Usulan User
+                  </label>
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="skNonAsn_modeSearch" value="manual" onchange="toggleSkNonAsnSearchMode('manual')"> Cari Manual Pegawai Non-ASN
+                  </label>
+                </div>
+              </div>
+
+              <!-- Option A: Select from Usulan -->
+              <div id="skNonAsn_usulanWrap" class="stack-field" style="margin-bottom:16px;">
+                <label class="kp-label">Pilih Pegawai dari Daftar Usulan Non-ASN</label>
+                <select id="skNonAsn_usulanSelect" class="field-input" onchange="onSelectSkNonAsnUsulan()"></select>
+                <div class="helper-text" id="skNonAsn_usulanInfo" style="display:none; margin-top:4px;"></div>
+              </div>
+
+              <!-- Option B: Manual Search -->
+              <div id="skNonAsn_manualWrap" class="stack-field autocomplete-wrap" style="display:none; margin-bottom:16px;">
+                <label class="kp-label">Cari Nama / NIP Pegawai Non-ASN</label>
+                <input type="text" id="skNonAsn_manualInput" class="field-input" placeholder="Ketik NIP atau Nama Pegawai Undip Non ASN..." autocomplete="off" />
+                <input type="hidden" id="skNonAsn_manualNip" />
+                <div class="autocomplete-list" id="skNonAsn_manualList"></div>
+              </div>
+
+              <!-- Jenis Pensiun -->
+              <div class="stack-field" style="margin-bottom:16px;">
+                <label style="font-weight:600; margin-bottom:6px; display:block;">Pilihan Jenis Pensiun</label>
+                <select id="skNonAsn_jenisPensiun" class="field-input" onchange="onSkNonAsnFormChange()">
+                  <option value="">-- Pilih Jenis Pensiun --</option>
+                  <option value="BUP">1. BUP (Batas Usia Pensiun)</option>
+                  <option value="Meninggal">2. Meninggal</option>
+                  <option value="Uzur">3. Uzur</option>
+                  <option value="Undur Diri">4. Undur Diri</option>
+                </select>
+              </div>
+
+              <!-- Template Selection -->
+              <div class="stack-field" style="margin-bottom: 16px;">
+                <label style="font-weight:600; margin-bottom:6px; display:block;">Pilih Tipe & Template SK Pensiun Non-ASN</label>
+                <div style="display:flex; gap:16px; margin-bottom:8px;">
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="skNonAsn_templateSelectType" value="gdocs" checked onchange="filterServiceTemplates('skNonAsn_templateSelect', 'gdocs')"> Google Docs (GDocs)
+                  </label>
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="skNonAsn_templateSelectType" value="docx" onchange="filterServiceTemplates('skNonAsn_templateSelect', 'docx')"> Microsoft Word (.docx)
+                  </label>
+                </div>
+                <select id="skNonAsn_templateSelect" class="field-input" required onchange="onSelectSkNonAsnTemplate()"></select>
+              </div>
+
+              <!-- Dynamic Form Container -->
+              <div id="skNonAsn_dynamicContainer" style="display:none; margin-top:20px; padding:16px; border:1px solid var(--border-color); border-radius:8px; background:var(--card-bg-subtle, rgba(0,0,0,0.02));">
+                <h4 style="margin-top:0; margin-bottom:12px; font-size:14px; color:var(--text-color);">Form Isian Dynamic SK Pensiun</h4>
+                <div class="helper-text" style="margin-bottom:12px;">Field dengan label <span style="color:#10b981; font-weight:600;">[Auto-filled]</span> terisi otomatis dari database pegawai, dan field lainnya dapat diisi secara manual.</div>
+                <div id="skNonAsn_dynamicFields" class="grid-2 kp-grid"></div>
+              </div>
+
+              <div class="actions-bar" style="margin-top:20px;">
+                <button class="btn btn-primary" id="skNonAsn_generateBtn">Generate & Terbitkan SK Pensiun</button>
               </div>
             </div>
           </div>
@@ -1969,6 +2042,7 @@ document.addEventListener('DOMContentLoaded', () => {
           bindKenaikanPangkatForms();
           bindCheckEligibleForm();
           bindPensiunForm();
+          bindSkPensiunNonAsnForm();
           bindKontrakForm();
         })
         .withFailureHandler(err => showToast('error', 'Gagal memuat opsi form DocGen: ' + (err.message || err)))
@@ -2126,6 +2200,7 @@ function showApp() {
     loadServiceTemplates('Kenaikan Pangkat', 'AK Konversi Kumulatif', 'optB_templateSelect');
     loadServiceTemplates('Pensiun', 'DPCP', 'pensiun_dpcpTemplateSelect');
     loadServiceTemplates('Pensiun', 'SUPER', 'pensiun_superTemplateSelect');
+    loadServiceTemplates('Pensiun', 'Buat SK Pensiun Pegawai Undip Non ASN', 'skNonAsn_templateSelect');
     loadPromosiDashboard();
   }
 }
@@ -2220,8 +2295,10 @@ function terapkanBatasanPeran_() {
   // Sama untuk modul Pensiun.
   const tabStatusUsulanPensiun = document.getElementById('tabBtnStatusUsulanPensiun');
   const tabUsulanMasukPensiun = document.getElementById('tabBtnUsulanMasukPensiun');
+  const tabBtnSkPensiunNonAsn = document.getElementById('tabBtnSkPensiunNonAsn');
   if (tabStatusUsulanPensiun) tabStatusUsulanPensiun.style.display = (role === 'user') ? '' : 'none';
   if (tabUsulanMasukPensiun) tabUsulanMasukPensiun.style.display = (role === 'admin' || role === 'super_admin') ? '' : 'none';
+  if (tabBtnSkPensiunNonAsn) tabBtnSkPensiunNonAsn.style.display = (role === 'admin' || role === 'super_admin') ? '' : 'none';
   if (role === 'admin' || role === 'super_admin') loadUsulanMasukPensiunBadge();
 
   // Tombol akses manual di dashboard Pensiun berubah makna sesuai peran:
@@ -5234,6 +5311,315 @@ function showUsulanMasukPensiunLevel2(unit) {
     .getUsulanPensiunListByUnit(SESSION.token, unit);
 
   document.getElementById('usulanMasukPensiunBackBtn').onclick = loadUsulanMasukPensiunDashboard;
+}
+
+/* =====================================================================
+ * ALUR SK PENSIUN PEGAWAI UNDIP NON ASN (Admin / Super Admin)
+ * ===================================================================== */
+let skNonAsnUsulanListCache = [];
+let skNonAsnNonAsnEmployeesCache = [];
+let skNonAsnSelectedEmployee = null;
+
+function bindSkPensiunNonAsnForm() {
+  const btn = document.getElementById('skNonAsn_generateBtn');
+  if (btn) {
+    btn.addEventListener('click', submitGenerateSkPensiunNonAsn);
+  }
+
+  // Setup Autocomplete Manual Search
+  const manualInput = document.getElementById('skNonAsn_manualInput');
+  const manualList = document.getElementById('skNonAsn_manualList');
+  const manualNip = document.getElementById('skNonAsn_manualNip');
+  if (manualInput && manualList && manualNip) {
+    let debounceTimer = null;
+    manualInput.addEventListener('input', () => {
+      const q = manualInput.value.trim().toLowerCase();
+      clearTimeout(debounceTimer);
+      if (q.length < 2) { manualList.style.display = 'none'; return; }
+      debounceTimer = setTimeout(() => {
+        const matches = skNonAsnNonAsnEmployeesCache.filter(e => 
+          (e.nama_lengkap && e.nama_lengkap.toLowerCase().includes(q)) ||
+          (e.nama && e.nama.toLowerCase().includes(q)) ||
+          (e.nip && String(e.nip).toLowerCase().includes(q))
+        ).slice(0, 15);
+
+        manualList.innerHTML = '';
+        if (!matches.length) {
+          manualList.innerHTML = '<div style="padding:8px 12px; color:#64748b; font-size:12px;">Tidak ditemukan pegawai Non-ASN.</div>';
+          manualList.style.display = 'block';
+          return;
+        }
+
+        matches.forEach(r => {
+          const item = document.createElement('div');
+          item.className = 'autocomplete-item';
+          item.innerHTML = `<strong>${escapeHtml(r.nama_lengkap || r.nama)}</strong><br><small style="color:#64748b;">NIP: ${escapeHtml(r.nip)} &middot; ${escapeHtml(r.unit_es_ii || '')}</small>`;
+          item.addEventListener('click', () => {
+            manualInput.value = `${r.nama_lengkap || r.nama} (${r.nip})`;
+            manualNip.value = r.nip || '';
+            manualList.style.display = 'none';
+            skNonAsnSelectedEmployee = r;
+            onSkNonAsnFormChange();
+          });
+          manualList.appendChild(item);
+        });
+        manualList.style.display = 'block';
+      }, 250);
+    });
+  }
+
+  // Pre-load data
+  loadSkNonAsnUsulanList();
+  loadSkNonAsnEmployeesList();
+}
+
+function toggleSkNonAsnSearchMode(mode) {
+  const usulanWrap = document.getElementById('skNonAsn_usulanWrap');
+  const manualWrap = document.getElementById('skNonAsn_manualWrap');
+
+  if (mode === 'usulan') {
+    if (usulanWrap) usulanWrap.style.display = 'block';
+    if (manualWrap) manualWrap.style.display = 'none';
+    skNonAsnSelectedEmployee = null;
+    onSelectSkNonAsnUsulan();
+  } else {
+    if (usulanWrap) usulanWrap.style.display = 'none';
+    if (manualWrap) manualWrap.style.display = 'block';
+    skNonAsnSelectedEmployee = null;
+    document.getElementById('skNonAsn_manualInput').value = '';
+    document.getElementById('skNonAsn_manualNip').value = '';
+    onSkNonAsnFormChange();
+  }
+}
+
+function loadSkNonAsnUsulanList() {
+  const select = document.getElementById('skNonAsn_usulanSelect');
+  if (!select) return;
+  select.innerHTML = '<option value="">Memuat daftar usulan Non-ASN...</option>';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) {
+        select.innerHTML = '<option value="">Gagal memuat daftar usulan</option>';
+        return;
+      }
+      skNonAsnUsulanListCache = res.daftar || [];
+      if (!skNonAsnUsulanListCache.length) {
+        select.innerHTML = '<option value="">-- Tidak ada usulan Pensiun Non-ASN baru --</option>';
+        return;
+      }
+
+      select.innerHTML = '<option value="">-- Pilih Pegawai dari Usulan User --</option>' +
+        skNonAsnUsulanListCache.map(u => `
+          <option value="${u.id}">${escapeHtml(u.nama)} (${escapeHtml(u.nip)}) - Jenis: ${escapeHtml(u.jenisPensiun)} - Unit: ${escapeHtml(u.unit || '-')}</option>
+        `).join('');
+    })
+    .withFailureHandler(err => {
+      select.innerHTML = '<option value="">Gagal memuat usulan</option>';
+    })
+    .getUsulanPensiunNonAsnList(SESSION.token);
+}
+
+function loadSkNonAsnEmployeesList() {
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) {
+        skNonAsnNonAsnEmployeesCache = res.daftar || [];
+      }
+    })
+    .withFailureHandler(() => {})
+    .getNonAsnEmployeesList(SESSION.token);
+}
+
+function onSelectSkNonAsnUsulan() {
+  const select = document.getElementById('skNonAsn_usulanSelect');
+  const infoEl = document.getElementById('skNonAsn_usulanInfo');
+  if (!select) return;
+
+  const usulanId = select.value;
+  const usulan = skNonAsnUsulanListCache.find(u => String(u.id) === String(usulanId));
+
+  if (usulan) {
+    if (infoEl) {
+      infoEl.innerHTML = `Diajukan pada: <strong>${escapeHtml(usulan.tanggalDiajukan)}</strong> | Status: <strong>${escapeHtml(usulan.status)}</strong>`;
+      infoEl.style.display = 'block';
+    }
+
+    if (usulan.jenisPensiun) {
+      const jenisEl = document.getElementById('skNonAsn_jenisPensiun');
+      if (jenisEl) jenisEl.value = usulan.jenisPensiun;
+    }
+
+    // Fetch employee details from DB
+    google.script.run
+      .withSuccessHandler(emp => {
+        skNonAsnSelectedEmployee = emp;
+        onSkNonAsnFormChange();
+      })
+      .getEmployeeFullData(SESSION.token, usulan.nip);
+  } else {
+    if (infoEl) infoEl.style.display = 'none';
+    skNonAsnSelectedEmployee = null;
+    onSkNonAsnFormChange();
+  }
+}
+
+function onSelectSkNonAsnTemplate() {
+  onSkNonAsnFormChange();
+}
+
+function onSkNonAsnFormChange() {
+  const container = document.getElementById('skNonAsn_dynamicContainer');
+  const fieldsDiv = document.getElementById('skNonAsn_dynamicFields');
+  const templateId = document.getElementById('skNonAsn_templateSelect')?.value;
+
+  if (!skNonAsnSelectedEmployee || !templateId) {
+    if (container) container.style.display = 'none';
+    return;
+  }
+
+  if (container) container.style.display = 'block';
+  fieldsDiv.innerHTML = '<div style="grid-column: 1 / -1; padding:12px; color:var(--text-muted);">Memuat field template...</div>';
+
+  // Standard fields mapped from data_utama
+  const emp = skNonAsnSelectedEmployee || {};
+  const standardAutoFields = [
+    { key: 'nip', label: 'NIP', val: emp.nip || '' },
+    { key: 'nama_lengkap', label: 'Nama Lengkap', val: emp.nama_lengkap || emp.nama || '' },
+    { key: 'unit_es_ii', label: 'Unit Kerja / Fakultas', val: emp.unit_es_ii || emp.unit || '' },
+    { key: 'jabatan', label: 'Jabatan', val: emp.jabatan || '' },
+    { key: 'golongan', label: 'Golongan', val: emp.golongan || '' },
+    { key: 'pangkat', label: 'Pangkat', val: emp.pangkat || '' },
+    { key: 'tmp_lhr', label: 'Tempat Lahir', val: emp.tmp_lhr || '' },
+    { key: 'tgl_lhr', label: 'Tanggal Lahir', val: emp.tgl_lhr ? formatTanggalIndonesia(emp.tgl_lhr) : '' },
+    { key: 'status_kepegawaian', label: 'Status Kepegawaian', val: emp.status_kepegawaian || '' },
+    { key: 'tmt_pensiun_bup', label: 'TMT Pensiun BUP', val: emp.tmt_pensiun_bup ? formatTanggalIndonesia(emp.tmt_pensiun_bup) : '' }
+  ];
+
+  // Custom manual fields for SK Pensiun
+  const customManualFields = [
+    { key: 'nomor_sk', label: 'Nomor SK Pensiun', placeholder: 'cth. 1234/UN7.A/KP/2026', type: 'text' },
+    { key: 'tmt_pensiun_efektif', label: 'TMT Pensiun Efektif', placeholder: '', type: 'date' },
+    { key: 'alasan_pensiun', label: 'Alasan / Keterangan Pensiun', placeholder: 'cth. Memasuki Batas Usia Pensiun (BUP)', type: 'text' },
+    { key: 'nomor_surat_usul', label: 'Nomor Surat Usul Unit', placeholder: 'cth. 567/UN7.F1/KP/2026', type: 'text' },
+    { key: 'tgl_surat_usul', label: 'Tanggal Surat Usul Unit', placeholder: '', type: 'date' },
+    { key: 'nama_ttd_rektor', label: 'Nama Pejabat Penandatangan', placeholder: 'cth. Prof. Dr. Yos Johan Utama, S.H., M.Hum.', type: 'text' }
+  ];
+
+  let html = '';
+
+  // Render Auto-filled fields
+  standardAutoFields.forEach(f => {
+    html += `
+      <div class="stack-field">
+        <label>${escapeHtml(f.label)} <span style="color:#10b981; font-weight:600; font-size:11px;">[Auto-filled]</span></label>
+        <input type="text" data-sk-field="${f.key}" class="field-input" value="${escapeHtml(f.val)}" />
+      </div>
+    `;
+  });
+
+  // Render Custom Manual fields
+  customManualFields.forEach(f => {
+    if (f.type === 'date') {
+      html += `
+        <div class="stack-field">
+          <label>${escapeHtml(f.label)} <span style="color:#3b82f6; font-weight:600; font-size:11px;">[Manual Input]</span></label>
+          <input type="date" data-sk-field="${f.key}" class="field-input" />
+        </div>
+      `;
+    } else {
+      html += `
+        <div class="stack-field">
+          <label>${escapeHtml(f.label)} <span style="color:#3b82f6; font-weight:600; font-size:11px;">[Manual Input]</span></label>
+          <input type="text" data-sk-field="${f.key}" class="field-input" placeholder="${escapeHtml(f.placeholder)}" />
+        </div>
+      `;
+    }
+  });
+
+  fieldsDiv.innerHTML = html;
+}
+
+function submitGenerateSkPensiunNonAsn() {
+  const searchMode = document.querySelector('input[name="skNonAsn_modeSearch"]:checked')?.value || 'usulan';
+  let targetNip = '';
+  let usulanId = '';
+
+  if (searchMode === 'usulan') {
+    usulanId = document.getElementById('skNonAsn_usulanSelect')?.value || '';
+    const usulan = skNonAsnUsulanListCache.find(u => String(u.id) === String(usulanId));
+    if (!usulan) {
+      showToast('error', 'Pilih pegawai dari daftar usulan terlebih dahulu.');
+      return;
+    }
+    targetNip = usulan.nip;
+  } else {
+    targetNip = document.getElementById('skNonAsn_manualNip')?.value || '';
+    if (!targetNip) {
+      showToast('error', 'Cari dan pilih pegawai Non-ASN terlebih dahulu.');
+      return;
+    }
+  }
+
+  const jenisPensiun = document.getElementById('skNonAsn_jenisPensiun')?.value || '';
+  if (!jenisPensiun) {
+    showToast('error', 'Pilihan Jenis Pensiun wajib diisi.');
+    return;
+  }
+
+  const templateId = document.getElementById('skNonAsn_templateSelect')?.value || '';
+  if (!templateId) {
+    showToast('error', 'Template SK Pensiun wajib dipilih.');
+    return;
+  }
+
+  // Collect form data from dynamic input fields
+  const formData = {};
+  document.querySelectorAll('#skNonAsn_dynamicFields [data-sk-field]').forEach(input => {
+    const key = input.getAttribute('data-sk-field');
+    formData[key] = input.value.trim();
+  });
+
+  const btn = document.getElementById('skNonAsn_generateBtn');
+  setBtnLoading(btn, true, 'Menerbitkan SK...');
+
+  const payload = {
+    usulanId,
+    targetNip,
+    jenisPensiun,
+    templateId,
+    formData
+  };
+
+  google.script.run
+    .withSuccessHandler(res => {
+      setBtnLoading(btn, false, 'Generate & Terbitkan SK Pensiun');
+      if (res.success) {
+        showToast('success', res.message || 'SK Pensiun Non-ASN berhasil diterbitkan.');
+        
+        if (res.outputType === 'docx' && res.base64) {
+          // Download DOCX file
+          const link = document.createElement('a');
+          link.href = 'data:' + (res.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') + ';base64,' + res.base64;
+          link.download = res.fileName || 'SK_Pensiun_Non_ASN.docx';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } else if (res.viewUrl) {
+          window.open(res.viewUrl, '_blank');
+        }
+
+        // Reload usulan list
+        loadSkNonAsnUsulanList();
+      } else {
+        showToast('error', res.message || 'Gagal menerbitkan SK Pensiun.');
+      }
+    })
+    .withFailureHandler(err => {
+      setBtnLoading(btn, false, 'Generate & Terbitkan SK Pensiun');
+      showToast('error', 'Gagal menerbitkan SK Pensiun: ' + (err.message || err));
+    })
+    .generateSkPensiunNonAsn(SESSION.token, payload);
 }
 
 /* =====================================================================

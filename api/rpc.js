@@ -64,7 +64,7 @@ const CONFIG = {
   KONTRAK_JENIS_PEG_ELIGIBLE: ['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','KDRP'],
   KONTRAK_UPAH_TIER: {tier1:2903600,tier2:3026400},
   ROLE_LIST: ['normal','user','admin','super_admin'],
-  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER'],'Kontrak Tendik':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','KDRP','Tenaga Profesional'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan']},
+  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER','Buat SK Pensiun Pegawai Undip Non ASN'],'Kontrak Tendik':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','KDRP','Tenaga Profesional'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan']},
   USULAN_KP_KATA_KUNCI_PNS: ['pns'],
   USULAN_KP_NOTIF_SIASN: 'Siap diusulkan ke-SIASN',
   USULAN_KP_NOTIF_SK:    'Siap Dibuat SK',
@@ -2507,6 +2507,190 @@ const methods = {
     }
     await db.from('usulan_pensiun').update(update).eq('id',row.id);
     return {success:true};
+  },
+
+  async getUsulanPensiunNonAsnList([token]) {
+    requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+
+    // Ambil seluruh usulan pensiun yang diajukan atau diproses
+    const { data: rows, error } = await db.from('usulan_pensiun')
+      .select('*')
+      .order('tanggal_diajukan', { ascending: false });
+
+    if (error) throw error;
+    if (!rows || !rows.length) return { success: true, daftar: [] };
+
+    // Filter usulan khusus pegawai yang berstatus "Pegawai Undip Non ASN" (atau berstatus Non-ASN)
+    const nips = rows.map(r => r.nip).filter(Boolean);
+    let empMap = {};
+    if (nips.length > 0) {
+      const { data: emps } = await db.from('data_utama')
+        .select('nip, nama_lengkap, status_kepegawaian, unit_es_ii, jabatan, golongan, pangkat')
+        .in('nip', nips);
+      (emps || []).forEach(e => { empMap[e.nip] = e; });
+    }
+
+    const daftar = rows.filter(r => {
+      const emp = empMap[r.nip];
+      const statusKep = String(emp?.status_kepegawaian || '').toLowerCase();
+      // Terima jika status kepegawaian mengandung "non asn" atau jika usulan dibuat via non-asn direct
+      return statusKep.includes('non asn') || statusKep.includes('non-asn') || statusKep.includes('tetap undip');
+    }).map(r => {
+      const emp = empMap[r.nip] || {};
+      return {
+        id: r.id,
+        nip: r.nip,
+        nama: r.nama || emp.nama_lengkap,
+        unit: r.unit || emp.unit_es_ii || '',
+        jenisPensiun: r.jenis_pensiun,
+        status: r.status,
+        tanggalDiajukan: formatTanggalIndonesia(r.tanggal_diajukan),
+        fileUrl: r.file_url,
+        fileTambahan1Url: r.file_tambahan1_url,
+        fileTambahan1Label: r.file_tambahan1_label,
+        fileTambahan2Url: r.file_tambahan2_url,
+        fileTambahan2Label: r.file_tambahan2_label,
+        skDibuatPada: r.sk_dibuat_pada ? formatTanggalIndonesia(r.sk_dibuat_pada) : null,
+        skNomor: r.sk_nomor || ''
+      };
+    });
+
+    return { success: true, daftar };
+  },
+
+  async getNonAsnEmployeesList([token]) {
+    requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+
+    const { data: rows, error } = await db.from('data_utama')
+      .select('nip, nama_lengkap, nama, unit_es_ii, jabatan, golongan, pangkat, status_kepegawaian, tmt_pensiun_bup, tmp_lhr, tgl_lhr')
+      .ilike('status_kepegawaian', '%non asn%')
+      .order('nama_lengkap', { ascending: true })
+      .limit(1000);
+
+    if (error) throw error;
+    return { success: true, daftar: rows || [] };
+  },
+
+  async generateSkPensiunNonAsn([token, payload]) {
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+    const { usulanId, targetNip, jenisPensiun, templateId, formData = {} } = payload || {};
+
+    if (!targetNip) return { success: false, message: 'Pegawai target wajib dipilih.' };
+    if (!jenisPensiun) return { success: false, message: 'Jenis Pensiun wajib dipilih.' };
+    if (!templateId) return { success: false, message: 'Template SK Pensiun wajib dipilih.' };
+
+    const { data: emp, error: empErr } = await db.from('data_utama').select('*').eq('nip', String(targetNip).trim()).maybeSingle();
+    if (empErr) throw empErr;
+    if (!emp) return { success: false, message: 'Data pegawai tidak ditemukan di database.' };
+
+    const { data: tmpl, error: tmplErr } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
+    if (tmplErr) throw tmplErr;
+    if (!tmpl) return { success: false, message: 'Template SK Pensiun tidak ditemukan.' };
+
+    const now = new Date();
+    const tglSekarang = formatTanggalIndonesia(now);
+
+    // Gabungkan data utama pegawai (auto-fill) dengan isian manual formData
+    const dataCtx = {
+      nip: emp.nip,
+      nama: emp.nama || emp.nama_lengkap,
+      nama_lengkap: emp.nama_lengkap || emp.nama,
+      unit_kerja: emp.unit_es_ii || emp.unit_es_iii || '',
+      unit_es_ii: emp.unit_es_ii || '',
+      jabatan: emp.jabatan || '',
+      golongan: emp.golongan || '',
+      pangkat: emp.pangkat || '',
+      tmp_lhr: emp.tmp_lhr || '',
+      tgl_lhr: emp.tgl_lhr ? formatTanggalIndonesia(emp.tgl_lhr) : '',
+      tmt_pengangkatan: emp.tmt_pengangkatan ? formatTanggalIndonesia(emp.tmt_pengangkatan) : '',
+      tmt_pensiun_bup: emp.tmt_pensiun_bup ? formatTanggalIndonesia(emp.tmt_pensiun_bup) : '',
+      status_kepegawaian: emp.status_kepegawaian || '',
+      jenis_pensiun: jenisPensiun,
+      today: tglSekarang,
+      tanggal_sk: tglSekarang,
+      ...formData
+    };
+
+    let resultOutput = {};
+
+    if (tmpl.tipe === 'docx') {
+      const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
+      const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx);
+
+      resultOutput = {
+        success: true,
+        outputType: 'docx',
+        base64: renderedBuffer.toString('base64'),
+        fileName: `SK_Pensiun_Non_ASN_${emp.nip}_${jenisPensiun}.docx`,
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        message: 'SK Pensiun Pegawai Undip Non ASN berhasil diterbitkan.'
+      };
+    } else {
+      const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+      if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi untuk GDocs template.' };
+
+      const shortId = uuidv4();
+      const remoteSession = {
+        id: shortId,
+        data: { nip: decoded.nip || '', nama_lengkap: decoded.nama || '', nama: decoded.nama || '', role: decoded.role || 'admin' }
+      };
+
+      const response = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'generateDocument',
+          params: [shortId, { templateFileId: tmpl.file_id, dataCtx }],
+          remoteSession
+        })
+      });
+      const gasResult = await response.json();
+      if (!gasResult.success) return gasResult;
+
+      resultOutput = {
+        success: true,
+        outputType: 'gdocs',
+        fileId: gasResult.fileId,
+        viewUrl: gasResult.viewUrl,
+        fileName: gasResult.fileName || `SK_Pensiun_Non_ASN_${emp.nip}.gdoc`,
+        message: 'SK Pensiun Pegawai Undip Non ASN berhasil diterbitkan.'
+      };
+    }
+
+    // Update status di usulan_pensiun menjadi "SK Sudah dibuat"
+    if (usulanId) {
+      await db.from('usulan_pensiun').update({
+        status: 'SK Sudah dibuat',
+        sk_nomor: formData.nomor_sk || formData.no_sk || '',
+        sk_dibuat_pada: now.toISOString(),
+        sk_file_id: tmpl.id,
+        form_data: formData,
+        diproses_oleh_nip: decoded.nip
+      }).eq('id', usulanId);
+    } else {
+      // Cari usulan aktif milik NIP ini jika ada
+      const { data: existingUsulan } = await db.from('usulan_pensiun')
+        .select('id')
+        .eq('nip', String(targetNip).trim())
+        .neq('status', 'SK Sudah dibuat')
+        .limit(1);
+
+      if (existingUsulan && existingUsulan.length > 0) {
+        await db.from('usulan_pensiun').update({
+          status: 'SK Sudah dibuat',
+          sk_nomor: formData.nomor_sk || formData.no_sk || '',
+          sk_dibuat_pada: now.toISOString(),
+          sk_file_id: tmpl.id,
+          form_data: formData,
+          diproses_oleh_nip: decoded.nip
+        }).eq('id', existingUsulan[0].id);
+      }
+    }
+
+    return resultOutput;
   },
 
   // ---- GLOSARIUM TAG ----
