@@ -549,18 +549,48 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old S
 }
 
 function createDocxInlineImageXml(relId, widthPx = 120, heightPx = 160) {
-  const cx = widthPx * 9525;
-  const cy = heightPx * 9525;
+  const cx = Math.round(widthPx * 9525);
+  const cy = Math.round(heightPx * 9525);
   const docPrId = Math.floor(Math.random() * 100000) + 1;
 
-  return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${docPrId}" name="Picture"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="0" name="Picture"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></wp:inline></w:drawing></w:r>`;
+  return `<w:r><w:drawing>` +
+    `<wp:inline distT="0" distB="0" distL="0" distR="0" ` +
+    `xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
+    `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ` +
+    `xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" ` +
+    `xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ` +
+    `xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
+    `<wp:extent cx="${cx}" cy="${cy}"/>` +
+    `<wp:effectExtent l="0" t="0" r="0" b="0"/>` +
+    `<wp:docPr id="${docPrId}" name="Foto Pegawai"/>` +
+    `<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>` +
+    `<a:graphic>` +
+    `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
+    `<pic:pic>` +
+    `<pic:nvPicPr>` +
+    `<pic:cNvPr id="0" name="Foto Pegawai"/>` +
+    `<pic:cNvPicPr/>` +
+    `</pic:nvPicPr>` +
+    `<pic:blipFill>` +
+    `<a:blip r:embed="${relId}"/>` +
+    `<a:stretch><a:fillRect/></a:stretch>` +
+    `</pic:blipFill>` +
+    `<pic:spPr>` +
+    `<a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>` +
+    `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>` +
+    `</pic:spPr>` +
+    `</pic:pic>` +
+    `</a:graphicData>` +
+    `</a:graphic>` +
+    `</wp:inline>` +
+    `</w:drawing></w:r>`;
 }
 
 function injectDocxImage(zip, dataCtx) {
   if (!zip || !dataCtx) return;
 
   let photoDataUrl = '';
-  let photoKey = 'foto';
+  let photoKey = '';
   for (const [k, v] of Object.entries(dataCtx)) {
     if (typeof v === 'string' && v.startsWith('data:image/')) {
       photoDataUrl = v;
@@ -569,19 +599,47 @@ function injectDocxImage(zip, dataCtx) {
     }
   }
 
-  if (!photoDataUrl) return;
+  // Jika tidak ada foto base64 diunggah, hapus placeholder {{foto}} agar tidak menyisakan tag mentah
+  if (!photoDataUrl) {
+    const docFile = zip.file('word/document.xml');
+    if (!docFile) return;
+    let docXml = docFile.asText();
+    const photoKeys = ['foto', 'pas_foto', 'photo', 'pasfoto', 'FOTO', 'PAS_FOTO', 'PHOTO'];
+    for (const k of photoKeys) {
+      const regDbl = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
+      docXml = docXml.replace(regDbl, '');
+      const regSgl = new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi');
+      docXml = docXml.replace(regSgl, '');
+    }
+    zip.file('word/document.xml', docXml);
+    return;
+  }
 
   try {
     const matches = photoDataUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
     if (!matches) return;
 
-    const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+    let ext = matches[1].toLowerCase();
+    if (ext === 'jpeg') ext = 'jpg';
     const base64Data = matches[2];
     const imageBuffer = Buffer.from(base64Data, 'base64');
 
     const imageFileName = `word/media/foto_pegawai.${ext}`;
     zip.file(imageFileName, imageBuffer);
 
+    // 1. Update [Content_Types].xml untuk menambahkan MIME type image/jpeg atau image/png
+    const contentTypesFile = zip.file('[Content_Types].xml');
+    if (contentTypesFile) {
+      let ctXml = contentTypesFile.asText();
+      const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+      if (!ctXml.includes(`Extension="${ext}"`)) {
+        const newOverride = `<Default Extension="${ext}" ContentType="${mimeType}"/>`;
+        ctXml = ctXml.replace('</Types>', `${newOverride}</Types>`);
+        zip.file('[Content_Types].xml', ctXml);
+      }
+    }
+
+    // 2. Update word/_rels/document.xml.rels
     const relsFile = zip.file('word/_rels/document.xml.rels');
     if (!relsFile) return;
 
@@ -594,6 +652,7 @@ function injectDocxImage(zip, dataCtx) {
       zip.file('word/_rels/document.xml.rels', relsXml);
     }
 
+    // 3. Ganti placeholder foto di word/document.xml dengan inline OpenXML drawing yang valid
     const docFile = zip.file('word/document.xml');
     if (!docFile) return;
 
@@ -602,6 +661,7 @@ function injectDocxImage(zip, dataCtx) {
 
     const keysToReplace = [photoKey, 'foto', 'pas_foto', 'photo', 'pasfoto', 'FOTO', 'PAS_FOTO', 'PHOTO'];
     for (const k of keysToReplace) {
+      if (!k) continue;
       const regDbl = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
       docXml = docXml.replace(regDbl, imageXml);
       const regSgl = new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi');
@@ -613,6 +673,7 @@ function injectDocxImage(zip, dataCtx) {
     console.warn('[injectDocxImage] Error inserting image into docx:', errImg);
   }
 }
+
 
 function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = 'Bookman Old Style') {
   const PizZip = require('pizzip');
