@@ -5263,12 +5263,12 @@ module.exports = async (req, res) => {
           body: JSON.stringify({ method, params: proxiedParams, remoteSession })
         });
 
+        const rawText = await response.text();
         let result;
         try {
-          result = await response.json();
+          result = JSON.parse(rawText);
         } catch (jsonErr) {
-          const textResp = await response.text().catch(() => '');
-          console.error(`[rpc proxy] ${method} returned non-JSON from GAS:`, textResp);
+          console.error(`[rpc proxy] ${method} returned non-JSON from GAS:`, rawText.substring(0, 300));
           res.status(200).json({ success: false, message: `Gagal membaca respons dari Google Apps Script.` });
           return;
         }

@@ -36,7 +36,17 @@ if (typeof google === 'undefined' || !google.script || !google.script.run) {
                     signal: ctrl.signal
                   });
                   clearTimeout(timer);
-                  const data = await response.json();
+                  const rawText = await response.text();
+                  let data;
+                  try {
+                    data = JSON.parse(rawText);
+                  } catch (parseErr) {
+                    console.error('[RPC] non-JSON response from /api/rpc:', rawText.substring(0, 300));
+                    const isGasError = rawText.includes('A server error occurred');
+                    const cleanMsg = isGasError ? 'Gagal terhubung ke Google Apps Script (Server Error).' : 'Gagal membaca respon server.';
+                    if (failureHandler) failureHandler({ message: cleanMsg });
+                    return;
+                  }
                   console.log('[RPC]', builderProp, '->', data);
                   // Server selalu mengembalikan HTTP 200; bedakan sukses dari field `success`
                   if (response.ok && data && data.success !== false) {
@@ -77,8 +87,9 @@ if (typeof google === 'undefined' || !google.script || !google.script.run) {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ method: prop, params: args })
                 });
-                const data = await response.json();
-                // Direct calls do not have callbacks
+                const rawText = await response.text();
+                let data;
+                try { data = JSON.parse(rawText); } catch {}
               } catch (err) {
                 console.error('RPC Error:', err);
               }
