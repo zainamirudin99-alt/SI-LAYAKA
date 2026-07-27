@@ -359,8 +359,78 @@
 
             <!-- ---------- SIAP BUAT SK (peran admin/super_admin) ---------- -->
             <div class="tab-panel" data-tab-group-panel="kp" id="tab-siapSk">
-              <div class="helper-text" style="margin-bottom:14px;">Pegawai Non-ASN yang usulan Kenaikan Pangkatnya telah diproses Opsi A & B, dan siap dibuatkan SK. PNS tidak masuk dalam alur ini.</div>
-              <div id="siapSkList" class="ce-dashboard-list"></div>
+              <div class="helper-text" style="margin-bottom:14px;">
+                Pembuatan SK Kenaikan Pangkat khusus <strong>Pegawai Undip Non ASN</strong>. Anda dapat memilih pegawai yang siap SK atau mencari manual.
+              </div>
+
+              <!-- Sumber Data Selection -->
+              <div class="stack-field" style="margin-bottom:16px;">
+                <label style="font-weight:600; margin-bottom:6px; display:block;">Mekanisme Cari Data Pegawai</label>
+                <div style="display:flex; gap:20px; align-items:center;">
+                  <label style="display:flex; align-items:center; gap:8px; font-weight:500; cursor:pointer;">
+                    <input type="radio" name="skKp_modeSearch" value="usulan" checked onchange="toggleSkKpSearchMode('usulan')" />
+                    Pilih dari Daftar Siap SK
+                  </label>
+                  <label style="display:flex; align-items:center; gap:8px; font-weight:500; cursor:pointer;">
+                    <input type="radio" name="skKp_modeSearch" value="manual" onchange="toggleSkKpSearchMode('manual')" />
+                    Cari Manual Pegawai Non-ASN
+                  </label>
+                </div>
+              </div>
+
+              <!-- Search Input: Usulan vs Manual -->
+              <div id="skKp_usulanWrap" class="stack-field" style="margin-bottom:16px;">
+                <label class="kp-label">Pilih Pegawai dari Daftar Siap SK</label>
+                <select id="skKp_usulanSelect" class="field-input" onchange="onSelectSkKpUsulan()">
+                  <option value="">Memuat daftar pegawai siap SK...</option>
+                </select>
+                <div class="helper-text" id="skKp_usulanInfo" style="display:none; margin-top:4px;"></div>
+              </div>
+
+              <div id="skKp_manualWrap" class="stack-field autocomplete-wrap" style="display:none; margin-bottom:16px;">
+                <label class="kp-label">Cari Nama / NIP Pegawai Non-ASN</label>
+                <input type="text" id="skKp_manualInput" class="field-input" placeholder="Ketik NIP atau Nama Pegawai Undip Non ASN..." autocomplete="off" />
+                <input type="hidden" id="skKp_manualNip" />
+                <div class="autocomplete-list" id="skKp_manualList"></div>
+              </div>
+
+              <!-- Sub-menu / Jenis SK KP -->
+              <div class="stack-field" style="margin-bottom:16px;">
+                <label style="font-weight:600; margin-bottom:6px; display:block;">Pilihan Sub-menu / Jenis SK Kenaikan Pangkat</label>
+                <select id="skKp_subLayanan" class="field-input" onchange="onSubLayananChangeSkKp()">
+                  <option value="SK KP Dosen Pegawai Tetap Undip NON ASN">SK KP Dosen Pegawai Tetap Undip NON ASN</option>
+                  <option value="SK KP Tendik Pegawai Tetap Undip NON ASN">SK KP Tendik Pegawai Tetap Undip NON ASN</option>
+                  <option value="AK Konversi Tahunan">AK Konversi Tahunan</option>
+                  <option value="AK Konversi Kumulatif">AK Konversi Kumulatif</option>
+                </select>
+              </div>
+
+              <!-- Template Selection -->
+              <div class="stack-field" style="margin-bottom: 16px;">
+                <label style="font-weight:600; margin-bottom:6px; display:block;">Pilih Tipe & Template SK Kenaikan Pangkat</label>
+                <div style="display:flex; gap:16px; margin-bottom:8px;">
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="skKp_templateSelectType" value="gdocs" checked onchange="filterServiceTemplates('skKp_templateSelect', 'gdocs')"> Google Docs (GDocs)
+                  </label>
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:500; font-size:13px; cursor:pointer;">
+                    <input type="radio" name="skKp_templateSelectType" value="docx" onchange="filterServiceTemplates('skKp_templateSelect', 'docx')"> Microsoft Word (.docx)
+                  </label>
+                </div>
+                <select id="skKp_templateSelect" class="field-input" required onchange="onSelectSkKpTemplate()"></select>
+              </div>
+
+              <!-- Dynamic Fields Container -->
+              <div id="skKp_dynamicContainer" style="display:none; margin-top:20px; background:var(--surface-alt); padding:16px; border-radius:8px; border:1px solid var(--border);">
+                <h4 style="margin-top:0; margin-bottom:12px; font-size:15px;">📋 Isian Dynamic Form Template SK Kenaikan Pangkat</h4>
+                <div class="grid-2 kp-grid" id="skKp_dynamicFields"></div>
+              </div>
+
+              <!-- Action Button -->
+              <div class="actions-bar" style="margin-top:20px;">
+                <button class="btn btn-primary" id="skKp_generateBtn" style="width:100%; justify-content:center; padding:12px 24px; font-size:15px; font-weight:700;">
+                  🚀 Generate &amp; Terbitkan SK Kenaikan Pangkat
+                </button>
+              </div>
             </div>
 
             <!-- ---------- APPROVAL SK (peran admin/super_admin ber-subrole) ---------- -->

@@ -2570,6 +2570,119 @@ const methods = {
     return { success: true, daftar };
   },
 
+  async getSiapSkList([token]) {
+    requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+    const { data: rows, error } = await db.from('usulan_kp')
+      .select('id, nip, nama, unit, status, created_at')
+      .or('status.eq."Siap Dibuat SK",status.eq."Siap diusulkan ke-SIASN"')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('[getSiapSkList] Error query usulan_kp, return empty list:', error.message);
+      return { success: true, daftar: [] };
+    }
+    return { success: true, daftar: rows || [] };
+  },
+
+  async generateSkKpNonAsn([token, payload]) {
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+    const { usulanId, targetNip, subLayanan, templateId, formData = {} } = payload || {};
+
+    if (!targetNip) return { success: false, message: 'Pegawai target wajib dipilih.' };
+    if (!templateId) return { success: false, message: 'Template SK Kenaikan Pangkat wajib dipilih.' };
+
+    const { data: emp, error: empErr } = await db.from('data_utama').select('*').eq('nip', String(targetNip).trim()).maybeSingle();
+    if (empErr) throw empErr;
+    if (!emp) return { success: false, message: 'Data pegawai tidak ditemukan di database.' };
+
+    const { data: tmpl, error: tmplErr } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
+    if (tmplErr) throw tmplErr;
+    if (!tmpl) return { success: false, message: 'Template SK Kenaikan Pangkat tidak ditemukan.' };
+
+    const now = new Date();
+    const tglSekarang = formatTanggalIndonesia(now);
+
+    const dataCtx = {
+      nip: emp.nip,
+      nama: emp.nama || emp.nama_lengkap,
+      nama_lengkap: emp.nama_lengkap || emp.nama,
+      unit_kerja: emp.unit_es_ii || emp.unit_es_iii || '',
+      unit_es_ii: emp.unit_es_ii || '',
+      jabatan: emp.jabatan || '',
+      golongan: emp.golongan || '',
+      pangkat: emp.pangkat || '',
+      tmp_lhr: emp.tmp_lhr || '',
+      tgl_lhr: emp.tgl_lhr ? formatTanggalIndonesia(emp.tgl_lhr) : '',
+      tmt_pengangkatan: emp.tmt_pengangkatan ? formatTanggalIndonesia(emp.tmt_pengangkatan) : '',
+      tmt_gol: emp.tmt_gol ? formatTanggalIndonesia(emp.tmt_gol) : '',
+      status_kepegawaian: emp.status_kepegawaian || '',
+      sub_layanan: subLayanan,
+      today: tglSekarang,
+      tanggal_sk: tglSekarang,
+      ...formData
+    };
+
+    let resultOutput = {};
+
+    if (tmpl.tipe === 'docx') {
+      const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
+      const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx);
+
+      resultOutput = {
+        success: true,
+        outputType: 'docx',
+        base64: renderedBuffer.toString('base64'),
+        fileName: `SK_KP_Non_ASN_${emp.nip}.docx`,
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        message: 'SK Kenaikan Pangkat Pegawai Undip Non ASN berhasil diterbitkan.'
+      };
+    } else {
+      const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+      if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi untuk GDocs template.' };
+
+      const shortId = uuidv4();
+      const remoteSession = {
+        id: shortId,
+        data: { nip: decoded.nip || '', nama_lengkap: decoded.nama || '', nama: decoded.nama || '', role: decoded.role || 'admin' }
+      };
+
+      const response = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'generateDocument',
+          params: [shortId, { templateFileId: tmpl.file_id, dataCtx }],
+          remoteSession
+        })
+      });
+      const gasResult = await response.json();
+      if (!gasResult.success) return gasResult;
+
+      resultOutput = {
+        success: true,
+        outputType: 'gdocs',
+        fileId: gasResult.fileId,
+        viewUrl: gasResult.viewUrl,
+        fileName: gasResult.fileName || `SK_KP_Non_ASN_${emp.nip}.gdoc`,
+        message: 'SK Kenaikan Pangkat Pegawai Undip Non ASN berhasil diterbitkan.'
+      };
+    }
+
+    if (usulanId) {
+      await db.from('usulan_kp').update({
+        status: 'SK Selesai',
+        sk_nomor: formData.nomor_sk || formData.no_sk || '',
+        sk_dibuat_pada: now.toISOString(),
+        sk_file_id: tmpl.id,
+        diproses_oleh_nip: decoded.nip
+      }).eq('id', usulanId);
+    }
+
+    return resultOutput;
+  },
+
   async getNonAsnEmployeesList([token]) {
     requireRole(token, ['admin', 'super_admin']);
     const db = getDb();

@@ -685,7 +685,7 @@ function activateTab(groupName, targetId) {
   document.getElementById(targetId).classList.add('active');
   if (targetId === 'tab-statusUsulan') loadStatusUsulanSaya();
   if (targetId === 'tab-usulanMasuk') loadUsulanMasukDashboard();
-  if (targetId === 'tab-siapSk') loadSiapSkList();
+  if (targetId === 'tab-siapSk') { bindSkKpNonAsnForm(); loadSiapSkList(); }
   if (targetId === 'tab-approvalSk') loadApprovalSkQueue();
   if (targetId === 'tab-uploadSk') loadUploadSkList();
   if (targetId === 'tab-statusUsulanPensiun') loadStatusUsulanPensiunSaya();
@@ -1545,6 +1545,7 @@ function filterServiceTemplates(selectId, tipe) {
   if (!filtered.length) {
     selectEl.innerHTML = `<option value="">Belum ada template ${tipe === 'docx' ? 'Word' : 'GDocs'} terdaftar</option>`;
     if (selectId === 'skNonAsn_templateSelect') onSkNonAsnFormChange();
+    if (selectId === 'skKp_templateSelect') onSkKpFormChange();
     return;
   }
   selectEl.innerHTML = filtered.map(t => {
@@ -1552,6 +1553,7 @@ function filterServiceTemplates(selectId, tipe) {
     return `<option value="${fileIdVal}" data-tipe="${t.tipe || 'gdocs'}">${escapeHtml(t.judul)}</option>`;
   }).join('');
   if (selectId === 'skNonAsn_templateSelect') onSkNonAsnFormChange();
+  if (selectId === 'skKp_templateSelect') onSkKpFormChange();
 }
 
 function loadServiceTemplates(layanan, subMenu, selectId) {
@@ -3504,6 +3506,34 @@ function onSkNonAsnFormChange() {
     .getTemplatePlaceholders(SESSION.token, templateId);
 }
 
+/* =====================================================================
+ * HELPER FOTO PLACEHOLDER (Foto Upload)
+ * ===================================================================== */
+function isPhotoPlaceholder(key) {
+  const k = String(key || '').toLowerCase();
+  return k === 'foto' || k === 'pas_foto' || k === 'pasfoto' || k === 'foto_pegawai' || k === 'foto_resmi';
+}
+
+function handleSkPhotoUpload(fileInput, key) {
+  const file = fileInput.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) {
+    showToast('error', 'Ukuran file foto maksimal 2 MB.');
+    fileInput.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const hidden = document.getElementById('sk_foto_hidden_' + key);
+    const img = document.getElementById('sk_foto_preview_' + key);
+    const wrap = document.getElementById('sk_foto_preview_wrap_' + key);
+    if (hidden) hidden.value = e.target.result;
+    if (img) img.src = e.target.result;
+    if (wrap) wrap.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
 function renderSkNonAsnDynamicFormFields(placeholders) {
   const fieldsDiv = document.getElementById('skNonAsn_dynamicFields');
   if (!fieldsDiv) return;
@@ -3551,7 +3581,19 @@ function renderSkNonAsnDynamicFormFields(placeholders) {
 
     const isDateField = key.startsWith('tgl_') || key.startsWith('tmt_') || key.includes('tanggal') || key.includes('tmt');
 
-    if (isDateField && !isAutoFilled) {
+    if (isPhotoPlaceholder(key)) {
+      html += `
+        <div class="stack-field grid-full">
+          <label>${escapeHtml(labelText)} <span style="color:#ec4899; font-weight:600; font-size:11px; margin-left:6px;">[Upload File Foto]</span></label>
+          <input type="file" accept="image/*,.jpg,.jpeg,.png" class="field-input" onchange="handleSkPhotoUpload(this, '${escapeHtml(key)}')" />
+          <input type="hidden" data-sk-field="${escapeHtml(key)}" id="sk_foto_hidden_${escapeHtml(key)}" value="${escapeHtml(valFromDb)}" />
+          <div id="sk_foto_preview_wrap_${escapeHtml(key)}" style="margin-top:8px; ${valFromDb ? '' : 'display:none;'}">
+            <img id="sk_foto_preview_${escapeHtml(key)}" src="${escapeHtml(valFromDb)}" style="max-height:140px; border-radius:6px; border:1px solid var(--border);" />
+          </div>
+          <div class="helper-text">Pilih file foto (.jpg, .jpeg, .png). Maksimal 2 MB. Foto akan otomatis dimasukkan pada placeholder {{${escapeHtml(key)}}}.</div>
+        </div>
+      `;
+    } else if (isDateField && !isAutoFilled) {
       html += `
         <div class="stack-field">
           <label>${escapeHtml(labelText)} ${badgeHtml}</label>
@@ -3570,6 +3612,312 @@ function renderSkNonAsnDynamicFormFields(placeholders) {
 
   fieldsDiv.innerHTML = html;
 }
+
+/* =====================================================================
+ * ALUR SK KENAIKAN PANGKAT PEGAWAI UNDIP NON ASN (Admin / Super Admin)
+ * ===================================================================== */
+let skKpSiapListCache = [];
+let skKpSelectedEmployee = null;
+
+function bindSkKpNonAsnForm() {
+  const btn = document.getElementById('skKp_generateBtn');
+  if (btn) {
+    btn.onclick = submitGenerateSkKpNonAsn;
+  }
+
+  // Setup Real-time Autocomplete Manual Search via RPC searchEmployees
+  const manualInput = document.getElementById('skKp_manualInput');
+  const manualList = document.getElementById('skKp_manualList');
+  const manualNip = document.getElementById('skKp_manualNip');
+  if (manualInput && manualList && manualNip) {
+    setupAutocompleteEl(manualInput, manualList, manualNip, (nip, nama) => {
+      google.script.run
+        .withSuccessHandler(emp => {
+          skKpSelectedEmployee = emp;
+          onSkKpFormChange();
+        })
+        .withFailureHandler(err => showToast('error', 'Gagal memuat data pegawai: ' + (err.message || err)))
+        .getEmployeeFullData(SESSION.token, nip);
+    });
+  }
+
+  // Pre-load data pegawai siap SK
+  loadSkKpSiapList();
+  onSubLayananChangeSkKp();
+}
+
+function toggleSkKpSearchMode(mode) {
+  const usulanWrap = document.getElementById('skKp_usulanWrap');
+  const manualWrap = document.getElementById('skKp_manualWrap');
+
+  if (mode === 'usulan') {
+    if (usulanWrap) usulanWrap.style.display = 'block';
+    if (manualWrap) manualWrap.style.display = 'none';
+    skKpSelectedEmployee = null;
+    onSelectSkKpUsulan();
+  } else {
+    if (usulanWrap) usulanWrap.style.display = 'none';
+    if (manualWrap) manualWrap.style.display = 'block';
+    skKpSelectedEmployee = null;
+    document.getElementById('skKp_manualInput').value = '';
+    document.getElementById('skKp_manualNip').value = '';
+    onSkKpFormChange();
+  }
+}
+
+function loadSkKpSiapList() {
+  const select = document.getElementById('skKp_usulanSelect');
+  if (!select) return;
+  select.innerHTML = '<option value="">Memuat daftar pegawai siap SK...</option>';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) {
+        select.innerHTML = '<option value="">Gagal memuat daftar pegawai siap SK</option>';
+        return;
+      }
+      skKpSiapListCache = res.daftar || [];
+      if (!skKpSiapListCache.length) {
+        select.innerHTML = '<option value="">-- Tidak ada usulan KP Siap SK saat ini --</option>';
+        return;
+      }
+
+      select.innerHTML = '<option value="">-- Pilih Pegawai dari Daftar Siap SK --</option>' +
+        skKpSiapListCache.map(u => `
+          <option value="${u.id}">${escapeHtml(u.nama || u.nip)} (${escapeHtml(u.nip)}) - Unit: ${escapeHtml(u.unit || '-')}</option>
+        `).join('');
+    })
+    .withFailureHandler(() => {
+      select.innerHTML = '<option value="">Gagal memuat pegawai siap SK</option>';
+    })
+    .getSiapSkList(SESSION.token);
+}
+
+function onSelectSkKpUsulan() {
+  const select = document.getElementById('skKp_usulanSelect');
+  const infoEl = document.getElementById('skKp_usulanInfo');
+  if (!select) return;
+
+  const usulanId = select.value;
+  const usulan = skKpSiapListCache.find(u => String(u.id) === String(usulanId));
+
+  if (usulan) {
+    if (infoEl) {
+      infoEl.innerHTML = `NIP: <strong>${escapeHtml(usulan.nip)}</strong> | Unit: <strong>${escapeHtml(usulan.unit || '-')}</strong>`;
+      infoEl.style.display = 'block';
+    }
+
+    google.script.run
+      .withSuccessHandler(emp => {
+        skKpSelectedEmployee = emp;
+        onSkKpFormChange();
+      })
+      .getEmployeeFullData(SESSION.token, usulan.nip);
+  } else {
+    if (infoEl) infoEl.style.display = 'none';
+    skKpSelectedEmployee = null;
+    onSkKpFormChange();
+  }
+}
+
+function onSubLayananChangeSkKp() {
+  const subLayanan = document.getElementById('skKp_subLayanan')?.value || 'SK KP Dosen Pegawai Tetap Undip NON ASN';
+  loadServiceTemplates('Kenaikan Pangkat', subLayanan, 'skKp_templateSelect');
+  onSkKpFormChange();
+}
+
+function onSelectSkKpTemplate() {
+  onSkKpFormChange();
+}
+
+function onSkKpFormChange() {
+  const container = document.getElementById('skKp_dynamicContainer');
+  const fieldsDiv = document.getElementById('skKp_dynamicFields');
+  const templateId = document.getElementById('skKp_templateSelect')?.value;
+
+  if (!skKpSelectedEmployee || !templateId) {
+    if (container) container.style.display = 'none';
+    return;
+  }
+
+  if (container) container.style.display = 'block';
+  fieldsDiv.innerHTML = '<div style="grid-column: 1 / -1; padding:12px; color:var(--text-muted);">Memuat kolom isian template SK KP...</div>';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      const placeholders = (res && res.placeholders && res.placeholders.length) ? res.placeholders : [
+        'nip', 'nama_lengkap', 'unit_es_ii', 'jabatan', 'golongan', 'pangkat',
+        'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan', 'tmt_gol', 'status_kepegawaian',
+        'nomor_sk', 'tmt_sk_efektif', 'nomor_surat_usul', 'tgl_surat_usul', 'nama_ttd_rektor'
+      ];
+      renderSkKpDynamicFormFields(placeholders);
+    })
+    .withFailureHandler(() => {
+      const fallbackPlaceholders = [
+        'nip', 'nama_lengkap', 'unit_es_ii', 'jabatan', 'golongan', 'pangkat',
+        'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan', 'tmt_gol', 'status_kepegawaian',
+        'nomor_sk', 'tmt_sk_efektif', 'nomor_surat_usul', 'tgl_surat_usul', 'nama_ttd_rektor'
+      ];
+      renderSkKpDynamicFormFields(fallbackPlaceholders);
+    })
+    .getTemplatePlaceholders(SESSION.token, templateId);
+}
+
+function renderSkKpDynamicFormFields(placeholders) {
+  const fieldsDiv = document.getElementById('skKp_dynamicFields');
+  if (!fieldsDiv) return;
+
+  const emp = skKpSelectedEmployee || {};
+
+  const fieldMapping = {
+    nip: emp.nip || '',
+    nama: emp.nama || emp.nama_lengkap || '',
+    nama_lengkap: emp.nama_lengkap || emp.nama || '',
+    unit: emp.unit_es_ii || emp.unit || '',
+    unit_kerja: emp.unit_es_ii || emp.unit || '',
+    unit_es_ii: emp.unit_es_ii || emp.unit || '',
+    jabatan: emp.jabatan || '',
+    golongan: emp.golongan || '',
+    pangkat: emp.pangkat || '',
+    tmt_gol: emp.tmt_gol ? formatTanggalIndonesia(emp.tmt_gol) : '',
+    tmp_lhr: emp.tmp_lhr || '',
+    tempat_lahir: emp.tmp_lhr || '',
+    tgl_lhr: emp.tgl_lhr ? formatTanggalIndonesia(emp.tgl_lhr) : '',
+    tanggal_lahir: emp.tgl_lhr ? formatTanggalIndonesia(emp.tgl_lhr) : '',
+    tmt_pengangkatan: emp.tmt_pengangkatan ? formatTanggalIndonesia(emp.tmt_pengangkatan) : '',
+    tmt_cpns: emp.tmt_pengangkatan ? formatTanggalIndonesia(emp.tmt_pengangkatan) : '',
+    status_kepegawaian: emp.status_kepegawaian || '',
+    gaji_pokok: emp.gaji_pokok || ''
+  };
+
+  const formatLabel = (key) => {
+    return key
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
+  };
+
+  let html = '';
+
+  placeholders.forEach(key => {
+    const valFromDb = fieldMapping[key] !== undefined ? fieldMapping[key] : (emp[key] || '');
+    const isAutoFilled = valFromDb !== '' && valFromDb !== null && valFromDb !== undefined;
+    const labelText = formatLabel(key);
+
+    const badgeHtml = isAutoFilled
+      ? `<span style="color:#10b981; font-weight:600; font-size:11px; margin-left:6px;">[Auto-filled]</span>`
+      : `<span style="color:#3b82f6; font-weight:600; font-size:11px; margin-left:6px;">[Manual Input]</span>`;
+
+    const isDateField = key.startsWith('tgl_') || key.startsWith('tmt_') || key.includes('tanggal') || key.includes('tmt');
+
+    if (isPhotoPlaceholder(key)) {
+      html += `
+        <div class="stack-field grid-full">
+          <label>${escapeHtml(labelText)} <span style="color:#ec4899; font-weight:600; font-size:11px; margin-left:6px;">[Upload File Foto]</span></label>
+          <input type="file" accept="image/*,.jpg,.jpeg,.png" class="field-input" onchange="handleSkPhotoUpload(this, '${escapeHtml(key)}')" />
+          <input type="hidden" data-sk-field="${escapeHtml(key)}" id="sk_foto_hidden_${escapeHtml(key)}" value="${escapeHtml(valFromDb)}" />
+          <div id="sk_foto_preview_wrap_${escapeHtml(key)}" style="margin-top:8px; ${valFromDb ? '' : 'display:none;'}">
+            <img id="sk_foto_preview_${escapeHtml(key)}" src="${escapeHtml(valFromDb)}" style="max-height:140px; border-radius:6px; border:1px solid var(--border);" />
+          </div>
+          <div class="helper-text">Pilih file foto (.jpg, .jpeg, .png). Maksimal 2 MB. Foto akan otomatis dimasukkan pada placeholder {{${escapeHtml(key)}}}.</div>
+        </div>
+      `;
+    } else if (isDateField && !isAutoFilled) {
+      html += `
+        <div class="stack-field">
+          <label>${escapeHtml(labelText)} ${badgeHtml}</label>
+          <input type="date" data-sk-field="${escapeHtml(key)}" class="field-input" value="${escapeHtml(valFromDb)}" />
+        </div>
+      `;
+    } else {
+      html += `
+        <div class="stack-field">
+          <label>${escapeHtml(labelText)} ${badgeHtml}</label>
+          <input type="text" data-sk-field="${escapeHtml(key)}" class="field-input" value="${escapeHtml(valFromDb)}" placeholder="Masukkan ${escapeHtml(labelText)}..." />
+        </div>
+      `;
+    }
+  });
+
+  fieldsDiv.innerHTML = html;
+}
+
+function submitGenerateSkKpNonAsn() {
+  const searchMode = document.querySelector('input[name="skKp_modeSearch"]:checked')?.value || 'usulan';
+  let targetNip = '';
+  let usulanId = '';
+
+  if (searchMode === 'usulan') {
+    usulanId = document.getElementById('skKp_usulanSelect')?.value || '';
+    const usulan = skKpSiapListCache.find(u => String(u.id) === String(usulanId));
+    if (!usulan) {
+      showToast('error', 'Pilih pegawai dari daftar siap SK terlebih dahulu.');
+      return;
+    }
+    targetNip = usulan.nip;
+  } else {
+    targetNip = document.getElementById('skKp_manualNip')?.value || '';
+    if (!targetNip) {
+      showToast('error', 'Cari dan pilih pegawai Non-ASN terlebih dahulu.');
+      return;
+    }
+  }
+
+  const subLayanan = document.getElementById('skKp_subLayanan')?.value || '';
+  if (!subLayanan) {
+    showToast('error', 'Sub-menu SK Kenaikan Pangkat wajib diisi.');
+    return;
+  }
+
+  const templateId = document.getElementById('skKp_templateSelect')?.value || '';
+  if (!templateId) {
+    showToast('error', 'Template SK Kenaikan Pangkat wajib dipilih.');
+    return;
+  }
+
+  // Collect form data from dynamic input fields
+  const formData = {};
+  document.querySelectorAll('#skKp_dynamicFields [data-sk-field]').forEach(input => {
+    const key = input.getAttribute('data-sk-field');
+    formData[key] = input.value.trim();
+  });
+
+  const btn = document.getElementById('skKp_generateBtn');
+  setBtnLoading(btn, true, 'Menerbitkan SK...');
+
+  const payload = {
+    usulanId,
+    targetNip,
+    subLayanan,
+    templateId,
+    formData
+  };
+
+  google.script.run
+    .withSuccessHandler(res => {
+      setBtnLoading(btn, false, '🚀 Generate & Terbitkan SK Kenaikan Pangkat');
+      if (!res.success) {
+        showToast('error', res.message || 'Gagal menerbitkan SK Kenaikan Pangkat.');
+        return;
+      }
+
+      showToast('success', 'SK Kenaikan Pangkat berhasil diterbitkan!');
+
+      if (res.outputType === 'docx') {
+        openDownloadModalVercel(res);
+      } else {
+        openDownloadModal(res);
+      }
+
+      loadSkKpSiapList();
+      onSkKpFormChange();
+    })
+    .withFailureHandler(err => {
+      setBtnLoading(btn, false, '🚀 Generate & Terbitkan SK Kenaikan Pangkat');
+      showToast('error', 'Gagal menerbitkan SK Kenaikan Pangkat: ' + (err.message || err));
+    })
+    .generateSkKpNonAsn(SESSION.token, payload);
+}
+
 
 
 function submitGenerateSkPensiunNonAsn() {
