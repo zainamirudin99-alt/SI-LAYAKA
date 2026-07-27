@@ -491,7 +491,10 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old S
 
   const zip = new PizZip(templateBuffer);
 
-  // Bersihkan pecahan XML run di dalam paragraf sebelum di-parse Docxtemplater
+  // 1. Sisipkan foto gambar OpenXML asli ke dalam {{foto}} / {foto} TERLEBIH DAHULU sebelum Docxtemplater/Text replacement!
+  injectDocxImage(zip, dataCtx);
+
+  // 2. Bersihkan pecahan XML run di dalam paragraf sebelum di-parse Docxtemplater
   const xmlFiles = Object.keys(zip.files).filter(fn => fn.startsWith('word/') && fn.endsWith('.xml'));
   for (const fileName of xmlFiles) {
     const f = zip.file(fileName);
@@ -500,12 +503,14 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old S
     }
   }
 
+  // 3. Saring data teks (ABAIKAN SELURUH string base64 / foto dari penggantian teks biasa!)
   const sanitizedData = {};
   for (const [k, v] of Object.entries(dataCtx || {})) {
+    const kLower = String(k).toLowerCase();
     let valStr = '';
     if (v !== null && v !== undefined) {
-      if (typeof v === 'string' && v.startsWith('data:image/')) {
-        valStr = ''; // Abaikan base64 Data URL dari tag teks agar XML tetap valid
+      if (typeof v === 'string' && (v.startsWith('data:') || v.includes('base64,') || v.length > 200 || kLower.includes('foto') || kLower.includes('photo'))) {
+        valStr = ''; // Saring base64 Data URL secara mutlak dari tag teks agar tidak tercetak sebagai teks mentah!
       } else if (typeof v === 'object') {
         valStr = JSON.stringify(v);
       } else {
@@ -559,6 +564,7 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old S
 
   return replaceDocxPlaceholdersDirectly(renderedZip || zip, dataCtx, targetFont);
 }
+
 
 function createDocxInlineImageXml(relId, widthPx = 120, heightPx = 160) {
   const cx = Math.round(widthPx * 9525);
