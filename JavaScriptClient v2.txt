@@ -4338,6 +4338,32 @@ function bindKontrakForm() {
                 
                 const isDriver = String(r.jabatan || '').toLowerCase().includes('pengemudi');
                 const isMedis = isJabatanMedis(r.jabatan);
+                const simWrap = document.getElementById('kontrakUser_simWrap');
+                const strWrap = document.getElementById('kontrakUser_strWrap');
+                if (simWrap) simWrap.style.display = isDriver ? 'block' : 'none';
+                if (strWrap) strWrap.style.display = isMedis ? 'block' : 'none';
+              });
+              userSearchList.appendChild(item);
+            });
+            userSearchList.style.display = 'block';
+          })
+          .searchEmployees(SESSION.token, q);
+      }, 300);
+    });
+  }
+
+  const searchInput = document.getElementById('kontrak_searchPegawai');
+  if (searchInput) {
+    let searchDebounceTimer = null;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchDebounceTimer);
+      const q = searchInput.value.trim();
+      if (!q) {
+        document.getElementById('kontrak_searchResults').style.display = 'none';
+        return;
+      }
+      searchDebounceTimer = setTimeout(() => {
+        google.script.run
           .withSuccessHandler(renderKontrakSearchResults_)
           .searchEmployees(SESSION.token, q);
       }, 300);
