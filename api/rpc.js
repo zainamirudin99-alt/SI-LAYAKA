@@ -356,6 +356,16 @@ async function downloadTemplateBuffer(fileIdOrUrl) {
   return Buffer.from(arrayBuffer);
 }
 
+function escapeXmlText(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 function enforceDocxFont(zip, fontName) {
   if (!zip || !fontName) return;
 
@@ -378,13 +388,17 @@ function enforceDocxFont(zip, fontName) {
       xml = xml.replace(/<w:rFonts\b[^>]*\/?>/gi, fontXmlTag);
     }
 
-    // 3. Inject <w:rFonts ... /> into <w:rPr> tags if not present
-    xml = xml.replace(/(<w:rPr\b[^>]*>)(?![\s\S]*?<w:rFonts)/gi, `$1${fontXmlTag}`);
+    // 3. Safely inject <w:rFonts ... /> into <w:rPr> tags that don't have <w:rFonts>
+    xml = xml.replace(/<w:rPr\b([^>]*)>([\s\S]*?)<\/w:rPr>/gi, (match, attrs, content) => {
+      if (!/<w:rFonts\b/i.test(content)) {
+        return `<w:rPr${attrs}>${fontXmlTag}${content}</w:rPr>`;
+      }
+      return match;
+    });
 
     zip.file(fileName, xml);
   }
 }
-
 
 function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old Style') {
   const PizZip = require('pizzip');
@@ -428,13 +442,17 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old S
       docSingle.render(sanitizedData);
       renderedZip = docSingle.getZip();
     } catch (e2) {
-      console.warn('Docxtemplater fallback to direct regex replacement:', e1.message);
+      console.warn('Docxtemplater fallback to direct regex replacement:', e1.message || e1);
       return replaceDocxPlaceholdersDirectly(templateBuffer, sanitizedData, targetFont);
     }
   }
 
   if (renderedZip && targetFont) {
-    enforceDocxFont(renderedZip, targetFont);
+    try {
+      enforceDocxFont(renderedZip, targetFont);
+    } catch (errFont) {
+      console.warn('Failed enforcing docx font:', errFont);
+    }
   }
 
   return renderedZip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
@@ -446,7 +464,7 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = '
   let xml = zip.file('word/document.xml')?.asText() || '';
 
   for (const [k, v] of Object.entries(dataCtx)) {
-    const val = String(v || '');
+    const val = escapeXmlText(v);
     const regDouble = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
     xml = xml.replace(regDouble, val);
     const regSingle = new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi');
@@ -455,10 +473,15 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = '
 
   zip.file('word/document.xml', xml);
   if (targetFont) {
-    enforceDocxFont(zip, targetFont);
+    try {
+      enforceDocxFont(zip, targetFont);
+    } catch (errFont) {
+      console.warn('Failed enforcing docx font in direct replacement:', errFont);
+    }
   }
   return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
+
 
 
 // ================================================================
