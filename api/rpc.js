@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ================================================================
  * api/rpc.js — Vercel Serverless Function
  * SIMPEG: Sistem Layanan Administrasi Kepegawaian
@@ -5255,22 +5255,28 @@ function extractDriveFileId(url) {
 // ================================================================
 module.exports = async (req, res) => {
   try {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (res && typeof res.setHeader === 'function') {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    }
 
     if (req.method === 'OPTIONS') { res.status(200).end(); return; }
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
     let body;
     try {
-      body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    } catch {
-      res.status(400).json({ error: 'Invalid JSON body' }); return;
+      body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+    } catch (parseErr) {
+      res.status(200).json({ success: false, message: 'Invalid JSON body: ' + parseErr.message });
+      return;
     }
 
     const { method } = body || {};
-    if (!method) { res.status(400).json({ error: 'method wajib diisi' }); return; }
+    if (!method) {
+      res.status(200).json({ success: false, message: 'Nama method RPC wajib diisi' });
+      return;
+    }
 
     const rawParams = body ? body.params : [];
     const params = Array.isArray(rawParams) ? rawParams : (rawParams !== undefined && rawParams !== null ? [rawParams] : []);
@@ -5278,7 +5284,8 @@ module.exports = async (req, res) => {
     const fn = methods[method];
     if (fn) {
       try {
-        const result = await fn(params);
+        const safeParams = Array.isArray(params) ? params : [];
+        const result = await fn(safeParams);
         res.status(200).json(result !== undefined && result !== null ? result : { success: true });
       } catch (fnErr) {
         console.error(`[rpc] ${method} ERROR:`, fnErr.stack || fnErr.message);
