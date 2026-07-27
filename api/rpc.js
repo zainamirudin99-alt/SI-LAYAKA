@@ -339,6 +339,91 @@ async function uploadLampiran(base64DataUrl, namaFile, subfolder) {
 }
 
 // ================================================================
+// DOCX TEMPLATE RENDERING (PizZip + Docxtemplater + XML Fallback)
+// ================================================================
+async function downloadTemplateBuffer(fileIdOrUrl) {
+  const str = String(fileIdOrUrl || '').trim();
+  if (str.startsWith('http://') || str.startsWith('https://')) {
+    const res = await fetch(str);
+    if (!res.ok) throw new Error(`Gagal mengunduh template docx: HTTP ${res.status}`);
+    const arrayBuffer = await res.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
+  const db = getDb();
+  const { data, error } = await db.storage.from('templates-docx').download(str);
+  if (error) throw error;
+  const arrayBuffer = await data.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
+function docxRenderTemplate(templateBuffer, dataCtx) {
+  const PizZip = require('pizzip');
+  const Docxtemplater = require('docxtemplater');
+
+  const zip = new PizZip(templateBuffer);
+  const sanitizedData = {};
+
+  for (const [k, v] of Object.entries(dataCtx || {})) {
+    if (v === null || v === undefined) {
+      sanitizedData[k] = '';
+    } else if (typeof v === 'object') {
+      sanitizedData[k] = JSON.stringify(v);
+    } else {
+      sanitizedData[k] = String(v);
+    }
+  }
+
+  let renderedBuffer = null;
+  try {
+    const doc = new Docxtemplater(zip, {
+      delimiters: { start: '{{', end: '}}' },
+      paragraphLoop: true,
+      linebreaks: true,
+      nullGetter(part) {
+        return sanitizedData[part.value] !== undefined ? sanitizedData[part.value] : '';
+      }
+    });
+    doc.render(sanitizedData);
+    renderedBuffer = doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' });
+  } catch (e1) {
+    try {
+      const docSingle = new Docxtemplater(new PizZip(templateBuffer), {
+        delimiters: { start: '{', end: '}' },
+        paragraphLoop: true,
+        linebreaks: true,
+        nullGetter(part) {
+          return sanitizedData[part.value] !== undefined ? sanitizedData[part.value] : '';
+        }
+      });
+      docSingle.render(sanitizedData);
+      renderedBuffer = docSingle.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' });
+    } catch (e2) {
+      console.warn('Docxtemplater fallback to direct regex replacement:', e1.message);
+      renderedBuffer = replaceDocxPlaceholdersDirectly(templateBuffer, sanitizedData);
+    }
+  }
+
+  return renderedBuffer;
+}
+
+function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx) {
+  const PizZip = require('pizzip');
+  const zip = new PizZip(templateBuffer);
+  let xml = zip.file('word/document.xml')?.asText() || '';
+
+  for (const [k, v] of Object.entries(dataCtx)) {
+    const val = String(v || '');
+    const regDouble = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
+    xml = xml.replace(regDouble, val);
+    const regSingle = new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi');
+    xml = xml.replace(regSingle, val);
+  }
+
+  zip.file('word/document.xml', xml);
+  return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
+}
+
+// ================================================================
 // ELIGIBILITY HELPERS (dari EligibilityService.gs)
 // ================================================================
 function normalisasiGolongan(g) { return String(g||'').replace(/^Set\.\s*/i,'').trim(); }
@@ -2672,6 +2757,10 @@ const methods = {
       sub_layanan: subLayanan,
       today: tglSekarang,
       tanggal_sk: tglSekarang,
+      tgl_sk: tglSekarang,
+      tgl_buat: tglSekarang,
+      tanggal_buat: tglSekarang,
+      tgl_generate: tglSekarang,
       ...formData
     };
 
@@ -2786,6 +2875,10 @@ const methods = {
       jenis_pensiun: jenisPensiun,
       today: tglSekarang,
       tanggal_sk: tglSekarang,
+      tgl_sk: tglSekarang,
+      tgl_buat: tglSekarang,
+      tanggal_buat: tglSekarang,
+      tgl_generate: tglSekarang,
       ...formData
     };
 

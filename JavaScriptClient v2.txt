@@ -3537,11 +3537,94 @@ function handleSkPhotoUpload(fileInput, key) {
   reader.readAsDataURL(file);
 }
 
+/* =====================================================================
+ * HELPER OTOMATISASI PENAIKAN GOLONGAN, MASA KERJA, GAJI POKOK & TGL BUAT
+ * ===================================================================== */
+const GOLONGAN_NEXT_MAP = {
+  'I/a': { gol: 'I/b', pangkat: 'Juru Muda Tk. I' },
+  'I/b': { gol: 'I/c', pangkat: 'Juru' },
+  'I/c': { gol: 'I/d', pangkat: 'Juru Tk. I' },
+  'I/d': { gol: 'II/a', pangkat: 'Pengatur Muda' },
+  'II/a': { gol: 'II/b', pangkat: 'Pengatur Muda Tk. I' },
+  'II/b': { gol: 'II/c', pangkat: 'Pengatur' },
+  'II/c': { gol: 'II/d', pangkat: 'Pengatur Tk. I' },
+  'II/d': { gol: 'III/a', pangkat: 'Penata Muda' },
+  'III/a': { gol: 'III/b', pangkat: 'Penata Muda Tk. I' },
+  'III/b': { gol: 'III/c', pangkat: 'Penata' },
+  'III/c': { gol: 'III/d', pangkat: 'Penata Tk. I' },
+  'III/d': { gol: 'IV/a', pangkat: 'Pembina' },
+  'IV/a': { gol: 'IV/b', pangkat: 'Pembina Tk. I' },
+  'IV/b': { gol: 'IV/c', pangkat: 'Pembina Utama Muda' },
+  'IV/c': { gol: 'IV/d', pangkat: 'Pembina Utama Madya' },
+  'IV/d': { gol: 'IV/e', pangkat: 'Pembina Utama' }
+};
+
+const GAJI_POKOK_CLIENT_TABLE = {
+  'I/A': [{m:0,g:1685700},{m:2,g:1738800},{m:4,g:1793500},{m:6,g:1850000},{m:8,g:1908300},{m:10,g:1968400},{m:12,g:2030400},{m:14,g:2094300},{m:16,g:2160300},{m:18,g:2228300},{m:20,g:2298500},{m:22,g:2370900},{m:24,g:2445600},{m:26,g:2522600}],
+  'I/B': [{m:3,g:1840800},{m:5,g:1898800},{m:7,g:1958600},{m:9,g:2020300},{m:11,g:2083900},{m:13,g:2149600},{m:15,g:2217300},{m:17,g:2287100},{m:19,g:2359100},{m:21,g:2433400},{m:23,g:2510100},{m:25,g:2589100},{m:27,g:2670700}],
+  'I/C': [{m:3,g:1918700},{m:5,g:1979100},{m:7,g:2041500},{m:9,g:2105800},{m:11,g:2172100},{m:13,g:2240500},{m:15,g:2311100},{m:17,g:2383900},{m:19,g:2458900},{m:21,g:2536400},{m:23,g:2616300},{m:25,g:2698700},{m:27,g:2783700}],
+  'I/D': [{m:3,g:1999900},{m:5,g:2062900},{m:7,g:2127800},{m:9,g:2194800},{m:11,g:2264000},{m:13,g:2335300},{m:15,g:2408800},{m:17,g:2484700},{m:19,g:2562900},{m:21,g:2643700},{m:23,g:2726900},{m:25,g:2812800},{m:27,g:2901400}],
+  'II/A': [{m:0,g:2184000},{m:1,g:2218400},{m:3,g:2288200},{m:5,g:2360300},{m:7,g:2434600},{m:9,g:2511300},{m:11,g:2590400},{m:13,g:2672000},{m:15,g:2756200},{m:17,g:2843000},{m:19,g:2932500},{m:21,g:3024900},{m:23,g:3120100},{m:25,g:3218400},{m:27,g:3319800},{m:29,g:3424300},{m:31,g:3532200},{m:33,g:3643400}],
+  'II/B': [{m:0,g:2385000},{m:2,g:2460100},{m:4,g:2537600},{m:6,g:2617500},{m:8,g:2700000},{m:10,g:2785000},{m:12,g:2872700},{m:14,g:2963200},{m:16,g:3056500},{m:18,g:3152800},{m:20,g:3252100},{m:22,g:3354500},{m:24,g:3460200},{m:26,g:3569200},{m:28,g:3681600},{m:30,g:3797500}],
+  'II/C': [{m:0,g:2485900},{m:2,g:2564200},{m:4,g:2645000},{m:6,g:2728300},{m:8,g:2814200},{m:10,g:2902800},{m:12,g:2994300},{m:14,g:3088600},{m:16,g:3185800},{m:18,g:3286200},{m:20,g:3389700},{m:22,g:3496400},{m:24,g:3606500},{m:26,g:3720100},{m:28,g:3837300},{m:30,g:3958200}],
+  'II/D': [{m:0,g:2591100},{m:2,g:2672700},{m:4,g:2756800},{m:6,g:2843700},{m:8,g:2933200},{m:10,g:3025600},{m:12,g:3120900},{m:14,g:3219200},{m:16,g:3320600},{m:18,g:3425200},{m:20,g:3533100},{m:22,g:3644300},{m:24,g:3759100},{m:26,g:3877500},{m:28,g:3999600},{m:30,g:4125600}],
+  'III/A': [{m:0,g:2785700},{m:2,g:2873500},{m:4,g:2964000},{m:6,g:3057300},{m:8,g:3153600},{m:10,g:3252900},{m:12,g:3355400},{m:14,g:3461100},{m:16,g:3570100},{m:18,g:3682500},{m:20,g:3798500},{m:22,g:3918100},{m:24,g:4041500},{m:26,g:4168800},{m:28,g:4300100},{m:30,g:4435500},{m:32,g:4575200}],
+  'III/B': [{m:0,g:2903600},{m:2,g:2995000},{m:4,g:3089300},{m:6,g:3186600},{m:8,g:3287000},{m:10,g:3390500},{m:12,g:3497300},{m:14,g:3607500},{m:16,g:3721100},{m:18,g:3838300},{m:20,g:3959200},{m:22,g:4083900},{m:24,g:4212500},{m:26,g:4345100},{m:28,g:4482000},{m:30,g:4623200},{m:32,g:4768800}],
+  'III/C': [{m:0,g:3026400},{m:2,g:3121700},{m:4,g:3220000},{m:6,g:3321400},{m:8,g:3426000},{m:10,g:3533900},{m:12,g:3645200},{m:14,g:3760100},{m:16,g:3878500},{m:18,g:4000600},{m:20,g:4126600},{m:22,g:4256600},{m:24,g:4390700},{m:26,g:4528900},{m:28,g:4671600},{m:30,g:4818700},{m:32,g:4970500}],
+  'III/D': [{m:0,g:3154400},{m:2,g:3253700},{m:4,g:3356200},{m:6,g:3461900},{m:8,g:3571000},{m:10,g:3683400},{m:12,g:3799400},{m:14,g:3919100},{m:16,g:4042500},{m:18,g:4169900},{m:20,g:4301200},{m:22,g:4436700},{m:24,g:4576400},{m:26,g:4720500},{m:28,g:4869200},{m:30,g:5022500},{m:32,g:5180700}],
+  'IV/A': [{m:0,g:3287800},{m:2,g:3391400},{m:4,g:3498200},{m:6,g:3608400},{m:8,g:3722000},{m:10,g:3839200},{m:12,g:3960200},{m:14,g:4084900},{m:16,g:4213500},{m:18,g:4346200},{m:20,g:4483100},{m:22,g:4624300},{m:24,g:4770000},{m:26,g:4920200},{m:28,g:5075200},{m:30,g:5235000},{m:32,g:5399900}],
+  'IV/B': [{m:0,g:3426900},{m:2,g:3534800},{m:4,g:3646200},{m:6,g:3761000},{m:8,g:3879500},{m:10,g:4001600},{m:12,g:4127700},{m:14,g:4257700},{m:16,g:4391800},{m:18,g:4530100},{m:20,g:4672800},{m:22,g:4819900},{m:24,g:4971700},{m:26,g:5128300},{m:28,g:5289800},{m:30,g:5456400},{m:32,g:5628300}],
+  'IV/C': [{m:0,g:3571900},{m:2,g:3684400},{m:4,g:3800400},{m:6,g:3920100},{m:8,g:4043600},{m:10,g:4170900},{m:12,g:4302300},{m:14,g:4437800},{m:16,g:4577500},{m:18,g:4721700},{m:20,g:4870400},{m:22,g:5023800},{m:24,g:5182000},{m:26,g:5345200},{m:28,g:5513600},{m:30,g:5687200},{m:32,g:5866400}],
+  'IV/D': [{m:0,g:3723000},{m:2,g:3840200},{m:4,g:3961200},{m:6,g:4085900},{m:8,g:4214600},{m:10,g:4347300},{m:12,g:4484300},{m:14,g:4625500},{m:16,g:4771200},{m:18,g:4921400},{m:20,g:5076400},{m:22,g:5236300},{m:24,g:5401200},{m:26,g:5571400},{m:28,g:5746800},{m:30,g:5927800},{m:32,g:6114500}],
+  'IV/E': [{m:0,g:3880400},{m:2,g:4002700},{m:4,g:4128700},{m:6,g:4258700},{m:8,g:4392900},{m:10,g:4531200},{m:12,g:4673900},{m:14,g:4821100},{m:16,g:4973000},{m:18,g:5129600},{m:20,g:5291200},{m:22,g:5457800},{m:24,g:5629700},{m:26,g:5807000},{m:28,g:5989900},{m:30,g:6178600},{m:32,g:6373200}]
+};
+
+function cariGajiPokokClient(gol, mkgThn) {
+  const normGol = String(gol || '').trim().toUpperCase();
+  const list = GAJI_POKOK_CLIENT_TABLE[normGol];
+  if (!list || !list.length) return 0;
+  const mkg = Math.floor(Number(mkgThn) || 0);
+  let best = 0;
+  for (const item of list) {
+    if (item.m <= mkg) best = item.g;
+    else break;
+  }
+  return best;
+}
+
+function formatRupiahFull(angka) {
+  if (!angka) return 'Rp. 0,00';
+  const val = Math.round(Number(angka) || 0);
+  const formatted = String(val).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `Rp. ${formatted},00`;
+}
+
+function hitungMasaKerjaClient(startDateStr, endDateStr) {
+  if (!startDateStr || !endDateStr) return { tahun: 0, bulan: 0, text: '0 TAHUN 0 BULAN' };
+  const d1 = new Date(startDateStr);
+  const d2 = new Date(endDateStr);
+  if (isNaN(d1.getTime()) || isNaN(d2.getTime()) || d2 < d1) return { tahun: 0, bulan: 0, text: '0 TAHUN 0 BULAN' };
+
+  let years = d2.getFullYear() - d1.getFullYear();
+  let months = d2.getMonth() - d1.getMonth();
+  if (d2.getDate() < d1.getDate()) months--;
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+  return {
+    tahun: years,
+    bulan: months,
+    text: `${years} TAHUN ${months} BULAN`
+  };
+}
+
 function renderSkNonAsnDynamicFormFields(placeholders) {
   const fieldsDiv = document.getElementById('skNonAsn_dynamicFields');
   if (!fieldsDiv) return;
 
   const emp = skNonAsnSelectedEmployee || {};
+  const todayStr = formatTanggalIndonesia(new Date());
 
   const fieldMapping = {
     nip: emp.nip || '',
@@ -3562,7 +3645,12 @@ function renderSkNonAsnDynamicFormFields(placeholders) {
     tmt_pensiun_bup: emp.tmt_pensiun_bup ? formatTanggalIndonesia(emp.tmt_pensiun_bup) : '',
     tmt_pensiun: emp.tmt_pensiun_bup ? formatTanggalIndonesia(emp.tmt_pensiun_bup) : '',
     status_kepegawaian: emp.status_kepegawaian || '',
-    gaji_pokok: emp.gaji_pokok || ''
+    gaji_pokok: emp.gaji_pokok ? formatRupiahFull(emp.gaji_pokok) : '',
+    tgl_buat: todayStr,
+    tgl_sk: todayStr,
+    tanggal_sk: todayStr,
+    today: todayStr,
+    tanggal_buat: todayStr
   };
 
   const formatLabel = (key) => {
@@ -3771,6 +3859,12 @@ function renderSkKpDynamicFormFields(placeholders) {
   if (!fieldsDiv) return;
 
   const emp = skKpSelectedEmployee || {};
+  const todayStr = formatTanggalIndonesia(new Date());
+
+  const golLama = emp.golongan || '';
+  const nextInfo = GOLONGAN_NEXT_MAP[golLama] || { gol: '', pangkat: '' };
+  const golBaru = nextInfo.gol || '';
+  const pangkatBaru = nextInfo.pangkat || '';
 
   const fieldMapping = {
     nip: emp.nip || '',
@@ -3780,9 +3874,16 @@ function renderSkKpDynamicFormFields(placeholders) {
     unit_kerja: emp.unit_es_ii || emp.unit || '',
     unit_es_ii: emp.unit_es_ii || emp.unit || '',
     jabatan: emp.jabatan || '',
-    golongan: emp.golongan || '',
+    gol_lama: golLama,
+    golongan_lama: golLama,
+    golongan: golLama,
+    pangkat_lama: emp.pangkat || '',
     pangkat: emp.pangkat || '',
+    gol_baru: golBaru,
+    golongan_baru: golBaru,
+    pangkat_baru: pangkatBaru,
     tmt_gol: emp.tmt_gol ? formatTanggalIndonesia(emp.tmt_gol) : '',
+    tmt_gol_lama: emp.tmt_gol ? formatTanggalIndonesia(emp.tmt_gol) : '',
     tmp_lhr: emp.tmp_lhr || '',
     tempat_lahir: emp.tmp_lhr || '',
     tgl_lhr: emp.tgl_lhr ? formatTanggalIndonesia(emp.tgl_lhr) : '',
@@ -3790,7 +3891,12 @@ function renderSkKpDynamicFormFields(placeholders) {
     tmt_pengangkatan: emp.tmt_pengangkatan ? formatTanggalIndonesia(emp.tmt_pengangkatan) : '',
     tmt_cpns: emp.tmt_pengangkatan ? formatTanggalIndonesia(emp.tmt_pengangkatan) : '',
     status_kepegawaian: emp.status_kepegawaian || '',
-    gaji_pokok: emp.gaji_pokok || ''
+    gaji_pokok: emp.gaji_pokok ? formatRupiahFull(emp.gaji_pokok) : '',
+    tgl_buat: todayStr,
+    tgl_sk: todayStr,
+    tanggal_sk: todayStr,
+    today: todayStr,
+    tanggal_buat: todayStr
   };
 
   const formatLabel = (key) => {
@@ -3842,7 +3948,44 @@ function renderSkKpDynamicFormFields(placeholders) {
   });
 
   fieldsDiv.innerHTML = html;
+
+  // Event Listener Otomatisasi Perhitungan Masa Kerja & Gaji Pokok Baru
+  const tmtGolBaruInput = fieldsDiv.querySelector('[data-sk-field="tmt_gol_baru"]') ||
+                          fieldsDiv.querySelector('[data-sk-field="tmt_sk_efektif"]') ||
+                          fieldsDiv.querySelector('[data-sk-field="tmt_kp"]');
+
+  if (tmtGolBaruInput) {
+    const doRecalc = () => {
+      const tmtGolBaruVal = tmtGolBaruInput.value;
+      const tmtPengangkatanVal = emp.tmt_pengangkatan || '';
+      if (tmtGolBaruVal && tmtPengangkatanVal) {
+        const mk = hitungMasaKerjaClient(tmtPengangkatanVal, tmtGolBaruVal);
+        const setFieldValue = (fName, val) => {
+          const inp = fieldsDiv.querySelector(`[data-sk-field="${fName}"]`);
+          if (inp) inp.value = val;
+        };
+        setFieldValue('masa_kerja_baru_tahun', mk.tahun);
+        setFieldValue('masa_kerja_baru_bulan', mk.bulan);
+        setFieldValue('masa_kerja_baru', mk.text);
+        setFieldValue('masa_kerja', mk.text);
+
+        const currentGolBaruInput = fieldsDiv.querySelector('[data-sk-field="gol_baru"]') || fieldsDiv.querySelector('[data-sk-field="golongan_baru"]');
+        const targetGol = currentGolBaruInput ? currentGolBaruInput.value : golBaru;
+        const gajiNum = cariGajiPokokClient(targetGol, mk.tahun);
+        const gajiStr = formatRupiahFull(gajiNum);
+
+        setFieldValue('gaji_pokok_baru', gajiStr);
+        setFieldValue('gaji_pokok_baru_kp', gajiStr);
+        setFieldValue('gaji_pokok', gajiStr);
+      }
+    };
+
+    tmtGolBaruInput.addEventListener('change', doRecalc);
+    tmtGolBaruInput.addEventListener('input', doRecalc);
+    doRecalc();
+  }
 }
+
 
 function submitGenerateSkKpNonAsn() {
   const searchMode = document.querySelector('input[name="skKp_modeSearch"]:checked')?.value || 'usulan';
