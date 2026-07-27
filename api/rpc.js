@@ -2895,9 +2895,16 @@ const methods = {
 
     let resultOutput = {};
 
-    if (tmpl.tipe === 'docx') {
+    let isDocxProcessed = false;
+    try {
       const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
-      const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx);
+      let renderedBuffer;
+      try {
+        renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, 'Bookman Old Style');
+      } catch (errRender) {
+        console.warn('[generateSkKpNonAsn] docxRenderTemplate failed, using direct replacement:', errRender);
+        renderedBuffer = replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, 'Bookman Old Style');
+      }
 
       resultOutput = {
         success: true,
@@ -2907,9 +2914,19 @@ const methods = {
         mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         message: 'SK Kenaikan Pangkat Pegawai Undip Non ASN berhasil diterbitkan.'
       };
-    } else {
+      isDocxProcessed = true;
+    } catch (errDocx) {
+      console.warn('[generateSkKpNonAsn] DOCX rendering fallback to GDocs:', errDocx.message);
+    }
+
+    if (!isDocxProcessed) {
       const gasUrl = process.env.GOOGLE_SCRIPT_URL;
       if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi untuk GDocs template.' };
+
+      const sanitizedGasCtx = { ...dataCtx };
+      if (sanitizedGasCtx.foto && sanitizedGasCtx.foto.length > 2000) {
+        delete sanitizedGasCtx.foto;
+      }
 
       const shortId = uuidv4();
       const remoteSession = {
@@ -2922,12 +2939,14 @@ const methods = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           method: 'generateDocument',
-          params: [shortId, { templateFileId: tmpl.file_id, dataCtx }],
+          params: [shortId, { templateFileId: tmpl.file_id, dataCtx: sanitizedGasCtx }],
           remoteSession
         })
       });
       const gasResult = await response.json();
-      if (!gasResult.success) return gasResult;
+      if (!gasResult.success) {
+        return { success: false, message: 'Gagal menerbitkan SK Kenaikan Pangkat: ' + (gasResult.message || 'Error pada template') };
+      }
 
       resultOutput = {
         success: true,
@@ -3013,9 +3032,16 @@ const methods = {
 
     let resultOutput = {};
 
-    if (tmpl.tipe === 'docx') {
+    let isDocxProcessed = false;
+    try {
       const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
-      const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx);
+      let renderedBuffer;
+      try {
+        renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, 'Bookman Old Style');
+      } catch (errRender) {
+        console.warn('[generateSkPensiunNonAsn] docxRenderTemplate failed, using direct replacement:', errRender);
+        renderedBuffer = replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, 'Bookman Old Style');
+      }
 
       resultOutput = {
         success: true,
@@ -3025,9 +3051,19 @@ const methods = {
         mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         message: 'SK Pensiun Pegawai Undip Non ASN berhasil diterbitkan.'
       };
-    } else {
+      isDocxProcessed = true;
+    } catch (errDocx) {
+      console.warn('[generateSkPensiunNonAsn] DOCX rendering fallback to GDocs:', errDocx.message);
+    }
+
+    if (!isDocxProcessed) {
       const gasUrl = process.env.GOOGLE_SCRIPT_URL;
       if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi untuk GDocs template.' };
+
+      const sanitizedGasCtx = { ...dataCtx };
+      if (sanitizedGasCtx.foto && sanitizedGasCtx.foto.length > 2000) {
+        delete sanitizedGasCtx.foto;
+      }
 
       const shortId = uuidv4();
       const remoteSession = {
@@ -3040,12 +3076,14 @@ const methods = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           method: 'generateDocument',
-          params: [shortId, { templateFileId: tmpl.file_id, dataCtx }],
+          params: [shortId, { templateFileId: tmpl.file_id, dataCtx: sanitizedGasCtx }],
           remoteSession
         })
       });
       const gasResult = await response.json();
-      if (!gasResult.success) return gasResult;
+      if (!gasResult.success) {
+        return { success: false, message: 'Gagal menerbitkan SK Pensiun: ' + (gasResult.message || 'Error pada template') };
+      }
 
       resultOutput = {
         success: true,
@@ -3056,6 +3094,7 @@ const methods = {
         message: 'SK Pensiun Pegawai Undip Non ASN berhasil diterbitkan.'
       };
     }
+
 
     // Update status di usulan_pensiun menjadi "SK Sudah dibuat"
     if (usulanId) {
