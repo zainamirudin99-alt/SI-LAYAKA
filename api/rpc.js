@@ -2495,44 +2495,55 @@ const methods = {
   },
 
   async getUsulanPensiunSayaForUser([token]) {
-    const decoded=requireRole(token,['user','admin','super_admin']);
-    const {data}=await getDb().from('usulan_pensiun').select('*').eq('diajukan_oleh_nip',decoded.nip).order('tanggal_diajukan',{ascending:false});
-    const daftar=(data||[]).map(u=>({nip:u.nip,nama:u.nama,jenisPensiun:u.jenis_pensiun,tanggalDiajukan:formatTanggalIndonesia(u.tanggal_diajukan),status:u.status}));
-    return {success:true,daftar};
+    const decoded = requireRole(token, ['user', 'admin', 'super_admin']);
+    const { data } = await getDb().from('usulan_pensiun').select('*').eq('diajukan_oleh_nip', decoded.nip).order('tanggal_diajukan', { ascending: false });
+    const daftar = (data || []).map(u => ({
+      id: u.id,
+      nip: u.nip,
+      nama: u.nama,
+      jenisPensiun: u.jenis_pensiun,
+      tanggalDiajukan: formatTanggalIndonesia(u.tanggal_diajukan),
+      status: u.status,
+      skNomor: u.sk_nomor || '',
+      skPdfUrl: u.sk_pdf_url || u.file_url || '',
+      skDibuatPada: u.sk_dibuat_pada ? formatTanggalIndonesia(u.sk_dibuat_pada) : null
+    }));
+    return { success: true, daftar };
   },
 
   async tandaiDokumenPensiunSelesai([token, nip, jenisDokumen]) {
-    const decoded=requireRole(token,['admin','super_admin']);
-    const db=getDb();
-    const {data:rows}=await db.from('usulan_pensiun').select('*').eq('nip',nip).eq('status','Diajukan');
-    if (!rows||!rows.length) return {success:true};
-    const row=rows[0];
-    const kol=jenisDokumen==='dpcp'?{dpcp_selesai_pada:new Date().toISOString()}:{super_selesai_pada:new Date().toISOString()};
-    const dpcpOk=jenisDokumen==='dpcp'?true:!!row.dpcp_selesai_pada;
-    const superOk=jenisDokumen==='super'?true:!!row.super_selesai_pada;
-    const update={...kol};
-    if (dpcpOk&&superOk) {
-      const {data:emp}=await db.from('data_utama').select('status_kepegawaian').eq('nip',nip).maybeSingle();
-      update.status=tentukanNotifStatusAkhir(emp?.status_kepegawaian);
-      update.diproses_oleh_nip=decoded.nip;
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+    const { data: rows } = await db.from('usulan_pensiun').select('*').eq('nip', nip).eq('status', 'Diajukan');
+    if (!rows || !rows.length) return { success: true };
+    const row = rows[0];
+    const kol = jenisDokumen === 'dpcp' ? { dpcp_selesai_pada: new Date().toISOString() } : { super_selesai_pada: new Date().toISOString() };
+    const dpcpOk = jenisDokumen === 'dpcp' ? true : !!row.dpcp_selesai_pada;
+    const superOk = jenisDokumen === 'super' ? true : !!row.super_selesai_pada;
+    const update = { ...kol };
+    if (dpcpOk && superOk) {
+      const { data: emp } = await db.from('data_utama').select('status_kepegawaian').eq('nip', nip).maybeSingle();
+      update.status = tentukanNotifStatusAkhir(emp?.status_kepegawaian);
+      update.diproses_oleh_nip = decoded.nip;
     }
-    await db.from('usulan_pensiun').update(update).eq('id',row.id);
-    return {success:true};
+    await db.from('usulan_pensiun').update(update).eq('id', row.id);
+    return { success: true };
   },
 
   async getUsulanPensiunNonAsnList([token]) {
     requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
 
-    // Ambil seluruh usulan pensiun yang diajukan atau diproses
     const { data: rows, error } = await db.from('usulan_pensiun')
       .select('*')
       .order('tanggal_diajukan', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.warn('[getUsulanPensiunNonAsnList] Error query usulan_pensiun:', error.message);
+      return { success: true, daftar: [] };
+    }
     if (!rows || !rows.length) return { success: true, daftar: [] };
 
-    // Filter usulan khusus pegawai yang berstatus "Pegawai Undip Non ASN" (atau berstatus Non-ASN)
     const nips = rows.map(r => r.nip).filter(Boolean);
     let empMap = {};
     if (nips.length > 0) {
@@ -2542,22 +2553,18 @@ const methods = {
       (emps || []).forEach(e => { empMap[e.nip] = e; });
     }
 
-    const daftar = rows.filter(r => {
-      const emp = empMap[r.nip];
-      const statusKep = String(emp?.status_kepegawaian || '').toLowerCase();
-      // Terima jika status kepegawaian mengandung "non asn" atau jika usulan dibuat via non-asn direct
-      return statusKep.includes('non asn') || statusKep.includes('non-asn') || statusKep.includes('tetap undip');
-    }).map(r => {
+    const daftar = rows.map(r => {
       const emp = empMap[r.nip] || {};
       return {
         id: r.id,
         nip: r.nip,
-        nama: r.nama || emp.nama_lengkap,
+        nama: r.nama || emp.nama_lengkap || r.nip,
         unit: r.unit || emp.unit_es_ii || '',
-        jenisPensiun: r.jenis_pensiun,
+        jenisPensiun: r.jenis_pensiun || 'BUP',
         status: r.status,
         tanggalDiajukan: formatTanggalIndonesia(r.tanggal_diajukan),
         fileUrl: r.file_url,
+        skPdfUrl: r.sk_pdf_url || r.file_url || '',
         fileTambahan1Url: r.file_tambahan1_url,
         fileTambahan1Label: r.file_tambahan1_label,
         fileTambahan2Url: r.file_tambahan2_url,
@@ -2568,6 +2575,50 @@ const methods = {
     });
 
     return { success: true, daftar };
+  },
+
+  async getSkPdfUploadUrl([token, usulanId, fileName]) {
+    requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+    const safeName = String(fileName || 'sk_final.pdf').replace(/[^a-zA-Z0-9._-]/g, '-');
+    const path = `sk-pensiun-pdf/${Date.now()}-${usulanId}-${safeName}`;
+
+    const { data, error } = await db.storage
+      .from('lampiran-usulan')
+      .createSignedUploadUrl(path);
+    if (error) throw error;
+
+    const { data: pubData } = db.storage
+      .from('lampiran-usulan')
+      .getPublicUrl(path);
+
+    return {
+      success: true,
+      signedUrl: data.signedUrl,
+      path,
+      publicUrl: pubData?.publicUrl || path
+    };
+  },
+
+  async uploadFinalSkPensiun([token, payload]) {
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+    const { usulanId, skNomor, publicUrl } = payload || {};
+
+    if (!usulanId) return { success: false, message: 'ID Usulan Pensiun wajib diisi.' };
+    if (!publicUrl) return { success: false, message: 'URL file PDF SK wajib diisi.' };
+
+    const { error } = await db.from('usulan_pensiun').update({
+      status: 'SK Selesai',
+      sk_pdf_url: publicUrl,
+      file_url: publicUrl,
+      sk_nomor: skNomor || '',
+      sk_dibuat_pada: new Date().toISOString(),
+      diproses_oleh_nip: decoded.nip
+    }).eq('id', usulanId);
+
+    if (error) throw error;
+    return { success: true, message: 'File PDF SK Pensiun berhasil diunggah.' };
   },
 
   async getSiapSkList([token]) {

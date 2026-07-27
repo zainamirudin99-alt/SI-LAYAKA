@@ -1189,6 +1189,7 @@
               <button class="tab-btn" data-tab-target="tab-statusUsulanPensiun" id="tabBtnStatusUsulanPensiun" style="display:none;">Status Usulan Saya</button>
               <button class="tab-btn" data-tab-target="tab-usulanMasukPensiun" id="tabBtnUsulanMasukPensiun" style="display:none;">📨 Usulan Masuk <span id="usulanMasukPensiunBadge" class="cdli-badge" style="display:none;"></span></button>
               <button class="tab-btn" data-tab-target="tab-skPensiunNonAsn" id="tabBtnSkPensiunNonAsn" style="display:none;">📜 Buat SK Pensiun Pegawai Undip Non ASN</button>
+              <button class="tab-btn" data-tab-target="tab-uploadSkPensiun" id="tabBtnUploadSkPensiun" style="display:none;">📤 Upload Final SK Pensiun</button>
             </div>
 
             <div class="tab-panel active" data-tab-group-panel="pensiun" id="tab-dpcp">
@@ -1464,6 +1465,14 @@
               <div class="actions-bar" style="margin-top:20px;">
                 <button class="btn btn-primary" id="skNonAsn_generateBtn">Generate & Terbitkan SK Pensiun</button>
               </div>
+            </div>
+
+            <!-- ---------- UPLOAD FINAL SK PENSIUN (peran admin/super_admin) ---------- -->
+            <div class="tab-panel" data-tab-group-panel="pensiun" id="tab-uploadSkPensiun">
+              <div class="helper-text" style="margin-bottom:14px;">
+                Unggah file PDF SK Pensiun yang telah ditandatangani dan dicap basah sesuai nama usulan pegawai. User yang mengusulkan dapat melihat dan mengunduh file SK tersebut secara langsung.
+              </div>
+              <div id="uploadSkPensiunList" class="ce-dashboard-list"></div>
             </div>
           </div>
         </div>
@@ -2366,9 +2375,11 @@ function terapkanBatasanPeran_() {
   const tabStatusUsulanPensiun = document.getElementById('tabBtnStatusUsulanPensiun');
   const tabUsulanMasukPensiun = document.getElementById('tabBtnUsulanMasukPensiun');
   const tabBtnSkPensiunNonAsn = document.getElementById('tabBtnSkPensiunNonAsn');
+  const tabBtnUploadSkPensiun = document.getElementById('tabBtnUploadSkPensiun');
   if (tabStatusUsulanPensiun) tabStatusUsulanPensiun.style.display = (role === 'user') ? '' : 'none';
   if (tabUsulanMasukPensiun) tabUsulanMasukPensiun.style.display = (role === 'admin' || role === 'super_admin') ? '' : 'none';
   if (tabBtnSkPensiunNonAsn) tabBtnSkPensiunNonAsn.style.display = (role === 'admin' || role === 'super_admin') ? '' : 'none';
+  if (tabBtnUploadSkPensiun) tabBtnUploadSkPensiun.style.display = (role === 'admin' || role === 'super_admin') ? '' : 'none';
   if (role === 'admin' || role === 'super_admin') loadUsulanMasukPensiunBadge();
 
   // Tombol akses manual di dashboard Pensiun berubah makna sesuai peran:
@@ -2744,6 +2755,7 @@ function activateTab(groupName, targetId) {
   if (targetId === 'tab-uploadSk') loadUploadSkList();
   if (targetId === 'tab-statusUsulanPensiun') loadStatusUsulanPensiunSaya();
   if (targetId === 'tab-usulanMasukPensiun') loadUsulanMasukPensiunDashboard();
+  if (targetId === 'tab-uploadSkPensiun') loadUploadSkPensiunList();
 }
 
 /* ------------------------- AUTOCOMPLETE PENCARIAN PEGAWAI ------------------------- */
@@ -8084,7 +8096,195 @@ function togglePmkDocApproval(usulanId, docKey, disetujui) {
     .withFailureHandler(err => showToast('error', 'Gagal memproses persetujuan dokumen: ' + (err.message || err)))
     .approveUsulanPmkAttachment(SESSION.token, usulanId, docKey, disetujui);
 }
+
+/* =====================================================================
+ * UPLOAD FINAL SK PENSIUN (Admin / Super Admin) & STATUS USULAN SAYA (User)
+ * ===================================================================== */
+function loadUploadSkPensiunList() {
+  const container = document.getElementById('uploadSkPensiunList');
+  if (!container) return;
+  container.innerHTML = '<div style="padding:12px; color:var(--text-muted);">Memuat daftar usulan pensiun...</div>';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) {
+        container.innerHTML = `<div class="ce-dashboard-card cdc-empty">Gagal memuat usulan: ${escapeHtml(res.message || '')}</div>`;
+        return;
+      }
+
+      const daftar = res.daftar || [];
+      if (!daftar.length) {
+        container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Belum ada usulan Pensiun yang masuk.</div>';
+        return;
+      }
+
+      let html = '';
+      daftar.forEach(u => {
+        const hasPdf = u.skPdfUrl && u.skPdfUrl !== u.fileUrl;
+        const pdfStatusBadge = hasPdf
+          ? `<span style="color:#10b981; font-weight:600; font-size:12px;">✓ File PDF SK Sudah Diunggah (${escapeHtml(u.skDibuatPada || '')})</span>`
+          : `<span style="color:#f59e0b; font-weight:600; font-size:12px;">⚠️ Belum Upload PDF SK Final</span>`;
+
+        html += `
+          <div class="ce-dashboard-list-item" style="cursor:default; flex-direction:column; align-items:stretch; gap:12px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px;">
+              <div>
+                <div class="cdli-name">${escapeHtml(u.nama)} <span class="cdli-meta">(NIP ${escapeHtml(u.nip)})</span></div>
+                <div class="cdli-meta" style="margin-top:4px;">
+                  Jenis Pensiun: <strong>${escapeHtml(u.jenisPensiun || '-')}</strong> &middot; Unit: <strong>${escapeHtml(u.unit || '-')}</strong> &middot; Diajukan: ${escapeHtml(u.tanggalDiajukan)}
+                </div>
+                <div style="margin-top:6px;">${pdfStatusBadge}</div>
+              </div>
+              <span class="cdli-badge">${escapeHtml(u.status)}</span>
+            </div>
+
+            <div style="background:var(--surface-alt, rgba(0,0,0,0.02)); padding:12px; border-radius:6px; border:1px solid var(--border); margin-top:4px;">
+              <div class="grid-2 kp-grid">
+                <div class="stack-field">
+                  <label>Nomor SK Pensiun</label>
+                  <input type="text" id="uploadSkPensiun_nomor_${u.id}" class="field-input" value="${escapeHtml(u.skNomor || '')}" placeholder="Contoh: 1234/UN7.A/KP/2026" />
+                </div>
+                <div class="stack-field">
+                  <label>Upload File PDF SK (Tanda Tangan Basah / Resmi)</label>
+                  <input type="file" id="uploadSkPensiun_file_${u.id}" accept=".pdf" class="field-input" />
+                </div>
+              </div>
+
+              <div style="display:flex; gap:10px; align-items:center; margin-top:12px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-primary kp-small-btn" onclick="submitUploadSkPensiun('${u.id}')">
+                  📤 Unggah PDF SK Final
+                </button>
+                ${hasPdf ? `<a class="btn btn-outline kp-small-btn" href="${escapeHtml(u.skPdfUrl)}" target="_blank" rel="noopener">📄 Buka PDF SK Saat Ini</a>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    })
+    .withFailureHandler(err => {
+      container.innerHTML = `<div class="ce-dashboard-card cdc-empty">Gagal memuat data usulan: ${escapeHtml(err.message || err)}</div>`;
+    })
+    .getUsulanPensiunNonAsnList(SESSION.token);
+}
+
+async function submitUploadSkPensiun(usulanId) {
+  const fileInput = document.getElementById(`uploadSkPensiun_file_${usulanId}`);
+  const nomorInput = document.getElementById(`uploadSkPensiun_nomor_${usulanId}`);
+  const skNomor = (nomorInput?.value || '').trim();
+
+  if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+    showToast('error', 'Pilih file PDF SK terlebih dahulu.');
+    return;
+  }
+
+  const file = fileInput.files[0];
+  if (!file.name.toLowerCase().endsWith('.pdf')) {
+    showToast('error', 'File yang diunggah wajib berformat .pdf');
+    return;
+  }
+
+  showToast('info', 'Menyiapkan upload PDF SK...');
+
+  try {
+    const urlRes = await new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject)
+        .getSkPdfUploadUrl(SESSION.token, usulanId, file.name);
+    });
+
+    if (!urlRes.success) {
+      showToast('error', urlRes.message || 'Gagal mendapatkan signed upload URL.');
+      return;
+    }
+
+    showToast('info', 'Mengunggah file PDF SK ke cloud...');
+    const uploadRes = await fetch(urlRes.signedUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/pdf' },
+      body: file
+    });
+
+    if (!uploadRes.ok) {
+      showToast('error', 'Gagal mengunggah file PDF ke penyimpanan cloud.');
+      return;
+    }
+
+    showToast('info', 'Memperbarui data usulan pensiun...');
+    const saveRes = await new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject)
+        .uploadFinalSkPensiun(SESSION.token, {
+          usulanId,
+          skNomor,
+          publicUrl: urlRes.publicUrl
+        });
+    });
+
+    if (saveRes.success) {
+      showToast('success', 'File PDF SK Pensiun berhasil diunggah!');
+      loadUploadSkPensiunList();
+    } else {
+      showToast('error', saveRes.message || 'Gagal memperbarui data SK Pensiun.');
+    }
+  } catch (err) {
+    showToast('error', 'Terjadi kesalahan saat unggah PDF SK: ' + (err.message || err));
+  }
+}
+
+function loadStatusUsulanPensiunSaya() {
+  const container = document.getElementById('statusUsulanPensiunList');
+  if (!container) return;
+  container.innerHTML = '<div style="padding:12px; color:var(--text-muted);">Memuat status usulan Anda...</div>';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) {
+        container.innerHTML = `<div class="ce-dashboard-card cdc-empty">Gagal memuat usulan: ${escapeHtml(res.message || '')}</div>`;
+        return;
+      }
+
+      const daftar = res.daftar || [];
+      if (!daftar.length) {
+        container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Anda belum pernah mengajukan usulan Pensiun.</div>';
+        return;
+      }
+
+      container.innerHTML = daftar.map(u => {
+        const isSelesai = u.status === 'SK Selesai' || u.status === 'SK Sudah dibuat' || !!u.skPdfUrl;
+        const pdfBtnHtml = isSelesai && u.skPdfUrl
+          ? `<div style="margin-top:10px;">
+               <a class="btn btn-primary kp-small-btn" href="${escapeHtml(u.skPdfUrl)}" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:6px;">
+                 📄 Unduh / Buka SK Pensiun (PDF)
+               </a>
+               ${u.skNomor ? `<span style="font-size:12px; color:var(--text-muted); margin-left:8px;">No. SK: <strong>${escapeHtml(u.skNomor)}</strong></span>` : ''}
+             </div>`
+          : '';
+
+        return `
+          <div class="ce-dashboard-list-item" style="cursor:default; margin-bottom:10px;">
+            <div style="flex:1;">
+              <div class="cdli-name">${escapeHtml(u.nama)} <span class="cdli-meta">(NIP ${escapeHtml(u.nip)})</span></div>
+              <div class="cdli-meta" style="margin-top:4px;">
+                Jenis Pensiun: <strong>${escapeHtml(u.jenisPensiun || '-')}</strong> &middot; Diajukan: ${escapeHtml(u.tanggalDiajukan)}
+              </div>
+              ${pdfBtnHtml}
+            </div>
+            <span class="cdli-badge" style="${isSelesai ? 'background:#10b981; color:#fff;' : ''}">${escapeHtml(u.status)}</span>
+          </div>
+        `;
+      }).join('');
+    })
+    .withFailureHandler(err => {
+      container.innerHTML = `<div class="ce-dashboard-card cdc-empty">Gagal memuat data: ${escapeHtml(err.message || err)}</div>`;
+    })
+    .getUsulanPensiunSayaForUser(SESSION.token);
+}
 </script>
+
 
 </body>
 </html>

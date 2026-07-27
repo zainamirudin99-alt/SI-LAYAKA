@@ -455,6 +455,7 @@
               <button class="tab-btn" data-tab-target="tab-statusUsulanPensiun" id="tabBtnStatusUsulanPensiun" style="display:none;">Status Usulan Saya</button>
               <button class="tab-btn" data-tab-target="tab-usulanMasukPensiun" id="tabBtnUsulanMasukPensiun" style="display:none;">📨 Usulan Masuk <span id="usulanMasukPensiunBadge" class="cdli-badge" style="display:none;"></span></button>
               <button class="tab-btn" data-tab-target="tab-skPensiunNonAsn" id="tabBtnSkPensiunNonAsn" style="display:none;">📜 Buat SK Pensiun Pegawai Undip Non ASN</button>
+              <button class="tab-btn" data-tab-target="tab-uploadSkPensiun" id="tabBtnUploadSkPensiun" style="display:none;">📤 Upload Final SK Pensiun</button>
             </div>
 
             <div class="tab-panel active" data-tab-group-panel="pensiun" id="tab-dpcp">
@@ -730,6 +731,14 @@
               <div class="actions-bar" style="margin-top:20px;">
                 <button class="btn btn-primary" id="skNonAsn_generateBtn">Generate & Terbitkan SK Pensiun</button>
               </div>
+            </div>
+
+            <!-- ---------- UPLOAD FINAL SK PENSIUN (peran admin/super_admin) ---------- -->
+            <div class="tab-panel" data-tab-group-panel="pensiun" id="tab-uploadSkPensiun">
+              <div class="helper-text" style="margin-bottom:14px;">
+                Unggah file PDF SK Pensiun yang telah ditandatangani dan dicap basah sesuai nama usulan pegawai. User yang mengusulkan dapat melihat dan mengunduh file SK tersebut secara langsung.
+              </div>
+              <div id="uploadSkPensiunList" class="ce-dashboard-list"></div>
             </div>
           </div>
         </div>
