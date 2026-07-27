@@ -2812,6 +2812,70 @@ const methods = {
     return { success: true, daftar: rows || [] };
   },
 
+function toTitleCase(str) {
+  if (!str) return '';
+  const s = String(str).trim();
+  if (!s) return '';
+  // Format tanggal Indonesia tetap utuh (contoh: "17 Juli 2026", "1 Agustus 2034")
+  if (/^\d{1,2}\s+[A-Za-z]+\s+\d{4}$/.test(s)) return s;
+  // Angka murni tetap utuh
+  if (/^\d+$/.test(s)) return s;
+  // Format Rupiah tetap utuh (contoh: "Rp. 3.000.000,00")
+  if (/^Rp\.\s*/i.test(s)) return s;
+
+  // Format Capital Each Word (Title Case)
+  return s.toLowerCase().replace(/(?:^|\s|-|\/|\()([a-z\u00C0-\u00FF])/g, m => m.toUpperCase());
+}
+
+function formatGolonganDisplay(str) {
+  if (!str) return '';
+  let s = String(str).trim();
+  if (/^set\.\s*/i.test(s)) {
+    s = 'Set. ' + s.replace(/^set\.\s*/i, '').toUpperCase();
+  } else if (/^gol\.\s*/i.test(s)) {
+    s = 'Gol. ' + s.replace(/^gol\.\s*/i, '').toUpperCase();
+  }
+  return s;
+}
+
+function processDataCtxFormatting(dataCtx, isDpcp = false) {
+  const result = {};
+  for (const [k, v] of Object.entries(dataCtx || {})) {
+    if (v === null || v === undefined) {
+      result[k] = '';
+      continue;
+    }
+    if (typeof v !== 'string') {
+      result[k] = v;
+      continue;
+    }
+
+    const keyLower = k.toLowerCase();
+    // Biarkan NIP, URL, file, foto tanpa diubah kapitalisasinya
+    if (keyLower.includes('nip') || keyLower.includes('url') || keyLower.includes('foto') || keyLower.includes('file')) {
+      result[k] = v;
+      continue;
+    }
+
+    if (isDpcp) {
+      // Khusus DPCP: UPPERCASE untuk teks
+      if (keyLower.includes('golongan') || keyLower.includes('gol')) {
+        result[k] = formatGolonganDisplay(v);
+      } else {
+        result[k] = v.toUpperCase();
+      }
+    } else {
+      // Untuk Buat SK (Pensiun / KP / Surat): Capital Each Word (Title Case)
+      if (keyLower.includes('golongan') || keyLower.includes('gol')) {
+        result[k] = formatGolonganDisplay(v);
+      } else {
+        result[k] = toTitleCase(v);
+      }
+    }
+  }
+  return result;
+}
+
   async generateSkKpNonAsn([token, payload]) {
     const decoded = requireRole(token, ['admin', 'super_admin']);
     const db = getDb();
@@ -2831,7 +2895,7 @@ const methods = {
     const now = new Date();
     const tglSekarang = formatTanggalIndonesia(now);
 
-    const dataCtx = {
+    const rawDataCtx = {
       nip: emp.nip,
       nama: emp.nama || emp.nama_lengkap,
       nama_lengkap: emp.nama_lengkap || emp.nama,
@@ -2854,6 +2918,8 @@ const methods = {
       tgl_generate: tglSekarang,
       ...formData
     };
+
+    const dataCtx = processDataCtxFormatting(rawDataCtx, false);
 
     let resultOutput = {};
 
@@ -2968,7 +3034,7 @@ const methods = {
     const tglSekarang = formatTanggalIndonesia(now);
 
     // Gabungkan data utama pegawai (auto-fill) dengan isian manual formData
-    const dataCtx = {
+    const rawDataCtx = {
       nip: emp.nip,
       nama: emp.nama || emp.nama_lengkap,
       nama_lengkap: emp.nama_lengkap || emp.nama,
@@ -2992,6 +3058,9 @@ const methods = {
       ...formData
     };
 
+    const isDpcp = String(tmpl.nama_layanan || tmpl.jenis_layanan || tmpl.nama || '').toUpperCase().includes('DPCP');
+    const dataCtx = processDataCtxFormatting(rawDataCtx, isDpcp);
+
     let resultOutput = {};
 
     let isDocxProcessed = false;
@@ -3008,6 +3077,16 @@ const methods = {
       resultOutput = {
         success: true,
         outputType: 'docx',
+        base64: renderedBuffer.toString('base64'),
+        fileName: `SK_Pensiun_Non_ASN_${emp.nip}_${jenisPensiun}.docx`,
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        message: 'SK Pensiun Pegawai Undip Non ASN berhasil diterbitkan.'
+      };
+      isDocxProcessed = true;
+    } catch (errDocx) {
+      console.warn('[generateSkPensiunNonAsn] DOCX rendering fallback to GDocs:', errDocx.message);
+    }
+
         base64: renderedBuffer.toString('base64'),
         fileName: `SK_Pensiun_Non_ASN_${emp.nip}_${jenisPensiun}.docx`,
         mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
