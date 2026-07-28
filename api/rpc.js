@@ -3169,7 +3169,14 @@ const methods = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           method: 'generateDocument',
-          params: [shortId, { templateFileId: tmpl.file_id, dataCtx: sanitizedGasCtx }],
+          params: [shortId, {
+            templateFileId: tmpl.file_id,
+            formData: sanitizedGasCtx,
+            dataCtx: sanitizedGasCtx,
+            targetNip: emp.nip,
+            layanan: 'Kenaikan Pangkat',
+            subLayanan: subLayanan
+          }],
           remoteSession
         })
       });
@@ -3439,7 +3446,14 @@ const methods = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           method: 'generateDocument',
-          params: [shortId, { templateFileId: tmpl.file_id, dataCtx: sanitizedGasCtx }],
+          params: [shortId, {
+            templateFileId: tmpl.file_id,
+            formData: sanitizedGasCtx,
+            dataCtx: sanitizedGasCtx,
+            targetNip: emp.nip,
+            layanan: 'Pensiun',
+            subLayanan: jenisPensiun
+          }],
           remoteSession
         })
       });

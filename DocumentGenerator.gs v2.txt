@@ -118,19 +118,22 @@ function renderTemplateCopy_(templateFileId, dataContext, tempName, preProcessFn
  * @param {Object} payload          { templateFileId, subLayanan, entries? , formData?, targetNip? }
  */
 function buildEntriesContexts_(sessionToken, employeeSession, payload) {
+  const defaultFormData = payload.formData || payload.dataCtx || payload.dataContext || {};
   const rawEntries = (Array.isArray(payload.entries) && payload.entries.length)
     ? payload.entries
-    : [{ formData: payload.formData, targetNip: payload.targetNip }];
+    : [{ formData: defaultFormData, targetNip: payload.targetNip || defaultFormData.nip }];
 
   return rawEntries
-    .filter(e => e && e.formData)
+    .filter(e => e && (e.formData || e.dataCtx || e.dataContext))
     .map(e => {
-      const employee = e.targetNip
-        ? getEmployeeFullData(sessionToken, e.targetNip)
+      const fd = e.formData || e.dataCtx || e.dataContext || {};
+      const targetNip = e.targetNip || fd.nip;
+      const employee = targetNip
+        ? getEmployeeFullData(sessionToken, targetNip)
         : employeeSession;
       return {
         employee: employee,
-        dataContext: buildDataContext_(employee, e.formData || {}, payload.subLayanan)
+        dataContext: buildDataContext_(employee, fd, payload.subLayanan)
       };
     });
 }
