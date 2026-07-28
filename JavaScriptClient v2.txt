@@ -834,26 +834,47 @@ function populateSelect(idOrEl, items, { placeholder = 'Pilih...', valueField = 
 /* ==================================================================
  * TAB 0: CHECK ELIGIBLE
  * ================================================================== */
-function bindCheckEligibleForm() {
-  setupAutocomplete('subjectCE_input', 'subjectCE_list', 'subjectCE_nip', onSelectCheckEligibleSubject);
+let _isCheckEligibleFormBound = false;
 
+function bindCheckEligibleForm() {
   populateSelect('ce_golongan', FORM_OPTIONS.golongan, { placeholder: 'Pilih Golongan...' });
   populateSelect('ce_jabatan', FORM_OPTIONS.jabatan);
-  populateSelect('ce_jabatanIntegrasi', FORM_OPTIONS.jabatan, { placeholder: 'Pilih Jabatan...' });
+  populateSelect('ce_jabatanIntegrasi', FORM_OPTIONS.jabatan, { placeholder: 'Pilih Golongan...' });
   populateSelect('ce_golonganIntegrasi', FORM_OPTIONS.golongan, { placeholder: 'Pilih Golongan...' });
   populateSelect('ce_ijazahBaru', FORM_OPTIONS.ijazahBaru);
 
-  document.getElementById('ce_golongan').addEventListener('change', updateCeTmtGolonganVisibility);
-  document.getElementById('ce_jabatan').addEventListener('change', updateCeTmtJabatanVisibility);
+  if (_isCheckEligibleFormBound) return;
+  _isCheckEligibleFormBound = true;
 
-  document.getElementById('ce_addPredikatRow').addEventListener('click', () => addPredikatRow());
+  setupAutocomplete('subjectCE_input', 'subjectCE_list', 'subjectCE_nip', onSelectCheckEligibleSubject);
+
+  const ce_gol = document.getElementById('ce_golongan');
+  if (ce_gol) ce_gol.onchange = updateCeTmtGolonganVisibility;
+
+  const ce_jab = document.getElementById('ce_jabatan');
+  if (ce_jab) ce_jab.onchange = updateCeTmtJabatanVisibility;
+
+  const ce_addPred = document.getElementById('ce_addPredikatRow');
+  if (ce_addPred) ce_addPred.onclick = () => addPredikatRow();
+
+  const predTableBody = document.getElementById('ce_predikatTableBody');
+  if (predTableBody) predTableBody.innerHTML = '';
   addPredikatRow(); // baris pertama default
 
-  document.getElementById('ce_hitungBtn').addEventListener('click', runCheckEligibility);
-  document.getElementById('ce_lanjutABtn').addEventListener('click', () => lanjutKeOpsi('A'));
-  document.getElementById('ce_lanjutBBtn').addEventListener('click', () => lanjutKeOpsi('B'));
-  document.getElementById('ce_ajukanUsulanBtn').addEventListener('click', bukaModalAjukanUsulan);
-  document.getElementById('ceDashboardAjukanUsulanBtn').addEventListener('click', bukaModalAjukanUsulan);
+  const ce_hit = document.getElementById('ce_hitungBtn');
+  if (ce_hit) ce_hit.onclick = runCheckEligibility;
+
+  const ce_lanjA = document.getElementById('ce_lanjutABtn');
+  if (ce_lanjA) ce_lanjA.onclick = () => lanjutKeOpsi('A');
+
+  const ce_lanjB = document.getElementById('ce_lanjutBBtn');
+  if (ce_lanjB) ce_lanjB.onclick = () => lanjutKeOpsi('B');
+
+  const ce_ajuk = document.getElementById('ce_ajukanUsulanBtn');
+  if (ce_ajuk) ce_ajuk.onclick = bukaModalAjukanUsulan;
+
+  const ce_dash = document.getElementById('ceDashboardAjukanUsulanBtn');
+  if (ce_dash) ce_dash.onclick = bukaModalAjukanUsulan;
 }
 
 /** Sama seperti updateTmtJabatanVisibility (kartu Opsi A/B), versi berbasis ID untuk tab Check Eligible. */
@@ -1095,19 +1116,43 @@ function lanjutKeOpsi(opt) {
  * tombol "+ Tambah Data" — beberapa entri (mis. beberapa pegawai atau
  * beberapa periode) digabung jadi SATU file saat Preview/Generate.
  * ================================================================== */
+let _isKenaikanPangkatFormsBound = false;
+
 function bindKenaikanPangkatForms() {
-  document.getElementById('optA_addEntryBtn').addEventListener('click', () => addOptAEntry());
-  document.getElementById('optA_copyEntryBtn').addEventListener('click', () => copyOptAEntry());
-  document.getElementById('optB_addEntryBtn').addEventListener('click', () => addOptBEntry());
-  document.getElementById('optB_copyEntryBtn').addEventListener('click', () => copyOptBEntry());
+  if (_isKenaikanPangkatFormsBound) return;
+  _isKenaikanPangkatFormsBound = true;
+
+  const optA_addBtn = document.getElementById('optA_addEntryBtn');
+  if (optA_addBtn) optA_addBtn.onclick = () => addOptAEntry();
+
+  const optA_copyBtn = document.getElementById('optA_copyEntryBtn');
+  if (optA_copyBtn) optA_copyBtn.onclick = () => copyOptAEntry();
+
+  const optB_addBtn = document.getElementById('optB_addEntryBtn');
+  if (optB_addBtn) optB_addBtn.onclick = () => addOptBEntry();
+
+  const optB_copyBtn = document.getElementById('optB_copyEntryBtn');
+  if (optB_copyBtn) optB_copyBtn.onclick = () => copyOptBEntry();
+
+  const optA_container = document.getElementById('optA_entriesContainer');
+  if (optA_container) optA_container.innerHTML = '';
+  const optB_container = document.getElementById('optB_entriesContainer');
+  if (optB_container) optB_container.innerHTML = '';
 
   addOptAEntry(); // entri pertama default
   addOptBEntry(); // entri pertama default
 
-  document.getElementById('optA_previewBtn').addEventListener('click', () => handlePreviewGenerate('A', 'preview'));
-  document.getElementById('optA_generateBtn').addEventListener('click', () => handlePreviewGenerate('A', 'generate'));
-  document.getElementById('optB_previewBtn').addEventListener('click', () => handlePreviewGenerate('B', 'preview'));
-  document.getElementById('optB_generateBtn').addEventListener('click', () => handlePreviewGenerate('B', 'generate'));
+  const optA_prevBtn = document.getElementById('optA_previewBtn');
+  if (optA_prevBtn) optA_prevBtn.onclick = () => handlePreviewGenerate('A', 'preview');
+
+  const optA_genBtn = document.getElementById('optA_generateBtn');
+  if (optA_genBtn) optA_genBtn.onclick = () => handlePreviewGenerate('A', 'generate');
+
+  const optB_prevBtn = document.getElementById('optB_previewBtn');
+  if (optB_prevBtn) optB_prevBtn.onclick = () => handlePreviewGenerate('B', 'preview');
+
+  const optB_genBtn = document.getElementById('optB_generateBtn');
+  if (optB_genBtn) optB_genBtn.onclick = () => handlePreviewGenerate('B', 'generate');
 }
 
 /**
@@ -2912,6 +2957,8 @@ function pensiunRunGenerateSuper() {
 }
 
 /* ---------- BIND SEMUA EVENT MODUL PENSIUN ---------- */
+let _isPensiunFormBound = false;
+
 function bindPensiunForm() {
   const defaultJenisPensiun = [
     'DPCP',
@@ -2931,13 +2978,21 @@ function bindPensiunForm() {
     })
     .getPensiunFormOptions();
 
+  if (_isPensiunFormBound) return;
+  _isPensiunFormBound = true;
+
   setupAutocomplete('subjectPensiun_input', 'subjectPensiun_list', 'subjectPensiun_nip', onSelectPensiunEmployee);
 
-  document.getElementById('pensiunGoToFormBtn').addEventListener('click', () => {
-    if (SESSION.user.role === 'user') bukaModalAjukanUsulanPensiun();
-    else pensiunGoToFormState();
-  });
-  document.getElementById('pensiunBackToDashboard').addEventListener('click', pensiunBackToDashboardState);
+  const pensiunGoToForm = document.getElementById('pensiunGoToFormBtn');
+  if (pensiunGoToForm) {
+    pensiunGoToForm.onclick = () => {
+      if (SESSION.user.role === 'user') bukaModalAjukanUsulanPensiun();
+      else pensiunGoToFormState();
+    };
+  }
+
+  const pensiunBackDash = document.getElementById('pensiunBackToDashboard');
+  if (pensiunBackDash) pensiunBackDash.onclick = pensiunBackToDashboardState;
   document.getElementById('pensiunBackToUnit').addEventListener('click', () => {
     document.getElementById('pensiunDashboardLevel1').style.display = 'grid';
     document.getElementById('pensiunDashboardLevel2').style.display = 'none';
@@ -3505,14 +3560,19 @@ let skNonAsnUsulanListCache = [];
 let skNonAsnNonAsnEmployeesCache = [];
 let skNonAsnSelectedEmployee = null;
 
+let _isSkPensiunNonAsnFormBound = false;
+
 function bindSkPensiunNonAsnForm() {
+  if (_isSkPensiunNonAsnFormBound) return;
+  _isSkPensiunNonAsnFormBound = true;
+
   const btn = document.getElementById('skNonAsn_generateBtn');
   if (btn) {
-    btn.addEventListener('click', submitGenerateSkPensiunNonAsn);
+    btn.onclick = submitGenerateSkPensiunNonAsn;
   }
   const previewBtn = document.getElementById('skNonAsn_previewBtn');
   if (previewBtn) {
-    previewBtn.addEventListener('click', submitPreviewSkPensiunNonAsn);
+    previewBtn.onclick = submitPreviewSkPensiunNonAsn;
   }
 
   // Setup Real-time Autocomplete Manual Search via RPC searchEmployees
@@ -3919,7 +3979,11 @@ function renderSkNonAsnDynamicFormFields(placeholders) {
 let skKpSiapListCache = [];
 let skKpSelectedEmployee = null;
 
+let _isSkKpNonAsnFormBound = false;
+
 function bindSkKpNonAsnForm() {
+  if (_isSkKpNonAsnFormBound) return;
+  _isSkKpNonAsnFormBound = true;
   const btn = document.getElementById('skKp_generateBtn');
   if (btn) {
     btn.onclick = submitGenerateSkKpNonAsn;
