@@ -78,7 +78,56 @@ const SET_EXPR_REGEX = /^set\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$/i;
  * @param {GoogleAppsScript.Document.Body} body
  * @param {Object} dataContext
  */
+function processPhotoPlaceholderInBody_(container, dataContext) {
+  if (!container || !dataContext) return;
+
+  const photoKeys = ['foto', 'pas_foto', 'photo', 'pasfoto', 'foto_pegawai', 'url_foto'];
+  let photoBase64 = '';
+  for (const k of photoKeys) {
+    if (dataContext[k] && typeof dataContext[k] === 'string' && (dataContext[k].startsWith('data:') || dataContext[k].includes('base64,'))) {
+      photoBase64 = dataContext[k];
+      dataContext[k] = '';
+    }
+  }
+  if (!photoBase64 && dataContext._fotoBase64) {
+    photoBase64 = dataContext._fotoBase64;
+    dataContext._fotoBase64 = '';
+  }
+
+  const tagsToSearch = ['{{foto}}', '{{ foto }}', '{foto}', '{ foto }', '{{pas_foto}}', '{pas_foto}', '{{foto_pegawai}}', '{foto_pegawai}', '{{photo}}', '{photo}'];
+
+  for (const tagText of tagsToSearch) {
+    try {
+      let found = container.findText(tagText);
+      while (found) {
+        const textObj = found.getElement();
+        const parentParagraph = textObj.getParent().asParagraph();
+        if (photoBase64) {
+          const splitData = photoBase64.split(',');
+          const contentType = (splitData[0].match(/:(.*?);/) || [, 'image/jpeg'])[1];
+          const rawBase64 = splitData.length > 1 ? splitData[1] : splitData[0];
+          const imageBlob = Utilities.newBlob(Utilities.base64Decode(rawBase64), contentType, 'foto_pegawai.jpg');
+
+          const inlineImage = parentParagraph.appendInlineImage(imageBlob);
+          inlineImage.setWidth(120);
+          inlineImage.setHeight(160); // Rasio 3x4
+
+          textObj.setText(' ');
+        } else {
+          textObj.setText(' ');
+        }
+        found = container.findText(tagText);
+      }
+    } catch (e) {
+      Logger.log('Photo insert err for ' + tagText + ': ' + e.message);
+    }
+  }
+}
+
 function renderDocumentBody_(body, dataContext) {
+  // 0) Sisipkan foto 3x4 (jika ada tag {{foto}} / {foto}) dan saring base64 dari teks
+  processPhotoPlaceholderInBody_(body, dataContext);
+
   // 1) Proses loop tabel dinamis dahulu (agar tag di dalamnya baru
   //    diproses setelah baris digandakan sesuai jumlah data). Mendukung
   //    LEBIH DARI SATU loop berbeda dalam dokumen yang sama.

@@ -239,46 +239,48 @@ function pensiunGen_buildDpcpContext_(formData) {
  */
 function pensiunGen_insertFoto_(doc, dataContext) {
   const body = doc.getBody();
-  const fotoBase64 = dataContext._fotoBase64;
+  const photoKeys = ['_fotoBase64', 'foto', 'pas_foto', 'photo', 'pasfoto', 'foto_pegawai', 'url_foto'];
+  let fotoBase64 = '';
+  for (const k of photoKeys) {
+    if (dataContext[k] && typeof dataContext[k] === 'string' && (dataContext[k].startsWith('data:') || dataContext[k].includes('base64,'))) {
+      fotoBase64 = dataContext[k];
+      dataContext[k] = '';
+    }
+  }
+
+  const tagsToSearch = ['{{foto}}', '{{ foto }}', '{foto}', '{ foto }', '{{pas_foto}}', '{pas_foto}', '{{foto_pegawai}}', '{foto_pegawai}', '{{photo}}', '{photo}'];
 
   if (!fotoBase64) {
-    try {
-      body.replaceText('\\{\\{\\s*foto\\s*\\}\\}', ' ');
-    } catch (e) {
-      Logger.log('Foto clear err: ' + e.message);
+    for (const tagText of tagsToSearch) {
+      try {
+        body.replaceText(tagText.replace(/\{/g, '\\{').replace(/\}/g, '\\}'), ' ');
+      } catch (e) {
+        Logger.log('Foto clear err: ' + e.message);
+      }
     }
     return;
   }
 
-  const found = body.findText('{{foto}}') || body.findText('{{ foto }}');
-  if (!found) return; // template tidak punya placeholder foto -- lewati diam-diam
+  for (const tagText of tagsToSearch) {
+    try {
+      let found = body.findText(tagText);
+      while (found) {
+        const textObj = found.getElement();
+        const parentParagraph = textObj.getParent().asParagraph();
+        const splitData = fotoBase64.split(',');
+        const contentType = (splitData[0].match(/:(.*?);/) || [, 'image/jpeg'])[1];
+        const rawBase64 = splitData.length > 1 ? splitData[1] : splitData[0];
+        const imageBlob = Utilities.newBlob(Utilities.base64Decode(rawBase64), contentType, 'foto_pegawai.jpg');
 
-  const textObj = found.getElement();
-  const textString = textObj.getText();
-  const parentParagraph = textObj.getParent().asParagraph();
+        const inlineImage = parentParagraph.appendInlineImage(imageBlob);
+        inlineImage.setWidth(120);
+        inlineImage.setHeight(160); // Rasio 3x4
 
-  try {
-    const splitData = fotoBase64.split(',');
-    const contentType = splitData[0].match(/:(.*?);/)[1];
-    const rawBase64 = splitData[1];
-    const imageBlob = Utilities.newBlob(Utilities.base64Decode(rawBase64), contentType, 'foto_pegawai.jpg');
-
-    const inlineImage = parentParagraph.appendInlineImage(imageBlob);
-    inlineImage.setWidth(120);
-    inlineImage.setHeight(160);
-
-    const remText = textString.replace('{{foto}}', '').replace('{{ foto }}', '');
-    if (remText.trim() === '') {
-      textObj.setText(' ');
-    } else {
-      textObj.setText(remText);
-    }
-  } catch (imgErr) {
-    const fallbackText = textString.replace('{{foto}}', '[Foto]').replace('{{ foto }}', '[Foto]');
-    if (fallbackText.trim() === '') {
-      textObj.setText(' ');
-    } else {
-      textObj.setText(fallbackText);
+        textObj.setText(' ');
+        found = body.findText(tagText);
+      }
+    } catch (imgErr) {
+      Logger.log('Error inserting photo in DPCP/SUPER: ' + imgErr.message);
     }
   }
 }
