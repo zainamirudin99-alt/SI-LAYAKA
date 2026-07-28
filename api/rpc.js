@@ -3198,10 +3198,7 @@ const methods = {
     if (usulanId) {
       await db.from('usulan_kp').update({
         status: 'SK Selesai',
-        sk_nomor: formData.nomor_sk || formData.no_sk || '',
-        sk_dibuat_pada: now.toISOString(),
-        sk_file_id: tmpl.id,
-        diproses_oleh_nip: decoded.nip
+        catatan: `SK Kenaikan Pangkat diterbitkan pada ${tglSekarang}`
       }).eq('id', usulanId);
     }
 
@@ -3504,6 +3501,222 @@ const methods = {
     }
 
     return resultOutput;
+  },
+
+  async previewSkKpNonAsn(args) {
+    const [token, payload] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+    const decoded = verifyToken(token);
+    const db = getDb();
+
+    const input = payload || {};
+    const targetNip = input.targetNip;
+    const subLayanan = input.subLayanan;
+    const templateId = input.templateId;
+    const formData = input.formData || {};
+
+    if (!targetNip)  return { success: false, message: 'Pegawai belum dipilih.' };
+    if (!subLayanan) return { success: false, message: 'Sub-menu SK Kenaikan Pangkat wajib diisi.' };
+    if (!templateId) return { success: false, message: 'Template SK Kenaikan Pangkat wajib dipilih.' };
+
+    const { data: emp, error: empErr } = await db.from('pegawai').select('*').eq('nip', targetNip).maybeSingle();
+    if (empErr) throw empErr;
+    if (!emp) return { success: false, message: 'Data pegawai tidak ditemukan.' };
+
+    const { data: tmpl, error: tmplErr } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
+    if (tmplErr) throw tmplErr;
+    if (!tmpl) return { success: false, message: 'Template tidak ditemukan.' };
+
+    const tglSekarang = formatTanggalIndonesia(new Date());
+
+    const rawDataCtx = {
+      ...emp,
+      today: tglSekarang,
+      tanggal_sk: tglSekarang,
+      tgl_sk: tglSekarang,
+      tgl_buat: tglSekarang,
+      tanggal_buat: tglSekarang,
+      tgl_generate: tglSekarang,
+      ...formData
+    };
+
+    const dataCtx = processDataCtxFormatting(rawDataCtx, false);
+
+    if (tmpl.tipe === 'docx' || tmpl.file_id?.endsWith('.docx')) {
+      try {
+        const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
+        let renderedBuffer;
+        try {
+          renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, 'Bookman Old Style');
+        } catch (errRender) {
+          renderedBuffer = replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, 'Bookman Old Style');
+        }
+        return {
+          success: true,
+          outputType: 'docx',
+          base64: renderedBuffer.toString('base64'),
+          fileName: `Preview_SK_KP_Non_ASN_${emp.nip}.docx`,
+          mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        };
+      } catch (errDocx) {
+        console.warn('[previewSkKpNonAsn] DOCX preview error:', errDocx.message);
+      }
+    }
+
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi untuk GDocs template.' };
+
+    const sanitizedGasCtx = { ...dataCtx };
+    if (dataCtx.foto || dataCtx.pas_foto || dataCtx.photo) {
+      sanitizedGasCtx._fotoBase64 = dataCtx.foto || dataCtx.pas_foto || dataCtx.photo;
+    }
+
+    const shortId = uuidv4();
+    const remoteSession = {
+      id: shortId,
+      data: { nip: decoded.nip || '', role: decoded.role || 'admin' }
+    };
+
+    const response = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        method: 'previewDocument',
+        params: [shortId, {
+          templateFileId: tmpl.file_id,
+          formData: sanitizedGasCtx,
+          dataCtx: sanitizedGasCtx,
+          targetNip: emp.nip,
+          layanan: 'Kenaikan Pangkat',
+          subLayanan: subLayanan
+        }],
+        remoteSession
+      })
+    });
+    const gasResult = await response.json();
+    if (!gasResult.success) {
+      return { success: false, message: 'Gagal membuat preview SK Kenaikan Pangkat: ' + (gasResult.message || 'Error pada template') };
+    }
+
+    return {
+      success: true,
+      outputType: 'gdocs',
+      previewUrl: gasResult.previewUrl,
+      fileName: `Preview_SK_KP_Non_ASN_${emp.nip}`
+    };
+  },
+
+  async previewSkPensiunNonAsn(args) {
+    const [token, payload] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+    const decoded = verifyToken(token);
+    const db = getDb();
+
+    const input = payload || {};
+    const targetNip = input.targetNip;
+    const jenisPensiun = input.jenisPensiun;
+    const templateId = input.templateId;
+    const formData = input.formData || {};
+
+    if (!targetNip)    return { success: false, message: 'Pegawai belum dipilih.' };
+    if (!jenisPensiun) return { success: false, message: 'Jenis Pensiun wajib diisi.' };
+    if (!templateId)   return { success: false, message: 'Template SK Pensiun wajib dipilih.' };
+
+    const { data: emp, error: empErr } = await db.from('pegawai').select('*').eq('nip', targetNip).maybeSingle();
+    if (empErr) throw empErr;
+    if (!emp) return { success: false, message: 'Data pegawai tidak ditemukan.' };
+
+    const { data: tmpl, error: tmplErr } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
+    if (tmplErr) throw tmplErr;
+    if (!tmpl) return { success: false, message: 'Template tidak ditemukan.' };
+
+    const tglSekarang = formatTanggalIndonesia(new Date());
+
+    const formattedFormData = {};
+    for (const [k, v] of Object.entries(formData)) {
+      if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+        formattedFormData[k] = formatTanggalIndonesia(v);
+      } else {
+        formattedFormData[k] = v;
+      }
+    }
+
+    const rawDataCtx = {
+      ...emp,
+      today: tglSekarang,
+      tanggal_sk: tglSekarang,
+      tgl_sk: tglSekarang,
+      tgl_buat: tglSekarang,
+      tanggal_buat: tglSekarang,
+      tgl_generate: tglSekarang,
+      ...formattedFormData
+    };
+
+    const isDpcp = String(tmpl.nama_layanan || tmpl.jenis_layanan || tmpl.nama || '').toUpperCase().includes('DPCP');
+    const dataCtx = processDataCtxFormatting(rawDataCtx, isDpcp);
+
+    if (tmpl.tipe === 'docx' || tmpl.file_id?.endsWith('.docx')) {
+      try {
+        const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
+        let renderedBuffer;
+        try {
+          renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, 'Bookman Old Style');
+        } catch (errRender) {
+          renderedBuffer = replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, 'Bookman Old Style');
+        }
+        return {
+          success: true,
+          outputType: 'docx',
+          base64: renderedBuffer.toString('base64'),
+          fileName: `Preview_SK_Pensiun_Non_ASN_${emp.nip}_${jenisPensiun}.docx`,
+          mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        };
+      } catch (errDocx) {
+        console.warn('[previewSkPensiunNonAsn] DOCX preview error:', errDocx.message);
+      }
+    }
+
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi untuk GDocs template.' };
+
+    const sanitizedGasCtx = { ...dataCtx };
+    if (dataCtx.foto || dataCtx.pas_foto || dataCtx.photo) {
+      sanitizedGasCtx._fotoBase64 = dataCtx.foto || dataCtx.pas_foto || dataCtx.photo;
+    }
+
+    const shortId = uuidv4();
+    const remoteSession = {
+      id: shortId,
+      data: { nip: decoded.nip || '', role: decoded.role || 'admin' }
+    };
+
+    const response = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        method: 'previewDocument',
+        params: [shortId, {
+          templateFileId: tmpl.file_id,
+          formData: sanitizedGasCtx,
+          dataCtx: sanitizedGasCtx,
+          targetNip: emp.nip,
+          layanan: 'Pensiun',
+          subLayanan: jenisPensiun
+        }],
+        remoteSession
+      })
+    });
+    const gasResult = await response.json();
+    if (!gasResult.success) {
+      return { success: false, message: 'Gagal membuat preview SK Pensiun: ' + (gasResult.message || 'Error pada template') };
+    }
+
+    return {
+      success: true,
+      outputType: 'gdocs',
+      previewUrl: gasResult.previewUrl,
+      fileName: `Preview_SK_Pensiun_Non_ASN_${emp.nip}_${jenisPensiun}`
+    };
   },
 
   // ---- GLOSARIUM TAG ----

@@ -426,8 +426,11 @@
               </div>
 
               <!-- Action Button -->
-              <div class="actions-bar" style="margin-top:20px;">
-                <button class="btn btn-primary" id="skKp_generateBtn" style="width:100%; justify-content:center; padding:12px 24px; font-size:15px; font-weight:700;">
+              <div class="actions-bar" style="margin-top:20px; display:flex; gap:12px;">
+                <button type="button" class="btn btn-outline" id="skKp_previewBtn" style="flex:1; justify-content:center; padding:12px 24px; font-size:15px; font-weight:700;">
+                  👁️ Preview SK Kenaikan Pangkat
+                </button>
+                <button type="button" class="btn btn-primary" id="skKp_generateBtn" style="flex:1; justify-content:center; padding:12px 24px; font-size:15px; font-weight:700;">
                   🚀 Generate &amp; Terbitkan SK Kenaikan Pangkat
                 </button>
               </div>
@@ -728,8 +731,13 @@
                 <div id="skNonAsn_dynamicFields" class="grid-2 kp-grid"></div>
               </div>
 
-              <div class="actions-bar" style="margin-top:20px;">
-                <button class="btn btn-primary" id="skNonAsn_generateBtn">Generate & Terbitkan SK Pensiun</button>
+              <div class="actions-bar" style="margin-top:20px; display:flex; gap:12px;">
+                <button type="button" class="btn btn-outline" id="skNonAsn_previewBtn" style="flex:1; justify-content:center; padding:12px 24px; font-size:15px; font-weight:700;">
+                  👁️ Preview SK Pensiun
+                </button>
+                <button type="button" class="btn btn-primary" id="skNonAsn_generateBtn" style="flex:1; justify-content:center; padding:12px 24px; font-size:15px; font-weight:700;">
+                  🚀 Generate &amp; Terbitkan SK Pensiun
+                </button>
               </div>
             </div>
 

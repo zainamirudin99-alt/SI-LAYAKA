@@ -3510,6 +3510,10 @@ function bindSkPensiunNonAsnForm() {
   if (btn) {
     btn.addEventListener('click', submitGenerateSkPensiunNonAsn);
   }
+  const previewBtn = document.getElementById('skNonAsn_previewBtn');
+  if (previewBtn) {
+    previewBtn.addEventListener('click', submitPreviewSkPensiunNonAsn);
+  }
 
   // Setup Real-time Autocomplete Manual Search via RPC searchEmployees
   const manualInput = document.getElementById('skNonAsn_manualInput');
@@ -3919,6 +3923,10 @@ function bindSkKpNonAsnForm() {
   const btn = document.getElementById('skKp_generateBtn');
   if (btn) {
     btn.onclick = submitGenerateSkKpNonAsn;
+  }
+  const previewBtn = document.getElementById('skKp_previewBtn');
+  if (previewBtn) {
+    previewBtn.onclick = submitPreviewSkKpNonAsn;
   }
 
   // Setup Real-time Autocomplete Manual Search via RPC searchEmployees
@@ -4424,6 +4432,152 @@ function submitGenerateSkPensiunNonAsn() {
       showToast('error', 'Gagal menerbitkan SK Pensiun: ' + (err.message || err));
     })
     .generateSkPensiunNonAsn(SESSION.token, payload);
+}
+
+function submitPreviewSkKpNonAsn() {
+  const searchMode = document.querySelector('input[name="skKp_modeSearch"]:checked')?.value || 'usulan';
+  let targetNip = '';
+  let usulanId = '';
+
+  if (searchMode === 'usulan') {
+    usulanId = document.getElementById('skKp_usulanSelect')?.value || '';
+    const usulan = skKpUsulanListCache.find(u => String(u.id) === String(usulanId));
+    if (!usulan) {
+      showToast('error', 'Pilih pegawai dari daftar usulan terlebih dahulu.');
+      return;
+    }
+    targetNip = usulan.nip;
+  } else {
+    targetNip = document.getElementById('skKp_manualNip')?.value || '';
+    if (!targetNip) {
+      showToast('error', 'Cari dan pilih pegawai Non-ASN terlebih dahulu.');
+      return;
+    }
+  }
+
+  const subLayanan = document.getElementById('skKp_subLayanan')?.value || '';
+  if (!subLayanan) {
+    showToast('error', 'Sub-menu SK Kenaikan Pangkat wajib diisi.');
+    return;
+  }
+
+  const templateId = document.getElementById('skKp_templateSelect')?.value || '';
+  if (!templateId) {
+    showToast('error', 'Template SK Kenaikan Pangkat wajib dipilih.');
+    return;
+  }
+
+  const formData = {};
+  document.querySelectorAll('#skKp_dynamicFields [data-sk-field]').forEach(input => {
+    const key = input.getAttribute('data-sk-field');
+    formData[key] = input.value.trim();
+  });
+
+  const btn = document.getElementById('skKp_previewBtn');
+  setBtnLoading(btn, true, 'Membuat Preview...');
+
+  const payload = {
+    usulanId,
+    targetNip,
+    subLayanan,
+    templateId,
+    formData
+  };
+
+  google.script.run
+    .withSuccessHandler(res => {
+      setBtnLoading(btn, false, '👁️ Preview SK Kenaikan Pangkat');
+      if (!res.success) {
+        showToast('error', res.message || 'Gagal membuat preview SK Kenaikan Pangkat.');
+        return;
+      }
+
+      showToast('success', 'Preview SK Kenaikan Pangkat berhasil dibuat.');
+
+      if (res.outputType === 'docx' && res.base64) {
+        openDocxPreviewModal(res.base64, res.fileName || 'Preview_SK_KP.docx');
+      } else if (res.previewUrl) {
+        openPreviewModal(res.previewUrl);
+      }
+    })
+    .withFailureHandler(err => {
+      setBtnLoading(btn, false, '👁️ Preview SK Kenaikan Pangkat');
+      showToast('error', 'Gagal membuat preview SK Kenaikan Pangkat: ' + (err.message || err));
+    })
+    .previewSkKpNonAsn(SESSION.token, payload);
+}
+
+function submitPreviewSkPensiunNonAsn() {
+  const searchMode = document.querySelector('input[name="skNonAsn_modeSearch"]:checked')?.value || 'usulan';
+  let targetNip = '';
+  let usulanId = '';
+
+  if (searchMode === 'usulan') {
+    usulanId = document.getElementById('skNonAsn_usulanSelect')?.value || '';
+    const usulan = skNonAsnUsulanListCache.find(u => String(u.id) === String(usulanId));
+    if (!usulan) {
+      showToast('error', 'Pilih pegawai dari daftar usulan terlebih dahulu.');
+      return;
+    }
+    targetNip = usulan.nip;
+  } else {
+    targetNip = document.getElementById('skNonAsn_manualNip')?.value || '';
+    if (!targetNip) {
+      showToast('error', 'Cari dan pilih pegawai Non-ASN terlebih dahulu.');
+      return;
+    }
+  }
+
+  const jenisPensiun = document.getElementById('skNonAsn_jenisPensiun')?.value || '';
+  if (!jenisPensiun) {
+    showToast('error', 'Pilihan Jenis Pensiun wajib diisi.');
+    return;
+  }
+
+  const templateId = document.getElementById('skNonAsn_templateSelect')?.value || '';
+  if (!templateId) {
+    showToast('error', 'Template SK Pensiun wajib dipilih.');
+    return;
+  }
+
+  const formData = {};
+  document.querySelectorAll('#skNonAsn_dynamicFields [data-sk-field]').forEach(input => {
+    const key = input.getAttribute('data-sk-field');
+    formData[key] = input.value.trim();
+  });
+
+  const btn = document.getElementById('skNonAsn_previewBtn');
+  setBtnLoading(btn, true, 'Membuat Preview...');
+
+  const payload = {
+    usulanId,
+    targetNip,
+    jenisPensiun,
+    templateId,
+    formData
+  };
+
+  google.script.run
+    .withSuccessHandler(res => {
+      setBtnLoading(btn, false, '👁️ Preview SK Pensiun');
+      if (!res.success) {
+        showToast('error', res.message || 'Gagal membuat preview SK Pensiun.');
+        return;
+      }
+
+      showToast('success', 'Preview SK Pensiun berhasil dibuat.');
+
+      if (res.outputType === 'docx' && res.base64) {
+        openDocxPreviewModal(res.base64, res.fileName || 'Preview_SK_Pensiun.docx');
+      } else if (res.previewUrl) {
+        openPreviewModal(res.previewUrl);
+      }
+    })
+    .withFailureHandler(err => {
+      setBtnLoading(btn, false, '👁️ Preview SK Pensiun');
+      showToast('error', 'Gagal membuat preview SK Pensiun: ' + (err.message || err));
+    })
+    .previewSkPensiunNonAsn(SESSION.token, payload);
 }
 
 /* =====================================================================
