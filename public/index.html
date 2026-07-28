@@ -3943,6 +3943,9 @@ function openDownloadModal(res) {
     </div>`;
   document.getElementById('modalOverlay').style.display = 'flex';
 }
+function openModal() {
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
 function closeModal() {
   document.getElementById('modalOverlay').style.display = 'none';
   document.getElementById('modalBody').innerHTML = '';
@@ -4131,7 +4134,7 @@ function bukaModalUbahTemplateDocx(id) {
       </div>
     </form>
   `;
-  openModal();
+  document.getElementById('modalOverlay').style.display = 'flex';
 }
 
 async function submitUbahTemplateDocx(event, id) {
