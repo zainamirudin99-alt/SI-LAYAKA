@@ -3604,6 +3604,35 @@ const methods = {
     return { success: true, message: 'Template berhasil disimpan.' };
   },
 
+  async updateTemplate(args) {
+    const [token, payload] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+    const input = payload || {};
+    const id = input.id;
+    if (!id) return { success: false, message: 'ID template wajib diisi.' };
+
+    const db = getDb();
+    const { data: tmpl, error: fetchErr } = await db.from('templates').select('*').eq('id', id).maybeSingle();
+    if (fetchErr) throw fetchErr;
+    if (!tmpl) return { success: false, message: 'Template tidak ditemukan.' };
+
+    const updateData = {};
+    if (input.judul) updateData.judul = String(input.judul).trim();
+    if (input.layanan) updateData.layanan = String(input.layanan).trim();
+    if (input.sub_menu || input.subMenu) updateData.sub_menu = String(input.sub_menu || input.subMenu).trim();
+    
+    if (input.storagePath || input.publicUrl) {
+      updateData.file_id = input.publicUrl || input.storagePath;
+    } else if (input.file_id || input.driveLink) {
+      updateData.file_id = extractDriveFileId(String(input.file_id || input.driveLink).trim()) || String(input.file_id || input.driveLink).trim();
+    }
+
+    const { error: updateErr } = await db.from('templates').update(updateData).eq('id', id);
+    if (updateErr) throw updateErr;
+
+    return { success: true, message: 'Template berhasil diperbarui.' };
+  },
+
   /**
    * Membuat signed upload URL untuk file template DOCX.
    * Browser menggunakan URL ini untuk upload LANGSUNG ke Supabase Storage

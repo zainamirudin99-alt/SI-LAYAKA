@@ -4066,21 +4066,28 @@ function bindTemplateManagerForm() {
   });
 }
 
+let allLoadedTemplatesMap = {};
+
 function loadTemplateList() {
   google.script.run
     .withSuccessHandler(res => {
       const tbody = document.getElementById('templateListBody');
       tbody.innerHTML = '';
       const templates = res.templates || res || [];
+      allLoadedTemplatesMap = {};
       if (!templates.length) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Belum ada template terdaftar.</td></tr>';
         return;
       }
       templates.forEach(t => {
+        allLoadedTemplatesMap[t.id] = t;
         const tipeBadge = t.tipe === 'docx'
           ? '<span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">Word</span>'
           : '<span style="background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">GDocs</span>';
         const previewBtn = `<button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="previewDocxTemplate('${t.id}')">Preview</button>`;
+        const ubahBtn = t.tipe === 'docx'
+          ? `<button class="btn btn-outline" style="padding:4px 10px;font-size:12px;margin-left:4px;" onclick="bukaModalUbahTemplateDocx('${t.id}')">Ubah</button>`
+          : '';
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${escapeHtml(t.judul)}</td>
@@ -4089,6 +4096,7 @@ function loadTemplateList() {
           <td>${escapeHtml(t.sub_menu || t.subMenu || '')}</td>
           <td style="white-space:nowrap;">
             ${previewBtn}
+            ${ubahBtn}
             <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;margin-left:4px;" onclick="deleteTemplateHandler('${t.id}')">Hapus</button>
           </td>`;
         tbody.appendChild(tr);
@@ -4096,6 +4104,113 @@ function loadTemplateList() {
     })
     .withFailureHandler(err => showToast('error', 'Gagal memuat daftar template: ' + (err.message || err)))
     .getTemplates(SESSION.token, null, null);
+}
+
+function bukaModalUbahTemplateDocx(id) {
+  const t = allLoadedTemplatesMap[id];
+  if (!t) {
+    showToast('error', 'Data template tidak ditemukan.');
+    return;
+  }
+
+  document.getElementById('modalTitle').textContent = 'Ubah Template MS Word: ' + (t.judul || '');
+  document.getElementById('modalBody').innerHTML = `
+    <form id="formUbahTemplateDocx" onsubmit="submitUbahTemplateDocx(event, '${t.id}')">
+      <div style="margin-bottom:14px; background:var(--card-bg-subtle, #f8fafc); padding:12px; border-radius:8px; font-size:13px;">
+        <div><strong>Judul Template:</strong> ${escapeHtml(t.judul)}</div>
+        <div><strong>Layanan:</strong> ${escapeHtml(t.layanan)} — ${escapeHtml(t.sub_menu || t.subMenu || '')}</div>
+        <div style="color:var(--text-muted); font-size:12px; margin-top:4px;">Pilih berkas MS Word (.docx) baru untuk mengunggah dan menggantikan template ini.</div>
+      </div>
+      <div class="stack-field" style="margin-bottom:16px;">
+        <label style="font-weight:600; margin-bottom:6px; display:block;">File MS Word (.docx) Baru</label>
+        <input type="file" id="editDocx_file" accept=".docx" class="field-input" required />
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Batal</button>
+        <button type="submit" id="submitEditDocxBtn" class="btn btn-primary">Simpan File Baru</button>
+      </div>
+    </form>
+  `;
+  openModal();
+}
+
+async function submitUbahTemplateDocx(event, id) {
+  event.preventDefault();
+  const t = allLoadedTemplatesMap[id];
+  if (!t) return;
+
+  const fileInput = document.getElementById('editDocx_file');
+  const file = fileInput?.files[0];
+  if (!file) {
+    showToast('error', 'Silakan pilih file .docx terlebih dahulu.');
+    return;
+  }
+  if (!file.name.toLowerCase().endsWith('.docx')) {
+    showToast('error', 'File harus berformat .docx (MS Word).');
+    return;
+  }
+
+  const btn = document.getElementById('submitEditDocxBtn');
+  setBtnLoading(btn, true, 'Mengunggah file...');
+
+  try {
+    google.script.run
+      .withSuccessHandler(async res => {
+        if (!res.success || !res.signedUrl) {
+          setBtnLoading(btn, false, 'Simpan File Baru');
+          showToast('error', res.message || 'Gagal mendapatkan URL upload.');
+          return;
+        }
+
+        try {
+          const uploadRes = await fetch(res.signedUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            },
+            body: file
+          });
+
+          if (!uploadRes.ok) {
+            throw new Error(`Upload storage gagal (HTTP ${uploadRes.status})`);
+          }
+
+          google.script.run
+            .withSuccessHandler(upRes => {
+              setBtnLoading(btn, false, 'Simpan File Baru');
+              if (upRes.success) {
+                showToast('success', 'Template MS Word berhasil diperbarui!');
+                closeModal();
+                loadTemplateList();
+                reloadAllServiceTemplates();
+              } else {
+                showToast('error', upRes.message || 'Gagal memperbarui database template.');
+              }
+            })
+            .withFailureHandler(err => {
+              setBtnLoading(btn, false, 'Simpan File Baru');
+              showToast('error', 'Gagal memperbarui database: ' + (err.message || err));
+            })
+            .updateTemplate(SESSION.token, {
+              id: t.id,
+              publicUrl: res.publicUrl,
+              storagePath: res.path
+            });
+        } catch (upErr) {
+          setBtnLoading(btn, false, 'Simpan File Baru');
+          showToast('error', 'Gagal mengunggah file: ' + (upErr.message || upErr));
+        }
+      })
+      .withFailureHandler(err => {
+        setBtnLoading(btn, false, 'Simpan File Baru');
+        showToast('error', 'Gagal inisialisasi upload: ' + (err.message || err));
+      })
+      .getTemplateUploadUrl(SESSION.token, t.judul, t.layanan, t.sub_menu || t.subMenu);
+
+  } catch (err) {
+    setBtnLoading(btn, false, 'Simpan File Baru');
+    showToast('error', err.message || 'Terjadi kesalahan.');
+  }
 }
 
 function deleteTemplateHandler(id) {
