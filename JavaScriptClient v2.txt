@@ -3538,7 +3538,7 @@ function onSkNonAsnFormChange() {
       const placeholders = (res && res.placeholders && res.placeholders.length) ? res.placeholders : [
         'nip', 'nama_lengkap', 'unit_es_ii', 'jabatan', 'golongan', 'pangkat',
         'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan', 'tmt_pensiun_bup', 'status_kepegawaian',
-        'nomor_sk', 'tmt_pensiun_efektif', 'alasan_pensiun', 'nomor_surat_usul', 'tgl_surat_usul', 'nama_ttd_rektor'
+        'nomor_sk', 'foto'
       ];
       renderSkNonAsnDynamicFormFields(placeholders);
     })
@@ -3546,7 +3546,7 @@ function onSkNonAsnFormChange() {
       const fallbackPlaceholders = [
         'nip', 'nama_lengkap', 'unit_es_ii', 'jabatan', 'golongan', 'pangkat',
         'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan', 'tmt_pensiun_bup', 'status_kepegawaian',
-        'nomor_sk', 'tmt_pensiun_efektif', 'alasan_pensiun', 'nomor_surat_usul', 'tgl_surat_usul', 'nama_ttd_rektor'
+        'nomor_sk', 'foto'
       ];
       renderSkNonAsnDynamicFormFields(fallbackPlaceholders);
     })
@@ -3926,7 +3926,7 @@ function onSkKpFormChange() {
       const placeholders = (res && res.placeholders && res.placeholders.length) ? res.placeholders : [
         'nip', 'nama_lengkap', 'unit_es_ii', 'jabatan', 'golongan', 'pangkat',
         'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan', 'tmt_gol', 'status_kepegawaian',
-        'nomor_sk', 'tmt_sk_efektif', 'nomor_surat_usul', 'tgl_surat_usul', 'nama_ttd_rektor'
+        'nomor_sk', 'foto'
       ];
       renderSkKpDynamicFormFields(placeholders);
     })
@@ -3934,7 +3934,7 @@ function onSkKpFormChange() {
       const fallbackPlaceholders = [
         'nip', 'nama_lengkap', 'unit_es_ii', 'jabatan', 'golongan', 'pangkat',
         'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan', 'tmt_gol', 'status_kepegawaian',
-        'nomor_sk', 'foto', 'tmt_sk_efektif', 'nomor_surat_usul', 'tgl_surat_usul', 'nama_ttd_rektor'
+        'nomor_sk', 'foto'
       ];
       renderSkKpDynamicFormFields(fallbackPlaceholders);
     })

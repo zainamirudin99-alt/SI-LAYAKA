@@ -532,27 +532,34 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old S
 
   const zip = new PizZip(templateBuffer);
 
-  // 1. Bersihkan pecahan XML run di dalam paragraf terlebih dahulu agar tag {{foto}} menyatu sempurna
-  const xmlFiles = Object.keys(zip.files).filter(fn => fn.startsWith('word/') && fn.endsWith('.xml'));
-  for (const fileName of xmlFiles) {
-    const f = zip.file(fileName);
-    if (f) {
-      zip.file(fileName, cleanWordXmlParagraphBraces(f.asText()));
+  // 1. Bersihkan loop massal gantung dan pecahan XML run di dalam paragraf
+  Object.keys(zip.files).forEach(fileName => {
+    if (fileName.endsWith('.xml')) {
+      const f = zip.file(fileName);
+      if (f) {
+        let content = f.asText();
+        content = docxCleanMassalLoops(content);
+        content = cleanWordXmlParagraphBraces(content);
+        zip.file(fileName, content);
+      }
     }
-  }
+  });
 
-  // 2. Sisipkan foto gambar OpenXML asli ke dalam {{foto}} / {foto} pada tag run <w:r> yang telah menyatu
+  // 2. Sisipkan foto gambar OpenXML asli (rasio 3x4) ke dalam {{foto}} / {foto}
   injectDocxImage(zip, dataCtx);
-
 
   // 3. Saring data teks (ABAIKAN SELURUH string base64 / foto dari penggantian teks biasa!)
   const sanitizedData = {};
   for (const [k, v] of Object.entries(dataCtx || {})) {
     const kLower = String(k).toLowerCase();
+    if (kLower.includes('foto') || kLower.includes('photo') || kLower.includes('pas_foto') || kLower.includes('pasfoto')) {
+      sanitizedData[k] = '';
+      continue;
+    }
     let valStr = '';
     if (v !== null && v !== undefined) {
-      if (typeof v === 'string' && (v.startsWith('data:') || v.includes('base64,') || v.length > 200 || kLower.includes('foto') || kLower.includes('photo'))) {
-        valStr = ''; // Saring base64 Data URL secara mutlak dari tag teks agar tidak tercetak sebagai teks mentah!
+      if (typeof v === 'string' && (v.startsWith('data:') || v.includes('base64,') || v.length > 300)) {
+        valStr = '';
       } else if (typeof v === 'object') {
         valStr = JSON.stringify(v);
       } else {
@@ -564,42 +571,40 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old S
     sanitizedData[k.toUpperCase()] = valStr;
   }
 
+  // 4. Custom parser mendukung {{ ekspresi }} (set, filter, fungsi, ternary)
+  const customParser = tag => ({
+    get(scope, context) {
+      const tagLower = String(tag || '').trim().toLowerCase();
+      if (tagLower.includes('foto') || tagLower.includes('photo') || tagLower.includes('pas_foto') || tagLower.includes('pasfoto')) {
+        return '';
+      }
+      const ctx = Object.assign({}, sanitizedData, typeof scope === 'object' && scope !== null ? scope : {});
+      try { return docxEvaluateTag(tag, ctx); } catch (e) { return `[ERROR:${tag}]`; }
+    }
+  });
+
   let renderedZip = null;
   try {
     const doc = new Docxtemplater(zip, {
-      delimiters: { start: '{{', end: '}}' },
       paragraphLoop: true,
       linebreaks: true,
-      nullGetter(part) {
-        if (!part || !part.value) return '';
-        const key = String(part.value).trim();
-        if (sanitizedData[key] !== undefined) return sanitizedData[key];
-        if (sanitizedData[key.toLowerCase()] !== undefined) return sanitizedData[key.toLowerCase()];
-        if (sanitizedData[key.toUpperCase()] !== undefined) return sanitizedData[key.toUpperCase()];
-        return '';
-      }
+      parser: customParser,
+      delimiters: { start: '{{', end: '}}' }
     });
     doc.render(sanitizedData);
     renderedZip = doc.getZip();
   } catch (e1) {
     try {
       const docSingle = new Docxtemplater(new PizZip(templateBuffer), {
-        delimiters: { start: '{', end: '}' },
         paragraphLoop: true,
         linebreaks: true,
-        nullGetter(part) {
-          if (!part || !part.value) return '';
-          const key = String(part.value).trim();
-          if (sanitizedData[key] !== undefined) return sanitizedData[key];
-          if (sanitizedData[key.toLowerCase()] !== undefined) return sanitizedData[key.toLowerCase()];
-          if (sanitizedData[key.toUpperCase()] !== undefined) return sanitizedData[key.toUpperCase()];
-          return '';
-        }
+        parser: customParser,
+        delimiters: { start: '{', end: '}' }
       });
       docSingle.render(sanitizedData);
       renderedZip = docSingle.getZip();
     } catch (e2) {
-      console.warn('Docxtemplater fallback to direct regex replacement:', e1.message || e1);
+      console.warn('[docxRenderTemplate] Fallback to direct regex replacement:', e1.message || e1);
       return replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont);
     }
   }
@@ -1519,89 +1524,7 @@ function docxCleanMassalLoops(xml) {
   return cleaned;
 }
 
-/**
- * Render template DOCX menggunakan docxtemplater + custom parser yang
- * mendukung sintaks {{ ekspresi }} yang sama dengan TemplateEngine.gs.
- * @param {Buffer} templateBuffer  — isi file .docx sebagai Buffer
- * @param {Object} dataCtx         — data pegawai + form
- * @returns {Buffer}               — file .docx hasil generate
- */
-function docxRenderTemplate(templateBuffer, dataCtx) {
-  // Lazy-require agar tidak error jika belum di-install
-  const PizZip = require('pizzip');
-  const Docxtemplater = require('docxtemplater');
-
-  const zip = new PizZip(templateBuffer);
-
-  // Bersihkan loop massal gantung dari seluruh bagian berkas XML di dalam ZIP
-  Object.keys(zip.files).forEach(fileName => {
-    if (fileName.endsWith('.xml')) {
-      const content = zip.files[fileName].asText();
-      const cleaned = docxCleanMassalLoops(content);
-      if (cleaned !== content) {
-        zip.file(fileName, cleaned);
-      }
-    }
-  });
-
-  // Custom parser: mendukung {{ ekspresi }} penuh (set, filter, fungsi, ternary)
-  const customParser = tag => ({
-    get(scope, context) {
-      // Scope bisa berupa item loop (object) atau dataCtx global
-      const ctx = Object.assign({}, dataCtx, typeof scope === 'object' && scope !== null ? scope : {});
-      try { return docxEvaluateTag(tag, ctx); } catch (e) { return `[ERROR:${tag}]`; }
-    }
-  });
-
-  const doc = new Docxtemplater(zip, {
-    paragraphLoop: true,
-    linebreaks: true,
-    parser: customParser,
-    delimiters: {
-      start: '{{',
-      end: '}}'
-    }
-  });
-
-  try {
-    doc.render(dataCtx);
-  } catch (error) {
-    if (error.properties && error.properties.errors instanceof Array) {
-      const messages = error.properties.errors.map(err => {
-        const expl = err.properties?.explanation || '';
-        const tag = err.properties?.xtag || '';
-        return `${err.message}${expl ? ' (' + expl + ')' : ''}${tag ? ' di tag: "' + tag + '"' : ''}`;
-      }).join('\n');
-      throw new Error(`Kesalahan Parsing Template Word (Multi Error):\n${messages}`);
-    }
-    throw error;
-  }
-
-  // Setel font seluruh dokumen menjadi Times New Roman pada XML berkas DOCX
-  try {
-    const zipObj = doc.getZip();
-    const docXmlFile = zipObj.file("word/document.xml");
-    if (docXmlFile) {
-      let xml = docXmlFile.asText();
-      xml = xml.replace(/w:ascii="[^"]*"/g, 'w:ascii="Times New Roman"')
-               .replace(/w:hAnsi="[^"]*"/g, 'w:hAnsi="Times New Roman"')
-               .replace(/w:cs="[^"]*"/g, 'w:cs="Times New Roman"');
-      zipObj.file("word/document.xml", xml);
-    }
-    const stylesXmlFile = zipObj.file("word/styles.xml");
-    if (stylesXmlFile) {
-      let stylesXml = stylesXmlFile.asText();
-      stylesXml = stylesXml.replace(/w:ascii="[^"]*"/g, 'w:ascii="Times New Roman"')
-                           .replace(/w:hAnsi="[^"]*"/g, 'w:hAnsi="Times New Roman"')
-                           .replace(/w:cs="[^"]*"/g, 'w:cs="Times New Roman"');
-      zipObj.file("word/styles.xml", stylesXml);
-    }
-  } catch (fontErr) {
-    console.warn('[rpc font] Gagal menerapkan font Times New Roman ke XML DOCX:', fontErr.message);
-  }
-
-  return doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' });
-}
+// Catatan: docxRenderTemplate didefinisikan secara utama pada baris ~529 (mendukung injeksi foto 3x4 + evaluasi tag)
 
 // ================================================================
 // DOWNLOAD TEMPLATE DOCX DARI STORAGE (DENGAN SDK ATAU FETCH)
@@ -3763,7 +3686,7 @@ const methods = {
     const defaultFields = [
       'nip', 'nama_lengkap', 'unit_es_ii', 'jabatan', 'golongan', 'pangkat',
       'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan', 'tmt_pensiun_bup', 'status_kepegawaian',
-      'nomor_sk', 'foto', 'tmt_pensiun_efektif', 'alasan_pensiun', 'nomor_surat_usul', 'tgl_surat_usul', 'nama_ttd_rektor'
+      'nomor_sk', 'foto'
     ];
 
     if (!tmpl) return { success: true, placeholders: defaultFields };
@@ -3824,7 +3747,25 @@ const methods = {
       }
     }
 
-    // 2. Jika template berjenis GDOCS / GDrive
+    // 2. Jika template berjenis GDOCS / GDrive — coba pindai export TXT langsung jika file_id publik/terbuka
+    if (tmpl.file_id && tmpl.tipe !== 'docx') {
+      const cleanFileId = extractDriveFileId(tmpl.file_id) || tmpl.file_id;
+      try {
+        const txtRes = await fetch(`https://docs.google.com/document/d/${cleanFileId}/export?format=txt`);
+        if (txtRes.ok) {
+          const docText = await txtRes.text();
+          const rawTags = docText.match(/\{+[^{}]+\}+/g) || [];
+          rawTags.forEach(raw => extractKeysFromString(raw));
+          if (keys.size > 0) {
+            return { success: true, placeholders: Array.from(keys) };
+          }
+        }
+      } catch (errExport) {
+        console.warn('[rpc getTemplatePlaceholders] Gagal export txt Google Doc:', errExport.message);
+      }
+    }
+
+    // 3. Jika pemindaian publik belum menghasilkan tag, panggil GAS scanTemplateFormulas
     const gasUrl = process.env.GOOGLE_SCRIPT_URL;
     if (gasUrl && tmpl.file_id) {
       try {
