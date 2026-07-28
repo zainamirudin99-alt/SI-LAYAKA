@@ -5252,8 +5252,8 @@ const methods = {
 function rpcFormatJnsKel(val) {
   if (!val) return '';
   const s = String(val).trim().toUpperCase();
-  if (s.startsWith('P') || s.includes('PEREMPUAN') || s.includes('WANITA')) return 'P';
-  if (s.startsWith('L') || s.includes('LAKI') || s.includes('PRIA')) return 'L';
+  if (s === 'P' || s.startsWith('P') || s.includes('PEREMPUAN') || s.includes('WANITA')) return 'Perempuan';
+  if (s === 'L' || s.startsWith('L') || s.includes('LAKI') || s.includes('PRIA')) return 'Laki-laki';
   return String(val).trim();
 }
 

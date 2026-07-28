@@ -73,8 +73,22 @@ function buildDataContext_(employee, formData, subLayanan) {
   }
 
   const ctx = Object.assign({}, employee, formData, alias, derived);
+  const rawJnsKel = ctx.jns_kel || ctx.jenis_kelamin;
+  if (rawJnsKel !== undefined && rawJnsKel !== null) {
+    const formattedJnsKel = formatJnsKel_(rawJnsKel);
+    ctx.jns_kel = formattedJnsKel;
+    ctx.jenis_kelamin = formattedJnsKel;
+  }
   // "today" tersedia otomatis lewat resolveIdentifier_, tidak perlu disuntik di sini.
   return ctx;
+}
+
+function formatJnsKel_(val) {
+  if (!val) return '';
+  const s = String(val).trim().toUpperCase();
+  if (s === 'P' || s.startsWith('P') || s.includes('PEREMPUAN') || s.includes('WANITA')) return 'Perempuan';
+  if (s === 'L' || s.startsWith('L') || s.includes('LAKI') || s.includes('PRIA')) return 'Laki-laki';
+  return String(val).trim();
 }
 
 /**
