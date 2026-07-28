@@ -81,18 +81,19 @@ const SET_EXPR_REGEX = /^set\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$/i;
 function processPhotoPlaceholderInBody_(container, dataContext) {
   if (!container || !dataContext) return;
 
-  const photoKeys = ['foto', 'pas_foto', 'photo', 'pasfoto', 'foto_pegawai', 'url_foto'];
+  const photoKeys = ['foto', 'pas_foto', 'photo', 'pasfoto', 'foto_pegawai', 'url_foto', 'FOTO', 'PAS_FOTO'];
   let photoBase64 = '';
   for (const k of photoKeys) {
-    if (dataContext[k] && typeof dataContext[k] === 'string' && (dataContext[k].startsWith('data:') || dataContext[k].includes('base64,'))) {
-      photoBase64 = dataContext[k];
+    const val = dataContext[k];
+    if (val && typeof val === 'string' && (val.startsWith('data:') || val.includes('base64,') || val.length > 200)) {
+      if (!photoBase64) photoBase64 = val;
       dataContext[k] = '';
     }
   }
   if (!photoBase64 && dataContext._fotoBase64) {
     photoBase64 = dataContext._fotoBase64;
-    dataContext._fotoBase64 = '';
   }
+  dataContext._fotoBase64 = '';
 
   const tagsToSearch = ['{{foto}}', '{{ foto }}', '{foto}', '{ foto }', '{{pas_foto}}', '{pas_foto}', '{{foto_pegawai}}', '{foto_pegawai}', '{{photo}}', '{photo}'];
 
@@ -103,14 +104,23 @@ function processPhotoPlaceholderInBody_(container, dataContext) {
         const textObj = found.getElement();
         const parentParagraph = textObj.getParent().asParagraph();
         if (photoBase64) {
-          const splitData = photoBase64.split(',');
-          const contentType = (splitData[0].match(/:(.*?);/) || [, 'image/jpeg'])[1];
-          const rawBase64 = splitData.length > 1 ? splitData[1] : splitData[0];
-          const imageBlob = Utilities.newBlob(Utilities.base64Decode(rawBase64), contentType, 'foto_pegawai.jpg');
+          let cleanBase64 = photoBase64.trim();
+          let contentType = 'image/jpeg';
+          if (cleanBase64.startsWith('data:')) {
+            const matches = cleanBase64.match(/^data:([^;]+);base64,(.+)$/);
+            if (matches) {
+              contentType = matches[1];
+              cleanBase64 = matches[2];
+            } else {
+              cleanBase64 = cleanBase64.replace(/^data:[^;]+;base64,/, '');
+            }
+          }
+
+          const imageBlob = Utilities.newBlob(Utilities.base64Decode(cleanBase64), contentType, 'foto_pegawai.jpg');
 
           const inlineImage = parentParagraph.appendInlineImage(imageBlob);
           inlineImage.setWidth(120);
-          inlineImage.setHeight(160); // Rasio 3x4
+          inlineImage.setHeight(160); // Rasio 3x4 (3 cm x 4 cm = 120px x 160px)
 
           textObj.setText(' ');
         } else {

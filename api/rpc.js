@@ -3154,8 +3154,8 @@ const methods = {
       if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi untuk GDocs template.' };
 
       const sanitizedGasCtx = { ...dataCtx };
-      if (sanitizedGasCtx.foto && sanitizedGasCtx.foto.length > 2000) {
-        delete sanitizedGasCtx.foto;
+      if (dataCtx.foto || dataCtx.pas_foto || dataCtx.photo) {
+        sanitizedGasCtx._fotoBase64 = dataCtx.foto || dataCtx.pas_foto || dataCtx.photo;
       }
 
       const shortId = uuidv4();
@@ -3431,8 +3431,8 @@ const methods = {
       if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi untuk GDocs template.' };
 
       const sanitizedGasCtx = { ...dataCtx };
-      if (sanitizedGasCtx.foto && sanitizedGasCtx.foto.length > 2000) {
-        delete sanitizedGasCtx.foto;
+      if (dataCtx.foto || dataCtx.pas_foto || dataCtx.photo) {
+        sanitizedGasCtx._fotoBase64 = dataCtx.foto || dataCtx.pas_foto || dataCtx.photo;
       }
 
       const shortId = uuidv4();
