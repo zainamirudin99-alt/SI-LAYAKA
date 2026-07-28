@@ -3519,7 +3519,7 @@ const methods = {
     if (!subLayanan) return { success: false, message: 'Sub-menu SK Kenaikan Pangkat wajib diisi.' };
     if (!templateId) return { success: false, message: 'Template SK Kenaikan Pangkat wajib dipilih.' };
 
-    const { data: emp, error: empErr } = await db.from('pegawai').select('*').eq('nip', targetNip).maybeSingle();
+    const { data: emp, error: empErr } = await db.from('data_utama').select('*').eq('nip', String(targetNip).trim()).maybeSingle();
     if (empErr) throw empErr;
     if (!emp) return { success: false, message: 'Data pegawai tidak ditemukan.' };
 
@@ -3622,7 +3622,7 @@ const methods = {
     if (!jenisPensiun) return { success: false, message: 'Jenis Pensiun wajib diisi.' };
     if (!templateId)   return { success: false, message: 'Template SK Pensiun wajib dipilih.' };
 
-    const { data: emp, error: empErr } = await db.from('pegawai').select('*').eq('nip', targetNip).maybeSingle();
+    const { data: emp, error: empErr } = await db.from('data_utama').select('*').eq('nip', String(targetNip).trim()).maybeSingle();
     if (empErr) throw empErr;
     if (!emp) return { success: false, message: 'Data pegawai tidak ditemukan.' };
 

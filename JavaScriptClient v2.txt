@@ -4405,33 +4405,46 @@ function submitGenerateSkPensiunNonAsn() {
 
   google.script.run
     .withSuccessHandler(res => {
-      setBtnLoading(btn, false, 'Generate & Terbitkan SK Pensiun');
+      setBtnLoading(btn, false, '🚀 Generate & Terbitkan SK Pensiun');
       if (res.success) {
         showToast('success', res.message || 'SK Pensiun Non-ASN berhasil diterbitkan.');
-        
-        if (res.outputType === 'docx' && res.base64) {
-          // Download DOCX file
-          const link = document.createElement('a');
-          link.href = 'data:' + (res.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') + ';base64,' + res.base64;
-          link.download = res.fileName || 'SK_Pensiun_Non_ASN.docx';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        } else if (res.viewUrl) {
-          window.open(res.viewUrl, '_blank');
-        }
-
-        // Reload usulan list
+        openSkPensiunResultModal(res);
         loadSkNonAsnUsulanList();
       } else {
         showToast('error', res.message || 'Gagal menerbitkan SK Pensiun.');
       }
     })
     .withFailureHandler(err => {
-      setBtnLoading(btn, false, 'Generate & Terbitkan SK Pensiun');
+      setBtnLoading(btn, false, '🚀 Generate & Terbitkan SK Pensiun');
       showToast('error', 'Gagal menerbitkan SK Pensiun: ' + (err.message || err));
     })
     .generateSkPensiunNonAsn(SESSION.token, payload);
+}
+
+function openSkPensiunResultModal(res) {
+  document.getElementById('modalTitle').textContent = 'Penerbitan SK Pensiun Berhasil';
+  if (res.outputType === 'docx' && res.base64) {
+    const dataUrl = 'data:' + (res.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') + ';base64,' + res.base64;
+    document.getElementById('modalBody').innerHTML = `
+      <div style="padding:24px; text-align:center;">
+        <div style="font-size:40px; margin-bottom:12px;">🎉</div>
+        <p style="margin-bottom:18px; font-size:14.5px;">SK Pensiun Pegawai Undip Non ASN berhasil diterbitkan sebagai berkas <strong>MS Word (.docx)</strong>.</p>
+        <div style="display:flex; justify-content:center; gap:10px;">
+          <a class="btn btn-primary" style="text-decoration:none; padding:10px 20px; font-size:14px; font-weight:600;" href="${dataUrl}" download="${res.fileName || 'SK_Pensiun_Non_ASN.docx'}">⬇ Unduh File SK Pensiun (.docx)</a>
+        </div>
+      </div>`;
+  } else {
+    const viewUrl = res.viewUrl || (res.fileId ? `https://docs.google.com/document/d/${res.fileId}/edit` : '#');
+    document.getElementById('modalBody').innerHTML = `
+      <div style="padding:24px; text-align:center;">
+        <div style="font-size:40px; margin-bottom:12px;">🎉</div>
+        <p style="margin-bottom:18px; font-size:14.5px;">SK Pensiun Pegawai Undip Non ASN berhasil diterbitkan dan tersimpan di <strong>Google Docs</strong>.</p>
+        <div style="display:flex; justify-content:center; gap:10px;">
+          <a class="btn btn-primary" style="text-decoration:none; padding:10px 20px; font-size:14px; font-weight:600;" href="${viewUrl}" target="_blank" rel="noopener">📄 Buka & Lihat File Google Docs ↗</a>
+        </div>
+      </div>`;
+  }
+  document.getElementById('modalOverlay').style.display = 'flex';
 }
 
 function submitPreviewSkKpNonAsn() {
