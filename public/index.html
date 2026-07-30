@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <base target="_top">
@@ -632,6 +632,17 @@
     background: var(--kp-field-bg, var(--input-bg));
     color: var(--kp-field-text, var(--text));
     font-size: 14px;
+  }
+  .bsk-auto-field {
+    background-color: #e2e8f0 !important;
+    color: #0f172a !important;
+    font-weight: 600 !important;
+    border-color: #cbd5e1 !important;
+  }
+  body.theme-dark .bsk-auto-field {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+    color: #f8fafc !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
   }
   #view-kenaikan-pangkat .grid-2, #view-pensiun .grid-2 { grid-template-columns: 1fr 1fr; }
   #view-kenaikan-pangkat .kp-entry-badge, #view-pensiun .kp-entry-badge { display: inline-flex; }
@@ -9733,7 +9744,7 @@ function buatSkRenderDynamicFields(placeholders) {
           </div>
         </div>`;
     } else {
-      inputHtml = `<input type="text" id="bsk_field_${key}" class="field-input" placeholder="${escHtml(label)}" ${isAutofilled ? 'style="background:var(--surface-alt);"' : ''} />`;
+      inputHtml = `<input type="text" id="bsk_field_${key}" class="field-input ${isAutofilled ? 'bsk-auto-field' : ''}" placeholder="${escHtml(label)}" ${isAutofilled ? 'style="background:var(--surface-alt,#e2e8f0);color:var(--text-main,#0f172a);font-weight:600;"' : ''} />`;
     }
 
     const spanAuto = isAutofilled ? ' <span style="font-size:11px;color:#10b981;font-weight:600;">(auto-fill)</span>' : '';
