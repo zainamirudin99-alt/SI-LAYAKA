@@ -9730,7 +9730,7 @@ function buatSkRenderDynamicFields(placeholders) {
     let inputHtml;
     if (isGol) {
       const opts = ['I/a','I/b','I/c','I/d','II/a','II/b','II/c','II/d','III/a','III/b','III/c','III/d','IV/a','IV/b','IV/c','IV/d','IV/e','Set.I/a','Set.I/b','Set.I/c','Set.I/d','Set.II/a','Set.II/b','Set.II/c','Set.II/d','Set.III/a','Set.III/b','Set.III/c','Set.III/d','Set.IV/a','Set.IV/b','Set.IV/c','Set.IV/d','Set.IV/e'].map(g => `<option value="${g}">${g}</option>`).join('');
-      inputHtml = `<select id="bsk_field_${key}" class="field-input ${isAutofilled ? 'bsk-auto-field' : ''}" onchange="buatSkHitungGajiPokok()" ${isAutofilled ? 'style="background:var(--surface-alt,#e2e8f0);color:var(--text-main,#0f172a);font-weight:600;"' : ''}><option value="">-- Pilih Golongan --</option>${opts}</select>`;
+      inputHtml = `<select id="bsk_field_${key}" class="field-input ${isAutofilled ? 'bsk-auto-field' : ''}" onchange="buatSkHitungGajiPokok()" oninput="buatSkHitungGajiPokok()" ${isAutofilled ? 'style="background:var(--surface-alt,#e2e8f0);color:var(--text-main,#0f172a);font-weight:600;"' : ''}><option value="">-- Pilih Golongan --</option>${opts}</select>`;
     } else if (isDate) {
       const defVal = isTodayDefault ? todayIso : '';
       inputHtml = `<input type="date" id="bsk_field_${key}" class="field-input ${isAutofilled ? 'bsk-auto-field' : ''}" value="${defVal}" ${isAutofilled ? 'style="background:var(--surface-alt,#e2e8f0);color:var(--text-main,#0f172a);font-weight:600;"' : ''} />`;
@@ -9825,7 +9825,7 @@ const GOLONGAN_TO_PANGKAT = {
   'IV/e': 'Pembina Utama'
 };
 
-function getPangkatForGolongan(gol) {
+function getPangkatForGolongan(gol, isCptu = false) {
   const s = String(gol || '').trim();
   const isSet = /^set/i.test(s);
   const baseGol = s.toLowerCase().replace(/^setara\s*/i, '').replace(/^set\.\s*/i, '').trim();
@@ -9838,10 +9838,10 @@ function buatSkHitungGajiPokok() {
   const gol = document.getElementById('bsk_field_golongan')?.value || '';
   const mkgThn = document.getElementById('bsk_field_mkg_tahun')?.value || document.getElementById('bsk_field_masa_kerja_gol')?.value || '0';
   const fieldGaji = document.getElementById('bsk_field_gaji_pokok');
-  const fieldPangkat = document.getElementById('bsk_field_pangkat');
+  const fieldPangkat = document.getElementById('bsk_field_pangkat') || document.getElementById('bsk_field_nama_pangkat');
 
   if (fieldPangkat && gol) {
-    const pangkatResolved = getPangkatForGolongan(gol);
+    const pangkatResolved = getPangkatForGolongan(gol, BUAT_SK.jenisSk === 'SK CPTU');
     if (pangkatResolved) fieldPangkat.value = pangkatResolved;
   }
 
