@@ -835,6 +835,7 @@
           📄 Kontrak
         </div>
         <div class="nav-item" data-view="pmk" data-title="Usul PMK &amp; PG" id="navPmk" style="display:none;">
+        <div class="nav-item" data-view="buat-sk" data-title="Buat SK" id="navBuatSk" style="display:none;">&#x1F4CB; Buat SK</div>
           📑 Usul PMK &amp; PG
         </div>
         <div class="nav-item" data-view="template" data-title="Manajemen Template">
@@ -2346,12 +2347,13 @@ function terapkanBatasanPeran_() {
   const navPensiun = document.querySelector('.nav-item[data-view="pensiun"]');
   const navKontrak = document.querySelector('.nav-item[data-view="kontrak"]');
   const navPmk = document.querySelector('.nav-item[data-view="pmk"]');
+  const navBuatSk = document.querySelector('.nav-item[data-view="buat-sk"]');
   const navTemplate = document.querySelector('.nav-item[data-view="template"]');
   const navPeranAkun = document.querySelector('.nav-item[data-view="peran-akun"]');
   const navLainnya = document.querySelector('.nav-item[data-view="lainnya"]');
 
   // Sembunyikan semua dulu (deny-by-default), baru tampilkan sesuai peran.
-  [navProfil, navKP, navPensiun, navKontrak, navPmk, navTemplate, navPeranAkun, navLainnya].forEach(el => { if (el) el.style.display = 'none'; });
+  [navProfil, navKP, navPensiun, navKontrak, navPmk, navBuatSk, navTemplate, navPeranAkun, navLainnya].forEach(el => { if (el) el.style.display = 'none'; });
 
   let viewAktif = 'kenaikan-pangkat';
   let judulAktif = 'Kenaikan Pangkat';
@@ -2374,6 +2376,7 @@ function terapkanBatasanPeran_() {
     if (navPensiun) navPensiun.style.display = 'flex';
     if (navKontrak) navKontrak.style.display = 'flex';
     if (['user', 'admin', 'super_admin'].includes(role) && navPmk) navPmk.style.display = 'flex';
+    if (['user', 'admin', 'super_admin'].includes(role) && navBuatSk) navBuatSk.style.display = 'flex';
     if (navLainnya) navLainnya.style.display = 'flex';
     if (role === 'admin' || role === 'super_admin') {
       if (navTemplate) navTemplate.style.display = 'flex';
@@ -2451,6 +2454,7 @@ function terapkanBatasanPeran_() {
   document.getElementById('topbarTitle').textContent = judulAktif;
 
   if (viewAktif === 'profil-saya') loadProfilSaya();
+  if (viewAktif === 'buat-sk') onEnterBuatSkView();
 }
 
 /** Muat & tampilkan data diri terbatas (peran 'normal'). */
@@ -8979,8 +8983,517 @@ function loadStatusUsulanPensiunSaya() {
     })
     .getUsulanPensiunSayaForUser(SESSION.token);
 }
+
+// ================================================================
+// MODUL BUAT SK — STATE & HELPERS
+// ================================================================
+const BUAT_SK = {
+  jenisSk: null, templateId: null, unitEsIi: null,
+  pimpinanInfo: null, placeholders: [],
+  pejabatDilantik: [], pejabatDiberhentikan: [],
+  searchTimer: null, empSearchTimer: null,
+  activeLoopTarget: null // 'dilantik' | 'diberhentikan' saat modal spreadsheet
+};
+
+function buatSkSwitchTab(tab) {
+  ['usul-sk','usulan-masuk','buat-sk'].forEach(t => {
+    const el = document.getElementById('buatSkTab-' + t);
+    if (el) el.style.display = t === tab ? '' : 'none';
+  });
+  const btnMap = {'usul-sk':'tabBuatSkUsulSk','usulan-masuk':'tabBuatSkUsulanMasuk','buat-sk':'tabBuatSkBuatSk'};
+  Object.entries(btnMap).forEach(([t, id]) => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.classList.toggle('btn-primary', t === tab);
+    b.classList.toggle('btn-outline', t !== tab);
+  });
+  if (tab === 'usul-sk')       loadUsulanSkSaya();
+  if (tab === 'usulan-masuk')  loadUsulanSkMasuk();
+  if (tab === 'buat-sk')       buatSkInitForm();
+}
+
+// Panggil saat masuk ke view buat-sk
+function onEnterBuatSkView() {
+  const role = (SESSION.user && SESSION.user.role) || 'normal';
+  const isAdmin = role === 'admin' || role === 'super_admin';
+  // Tampilkan tab sesuai role
+  const tabUM = document.getElementById('tabBuatSkUsulanMasuk');
+  const tabBS = document.getElementById('tabBuatSkBuatSk');
+  if (tabUM) tabUM.style.display = isAdmin ? '' : 'none';
+  if (tabBS) tabBS.style.display = isAdmin ? '' : 'none';
+  // Default tab: user → usul-sk, admin → buat-sk
+  buatSkSwitchTab(isAdmin ? 'buat-sk' : 'usul-sk');
+}
+
+// ================================================================
+// TAB: USUL SK
+// ================================================================
+let usulSkSearchTimer = null;
+function usulSkSearchEmployee() {
+  clearTimeout(usulSkSearchTimer);
+  const q = document.getElementById('usulSk_searchEmp').value.trim();
+  const dropdown = document.getElementById('usulSk_searchDropdown');
+  if (q.length < 2) { dropdown.style.display = 'none'; dropdown.innerHTML = ''; return; }
+  usulSkSearchTimer = setTimeout(async () => {
+    try {
+      const results = await rpc('searchEmployees', [SESSION.token, q]);
+      if (!results || results.length === 0) { dropdown.innerHTML = '<div style="padding:8px 12px;color:var(--text-muted);font-size:13px;">Tidak ditemukan.</div>'; dropdown.style.display = 'block'; return; }
+      dropdown.innerHTML = results.map(e => `<div class="autocomplete-item" onclick="usulSkSelectEmployee('${e.nip}','${escHtml(e.nama)}','${escHtml(e.unitEsIi||'')}')" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);">${escHtml(e.nama)} <span style="color:var(--text-muted);font-size:12px;">(${e.nip})</span></div>`).join('');
+      dropdown.style.display = 'block';
+    } catch(e) { dropdown.style.display = 'none'; }
+  }, 300);
+}
+function usulSkSelectEmployee(nip, nama, unit) {
+  document.getElementById('usulSk_nipTarget').value = nip;
+  document.getElementById('usulSk_searchEmp').value = '';
+  const badge = document.getElementById('usulSk_selectedTarget');
+  badge.innerHTML = `<strong>${escHtml(nama)}</strong> &nbsp;·&nbsp; NIP: ${nip} &nbsp;·&nbsp; ${escHtml(unit)}`;
+  badge.style.display = '';
+  const dropdown = document.getElementById('usulSk_searchDropdown');
+  dropdown.innerHTML = ''; dropdown.style.display = 'none';
+}
+function usulSkJenisProposalChange() {
+  const jenis = document.getElementById('usulSk_jenisProposal').value;
+  const wrap  = document.getElementById('usulSk_sekprodiWrap');
+  wrap.style.display = jenis === 'Sekprodi' ? '' : 'none';
+  document.getElementById('usulSk_sekprodiAlert').style.display = 'none';
+}
+async function submitUsulSk() {
+  const nip_target      = document.getElementById('usulSk_nipTarget').value;
+  const jenis_proposal  = document.getElementById('usulSk_jenisProposal').value;
+  const nomor_surat_usul= document.getElementById('usulSk_nomorSurat').value;
+  const tgl_surat_usul  = document.getElementById('usulSk_tglSurat').value;
+  const jumlah_mahasiswa= document.getElementById('usulSk_jumlahMahasiswa').value;
+
+  if (!nip_target) return showToast('error', 'Pilih pegawai target terlebih dahulu.');
+  if (!jenis_proposal) return showToast('error', 'Pilih jenis proposal terlebih dahulu.');
+
+  // Validasi Sekprodi di frontend: jumlah_mahasiswa harus > 100
+  if (jenis_proposal === 'Sekprodi') {
+    const jml = parseInt(jumlah_mahasiswa || '0', 10);
+    const alert = document.getElementById('usulSk_sekprodiAlert');
+    if (jml <= 100) { alert.style.display = ''; return showToast('error', 'Jumlah mahasiswa harus lebih dari 100 untuk Sekprodi.'); }
+    alert.style.display = 'none';
+  }
+
+  // Baca file jika ada
+  let file_surat_usul_base64 = null, nama_file_surat_usul = null;
+  const fileInput = document.getElementById('usulSk_fileSurat');
+  if (fileInput.files[0]) {
+    const file = fileInput.files[0];
+    nama_file_surat_usul = file.name;
+    file_surat_usul_base64 = await new Promise(resolve => {
+      const r = new FileReader(); r.onload = e => resolve(e.target.result); r.readAsDataURL(file);
+    });
+  }
+
+  showLoadingOverlay('Mengajukan usulan...');
+  try {
+    const res = await rpc('ajukanUsulanSk', [SESSION.token, {
+      nip_target, jenis_proposal, nomor_surat_usul, tgl_surat_usul,
+      jumlah_mahasiswa: parseInt(jumlah_mahasiswa||'0',10),
+      file_surat_usul_base64, nama_file_surat_usul
+    }]);
+    hideLoadingOverlay();
+    if (res.success) {
+      showToast('success', res.message || 'Usulan berhasil diajukan.');
+      // Reset form
+      ['usulSk_searchEmp','usulSk_nomorSurat','usulSk_tglSurat','usulSk_jumlahMahasiswa'].forEach(id => { const el=document.getElementById(id); if(el)el.value=''; });
+      document.getElementById('usulSk_nipTarget').value = '';
+      document.getElementById('usulSk_selectedTarget').style.display = 'none';
+      document.getElementById('usulSk_jenisProposal').value = '';
+      document.getElementById('usulSk_sekprodiWrap').style.display = 'none';
+      fileInput.value = '';
+      loadUsulanSkSaya();
+    } else {
+      showToast('error', res.message || 'Gagal mengajukan usulan.');
+    }
+  } catch(e) { hideLoadingOverlay(); showToast('error', e.message || 'Terjadi kesalahan.'); }
+}
+async function loadUsulanSkSaya() {
+  const list = document.getElementById('usulSk_riwayatList');
+  if (!list) return;
+  list.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat...</div>';
+  try {
+    const res = await rpc('getUsulanSkSaya', [SESSION.token]);
+    const items = res.data || [];
+    if (!items.length) { list.innerHTML = '<div class="ce-dashboard-card cdc-empty">Belum ada usulan yang diajukan.</div>'; return; }
+    const STATUS_COLOR = {'Diajukan':'#3b82f6','Diverifikasi':'#f59e0b','SK Dibuat':'#10b981','Selesai':'#6b7280','Ditolak':'#ef4444'};
+    list.innerHTML = items.map(u => `
+      <div style="border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;background:var(--surface);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:700;font-size:14px;">${escHtml(u.nama_target||'-')}</div>
+            <div style="font-size:12px;color:var(--text-muted);">${escHtml(u.jenis_proposal)} &nbsp;·&nbsp; ${u.tanggal_diajukan ? new Date(u.tanggal_diajukan).toLocaleDateString('id-ID') : '-'}</div>
+          </div>
+          <span style="background:${STATUS_COLOR[u.status]||'#6b7280'};color:#fff;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">${escHtml(u.status)}</span>
+        </div>
+        ${u.catatan_admin ? `<div style="margin-top:8px;font-size:12px;color:var(--text-muted);padding:6px 10px;background:var(--surface-alt);border-radius:6px;">&#x1F4AC; ${escHtml(u.catatan_admin)}</div>` : ''}
+        ${u.file_surat_usul_url ? `<div style="margin-top:8px;"><a href="${escHtml(u.file_surat_usul_url)}" target="_blank" style="font-size:12px;color:var(--primary);">&#x1F4CE; Lihat Surat Usulan</a></div>` : ''}
+      </div>`).join('');
+  } catch(e) { list.innerHTML = `<div class="ce-dashboard-card cdc-empty" style="color:#ef4444;">Gagal memuat: ${escHtml(e.message)}</div>`; }
+}
+
+// ================================================================
+// TAB: USULAN MASUK (admin)
+// ================================================================
+async function loadUsulanSkMasuk() {
+  const list = document.getElementById('usulanSkMasukList');
+  if (!list) return;
+  list.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat...</div>';
+  const filters = {
+    status:         document.getElementById('usulanMasuk_filterStatus')?.value || '',
+    jenis_proposal: document.getElementById('usulanMasuk_filterJenis')?.value || ''
+  };
+  try {
+    const res = await rpc('getUsulanSkMasuk', [SESSION.token, filters]);
+    const items = res.data || [];
+    if (!items.length) { list.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada usulan dengan filter ini.</div>'; return; }
+    const STATUS_COLOR = {'Diajukan':'#3b82f6','Diverifikasi':'#f59e0b','SK Dibuat':'#10b981','Selesai':'#6b7280','Ditolak':'#ef4444'};
+    list.innerHTML = items.map(u => `
+      <div style="border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;background:var(--surface);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:700;font-size:14px;">${escHtml(u.nama_target||'-')} <span style="font-weight:400;font-size:12px;color:var(--text-muted);">(${escHtml(u.nip_target||'')})</span></div>
+            <div style="font-size:12px;color:var(--text-muted);">${escHtml(u.jenis_proposal)} &nbsp;·&nbsp; Diajukan oleh: ${escHtml(u.nama_pengaju||u.diajukan_oleh_nip)} &nbsp;·&nbsp; ${u.tanggal_diajukan ? new Date(u.tanggal_diajukan).toLocaleDateString('id-ID') : '-'}</div>
+            ${u.unit_es_ii ? `<div style="font-size:12px;color:var(--text-muted);">${escHtml(u.unit_es_ii)}</div>` : ''}
+            ${u.jumlah_mahasiswa ? `<div style="font-size:12px;color:var(--text-muted);">Jml Mahasiswa: ${u.jumlah_mahasiswa}</div>` : ''}
+          </div>
+          <span style="background:${STATUS_COLOR[u.status]||'#6b7280'};color:#fff;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">${escHtml(u.status)}</span>
+        </div>
+        ${u.file_surat_usul_url ? `<div style="margin-top:8px;"><a href="${escHtml(u.file_surat_usul_url)}" target="_blank" style="font-size:12px;color:var(--primary);">&#x1F4CE; Lihat Surat Usulan</a></div>` : ''}
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          ${u.status === 'Diajukan' ? `
+            <button class="btn btn-primary" style="font-size:12px;padding:4px 12px;" onclick="updateStatusUsulanSk('${u.id}','Diverifikasi','')">&#x2705; Verifikasi</button>
+            <button class="btn btn-outline" style="font-size:12px;padding:4px 12px;color:#ef4444;border-color:#ef4444;" onclick="buatSkTolakUsulan('${u.id}')">&#x274C; Tolak</button>` : ''}
+          ${u.status === 'Diverifikasi' ? `
+            <button class="btn btn-primary" style="font-size:12px;padding:4px 12px;" onclick="updateStatusUsulanSk('${u.id}','Selesai','')">&#x2705; Tandai Selesai</button>
+            <button class="btn btn-outline" style="font-size:12px;padding:4px 12px;color:#ef4444;border-color:#ef4444;" onclick="buatSkTolakUsulan('${u.id}')">&#x274C; Tolak</button>` : ''}
+        </div>
+      </div>`).join('');
+  } catch(e) { list.innerHTML = `<div class="ce-dashboard-card cdc-empty" style="color:#ef4444;">Gagal memuat: ${escHtml(e.message)}</div>`; }
+}
+async function updateStatusUsulanSk(id, status, catatan) {
+  showLoadingOverlay('Memperbarui status...');
+  try {
+    const res = await rpc('updateStatusUsulanSk', [SESSION.token, id, status, catatan || '']);
+    hideLoadingOverlay();
+    if (res.success) { showToast('success', res.message); loadUsulanSkMasuk(); }
+    else showToast('error', res.message || 'Gagal update status.');
+  } catch(e) { hideLoadingOverlay(); showToast('error', e.message); }
+}
+function buatSkTolakUsulan(id) {
+  const catatan = window.prompt('Catatan penolakan (opsional):') || '';
+  updateStatusUsulanSk(id, 'Ditolak', catatan);
+}
+
+// ================================================================
+// TAB: BUAT SK DAN SURAT (admin)
+// ================================================================
+async function buatSkInitForm() {
+  // Load unit list untuk dropdown
+  try {
+    const res = await rpc('getUnitList', [SESSION.token]);
+    const sel = document.getElementById('buatSk_unit');
+    if (sel) {
+      sel.innerHTML = '<option value="">-- Pilih Unit --</option>';
+      (res.data || []).forEach(u => sel.innerHTML += `<option value="${escHtml(u)}">${escHtml(u)}</option>`);
+    }
+  } catch(_) {}
+}
+async function buatSkJenisChange() {
+  const jenis = document.getElementById('buatSk_jenisSk').value;
+  BUAT_SK.jenisSk = jenis;
+  BUAT_SK.pejabatDilantik = []; BUAT_SK.pejabatDiberhentikan = [];
+  buatSkRenderTabelDilantik(); buatSkRenderTabelDiberhentikan();
+
+  const hideAll = ['templateWrap','unitWrap','searchEmpWrap','dynamicFormWrap','loopWrap','actionBar'];
+  hideAll.forEach(id => { const el = document.getElementById('buatSk_' + id); if (el) el.style.display = 'none'; });
+  document.getElementById('buatSk_dynamicFields').innerHTML = '';
+
+  if (!jenis) return;
+
+  // Load templates
+  const sel = document.getElementById('buatSk_template');
+  sel.innerHTML = '<option value="">Loading...</option>';
+  try {
+    const tmpls = await rpc('getTemplates', [SESSION.token, 'Buat SK', jenis]);
+    sel.innerHTML = '<option value="">-- Pilih Template --</option>';
+    tmpls.forEach(t => sel.innerHTML += `<option value="${t.id}">${escHtml(t.judul)}</option>`);
+  } catch(_) { sel.innerHTML = '<option value="">-- Pilih Template --</option>'; }
+  document.getElementById('buatSk_templateWrap').style.display = '';
+}
+async function buatSkTemplateChange() {
+  const jenis = BUAT_SK.jenisSk;
+  const templateId = document.getElementById('buatSk_template').value;
+  BUAT_SK.templateId = templateId;
+  if (!templateId) return;
+
+  const PERLU_UNIT = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Dekan Wadek'];
+  const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
+
+  if (PERLU_UNIT.includes(jenis)) {
+    document.getElementById('buatSk_unitWrap').style.display = '';
+  } else {
+    document.getElementById('buatSk_searchEmpWrap').style.display = '';
+    await buatSkLoadPlaceholders();
+    if (PERLU_LOOP.includes(jenis)) document.getElementById('buatSk_loopWrap').style.display = '';
+    document.getElementById('buatSk_actionBar').style.display = 'flex';
+  }
+}
+async function buatSkUnitChange() {
+  const unit = document.getElementById('buatSk_unit').value;
+  BUAT_SK.unitEsIi = unit;
+  if (!unit) return;
+
+  try {
+    const res = await rpc('getPimpinanByUnit', [SESSION.token, unit]);
+    if (res.success && res.data) {
+      BUAT_SK.pimpinanInfo = res.data;
+      const badge = document.getElementById('buatSk_pimpinanBadge');
+      badge.innerHTML = `<strong>&#x1F4CC; Pimpinan:</strong> ${escHtml(res.data.kategori_pimpinan||'')} &nbsp;&mdash;&nbsp; ${escHtml(res.data.nama_pimpinan||'')} &nbsp;|&nbsp; <em>Placeholder {{pimpinan}} = "${escHtml(res.data.pimpinan_resolved||'')}"</em>`;
+      badge.style.display = '';
+    }
+  } catch(_) {}
+
+  document.getElementById('buatSk_searchEmpWrap').style.display = '';
+  await buatSkLoadPlaceholders();
+  const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
+  if (PERLU_LOOP.includes(BUAT_SK.jenisSk)) document.getElementById('buatSk_loopWrap').style.display = '';
+  document.getElementById('buatSk_actionBar').style.display = 'flex';
+}
+async function buatSkLoadPlaceholders() {
+  const res = await rpc('getTemplatePlaceholders', [SESSION.token, BUAT_SK.templateId]);
+  BUAT_SK.placeholders = res.placeholders || [];
+  buatSkRenderDynamicFields(BUAT_SK.placeholders);
+  document.getElementById('buatSk_dynamicFormWrap').style.display = '';
+}
+function buatSkRenderDynamicFields(placeholders) {
+  const container = document.getElementById('buatSk_dynamicFields');
+  container.innerHTML = '';
+  const AUTO_RESOLVE = new Set(['pimpinan','nama_pimpinan','nama_jabatan','today','tgl_buat','tgl_generate','gaji_pokok']);
+  const LOOP_KEYS = new Set(['pejabat_dilantik','pejabat_diberhentikan','no','nama_lengkap_item','nip_item']);
+  const filtered = placeholders.filter(p => !AUTO_RESOLVE.has(p) && !LOOP_KEYS.has(p));
+
+  filtered.forEach(key => {
+    const label = key.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
+    const isDate = /^(tgl_|tmt_|tanggal_)/.test(key);
+    const isGol  = key === 'golongan';
+    const isAutofilled = ['nip','nama_lengkap','nama','jabatan','pangkat','unit_es_ii','jenis_peg','pendidikan','tmp_lhr'].includes(key);
+
+    let inputHtml;
+    if (isGol) {
+      const opts = ['I/a','I/b','I/c','I/d','II/a','II/b','II/c','II/d','III/a','III/b','III/c','III/d','IV/a','IV/b','IV/c','IV/d','IV/e'].map(g => `<option value="${g}">${g}</option>`).join('');
+      inputHtml = `<select id="bsk_field_${key}" class="field-input"><option value="">-- Pilih Golongan --</option>${opts}</select>`;
+    } else if (isDate) {
+      inputHtml = `<input type="date" id="bsk_field_${key}" class="field-input" />`;
+    } else {
+      inputHtml = `<input type="text" id="bsk_field_${key}" class="field-input" placeholder="${escHtml(label)}" ${isAutofilled ? 'style="background:var(--surface-alt);"' : ''} />`;
+    }
+
+    const spanAuto = isAutofilled ? ' <span style="font-size:11px;color:#10b981;font-weight:600;">(auto-fill)</span>' : '';
+    container.innerHTML += `<div class="stack-field"><label class="kp-label">{{${key}}}${spanAuto}</label>${inputHtml}</div>`;
+  });
+
+  if (container.innerHTML === '') container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;grid-column:1/-1;">Tidak ada field manual — semua placeholder akan terisi otomatis.</p>';
+}
+
+// Auto-fill dari data_utama
+let bskEmpSearchTimer = null;
+function buatSkSearchEmployee() {
+  clearTimeout(bskEmpSearchTimer);
+  const q = document.getElementById('buatSk_searchEmp').value.trim();
+  const dropdown = document.getElementById('buatSk_searchDropdown');
+  if (q.length < 2) { dropdown.style.display = 'none'; return; }
+  bskEmpSearchTimer = setTimeout(async () => {
+    try {
+      const results = await rpc('searchEmployees', [SESSION.token, q]);
+      dropdown.innerHTML = results.map(e => `<div class="autocomplete-item" onclick="buatSkSelectEmployee('${e.nip}')" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);">${escHtml(e.nama)} <span style="color:var(--text-muted);font-size:12px;">(${e.nip})</span></div>`).join('');
+      dropdown.style.display = results.length ? 'block' : 'none';
+    } catch(_) {}
+  }, 300);
+}
+async function buatSkSelectEmployee(nip) {
+  document.getElementById('buatSk_searchDropdown').style.display = 'none';
+  document.getElementById('buatSk_searchEmp').value = '';
+  try {
+    const emp = await rpc('getEmployeeFullData', [SESSION.token, nip]);
+    BUAT_SK.placeholders.forEach(key => {
+      const field = document.getElementById('bsk_field_' + key);
+      if (!field) return;
+      const val = emp[key] || emp[key.replace('_lengkap','')] || '';
+      if (val) field.value = val;
+    });
+    showToast('success', 'Data pegawai berhasil diisi otomatis.');
+  } catch(e) { showToast('error', 'Gagal mengambil data pegawai: ' + e.message); }
+}
+
+// Tabel Loop — Dilantik
+function buatSkRenderTabelDilantik() {
+  const tbody = document.getElementById('buatSk_tabelDilantikBody');
+  const empty = document.getElementById('buatSk_dilantikEmpty');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  if (!BUAT_SK.pejabatDilantik.length) { if(empty) empty.style.display=''; return; }
+  if(empty) empty.style.display = 'none';
+  BUAT_SK.pejabatDilantik.forEach((p, i) => {
+    tbody.innerHTML += `<tr>
+      <td style="padding:6px 10px;border:1px solid var(--border);text-align:center;">${i+1}</td>
+      <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.nama_lengkap||'')}" onchange="BUAT_SK.pejabatDilantik[${i}].nama_lengkap=this.value" style="border:none;background:transparent;width:100%;font-size:13px;" /></td>
+      <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.nip||'')}" onchange="BUAT_SK.pejabatDilantik[${i}].nip=this.value" style="border:none;background:transparent;width:100%;font-size:13px;" /></td>
+      <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.jabatan||'')}" onchange="BUAT_SK.pejabatDilantik[${i}].jabatan=this.value" style="border:none;background:transparent;width:100%;font-size:13px;" /></td>
+      <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.golongan||'')}" onchange="BUAT_SK.pejabatDilantik[${i}].golongan=this.value" style="border:none;background:transparent;width:80px;font-size:13px;" /></td>
+      <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.jenis_tutam||'')}" onchange="BUAT_SK.pejabatDilantik[${i}].jenis_tutam=this.value" style="border:none;background:transparent;width:100%;font-size:13px;" /></td>
+      <td style="padding:6px 10px;border:1px solid var(--border);text-align:center;"><button onclick="buatSkRemoveRow('dilantik',${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;">&#x2715;</button></td>
+    </tr>`;
+  });
+}
+function buatSkAddRowDilantik() {
+  BUAT_SK.pejabatDilantik.push({nama_lengkap:'',nip:'',jabatan:'',golongan:'',jenis_tutam:''});
+  buatSkRenderTabelDilantik();
+}
+
+// Tabel Loop — Diberhentikan
+function buatSkRenderTabelDiberhentikan() {
+  const tbody = document.getElementById('buatSk_tabelDiberhentikanBody');
+  const empty = document.getElementById('buatSk_diberhentikanEmpty');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  if (!BUAT_SK.pejabatDiberhentikan.length) { if(empty) empty.style.display=''; return; }
+  if(empty) empty.style.display = 'none';
+  BUAT_SK.pejabatDiberhentikan.forEach((p, i) => {
+    tbody.innerHTML += `<tr>
+      <td style="padding:6px 10px;border:1px solid var(--border);text-align:center;">${i+1}</td>
+      <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.nama_lengkap||'')}" onchange="BUAT_SK.pejabatDiberhentikan[${i}].nama_lengkap=this.value" style="border:none;background:transparent;width:100%;font-size:13px;" /></td>
+      <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.nip||'')}" onchange="BUAT_SK.pejabatDiberhentikan[${i}].nip=this.value" style="border:none;background:transparent;width:100%;font-size:13px;" /></td>
+      <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.jenis_tutam||'')}" onchange="BUAT_SK.pejabatDiberhentikan[${i}].jenis_tutam=this.value" style="border:none;background:transparent;width:100%;font-size:13px;" /></td>
+      <td style="padding:6px 10px;border:1px solid var(--border);text-align:center;"><button onclick="buatSkRemoveRow('diberhentikan',${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;">&#x2715;</button></td>
+    </tr>`;
+  });
+}
+function buatSkAddRowDiberhentikan() {
+  BUAT_SK.pejabatDiberhentikan.push({nama_lengkap:'',nip:'',jenis_tutam:''});
+  buatSkRenderTabelDiberhentikan();
+}
+function buatSkRemoveRow(tipe, idx) {
+  if (tipe === 'dilantik') { BUAT_SK.pejabatDilantik.splice(idx,1); buatSkRenderTabelDilantik(); }
+  else { BUAT_SK.pejabatDiberhentikan.splice(idx,1); buatSkRenderTabelDiberhentikan(); }
+}
+
+// Import Excel
+async function buatSkImportExcel(tipe) {
+  const inputId = tipe === 'dilantik' ? 'buatSk_excelDilantik' : 'buatSk_excelDiberhentikan';
+  const file = document.getElementById(inputId).files[0];
+  if (!file) return;
+  const base64Data = await new Promise(resolve => {
+    const r = new FileReader();
+    r.onload = e => { const b64 = e.target.result.split(',')[1]; resolve(b64); };
+    r.readAsDataURL(file);
+  });
+  showLoadingOverlay('Membaca file Excel...');
+  try {
+    const res = await rpc('parseDataForSkTutam', [SESSION.token, { tipe, sumber: 'excel', base64Data }]);
+    hideLoadingOverlay();
+    if (res.success) {
+      if (tipe === 'dilantik') { BUAT_SK.pejabatDilantik = res.data; buatSkRenderTabelDilantik(); }
+      else { BUAT_SK.pejabatDiberhentikan = res.data; buatSkRenderTabelDiberhentikan(); }
+      showToast('success', `${res.total} baris berhasil diimport dari Excel.`);
+    } else showToast('error', res.message || 'Gagal membaca Excel.');
+  } catch(e) { hideLoadingOverlay(); showToast('error', e.message || 'Gagal import Excel.'); }
+  document.getElementById(inputId).value = '';
+}
+
+// Import Spreadsheet
+function buatSkShowSpreadsheetModal(tipe) {
+  BUAT_SK.activeLoopTarget = tipe;
+  document.getElementById('spreadsheetSkUrl').value = '';
+  const modal = document.getElementById('modalSpreadsheetSk');
+  modal.style.display = 'flex';
+}
+async function buatSkImportFromSpreadsheet() {
+  const url = document.getElementById('spreadsheetSkUrl').value.trim();
+  if (!url) return showToast('error', 'URL Spreadsheet wajib diisi.');
+  const tipe = BUAT_SK.activeLoopTarget;
+  document.getElementById('modalSpreadsheetSk').style.display = 'none';
+  showLoadingOverlay('Mengambil data dari Spreadsheet...');
+  try {
+    const res = await rpc('parseDataForSkTutam', [SESSION.token, { tipe, sumber: 'spreadsheet', spreadsheetUrl: url }]);
+    hideLoadingOverlay();
+    if (res.success) {
+      if (tipe === 'dilantik') { BUAT_SK.pejabatDilantik = res.data; buatSkRenderTabelDilantik(); }
+      else { BUAT_SK.pejabatDiberhentikan = res.data; buatSkRenderTabelDiberhentikan(); }
+      showToast('success', `${res.total} baris berhasil diimport dari Spreadsheet.`);
+    } else showToast('error', res.message || 'Gagal membaca Spreadsheet.');
+  } catch(e) { hideLoadingOverlay(); showToast('error', e.message || 'Gagal import Spreadsheet.'); }
+}
+
+// Generate SK
+async function buatSkGenerate() {
+  const jenisSk   = BUAT_SK.jenisSk;
+  const templateId = BUAT_SK.templateId;
+  if (!jenisSk || !templateId) return showToast('error', 'Pilih jenis SK dan template terlebih dahulu.');
+
+  // Kumpulkan form_data dari dynamic fields
+  const form_data = {};
+  (BUAT_SK.placeholders || []).forEach(key => {
+    const field = document.getElementById('bsk_field_' + key);
+    if (field) form_data[key] = field.value;
+  });
+  if (BUAT_SK.unitEsIi) form_data.unit_es_ii = BUAT_SK.unitEsIi;
+  if (BUAT_SK.pimpinanInfo) {
+    form_data.pimpinan      = BUAT_SK.pimpinanInfo.pimpinan_resolved || '';
+    form_data.nama_pimpinan = BUAT_SK.pimpinanInfo.nama_pimpinan || '';
+  }
+
+  showLoadingOverlay('Membuat SK...');
+  try {
+    const res = await rpc('generateSkBaru', [SESSION.token, {
+      jenis_sk: jenisSk, template_id: templateId, form_data,
+      pejabat_dilantik: BUAT_SK.pejabatDilantik,
+      pejabat_diberhentikan: BUAT_SK.pejabatDiberhentikan
+    }]);
+    hideLoadingOverlay();
+
+    if (res.success && res.base64) {
+      // Download DOCX
+      const byteChars = atob(res.base64);
+      const byteArr   = new Uint8Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
+      const blob = new Blob([byteArr], { type: res.mimeType });
+      const url  = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = res.fileName; a.click();
+      URL.revokeObjectURL(url);
+
+      // Simpan ke riwayat
+      await rpc('saveSkGenerated', [SESSION.token, {
+        jenis_sk: jenisSk, template_id: templateId,
+        unit_es_ii: BUAT_SK.unitEsIi, form_data,
+        pejabat_dilantik: BUAT_SK.pejabatDilantik,
+        pejabat_diberhentikan: BUAT_SK.pejabatDiberhentikan,
+        output_type: 'docx'
+      }]);
+      showToast('success', `✅ SK "${jenisSk}" berhasil dibuat dan sedang diunduh.`);
+    } else if (res.needsGas) {
+      showToast('info', res.message || 'Template GDocs memerlukan Google Apps Script.');
+    } else {
+      showToast('error', res.message || 'Gagal membuat SK.');
+    }
+  } catch(e) { hideLoadingOverlay(); showToast('error', 'Error: ' + e.message); }
+}
+function buatSkReset() {
+  BUAT_SK.jenisSk = null; BUAT_SK.templateId = null; BUAT_SK.unitEsIi = null;
+  BUAT_SK.pimpinanInfo = null; BUAT_SK.placeholders = [];
+  BUAT_SK.pejabatDilantik = []; BUAT_SK.pejabatDiberhentikan = [];
+  document.getElementById('buatSk_jenisSk').value = '';
+  const hide = ['templateWrap','unitWrap','searchEmpWrap','dynamicFormWrap','loopWrap'];
+  hide.forEach(id => { const el = document.getElementById('buatSk_' + id); if(el) el.style.display = 'none'; });
+  document.getElementById('buatSk_actionBar').style.display = 'none';
+  document.getElementById('buatSk_pimpinanBadge').style.display = 'none';
+  document.getElementById('buatSk_dynamicFields').innerHTML = '';
+  buatSkRenderTabelDilantik(); buatSkRenderTabelDiberhentikan();
+  showToast('info', 'Form telah direset.');
+}
+
+// Helper HTML escape
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;'); }
 </script>
-
-
-</body>
-</html>

@@ -105,7 +105,7 @@ const CONFIG = {
   KONTRAK_JENIS_PEG_ELIGIBLE: ['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','KDRP'],
   KONTRAK_UPAH_TIER: {tier1:2903600,tier2:3026400},
   ROLE_LIST: ['normal','user','admin','super_admin'],
-  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER','SK Pensiun BUP Pegawai Undip Non ASN','SK Pensiun Meninggal Pegawai Undip Non ASN','SK Pensiun Uzur Pegawai Undip Non ASN','SK Pensiun Undur Diri Pegawai Undip Non ASN'],'Kontrak Tendik':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','KDRP','Tenaga Profesional'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan']},
+  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER','SK Pensiun BUP Pegawai Undip Non ASN','SK Pensiun Meninggal Pegawai Undip Non ASN','SK Pensiun Uzur Pegawai Undip Non ASN','SK Pensiun Undur Diri Pegawai Undip Non ASN'],'Kontrak Tendik':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','KDRP','Tenaga Profesional'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan'],'Buat SK':['SK CPTU','SK PTU 100%','SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','Surat PLT','Surat PLH','SK Tutam Struktural','SK Tutam Dekan Wadek']},
   USULAN_KP_KATA_KUNCI_PNS: ['pns'],
   USULAN_KP_NOTIF_SIASN: 'Siap diusulkan ke-SIASN',
   USULAN_KP_NOTIF_SK:    'Siap Dibuat SK',
@@ -120,7 +120,14 @@ const CONFIG = {
   // Mapping golongan → pangkat Non-ASN
   PANGKAT_NON_ASN: {'I/a':'Juru Muda','I/b':'Juru Muda Tk. I','I/c':'Juru','I/d':'Juru Tk. I','II/a':'Pengatur Muda','II/b':'Pengatur Muda Tk. I','II/c':'Pengatur','II/d':'Pengatur Tk. I','III/a':'Penata Muda','III/b':'Penata Muda Tk. I','III/c':'Penata','III/d':'Penata Tk. I','IV/a':'Pembina','IV/b':'Pembina Tk. I','IV/c':'Pembina Utama Muda','IV/d':'Pembina Utama Madya','IV/e':'Pembina Utama'},
   TENDIK_JABATAN_FUNGSIONAL_LIST: ['Analis Data dan Informasi','Analis Sistem Informasi','Analis SDM Aparatur','Apoteker','Arsiparis','Asisten Apoteker','Bidan','Dokter','Elektromedis','Fisioterapis','Nutrisionis','Ortotis Prostetis','Perawat','Perawat Gigi','Perekam Medis','Pranata Laboratorium Kesehatan','Psikolog Klinis','Pustakawan','Radiografer','Sanitarian','Terapis Gigi dan Mulut','Terapis Okupasi','Terapis Wicara','Pranata Laboratorium Pendidikan','Pranata Komputer','Statistisi','Analis Kebijakan','Perencana','Pranata Hubungan Masyarakat','Pranata SDM Aparatur','Analis Pengelolaan Keuangan APBN','Pranata Keuangan APBN','Pengelola Pengadaan Barang/Jasa'],
-  PENDIDIKAN_GOLONGAN_REGULER: {'SD':{min:'I/a',max:'I/d'},'SMP':{min:'I/c',max:'I/d'},'SMA/SMK':{min:'II/a',max:'III/d'},'D-I':{min:'II/b',max:'III/d'},'D-II':{min:'II/c',max:'III/d'},'D-III':{min:'II/c',max:'III/d'},'D-IV/S-1':{min:'III/a',max:'III/d'},'S-2':{min:'III/b',max:'III/d'},'S-3':{min:'III/c',max:'III/d'}}
+  PENDIDIKAN_GOLONGAN_REGULER: {'SD':{min:'I/a',max:'I/d'},'SMP':{min:'I/c',max:'I/d'},'SMA/SMK':{min:'II/a',max:'III/d'},'D-I':{min:'II/b',max:'III/d'},'D-II':{min:'II/c',max:'III/d'},'D-III':{min:'II/c',max:'III/d'},'D-IV/S-1':{min:'III/a',max:'III/d'},'S-2':{min:'III/b',max:'III/d'},'S-3':{min:'III/c',max:'III/d'}},
+  // ---- Buat SK ----
+  JENIS_PROPOSAL_SK_LIST: ['Kaprodi','Kadep','Sekprodi','PLT','PLH'],
+  JENIS_SK_LIST: ['SK CPTU','SK PTU 100%','SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','Surat PLT','Surat PLH','SK Tutam Struktural','SK Tutam Dekan Wadek'],
+  JENIS_SK_BUTUH_UNIT: ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Dekan Wadek'],
+  JENIS_SK_LOOP_TABEL: ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'],
+  // Mapping kategori_pimpinan → nilai placeholder {{pimpinan}} di template SK
+  PIMPINAN_KATEGORI_RESOLVE: {'Dekan':'Pertimbangan Senat Akademik','Wakil Dekan':'Surat Dekan','Direktur':'Pertimbangan Senat Akademik','Wakil Direktur':'Surat Direktur'}
 };
 
 const BULAN_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -1918,7 +1925,465 @@ const methods = {
     return methods.getTemplates([token, layanan, subMenu]);
   },
 
+  // ================================================================
+  // BUAT SK — REFERENSI DATA
+  // ================================================================
+
+  /** Ambil daftar unit_es_ii yang unik dari data_utama */
+  async getUnitList(args) {
+    const [token] = extractArgs(args);
+    verifyToken(token);
+    const db = getDb();
+    const { data, error } = await db
+      .from('data_utama')
+      .select('unit_es_ii')
+      .not('unit_es_ii', 'is', null)
+      .order('unit_es_ii');
+    if (error) throw error;
+    const units = [...new Set((data || []).map(r => r.unit_es_ii).filter(Boolean))].sort();
+    return { success: true, data: units };
+  },
+
+  /** Ambil data pimpinan berdasarkan unit_es_ii untuk auto-resolve {{pimpinan}} */
+  async getPimpinanByUnit(args) {
+    const [token, unitEsIi] = extractArgs(args);
+    verifyToken(token);
+    const db = getDb();
+    const { data, error } = await db
+      .from('pimpinan')
+      .select('nama_pimpinan, kategori_pimpinan, unit_es_ii')
+      .eq('unit_es_ii', String(unitEsIi || '').trim())
+      .maybeSingle();
+    if (error) throw error;
+    // Resolve nilai placeholder {{pimpinan}} dari mapping kategori
+    let resolvedPimpinan = data?.kategori_pimpinan || '';
+    if (resolvedPimpinan && CONFIG.PIMPINAN_KATEGORI_RESOLVE[resolvedPimpinan]) {
+      resolvedPimpinan = CONFIG.PIMPINAN_KATEGORI_RESOLVE[resolvedPimpinan];
+    }
+    return { success: true, data: data ? { ...data, pimpinan_resolved: resolvedPimpinan } : null };
+  },
+
+  /** Ambil semua entri jenis_tutam untuk dropdown dan auto-resolve {{nama_jabatan}} */
+  async getJenisTutamList(args) {
+    const [token, unitEsIi] = extractArgs(args);
+    verifyToken(token);
+    const db = getDb();
+    let query = db.from('jenis_tutam')
+      .select('id, no, jenis_tutam, nama_detail, departemen, unit_es_ii, keterangan')
+      .order('jenis_tutam');
+    if (unitEsIi) query = query.eq('unit_es_ii', String(unitEsIi).trim());
+    const { data, error } = await query;
+    if (error) throw error;
+    return { success: true, data: data || [] };
+  },
+
+  // ================================================================
+  // BUAT SK — USULAN (USER ROLE)
+  // ================================================================
+
+  /** User mengajukan usulan SK/Surat */
+  async ajukanUsulanSk(args) {
+    const [token, payload] = extractArgs(args);
+    const decoded = requireRole(token, ['user', 'admin', 'super_admin']);
+
+    const {
+      nip_target, nama_target, jenis_proposal,
+      nomor_surat_usul, tgl_surat_usul,
+      file_surat_usul_base64, nama_file_surat_usul,
+      jumlah_mahasiswa
+    } = payload || {};
+
+    if (!nip_target || !String(nip_target).trim()) throw new Error('Target pegawai wajib dipilih.');
+    if (!jenis_proposal || !CONFIG.JENIS_PROPOSAL_SK_LIST.includes(jenis_proposal)) {
+      throw new Error('Jenis proposal tidak valid. Pilih salah satu: ' + CONFIG.JENIS_PROPOSAL_SK_LIST.join(', '));
+    }
+
+    // Validasi Sekprodi: jumlah_mahasiswa harus > 100 (bukan hanya < / <=)
+    if (jenis_proposal === 'Sekprodi') {
+      const jml = Number(jumlah_mahasiswa || 0);
+      if (jml <= 100) {
+        return { success: false, message: 'Jumlah mahasiswa harus lebih dari 100 untuk dapat mengusulkan Sekprodi.' };
+      }
+    }
+
+    const db = getDb();
+
+    // Upload surat usulan ke Supabase Storage jika ada
+    let file_url = '';
+    if (file_surat_usul_base64) {
+      try {
+        file_url = await uploadLampiran(file_surat_usul_base64, nama_file_surat_usul || 'surat-usulan.pdf', 'usulan-sk');
+      } catch (uploadErr) {
+        console.warn('[ajukanUsulanSk] Gagal upload surat usulan:', uploadErr.message);
+      }
+    }
+
+    // Ambil data target dari data_utama untuk kelengkapan
+    let emp = null;
+    try { emp = await findEmployeeByNip(nip_target); } catch (_) {}
+
+    const { error } = await db.from('usulan_sk').insert({
+      diajukan_oleh_nip:  decoded.nip,
+      nama_pengaju:       decoded.nama || '',
+      nip_target:         String(nip_target).trim(),
+      nama_target:        nama_target || (emp && (emp.nama_lengkap || emp.nama)) || '',
+      unit_es_ii:         emp?.unit_es_ii || decoded.unit_es_ii || '',
+      jenis_proposal:     String(jenis_proposal).trim(),
+      nomor_surat_usul:   String(nomor_surat_usul || '').trim(),
+      tgl_surat_usul:     String(tgl_surat_usul || '').trim(),
+      file_surat_usul_url: file_url,
+      jumlah_mahasiswa:   jenis_proposal === 'Sekprodi' ? Number(jumlah_mahasiswa) : null,
+      status:             'Diajukan'
+    });
+    if (error) throw error;
+
+    return { success: true, message: 'Usulan SK berhasil diajukan dan sedang menunggu proses admin.' };
+  },
+
+  /** User melihat riwayat usulan SK miliknya sendiri */
+  async getUsulanSkSaya(args) {
+    const [token] = extractArgs(args);
+    const decoded = verifyToken(token);
+    const db = getDb();
+    const { data, error } = await db
+      .from('usulan_sk')
+      .select('*')
+      .eq('diajukan_oleh_nip', decoded.nip)
+      .order('tanggal_diajukan', { ascending: false });
+    if (error) throw error;
+    return { success: true, data: data || [] };
+  },
+
+  // ================================================================
+  // BUAT SK — USULAN MASUK (ADMIN ROLE)
+  // ================================================================
+
+  /** Admin melihat semua usulan masuk dengan filter opsional */
+  async getUsulanSkMasuk(args) {
+    const [token, filters] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+
+    const db = getDb();
+    let query = db.from('usulan_sk').select('*').order('tanggal_diajukan', { ascending: false });
+
+    const { status, unit_es_ii, jenis_proposal } = filters || {};
+    if (status)         query = query.eq('status', status);
+    if (unit_es_ii)     query = query.eq('unit_es_ii', unit_es_ii);
+    if (jenis_proposal) query = query.eq('jenis_proposal', jenis_proposal);
+
+    const { data, error } = await query.limit(300);
+    if (error) throw error;
+    return { success: true, data: data || [] };
+  },
+
+  /** Admin memperbarui status usulan SK (verifikasi / tolak / selesai) */
+  async updateStatusUsulanSk(args) {
+    const [token, usulanId, status, catatan] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+
+    const validStatuses = ['Diverifikasi', 'Ditolak', 'SK Dibuat', 'Selesai'];
+    if (!validStatuses.includes(status)) throw new Error('Status tidak valid: ' + status);
+    if (!usulanId) throw new Error('ID usulan wajib diisi.');
+
+    const db = getDb();
+    const { error } = await db.from('usulan_sk').update({
+      status,
+      catatan_admin:    String(catatan || '').trim(),
+      diproses_oleh_nip: decoded.nip,
+      tanggal_diproses:  new Date().toISOString()
+    }).eq('id', usulanId);
+    if (error) throw error;
+
+    return { success: true, message: `Status usulan diperbarui menjadi "${status}".` };
+  },
+
+  // ================================================================
+  // BUAT SK — GENERATE SK (ADMIN ROLE)
+  // ================================================================
+
+  /**
+   * Simpan catatan SK yang sudah dibuat ke tabel sk_generated.
+   * Dipanggil setelah dokumen berhasil diunduh/dibuat.
+   */
+  async saveSkGenerated(args) {
+    const [token, payload] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+
+    const {
+      jenis_sk, template_id, unit_es_ii,
+      form_data, pejabat_dilantik, pejabat_diberhentikan,
+      output_file_url, output_file_id, output_type,
+      usulan_sk_id, nomor_sk, tgl_sk
+    } = payload || {};
+
+    if (!jenis_sk) throw new Error('Jenis SK wajib diisi.');
+
+    const db = getDb();
+    const { data, error } = await db.from('sk_generated').insert({
+      jenis_sk,
+      template_id:           template_id || null,
+      unit_es_ii:            unit_es_ii || '',
+      form_data:             form_data || {},
+      pejabat_dilantik:      pejabat_dilantik || [],
+      pejabat_diberhentikan: pejabat_diberhentikan || [],
+      output_file_url:       output_file_url || '',
+      output_file_id:        output_file_id || '',
+      output_type:           output_type || 'docx',
+      usulan_sk_id:          usulan_sk_id || null,
+      dibuat_oleh_nip:       decoded.nip,
+      nama_pembuat:          decoded.nama || '',
+      nomor_sk:              String(nomor_sk || '').trim(),
+      tgl_sk:                String(tgl_sk || '').trim()
+    }).select().single();
+    if (error) throw error;
+
+    // Update status usulan asal jika ada
+    if (usulan_sk_id) {
+      try {
+        await db.from('usulan_sk').update({
+          status: 'SK Dibuat',
+          sk_id:  data.id,
+          diproses_oleh_nip: decoded.nip,
+          tanggal_diproses:  new Date().toISOString()
+        }).eq('id', usulan_sk_id);
+      } catch (upErr) {
+        console.warn('[saveSkGenerated] Gagal update status usulan:', upErr.message);
+      }
+    }
+
+    return { success: true, data, message: 'SK berhasil disimpan ke riwayat.' };
+  },
+
+  /**
+   * Orchestrator utama: render template SK dengan data form + auto-resolve placeholder.
+   * Menggabungkan data form_data, pimpinan, nama_jabatan, gaji_pokok, dan loop arrays.
+   */
+  async generateSkBaru(args) {
+    const [token, payload] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+
+    const { jenis_sk, template_id, form_data, pejabat_dilantik, pejabat_diberhentikan } = payload || {};
+    if (!jenis_sk) throw new Error('Jenis SK wajib diisi.');
+    if (!template_id) throw new Error('Template wajib dipilih.');
+
+    const db = getDb();
+
+    // 1. Ambil metadata template
+    const { data: tmpl, error: tmplErr } = await db.from('templates')
+      .select('file_id, judul, tipe, layanan, sub_menu')
+      .eq('id', template_id)
+      .maybeSingle();
+    if (tmplErr || !tmpl) throw new Error('Template tidak ditemukan atau terjadi kesalahan database.');
+    if (!tmpl.file_id) throw new Error('Template tidak memiliki file yang terhubung.');
+
+    // 2. Mulai build dataCtx dari form_data
+    const rawCtx = { ...( form_data || {}) };
+
+    // Auto-resolve {{pimpinan}} dan {{nama_pimpinan}} dari tabel pimpinan
+    if (rawCtx.unit_es_ii) {
+      try {
+        const { data: pm } = await db.from('pimpinan')
+          .select('nama_pimpinan, kategori_pimpinan')
+          .eq('unit_es_ii', String(rawCtx.unit_es_ii).trim())
+          .maybeSingle();
+        if (pm) {
+          rawCtx.nama_pimpinan = pm.nama_pimpinan || '';
+          const resolvedPimpinan = CONFIG.PIMPINAN_KATEGORI_RESOLVE[pm.kategori_pimpinan] || pm.kategori_pimpinan || pm.nama_pimpinan || '';
+          rawCtx.pimpinan = resolvedPimpinan;
+        }
+      } catch (pmErr) { console.warn('[generateSkBaru] Gagal resolve pimpinan:', pmErr.message); }
+    }
+
+    // Auto-resolve {{nama_jabatan}} dari tabel jenis_tutam
+    if (rawCtx.jenis_tutam) {
+      try {
+        const { data: jt } = await db.from('jenis_tutam')
+          .select('nama_detail, jenis_tutam')
+          .eq('jenis_tutam', String(rawCtx.jenis_tutam).trim())
+          .maybeSingle();
+        if (jt) rawCtx.nama_jabatan = jt.nama_detail || jt.jenis_tutam || rawCtx.jenis_tutam;
+      } catch (jtErr) { console.warn('[generateSkBaru] Gagal resolve nama_jabatan:', jtErr.message); }
+    }
+
+    // Auto-hitung {{gaji_pokok}} untuk SK CPTU dan SK PTU 100%
+    if (['SK CPTU', 'SK PTU 100%'].includes(jenis_sk) && rawCtx.golongan && rawCtx.masa_kerja_gol !== undefined) {
+      const gajiPokok = hitungGajiPokokNonAsn(rawCtx.golongan, Number(rawCtx.masa_kerja_gol || 0));
+      if (gajiPokok > 0) {
+        rawCtx.gaji_pokok = formatRupiah(gajiPokok);
+      }
+    }
+
+    // Tanggal default
+    rawCtx.today    = rawCtx.today    || formatTanggalIndonesia(new Date());
+    rawCtx.tgl_sk   = rawCtx.tgl_sk   || rawCtx.today;
+    rawCtx.tgl_buat = rawCtx.tgl_buat || rawCtx.today;
+
+    // 3. Format semua string nilai
+    const dataCtx = processDataCtxFormatting(rawCtx, false);
+
+    // 4. Sisipkan array loop untuk SK Tutam
+    if (Array.isArray(pejabat_dilantik) && pejabat_dilantik.length > 0) {
+      dataCtx.pejabat_dilantik = pejabat_dilantik.map((p, i) => ({
+        ...p,
+        no: p.no || (i + 1),
+        nama_lengkap: String(p.nama_lengkap || '').toUpperCase(),
+        nip:          String(p.nip || ''),
+        jabatan:      String(p.jabatan || ''),
+        golongan:     String(p.golongan || ''),
+        jenis_tutam:  String(p.jenis_tutam || '')
+      }));
+    }
+    if (Array.isArray(pejabat_diberhentikan) && pejabat_diberhentikan.length > 0) {
+      dataCtx.pejabat_diberhentikan = pejabat_diberhentikan.map((p, i) => ({
+        ...p,
+        no: p.no || (i + 1),
+        nama_lengkap: String(p.nama_lengkap || '').toUpperCase(),
+        nip:          String(p.nip || ''),
+        jenis_tutam:  String(p.jenis_tutam || '')
+      }));
+    }
+
+    // 5. Render template DOCX (menggunakan fungsi yang sudah ada)
+    const tipe = tmpl.tipe || 'gdocs';
+    if (tipe === 'docx') {
+      const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
+      const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, 'Bookman Old Style');
+      const base64 = renderedBuffer.toString('base64');
+      const safeName = String(jenis_sk).replace(/[^a-zA-Z0-9&]/g, '_') + '_' + new Date().getFullYear();
+      return {
+        success: true,
+        outputType: 'docx',
+        base64,
+        fileName: `${safeName}.docx`,
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        dataCtx  // kembalikan juga untuk debugging
+      };
+    }
+
+    // Fallback: GDocs template → kembalikan sinyal ke frontend agar diteruskan ke GAS
+    return {
+      success: true,
+      needsGas: true,
+      fileId: tmpl.file_id,
+      dataCtx,
+      message: 'Template GDocs memerlukan Google Apps Script. Silakan gunakan fitur Preview/Generate dari menu GDocs.'
+    };
+  },
+
+  /**
+   * Parse data dari Google Spreadsheet link atau file Excel (base64)
+   * untuk mengisi tabel loop pejabat dilantik / diberhentikan.
+   * Kolom disesuaikan dengan nama placeholder di template.
+   * tipe: 'dilantik' | 'diberhentikan'
+   */
+  async parseDataForSkTutam(args) {
+    const [token, payload] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+
+    const { tipe, sumber, base64Data, spreadsheetUrl } = payload || {};
+    if (!tipe || !['dilantik', 'diberhentikan'].includes(tipe)) {
+      throw new Error('Tipe harus "dilantik" atau "diberhentikan".');
+    }
+
+    let rows = [];
+
+    // ---- Sumber 1: Google Spreadsheet URL ----
+    if (sumber === 'spreadsheet' && spreadsheetUrl) {
+      const sheetId = (spreadsheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]{20,})/) || [])[1];
+      if (!sheetId) throw new Error('URL Google Spreadsheet tidak valid.');
+
+      const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&id=${sheetId}`;
+      const csvRes = await fetch(csvUrl);
+      if (!csvRes.ok) throw new Error(`Gagal mengakses spreadsheet: HTTP ${csvRes.status}. Pastikan spreadsheet dapat diakses publik.`);
+
+      const csvText = await csvRes.text();
+      const csvLines = csvText.split(/\r?\n/).filter(l => l.trim());
+      if (csvLines.length < 2) return { success: false, message: 'Spreadsheet kosong atau tidak memiliki data.' };
+
+      const headers = csvLines[0].split(',').map(h => String(h || '').trim().toLowerCase().replace(/\s+/g, '_'));
+      for (let i = 1; i < csvLines.length; i++) {
+        const cells = csvLines[i].split(',');
+        if (cells.every(c => !c.trim())) continue;
+        const entry = {};
+        headers.forEach((h, idx) => { entry[h] = String(cells[idx] || '').trim().replace(/^"|"$/g, ''); });
+        rows.push(entry);
+      }
+    }
+
+    // ---- Sumber 2: File Excel (base64 XLSX) ----
+    else if (sumber === 'excel' && base64Data) {
+      let XLSX;
+      try { XLSX = require('xlsx'); } catch (_) {
+        throw new Error('Library xlsx belum tersedia di server. Tambahkan "xlsx" ke package.json.');
+      }
+      const buffer = Buffer.from(base64Data, 'base64');
+      const wb = XLSX.read(buffer, { type: 'buffer' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const sheetRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      if (sheetRows.length < 2) return { success: false, message: 'File Excel kosong atau tidak memiliki data.' };
+
+      const headers = sheetRows[0].map(h => String(h || '').trim().toLowerCase().replace(/\s+/g, '_'));
+      for (let i = 1; i < sheetRows.length; i++) {
+        const row = sheetRows[i];
+        if (row.every(c => !String(c || '').trim())) continue;
+        const entry = {};
+        headers.forEach((h, idx) => { entry[h] = String(row[idx] || '').trim(); });
+        rows.push(entry);
+      }
+    } else {
+      throw new Error('Sumber data tidak valid. Pilih "spreadsheet" atau "excel".');
+    }
+
+    // Normalize: pastikan field utama ada (sesuaikan dengan nama kolom spreadsheet)
+    const FIELD_ALIASES = {
+      nama_lengkap: ['nama_lengkap','nama lengkap','nama','name'],
+      nip:          ['nip','no_induk'],
+      jabatan:      ['jabatan','jabatan_lama','job_title'],
+      golongan:     ['golongan','gol'],
+      jenis_tutam:  ['jenis_tutam','jenis tutam','jenis_jabatan','jabatan_baru']
+    };
+
+    const result = rows.map((row, i) => {
+      const entry = { no: (i + 1) };
+      for (const [field, aliases] of Object.entries(FIELD_ALIASES)) {
+        for (const alias of aliases) {
+          if (row[alias] !== undefined && row[alias] !== '') {
+            entry[field] = row[alias];
+            break;
+          }
+        }
+        if (!entry[field]) entry[field] = '';
+      }
+      return entry;
+    }).filter(e => e.nama_lengkap || e.nip);
+
+    return { success: true, data: result, total: result.length };
+  },
+
+  // ================================================================
+  // BUAT SK — RIWAYAT SK (ADMIN ROLE)
+  // ================================================================
+
+  /** Admin melihat riwayat SK yang pernah dibuat */
+  async getRiwayatSkGenerated(args) {
+    const [token, filters] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+
+    const db = getDb();
+    let query = db.from('sk_generated').select('*').order('dibuat_pada', { ascending: false });
+
+    const { jenis_sk, unit_es_ii, dibuat_oleh_nip } = filters || {};
+    if (jenis_sk)         query = query.eq('jenis_sk', jenis_sk);
+    if (unit_es_ii)       query = query.eq('unit_es_ii', unit_es_ii);
+    if (dibuat_oleh_nip)  query = query.eq('dibuat_oleh_nip', dibuat_oleh_nip);
+
+    const { data, error } = await query.limit(200);
+    if (error) throw error;
+    return { success: true, data: data || [] };
+  },
+
   // ---- CONFIG / OPTIONS ----
+
 
   async getConfigPublic(args) {
     return {

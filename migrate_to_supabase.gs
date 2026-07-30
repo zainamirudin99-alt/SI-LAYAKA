@@ -22,6 +22,8 @@ const SHEET_USER_ROLES     = 'User Roles';
 const SHEET_TEMPLATES      = 'Templates';
 const SHEET_USULAN_KP      = 'Usulan KP';
 const SHEET_USULAN_PENSIUN = 'Usulan Pensiun';
+const SHEET_PIMPINAN       = 'Pimpinan';
+const SHEET_JENIS_TUTAM    = 'Jenis tutam';
 
 // ============================================================
 // MENU KUSTOM
@@ -39,6 +41,8 @@ function onOpen() {
     .addItem("5. Migrasi Templates saja",         "migrasiTemplates")
     .addItem("6. Migrasi Usulan KP saja",         "migrasiUsulanKp")
     .addItem("7. Migrasi Usulan Pensiun saja",    "migrasiUsulanPensiun")
+    .addItem("8. Migrasi Pimpinan saja",          "migrasiPimpinan")
+    .addItem("9. Migrasi Jenis Tutam saja",       "migrasiJenisTutam")
     .addToUi();
 }
 
@@ -88,18 +92,22 @@ function cekKoneksi() {
 // ============================================================
 function migrasiSemuaData() {
   if (cekKonfigurasi_()) return;
-  if (!confirmSafe_("Migrasi data (Data Utama, User Roles, & Templates) ke Supabase?\n(Data yang sudah ada akan di-upsert)", "Konfirmasi")) return;
+  if (!confirmSafe_("Migrasi data (Data Utama, User Roles, Templates, Pimpinan, & Jenis Tutam) ke Supabase?\n(Data yang sudah ada akan di-upsert)", "Konfirmasi")) return;
 
   const r1 = migrasiDataUtama();
   const r2 = migrasiUserRoles();
   const r3 = migrasiTemplates();
   const r4 = migrasiUsulanKp();
   const r5 = migrasiUsulanPensiun();
+  const r6 = migrasiPimpinan();
+  const r7 = migrasiJenisTutam();
 
   alertSafe_(
     "Data Utama: "     + r1.berhasil + " OK, " + r1.gagal + " gagal\n" +
     "User Roles: "     + r2.berhasil + " OK, " + r2.gagal + " gagal\n" +
-    "Templates: "      + r3.berhasil + " OK, " + r3.gagal + " gagal\n\n" +
+    "Templates: "      + r3.berhasil + " OK, " + r3.gagal + " gagal\n" +
+    "Pimpinan: "       + r6.berhasil + " OK, " + r6.gagal + " gagal\n" +
+    "Jenis Tutam: "    + r7.berhasil + " OK, " + r7.gagal + " gagal\n\n" +
     "Catatan: Sheet Usulan KP & Usulan Pensiun dilewati (hanya struktur kolom database).",
     "Selesai!"
   );
@@ -280,6 +288,148 @@ function migrasiUsulanKp() {
 function migrasiUsulanPensiun() {
   Logger.log("usulan_pensiun: dilewati (isinya tidak dimigrasi atas permintaan user)");
   return {berhasil: 0, gagal: 0};
+}
+
+// ============================================================
+// MIGRASI SHEET: Pimpinan
+// ============================================================
+function migrasiPimpinan() {
+  const ss    = getActiveSpreadsheet_();
+  if (!ss) { Logger.log("Spreadsheet tidak ditemukan"); return {berhasil:0,gagal:0}; }
+  const sheet = ss.getSheetByName(SHEET_PIMPINAN);
+  if (!sheet) { Logger.log("Sheet Pimpinan tidak ditemukan"); return {berhasil:0,gagal:0}; }
+
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return {berhasil:0,gagal:0};
+
+  let berhasil = 0, gagal = 0;
+  const BATCH = 50;
+  let batch  = [];
+
+  function flushBatch() {
+    if (!batch.length) return;
+    try {
+      const r = UrlFetchApp.fetch(SUPABASE_URL + "/rest/v1/pimpinan", {
+        method:  "POST",
+        headers: Object.assign({}, buildHeaders_(), { "Prefer": "resolution=merge-duplicates" }),
+        payload: JSON.stringify(batch),
+        muteHttpExceptions: true
+      });
+      const code = r.getResponseCode();
+      if (code === 200 || code === 201) { berhasil += batch.length; }
+      else { Logger.log("GAGAL pimpinan batch: " + code + " " + r.getContentText()); gagal += batch.length; }
+    } catch(e) { Logger.log("ERROR pimpinan: " + e.message); gagal += batch.length; }
+    batch = [];
+    Utilities.sleep(200);
+  }
+
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    if (row.every(c => c === '' || c === null)) continue;
+    const namaPimpinan = String(row[0] || '').trim();
+    const unitEsIi     = String(row[1] || '').trim();
+    if (!namaPimpinan && !unitEsIi) continue;
+
+    const payload = {
+      nama_pimpinan: namaPimpinan,
+      unit_es_ii:    unitEsIi
+    };
+    batch.push(payload);
+    if (batch.length >= BATCH) flushBatch();
+  }
+  flushBatch();
+
+  Logger.log("pimpinan: " + berhasil + " OK, " + gagal + " gagal");
+  return {berhasil, gagal};
+}
+
+// ============================================================
+// MIGRASI SHEET: Jenis tutam
+// ============================================================
+function migrasiJenisTutam() {
+  const ss    = getActiveSpreadsheet_();
+  if (!ss) { Logger.log("Spreadsheet tidak ditemukan"); return {berhasil:0,gagal:0}; }
+  const sheet = ss.getSheetByName(SHEET_JENIS_TUTAM) || ss.getSheetByName('Jenis Tutam');
+  if (!sheet) { Logger.log("Sheet Jenis tutam tidak ditemukan"); return {berhasil:0,gagal:0}; }
+
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return {berhasil:0,gagal:0};
+
+  const rawHeaders = values[0];
+  const headers = rawHeaders.map(h => String(h).trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,''));
+  
+  let berhasil = 0, gagal = 0;
+  const BATCH = 50;
+  let batch  = [];
+
+  // Peta alias nama kolom header sheet ke kolom database Supabase
+  function mapHeaderToColumn(hKey) {
+    if (!hKey) return null;
+    if (['no', 'nomor', 'id'].indexOf(hKey) !== -1) return 'no';
+    if (['jenis_tutam', 'jenis_tugas_tambahan', 'tugas_tambahan', 'nama_jenis_tutam', 'nama_tutam', 'nama_tugas_tambahan', 'jabatan', 'nama', 'jenis', 'sub_unit'].indexOf(hKey) !== -1) return 'jenis_tutam';
+    if (['departemen', 'dept', 'bagian'].indexOf(hKey) !== -1) return 'departemen';
+    if (['unit_es_ii', 'unit', 'unit_kerja', 'fakultas'].indexOf(hKey) !== -1) return 'unit_es_ii';
+    if (['keterangan', 'ket', 'deskripsi'].indexOf(hKey) !== -1) return 'keterangan';
+    return null;
+  }
+
+  function flushBatch() {
+    if (!batch.length) return;
+    try {
+      const r = UrlFetchApp.fetch(SUPABASE_URL + "/rest/v1/jenis_tutam", {
+        method:  "POST",
+        headers: Object.assign({}, buildHeaders_(), { "Prefer": "resolution=merge-duplicates" }),
+        payload: JSON.stringify(batch),
+        muteHttpExceptions: true
+      });
+      const code = r.getResponseCode();
+      if (code === 200 || code === 201) { berhasil += batch.length; }
+      else { Logger.log("GAGAL jenis_tutam batch: " + code + " " + r.getContentText()); gagal += batch.length; }
+    } catch(e) { Logger.log("ERROR jenis_tutam: " + e.message); gagal += batch.length; }
+    batch = [];
+    Utilities.sleep(200);
+  }
+
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    if (row.every(c => c === '' || c === null)) continue;
+
+    const obj = {};
+    headers.forEach((hKey, idx) => {
+      const targetCol = mapHeaderToColumn(hKey);
+      if (targetCol) {
+        const cellVal = safeCellValue_(row[idx]);
+        if (cellVal !== null && cellVal !== '') {
+          obj[targetCol] = cellVal;
+        }
+      }
+    });
+
+    // Fallback: Jika 'jenis_tutam' tidak terisi dari alias header, gunakan sel ber-isi pertama yang bukan 'no'
+    if (!obj.jenis_tutam) {
+      for (let idx = 0; idx < row.length; idx++) {
+        const hKey = headers[idx];
+        const targetCol = mapHeaderToColumn(hKey);
+        if (targetCol !== 'no') {
+          const val = safeCellValue_(row[idx]);
+          if (val) {
+            obj.jenis_tutam = val;
+            break;
+          }
+        }
+      }
+    }
+
+    // Wajib ada nilai 'jenis_tutam' agar tidak melanggar not-null constraint di database
+    if (!obj.jenis_tutam) continue;
+
+    batch.push(obj);
+    if (batch.length >= BATCH) flushBatch();
+  }
+  flushBatch();
+
+  Logger.log("jenis_tutam: " + berhasil + " OK, " + gagal + " gagal");
+  return {berhasil, gagal};
 }
 
 // ============================================================
