@@ -9713,24 +9713,27 @@ async function buatSkLoadPlaceholders() {
 function buatSkRenderDynamicFields(placeholders) {
   const container = document.getElementById('buatSk_dynamicFields');
   container.innerHTML = '';
-  const AUTO_RESOLVE = new Set(['pimpinan','nama_pimpinan','nama_jabatan','today','tgl_buat','tgl_generate']);
+  const AUTO_RESOLVE = new Set(['pimpinan','nama_pimpinan','nama_jabatan','today']);
   const LOOP_KEYS = new Set(['pejabat_dilantik','pejabat_diberhentikan','no','nama_lengkap_item','nip_item']);
   const isCptu = (BUAT_SK.jenisSk === 'SK CPTU');
+  const todayIso = new Date().toISOString().split('T')[0];
   const filtered = placeholders.filter(p => !AUTO_RESOLVE.has(p) && !LOOP_KEYS.has(p));
 
   filtered.forEach(key => {
     const label = key.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
-    const isDate = /^(tgl_|tmt_|tanggal_)/.test(key);
+    const isDate = /^(tgl_|tmt_|tanggal_)/.test(key) || key.includes('tgl') || key.includes('tanggal');
+    const isTodayDefault = /^(tgl_buat|tanggal_buat|tgl_sk|tanggal_sk|tgl_generate)$/.test(key);
     const isGol  = key === 'golongan';
     const isMkg  = key === 'masa_kerja_gol' || key === 'mkg' || key === 'masa_kerja';
-    const isAutofilled = !isCptu && ['nip','nama_lengkap','nama','jabatan','pangkat','unit_es_ii','jenis_peg','pendidikan','tmp_lhr'].includes(key);
+    const isAutofilled = isTodayDefault || (!isCptu && ['nip','nama_lengkap','nama','jabatan','pangkat','unit_es_ii','jenis_peg','pendidikan','tmp_lhr'].includes(key));
 
     let inputHtml;
     if (isGol) {
       const opts = ['I/a','I/b','I/c','I/d','II/a','II/b','II/c','II/d','III/a','III/b','III/c','III/d','IV/a','IV/b','IV/c','IV/d','IV/e'].map(g => `<option value="${g}">${g}</option>`).join('');
       inputHtml = `<select id="bsk_field_${key}" class="field-input" onchange="buatSkHitungGajiPokok()"><option value="">-- Pilih Golongan --</option>${opts}</select>`;
     } else if (isDate) {
-      inputHtml = `<input type="date" id="bsk_field_${key}" class="field-input" />`;
+      const defVal = isTodayDefault ? todayIso : '';
+      inputHtml = `<input type="date" id="bsk_field_${key}" class="field-input ${isAutofilled ? 'bsk-auto-field' : ''}" value="${defVal}" ${isAutofilled ? 'style="background:var(--surface-alt,#e2e8f0);color:var(--text-main,#0f172a);font-weight:600;"' : ''} />`;
     } else if (isMkg) {
       inputHtml = `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -9748,7 +9751,7 @@ function buatSkRenderDynamicFields(placeholders) {
     }
 
     const spanAuto = isAutofilled ? ' <span style="font-size:11px;color:#10b981;font-weight:600;">(auto-fill)</span>' : '';
-    const spanCptu = isCptu ? ' <span style="font-size:11px;color:var(--text-muted);">(manual)</span>' : '';
+    const spanCptu = isCptu && !isTodayDefault ? ' <span style="font-size:11px;color:var(--text-muted);">(manual)</span>' : '';
     container.innerHTML += `<div class="stack-field ${isMkg ? 'grid-full' : ''}"><label class="kp-label">{{${key}}}${spanAuto}${spanCptu}</label>${inputHtml}</div>`;
   });
 
