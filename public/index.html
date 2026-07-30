@@ -2013,7 +2013,7 @@
                     <h4 style="margin:0;font-size:14px;font-weight:700;">👥 Pejabat yang Dilantik</h4>
                     <div style="font-size:12px;color:var(--text-muted);margin:6px 0 10px 0;padding:6px 10px;background:var(--surface-alt);border-radius:6px;border:1px solid var(--border);">ℹ️ <strong>Format Excel Dilantik:</strong> Nomor, Nama Lengkap, NIP, Jabatan, Golongan, Jenis Tutam</div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                      <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;" onclick="buatSkAddRowDilantik()">➕ Tambah Manual</button>
+                      <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;background:var(--primary);color:#fff;border:none;" onclick="buatSkOpenSearchLoopModal('dilantik')">🔍 Cari &amp; Tambah Pegawai</button><button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;" onclick="buatSkAddRowDilantik()">➕ Baris Kosong</button>
                       <label class="btn btn-secondary" style="font-size:12px;padding:5px 12px;cursor:pointer;" title="Format: Nama Lengkap | NIP | Jabatan | Golongan | Jenis Tutam">
                         📂 Import Excel
                         <input type="file" id="buatSk_excelDilantik" accept=".xlsx,.xls" style="display:none;" onchange="buatSkImportExcel('dilantik')" />
@@ -2043,7 +2043,7 @@
                     <h4 style="margin:0;font-size:14px;font-weight:700;">🚫 Pejabat yang Diberhentikan</h4>
                     <div style="font-size:12px;color:var(--text-muted);margin:6px 0 10px 0;padding:6px 10px;background:var(--surface-alt);border-radius:6px;border:1px solid var(--border);">ℹ️ <strong>Format Excel Diberhentikan:</strong> Nomor, Nama Lengkap, NIP, Jenis Tutam</div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                      <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;" onclick="buatSkAddRowDiberhentikan()">➕ Tambah Manual</button>
+                      <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;background:var(--primary);color:#fff;border:none;" onclick="buatSkOpenSearchLoopModal('diberhentikan')">🔍 Cari &amp; Tambah Pegawai</button><button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;" onclick="buatSkAddRowDiberhentikan()">➕ Baris Kosong</button>
                       <label class="btn btn-secondary" style="font-size:12px;padding:5px 12px;cursor:pointer;" title="Format: Nama Lengkap | NIP | Jenis Tutam">
                         📂 Import Excel
                         <input type="file" id="buatSk_excelDiberhentikan" accept=".xlsx,.xls" style="display:none;" onchange="buatSkImportExcel('diberhentikan')" />
@@ -9489,6 +9489,24 @@ async function buatSkInitForm() {
   }
 }
 
+function populateUnitDropdown() {
+  const sel = document.getElementById('buatSk_unit');
+  if (!sel) return;
+  const DEFAULT_UNITS = [
+    'Fakultas Sains dan Matematika', 'Fakultas Teknik', 'Fakultas Ekonomika dan Bisnis',
+    'Fakultas Hukum', 'Fakultas Kedokteran', 'Fakultas Ilmu Budaya',
+    'Fakultas Ilmu Sosial dan Ilmu Politik', 'Fakultas Kesehatan Masyarakat',
+    'Fakultas Perikanan dan Ilmu Kelautan', 'Fakultas Peternakan dan Pertanian',
+    'Fakultas Psikologi', 'Sekolah Vokasi', 'Sekolah Pascasarjana',
+    'Direktorat Sumber Daya Manusia', 'Direktorat Akademik'
+  ];
+
+  if (!sel.options || sel.options.length <= 1) {
+    sel.innerHTML = '<option value="">-- Pilih Unit / Fakultas --</option>' +
+      DEFAULT_UNITS.map(u => `<option value="${escHtml(u)}">${escHtml(u)}</option>`).join('');
+  }
+}
+
 async function buatSkJenisChange() {
   const jenis = document.getElementById('buatSk_jenisSk').value;
   BUAT_SK.jenisSk = jenis;
@@ -9502,32 +9520,34 @@ async function buatSkJenisChange() {
 
   const PERLU_UNIT = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Dekan Wadek'];
   const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
-  const IS_CPTU   = (jenis === 'SK CPTU');
+  const NEED_TOP_SEARCH = ['SK PTU 100%', 'Surat PLT', 'Surat PLH']; // HANYA SK dengan 1 subjek tunggal
 
-  // 1. LANGSUNG RENDER FORM SINKRON AGAR FORM TIDAK PERNAH BLANK
+  // 1. Tampilkan Langkah Sesuai Aturan Jenis SK
   if (jenis === 'SK Tutam Struktural') {
     document.getElementById('buatSk_strukturalWrap').style.display = '';
-  }
-
-  if (PERLU_UNIT.includes(jenis)) {
+  } else if (PERLU_UNIT.includes(jenis)) {
+    populateUnitDropdown();
     document.getElementById('buatSk_unitWrap').style.display = '';
   }
 
-  // Tampilkan bar pencarian pegawai (kecuali SK CPTU)
-  if (!IS_CPTU) {
+  // Tampilkan bar pencarian teratas HANYA untuk SK subjek tunggal (SK PTU 100%, Surat PLT/PLH)
+  if (NEED_TOP_SEARCH.includes(jenis)) {
     document.getElementById('buatSk_searchEmpWrap').style.display = '';
   } else {
     document.getElementById('buatSk_searchEmpWrap').style.display = 'none';
   }
 
-  // Langsung render dynamic fields default secara sinkron
+  // Render dynamic fields default secara sinkron
   buatSkRenderDynamicFields([
     'nomor_sk', 'tgl_sk', 'nip', 'nama_lengkap', 'golongan', 'pangkat',
     'jabatan', 'unit_es_ii', 'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan',
     'masa_kerja_gol', 'gaji_pokok'
   ]);
   document.getElementById('buatSk_dynamicFormWrap').style.display = '';
-  if (PERLU_LOOP.includes(jenis)) document.getElementById('buatSk_loopWrap').style.display = '';
+
+  if (PERLU_LOOP.includes(jenis)) {
+    document.getElementById('buatSk_loopWrap').style.display = '';
+  }
   document.getElementById('buatSk_actionBar').style.display = 'flex';
 
   // 2. PROSES TEMPLATE & PLACEHOLDERS KHUSUS DI BACKGROUND (NON-BLOCKING)
