@@ -9651,7 +9651,7 @@ function buatSkRenderDynamicFields(placeholders) {
     const label = key.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
     const isDate = /^(tgl_|tmt_|tanggal_)/.test(key);
     const isGol  = key === 'golongan';
-    const isMkg  = key === 'masa_kerja_gol' || key === 'mkg';
+    const isMkg  = key === 'masa_kerja_gol' || key === 'mkg' || key === 'masa_kerja';
     const isAutofilled = !isCptu && ['nip','nama_lengkap','nama','jabatan','pangkat','unit_es_ii','jenis_peg','pendidikan','tmp_lhr'].includes(key);
 
     let inputHtml;
@@ -9661,14 +9661,24 @@ function buatSkRenderDynamicFields(placeholders) {
     } else if (isDate) {
       inputHtml = `<input type="date" id="bsk_field_${key}" class="field-input" />`;
     } else if (isMkg) {
-      inputHtml = `<input type="number" id="bsk_field_${key}" class="field-input" min="0" placeholder="0" oninput="buatSkHitungGajiPokok()" onchange="buatSkHitungGajiPokok()" />`;
+      inputHtml = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Tahun</label>
+            <input type="number" id="bsk_field_mkg_tahun" class="field-input" min="0" placeholder="Contoh: 5" oninput="buatSkHitungGajiPokok()" onchange="buatSkHitungGajiPokok()" />
+          </div>
+          <div>
+            <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Bulan</label>
+            <input type="number" id="bsk_field_mkg_bulan" class="field-input" min="0" max="11" placeholder="Contoh: 2" oninput="buatSkHitungGajiPokok()" onchange="buatSkHitungGajiPokok()" />
+          </div>
+        </div>`;
     } else {
       inputHtml = `<input type="text" id="bsk_field_${key}" class="field-input" placeholder="${escHtml(label)}" ${isAutofilled ? 'style="background:var(--surface-alt);"' : ''} />`;
     }
 
     const spanAuto = isAutofilled ? ' <span style="font-size:11px;color:#10b981;font-weight:600;">(auto-fill)</span>' : '';
     const spanCptu = isCptu ? ' <span style="font-size:11px;color:var(--text-muted);">(manual)</span>' : '';
-    container.innerHTML += `<div class="stack-field"><label class="kp-label">{{${key}}}${spanAuto}${spanCptu}</label>${inputHtml}</div>`;
+    container.innerHTML += `<div class="stack-field ${isMkg ? 'grid-full' : ''}"><label class="kp-label">{{${key}}}${spanAuto}${spanCptu}</label>${inputHtml}</div>`;
   });
 
   if (container.innerHTML === '') container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;grid-column:1/-1;">Tidak ada field manual — semua placeholder akan terisi otomatis.</p>';
@@ -9713,6 +9723,17 @@ async function buatSkSelectEmployee(nip) {
       const val = emp[key] || emp[key.replace('_lengkap','')] || '';
       if (val) field.value = val;
     });
+
+    // Auto-fill mkg_tahun dan mkg_bulan dari data_utama
+    const mkgStr = String(emp.masa_kerja_gol || emp.mkg || emp.masa_kerja || '');
+    if (mkgStr) {
+      const match = mkgStr.match(/(\d+)\s*(?:tahun|\.|\/)?\s*(\d+)?/i);
+      if (match) {
+        if (document.getElementById('bsk_field_mkg_tahun')) document.getElementById('bsk_field_mkg_tahun').value = match[1] || '0';
+        if (document.getElementById('bsk_field_mkg_bulan')) document.getElementById('bsk_field_mkg_bulan').value = match[2] || '0';
+      }
+    }
+    buatSkHitungGajiPokok();
     showToast('success', 'Data pegawai berhasil diisi otomatis.');
   } catch(e) { showToast('error', 'Gagal mengambil data pegawai: ' + e.message); }
 }
@@ -9828,6 +9849,22 @@ async function buatSkGenerate() {
     const field = document.getElementById('bsk_field_' + key);
     if (field) form_data[key] = field.value;
   });
+
+  // Format {{masa_kerja_gol}} dari dua kolom Tahun dan Bulan
+  const mkgThnEl = document.getElementById('bsk_field_mkg_tahun');
+  const mkgBlnEl = document.getElementById('bsk_field_mkg_bulan');
+  if (mkgThnEl || mkgBlnEl) {
+    const thn = parseInt(mkgThnEl?.value || '0', 10) || 0;
+    const bln = parseInt(mkgBlnEl?.value || '0', 10) || 0;
+    const formattedMkg = `${thn} Tahun ${bln} Bulan`;
+    form_data.masa_kerja_gol = formattedMkg;
+    form_data.mkg = formattedMkg;
+    form_data.mkg_tahun = thn;
+    form_data.mkg_bulan = bln;
+    form_data.mk_tahun = thn;
+    form_data.mk_bulan = bln;
+  }
+
   if (BUAT_SK.unitEsIi) form_data.unit_es_ii = BUAT_SK.unitEsIi;
   if (BUAT_SK.pimpinanInfo) {
     form_data.pimpinan      = BUAT_SK.pimpinanInfo.pimpinan_resolved || '';
