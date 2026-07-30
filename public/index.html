@@ -9409,7 +9409,7 @@ function buatSkTolakUsulan(id) {
 // TAB: BUAT SK DAN SURAT (admin)
 // ================================================================
 async function buatSkInitForm() {
-  // Load unit list untuk dropdown
+  // 1. Load unit list untuk dropdown
   try {
     const res = await rpc('getUnitList', [SESSION.token]);
     const sel = document.getElementById('buatSk_unit');
@@ -9418,7 +9418,47 @@ async function buatSkInitForm() {
       (res.data || []).forEach(u => sel.innerHTML += `<option value="${escHtml(u)}">${escHtml(u)}</option>`);
     }
   } catch(_) {}
+
+  // 2. Fetch all uploaded templates for 'Buat SK dan Surat' (atau 'Buat SK')
+  try {
+    const tmpls = await rpc('getTemplates', [SESSION.token, 'Buat SK dan Surat']);
+    BUAT_SK.templatesMap = {};
+    (tmpls || []).forEach(t => {
+      const sub = t.subMenu || t.sub_menu;
+      if (sub && !BUAT_SK.templatesMap[sub]) {
+        BUAT_SK.templatesMap[sub] = t;
+      }
+    });
+
+    // 3. Render dropdown jenis SK: aktifkan hanya jika template sudah di-upload di Menu Template
+    const ALL_JENIS = [
+      'SK CPTU',
+      'SK PTU 100%',
+      'SK Tutam Kadep & Kaprodi',
+      'SK Tutam Sekprodi',
+      'Surat PLT',
+      'Surat PLH',
+      'SK Tutam Struktural',
+      'SK Tutam Dekan Wadek'
+    ];
+
+    const selJenis = document.getElementById('buatSk_jenisSk');
+    if (selJenis) {
+      selJenis.innerHTML = '<option value="">-- Pilih Jenis SK / Surat --</option>' +
+        ALL_JENIS.map(jenis => {
+          const tmpl = BUAT_SK.templatesMap[jenis];
+          if (tmpl) {
+            return `<option value="${escHtml(jenis)}">${escHtml(jenis)}</option>`;
+          } else {
+            return `<option value="${escHtml(jenis)}" disabled style="color:var(--text-muted);">${escHtml(jenis)} (Belum ada template di Menu Template)</option>`;
+          }
+        }).join('');
+    }
+  } catch(e) {
+    console.warn('[buatSkInitForm] Gagal memuat template:', e);
+  }
 }
+
 async function buatSkJenisChange() {
   const jenis = document.getElementById('buatSk_jenisSk').value;
   BUAT_SK.jenisSk = jenis;
@@ -9431,21 +9471,14 @@ async function buatSkJenisChange() {
 
   if (!jenis) return;
 
-  // Load templates
-  const sel = document.getElementById('buatSk_template');
-  sel.innerHTML = '<option value="">Loading...</option>';
-  try {
-    const tmpls = await rpc('getTemplates', [SESSION.token, 'Buat SK', jenis]);
-    sel.innerHTML = '<option value="">-- Pilih Template --</option>';
-    tmpls.forEach(t => sel.innerHTML += `<option value="${t.id}">${escHtml(t.judul)}</option>`);
-  } catch(_) { sel.innerHTML = '<option value="">-- Pilih Template --</option>'; }
-  document.getElementById('buatSk_templateWrap').style.display = '';
-}
-async function buatSkTemplateChange() {
-  const jenis = BUAT_SK.jenisSk;
-  const templateId = document.getElementById('buatSk_template').value;
-  BUAT_SK.templateId = templateId;
-  if (!templateId) return;
+  // Otomatis terhubung dengan template yang sudah di-upload di Menu Template
+  const tmpl = (BUAT_SK.templatesMap || {})[jenis];
+  if (!tmpl) {
+    showToast('error', `Belum ada template yang di-upload untuk "${jenis}". Silakan upload di Menu Template.`);
+    return;
+  }
+
+  BUAT_SK.templateId = tmpl.id;
 
   const PERLU_UNIT = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Dekan Wadek'];
   const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];

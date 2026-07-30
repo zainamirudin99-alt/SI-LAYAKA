@@ -105,7 +105,7 @@ const CONFIG = {
   KONTRAK_JENIS_PEG_ELIGIBLE: ['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','KDRP'],
   KONTRAK_UPAH_TIER: {tier1:2903600,tier2:3026400},
   ROLE_LIST: ['normal','user','admin','super_admin'],
-  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER','SK Pensiun BUP Pegawai Undip Non ASN','SK Pensiun Meninggal Pegawai Undip Non ASN','SK Pensiun Uzur Pegawai Undip Non ASN','SK Pensiun Undur Diri Pegawai Undip Non ASN'],'Kontrak Tendik':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','KDRP','Tenaga Profesional'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan'],'Buat SK':['SK CPTU','SK PTU 100%','SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','Surat PLT','Surat PLH','SK Tutam Struktural','SK Tutam Dekan Wadek']},
+  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER','SK Pensiun BUP Pegawai Undip Non ASN','SK Pensiun Meninggal Pegawai Undip Non ASN','SK Pensiun Uzur Pegawai Undip Non ASN','SK Pensiun Undur Diri Pegawai Undip Non ASN'],'Kontrak Tendik':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','KDRP','Tenaga Profesional'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan'],'Buat SK dan Surat':['SK CPTU','SK PTU 100%','SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','Surat PLT','Surat PLH','SK Tutam Struktural','SK Tutam Dekan Wadek']},
   USULAN_KP_KATA_KUNCI_PNS: ['pns'],
   USULAN_KP_NOTIF_SIASN: 'Siap diusulkan ke-SIASN',
   USULAN_KP_NOTIF_SK:    'Siap Dibuat SK',
@@ -1882,6 +1882,8 @@ const methods = {
     if (layanan) {
       if (layanan === 'Kenaikan Pangkat SK') {
         query = query.or('layanan.eq."Kenaikan Pangkat SK",layanan.eq."Kenaikan Pangkat"');
+      } else if (layanan === 'Buat SK dan Surat' || layanan === 'Buat SK') {
+        query = query.or('layanan.eq."Buat SK dan Surat",layanan.eq."Buat SK"');
       } else {
         query = query.eq('layanan', layanan);
       }
