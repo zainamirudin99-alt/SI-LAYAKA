@@ -536,7 +536,7 @@ function cleanWordXmlParagraphBraces(xml) {
   });
 }
 
-function docxRenderTemplate(templateBuffer, dataCtx, targetFont = 'Bookman Old Style') {
+function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
   const PizZip = require('pizzip');
   const Docxtemplater = require('docxtemplater');
 
@@ -748,7 +748,7 @@ function injectDocxImage(zip, dataCtx) {
 
 
 
-function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = 'Bookman Old Style') {
+function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = null) {
   const PizZip = require('pizzip');
   const zip = (templateBuffer && templateBuffer.files) ? templateBuffer : new PizZip(templateBuffer);
 
@@ -2247,7 +2247,7 @@ const methods = {
     const tipe = tmpl.tipe || 'gdocs';
     if (tipe === 'docx') {
       const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
-      const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, 'Bookman Old Style');
+      const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, null);
       const base64 = renderedBuffer.toString('base64');
       const safeName = String(jenis_sk).replace(/[^a-zA-Z0-9&]/g, '_') + '_' + new Date().getFullYear();
       return {
