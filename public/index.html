@@ -9457,9 +9457,17 @@ function buatSkTolakUsulan(id) {
   updateStatusUsulanSk(id, 'Ditolak', catatan);
 }
 
-// ================================================================
-// TAB: BUAT SK DAN SURAT (admin)
-// ================================================================
+// Helper pencarian template berdasarkan jenis SK / sub-menu
+function findTemplateForJenis(jenis) {
+  if (!BUAT_SK.templatesList || BUAT_SK.templatesList.length === 0) return null;
+  const target = String(jenis || '').toLowerCase().replace(/\s+/g, '');
+  return BUAT_SK.templatesList.find(t => {
+    const sub = String(t.subMenu || t.sub_menu || t.sub_layanan || t.judul || '').toLowerCase().replace(/\s+/g, '');
+    const sLayanan = String(t.layanan || '').toLowerCase().replace(/\s+/g, '');
+    return sub.includes(target) || target.includes(sub) || sub === target;
+  }) || BUAT_SK.templatesList[0] || null;
+}
+
 async function buatSkInitForm() {
   // 1. Load unit list untuk dropdown dengan fallback lengkap
   try {
