@@ -9701,15 +9701,89 @@ function buatSkRenderDynamicFields(placeholders) {
   if (container.innerHTML === '') container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;grid-column:1/-1;">Tidak ada field manual — semua placeholder akan terisi otomatis.</p>';
 }
 
+// GAJI POKOK NON-ASN UNDIP 2024 (Peraturan Rektor No. 1 Tahun 2024)
+const GAJI_POKOK_NON_ASN = (function() {
+  const raw = [
+    ['I','A',0,1685700],['I','A',2,1738800],['I','A',4,1793500],['I','A',6,1850000],['I','A',8,1908300],['I','A',10,1968400],['I','A',12,2030400],['I','A',14,2094300],['I','A',16,2160300],['I','A',18,2228300],['I','A',20,2298500],['I','A',22,2370900],['I','A',24,2445600],['I','A',26,2522600],
+    ['I','B',3,1840800],['I','B',5,1898800],['I','B',7,1958600],['I','B',9,2020300],['I','B',11,2083900],['I','B',13,2149600],['I','B',15,2217300],['I','B',17,2287100],['I','B',19,2359100],['I','B',21,2433400],['I','B',23,2510100],['I','B',25,2589100],['I','B',27,2670700],
+    ['I','C',3,1918700],['I','C',5,1979100],['I','C',7,2041500],['I','C',9,2105800],['I','C',11,2172100],['I','C',13,2240500],['I','C',15,2311100],['I','C',17,2383900],['I','C',19,2458900],['I','C',21,2536400],['I','C',23,2616300],['I','C',25,2698700],['I','C',27,2783700],
+    ['I','D',3,1999900],['I','D',5,2062900],['I','D',7,2127800],['I','D',9,2194800],['I','D',11,2264000],['I','D',13,2335300],['I','D',15,2408800],['I','D',17,2484700],['I','D',19,2562900],['I','D',21,2643700],['I','D',23,2726900],['I','D',25,2812800],['I','D',27,2901400],
+    ['II','A',0,2184000],['II','A',1,2218400],['II','A',3,2288200],['II','A',5,2360300],['II','A',7,2434600],['II','A',9,2511300],['II','A',11,2590400],['II','A',13,2672000],['II','A',15,2756200],['II','A',17,2843000],['II','A',19,2932500],['II','A',21,3024900],['II','A',23,3120100],['II','A',25,3218400],['II','A',27,3319800],['II','A',29,3424300],['II','A',31,3532200],['II','A',33,3643400],
+    ['II','B',0,2385000],['II','B',2,2460100],['II','B',4,2537600],['II','B',6,2617500],['II','B',8,2700000],['II','B',10,2785000],['II','B',12,2872700],['II','B',14,2963200],['II','B',16,3056500],['II','B',18,3152800],['II','B',20,3252100],['II','B',22,3354500],['II','B',24,3460200],['II','B',26,3569200],['II','B',28,3681600],['II','B',30,3797500],
+    ['II','C',0,2485900],['II','C',2,2564200],['II','C',4,2645000],['II','C',6,2728300],['II','C',8,2814200],['II','C',10,2902800],['II','C',12,2994300],['II','C',14,3088600],['II','C',16,3185800],['II','C',18,3286200],['II','C',20,3389700],['II','C',22,3496400],['II','C',24,3606500],['II','C',26,3720100],['II','C',28,3837300],['II','C',30,3958200],
+    ['II','D',0,2591100],['II','D',2,2672700],['II','D',4,2756800],['II','D',6,2843700],['II','D',8,2933200],['II','D',10,3025600],['II','D',12,3120900],['II','D',14,3219200],['II','D',16,3320600],['II','D',18,3425200],['II','D',20,3533100],['II','D',22,3644300],['II','D',24,3759100],['II','D',26,3877500],['II','D',28,3999600],['II','D',30,4125600],
+    ['III','A',0,2785700],['III','A',2,2873500],['III','A',4,2964000],['III','A',6,3057300],['III','A',8,3153600],['III','A',10,3252900],['III','A',12,3355400],['III','A',14,3461100],['III','A',16,3570100],['III','A',18,3682500],['III','A',20,3798500],['III','A',22,3918100],['III','A',24,4041500],['III','A',26,4168800],['III','A',28,4300100],['III','A',30,4435500],['III','A',32,4575200],
+    ['III','B',0,2903600],['III','B',2,2995000],['III','B',4,3089300],['III','B',6,3186600],['III','B',8,3287000],['III','B',10,3390500],['III','B',12,3497300],['III','B',14,3607500],['III','B',16,3721100],['III','B',18,3838300],['III','B',20,3959200],['III','B',22,4083900],['III','B',24,4212500],['III','B',26,4345100],['III','B',28,4482000],['III','B',30,4623200],['III','B',32,4768800],
+    ['III','C',0,3026400],['III','C',2,3121700],['III','C',4,3220000],['III','C',6,3321400],['III','C',8,3426000],['III','C',10,3533900],['III','C',12,3645200],['III','C',14,3760100],['III','C',16,3878500],['III','C',18,4000600],['III','C',20,4126600],['III','C',22,4256600],['III','C',24,4390700],['III','C',26,4528900],['III','C',28,4671600],['III','C',30,4818700],['III','C',32,4970500],
+    ['III','D',0,3154400],['III','D',2,3253700],['III','D',4,3356200],['III','D',6,3461900],['III','D',8,3571000],['III','D',10,3683400],['III','D',12,3799400],['III','D',14,3919100],['III','D',16,4042500],['III','D',18,4169900],['III','D',20,4301200],['III','D',22,4436700],['III','D',24,4576400],['III','D',26,4720500],['III','D',28,4869200],['III','D',30,5022500],['III','D',32,5180700],
+    ['IV','A',0,3287800],['IV','A',2,3391400],['IV','A',4,3498200],['IV','A',6,3608400],['IV','A',8,3722000],['IV','A',10,3839200],['IV','A',12,3960200],['IV','A',14,4084900],['IV','A',16,4213500],['IV','A',18,4346200],['IV','A',20,4483100],['IV','A',22,4624300],['IV','A',24,4770000],['IV','A',26,4920200],['IV','A',28,5075200],['IV','A',30,5235000],['IV','A',32,5399900],
+    ['IV','B',0,3426900],['IV','B',2,3534800],['IV','B',4,3646200],['IV','B',6,3761000],['IV','B',8,3879500],['IV','B',10,4001600],['IV','B',12,4127700],['IV','B',14,4257700],['IV','B',16,4391800],['IV','B',18,4530100],['IV','B',20,4672800],['IV','B',22,4819900],['IV','B',24,4971700],['IV','B',26,5128300],['IV','B',28,5289800],['IV','B',30,5456400],['IV','B',32,5628300],
+    ['IV','C',0,3571900],['IV','C',2,3684400],['IV','C',4,3800400],['IV','C',6,3920100],['IV','C',8,4043600],['IV','C',10,4170900],['IV','C',12,4302300],['IV','C',14,4437800],['IV','C',16,4577500],['IV','C',18,4721700],['IV','C',20,4870400],['IV','C',22,5023800],['IV','C',24,5182000],['IV','C',26,5345200],['IV','C',28,5513600],['IV','C',30,5687200],['IV','C',32,5866400],
+    ['IV','D',0,3723000],['IV','D',2,3840200],['IV','D',4,3961200],['IV','D',6,4085900],['IV','D',8,4214600],['IV','D',10,4347300],['IV','D',12,4484300],['IV','D',14,4625500],['IV','D',16,4771200],['IV','D',18,4921400],['IV','D',20,5076400],['IV','D',22,5236300],['IV','D',24,5401200],['IV','D',26,5571400],['IV','D',28,5746800],['IV','D',30,5927800],['IV','D',32,6114500],
+    ['IV','E',0,3880400],['IV','E',2,4002700],['IV','E',4,4128700],['IV','E',6,4258700],['IV','E',8,4392900],['IV','E',10,4531200],['IV','E',12,4673900],['IV','E',14,4821100],['IV','E',16,4973000],['IV','E',18,5129600],['IV','E',20,5291200],['IV','E',22,5457800],['IV','E',24,5629700],['IV','E',26,5807000],['IV','E',28,5989900],['IV','E',30,6178600],['IV','E',32,6373200]
+  ];
+  const map = {};
+  raw.forEach(([gol, ruang, mkg, gaji]) => {
+    const k = `${gol}-${ruang}`;
+    if (!map[k]) map[k] = [];
+    map[k].push({ mkg, gaji });
+  });
+  Object.values(map).forEach(arr => arr.sort((a, b) => a.mkg - b.mkg));
+  return map;
+})();
+
+function hitungGajiPokokNonAsn(golonganSlash, mkgTahun) {
+  const s = String(golonganSlash || '').toUpperCase().trim();
+  const m = s.match(/^(I{1,3}V?|IV)\/(A|B|C|D|E)$/);
+  if (!m) return 0;
+  const key = `${m[1]}-${m[2]}`;
+  const entries = GAJI_POKOK_NON_ASN[key];
+  if (!entries || entries.length === 0) return 0;
+  const mkg = Math.floor(Number(mkgTahun) || 0);
+  let best = null;
+  for (const e of entries) {
+    if (e.mkg <= mkg) best = e;
+    else break;
+  }
+  return best ? best.gaji : 0;
+}
+
+const GOLONGAN_TO_PANGKAT = {
+  'I/a': 'Juru Muda',
+  'I/b': 'Juru Muda Tingkat I',
+  'I/c': 'Juru',
+  'I/d': 'Juru Tingkat I',
+  'II/a': 'Pengatur Muda',
+  'II/b': 'Pengatur Muda Tingkat I',
+  'II/c': 'Pengatur',
+  'II/d': 'Pengatur Tingkat I',
+  'III/a': 'Penata Muda',
+  'III/b': 'Penata Muda Tingkat I',
+  'III/c': 'Penata',
+  'III/d': 'Penata Tingkat I',
+  'IV/a': 'Pembina',
+  'IV/b': 'Pembina Tingkat I',
+  'IV/c': 'Pembina Utama Muda',
+  'IV/d': 'Pembina Utama Madya',
+  'IV/e': 'Pembina Utama'
+};
+
 function buatSkHitungGajiPokok() {
   const gol = document.getElementById('bsk_field_golongan')?.value || '';
-  const mkg = document.getElementById('bsk_field_masa_kerja_gol')?.value || '0';
+  const mkgThn = document.getElementById('bsk_field_mkg_tahun')?.value || document.getElementById('bsk_field_masa_kerja_gol')?.value || '0';
   const fieldGaji = document.getElementById('bsk_field_gaji_pokok');
+  const fieldPangkat = document.getElementById('bsk_field_pangkat');
+
+  // Auto-fill Pangkat jika Golongan dipilih
+  if (fieldPangkat && gol && GOLONGAN_TO_PANGKAT[gol.toLowerCase()] || GOLONGAN_TO_PANGKAT[gol]) {
+    fieldPangkat.value = GOLONGAN_TO_PANGKAT[gol.toLowerCase()] || GOLONGAN_TO_PANGKAT[gol];
+  }
+
   if (fieldGaji && gol) {
-    const mkgNum = parseInt(mkg, 10) || 0;
+    const mkgNum = parseInt(mkgThn, 10) || 0;
     const gaji = hitungGajiPokokNonAsn(gol, mkgNum);
     if (gaji > 0) {
-      fieldGaji.value = formatRupiah(gaji);
+      fieldGaji.value = 'Rp ' + gaji.toLocaleString('id-ID');
     }
   }
 }
