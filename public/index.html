@@ -9729,7 +9729,7 @@ function buatSkRenderDynamicFields(placeholders) {
 
     let inputHtml;
     if (isGol) {
-      const opts = ['I/a','I/b','I/c','I/d','II/a','II/b','II/c','II/d','III/a','III/b','III/c','III/d','IV/a','IV/b','IV/c','IV/d','IV/e'].map(g => `<option value="${g}">${g}</option>`).join('');
+      const opts = ['I/a','I/b','I/c','I/d','II/a','II/b','II/c','II/d','III/a','III/b','III/c','III/d','IV/a','IV/b','IV/c','IV/d','IV/e','Set.I/a','Set.I/b','Set.I/c','Set.I/d','Set.II/a','Set.II/b','Set.II/c','Set.II/d','Set.III/a','Set.III/b','Set.III/c','Set.III/d','Set.IV/a','Set.IV/b','Set.IV/c','Set.IV/d','Set.IV/e'].map(g => `<option value="${g}">${g}</option>`).join('');
       inputHtml = `<select id="bsk_field_${key}" class="field-input ${isAutofilled ? 'bsk-auto-field' : ''}" onchange="buatSkHitungGajiPokok()" ${isAutofilled ? 'style="background:var(--surface-alt,#e2e8f0);color:var(--text-main,#0f172a);font-weight:600;"' : ''}><option value="">-- Pilih Golongan --</option>${opts}</select>`;
     } else if (isDate) {
       const defVal = isTodayDefault ? todayIso : '';
@@ -9790,7 +9790,7 @@ const GAJI_POKOK_NON_ASN = (function() {
 })();
 
 function hitungGajiPokokNonAsn(golonganSlash, mkgTahun) {
-  const s = String(golonganSlash || '').toUpperCase().trim();
+  const s = String(golonganSlash || '').toUpperCase().replace(/^SETARA\s*/i, '').replace(/^SET\.\s*/i, '').trim();
   const m = s.match(/^(I{1,3}V?|IV)\/(A|B|C|D|E)$/);
   if (!m) return 0;
   const key = `${m[1]}-${m[2]}`;
@@ -9825,15 +9825,24 @@ const GOLONGAN_TO_PANGKAT = {
   'IV/e': 'Pembina Utama'
 };
 
+function getPangkatForGolongan(gol) {
+  const s = String(gol || '').trim();
+  const isSet = /^set/i.test(s);
+  const baseGol = s.toLowerCase().replace(/^setara\s*/i, '').replace(/^set\.\s*/i, '').trim();
+  const basePangkat = GOLONGAN_TO_PANGKAT[baseGol] || GOLONGAN_TO_PANGKAT[s.toLowerCase()] || '';
+  if (!basePangkat) return '';
+  return isSet ? `Setara ${basePangkat}` : basePangkat;
+}
+
 function buatSkHitungGajiPokok() {
   const gol = document.getElementById('bsk_field_golongan')?.value || '';
   const mkgThn = document.getElementById('bsk_field_mkg_tahun')?.value || document.getElementById('bsk_field_masa_kerja_gol')?.value || '0';
   const fieldGaji = document.getElementById('bsk_field_gaji_pokok');
   const fieldPangkat = document.getElementById('bsk_field_pangkat');
 
-  // Auto-fill Pangkat jika Golongan dipilih
-  if (fieldPangkat && gol && GOLONGAN_TO_PANGKAT[gol.toLowerCase()] || GOLONGAN_TO_PANGKAT[gol]) {
-    fieldPangkat.value = GOLONGAN_TO_PANGKAT[gol.toLowerCase()] || GOLONGAN_TO_PANGKAT[gol];
+  if (fieldPangkat && gol) {
+    const pangkatResolved = getPangkatForGolongan(gol);
+    if (pangkatResolved) fieldPangkat.value = pangkatResolved;
   }
 
   if (fieldGaji && gol) {
@@ -9911,13 +9920,22 @@ async function buatSkSelectEmployee(nip) {
       const field = document.getElementById('bsk_field_' + k);
       if (field && val) {
         if (field.tagName === 'SELECT') {
-          const target = String(val).toLowerCase().trim();
+          const rawVal = String(val).trim();
+          const cleanTarget = rawVal.toLowerCase().replace(/^setara\s*/i, 'set.').replace(/\s+/g, '');
+          const baseTarget = cleanTarget.replace(/^set\./i, '');
+
+          let matchedOpt = null;
           for (let opt of field.options) {
-            if (opt.value.toLowerCase().trim() === target) {
-              field.value = opt.value;
-              break;
+            const optVal = opt.value.toLowerCase().replace(/\s+/g, '');
+            if (optVal === cleanTarget || optVal === rawVal.toLowerCase()) { matchedOpt = opt.value; break; }
+          }
+          if (!matchedOpt) {
+            for (let opt of field.options) {
+              const optBase = opt.value.toLowerCase().replace(/^set\./i, '').replace(/\s+/g, '');
+              if (optBase === baseTarget) { matchedOpt = opt.value; break; }
             }
           }
+          if (matchedOpt) field.value = matchedOpt;
         } else {
           field.value = val;
         }

@@ -312,9 +312,9 @@ const GAJI_POKOK_NON_ASN = (function() {
  * @returns {number} gaji pokok, atau 0 jika tidak ditemukan
  */
 function hitungGajiPokokNonAsn(golonganSlash, mkgTahun) {
-  const s = String(golonganSlash || '').toUpperCase().trim();
+  const s = String(golonganSlash || '').toUpperCase().replace(/^SETARA\s*/i, '').replace(/^SET\.\s*/i, '').trim();
   let gol, ruang;
-  // "IV/A", "III/B", "II/C", "I/D"
+  // "IV/A", "III/B", "II/C", "I/D", "SET.III/A", "SETARA III/A"
   const m = s.match(/^(I{1,3}V?|IV)\/(A|B|C|D|E)$/);
   if (!m) return 0;
   // Normalize roman numeral
