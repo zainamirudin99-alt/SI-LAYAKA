@@ -9419,20 +9419,22 @@ async function buatSkInitForm() {
     }
   } catch(_) {}
 
-  // 2. Fetch all uploaded templates for 'Buat SK dan Surat' (atau 'Buat SK')
+  // 2. Fetch templates (termasuk fallback ke seluruh template sistem jika layanan tidak cocok)
   try {
-    const tmpls = await rpc('getTemplates', [SESSION.token, 'Buat SK dan Surat']);
-    BUAT_SK.templatesMap = {};
-    (tmpls || []).forEach(t => {
-      const sub = String(t.subMenu || t.sub_menu || '').trim();
-      if (sub) {
-        if (!BUAT_SK.templatesMap[sub]) BUAT_SK.templatesMap[sub] = t;
-        const normKey = sub.toLowerCase().replace(/\s+/g, ' ');
-        if (!BUAT_SK.templatesMap[normKey]) BUAT_SK.templatesMap[normKey] = t;
-      }
-    });
+    let tmpls = await rpc('getTemplates', [SESSION.token, 'Buat SK dan Surat']);
+    if (!tmpls || tmpls.length === 0) {
+      tmpls = await rpc('getTemplates', [SESSION.token]);
+    }
+    BUAT_SK.templatesList = tmpls || [];
 
-    // 3. Render dropdown jenis SK: aktifkan hanya jika template sudah di-upload di Menu Template
+    // Populasi fallback dropdown manual template
+    const selTpl = document.getElementById('buatSk_template');
+    if (selTpl) {
+      selTpl.innerHTML = '<option value="">-- Pilih Template Manual --</option>' +
+        (tmpls || []).map(t => `<option value="${t.id}">${escHtml(t.judul)} (${escHtml(t.layanan||'')} - ${escHtml(t.subMenu||t.sub_menu||'')})</option>`).join('');
+    }
+
+    // 3. Render dropdown jenis SK
     const ALL_JENIS = [
       'SK CPTU',
       'SK PTU 100%',
@@ -9448,13 +9450,9 @@ async function buatSkInitForm() {
     if (selJenis) {
       selJenis.innerHTML = '<option value="">-- Pilih Jenis SK / Surat --</option>' +
         ALL_JENIS.map(jenis => {
-          const normKey = jenis.toLowerCase().replace(/\s+/g, ' ');
-          const tmpl = BUAT_SK.templatesMap[jenis] || BUAT_SK.templatesMap[normKey];
-          if (tmpl) {
-            return `<option value="${escHtml(jenis)}">${escHtml(jenis)}</option>`;
-          } else {
-            return `<option value="${escHtml(jenis)}" disabled style="color:var(--text-muted);">${escHtml(jenis)} (Belum ada template di Menu Template)</option>`;
-          }
+          const tmpl = findTemplateForJenis(jenis);
+          const badge = tmpl ? ' ✅' : '';
+          return `<option value="${escHtml(jenis)}">${escHtml(jenis)}${badge}</option>`;
         }).join('');
     }
   } catch(e) {
@@ -9474,31 +9472,34 @@ async function buatSkJenisChange() {
 
   if (!jenis) return;
 
-  // Jika templatesMap belum terisi, coba load ulang
-  if (!BUAT_SK.templatesMap || Object.keys(BUAT_SK.templatesMap).length === 0) {
+  // Pastikan daftar template terisi
+  if (!BUAT_SK.templatesList || BUAT_SK.templatesList.length === 0) {
     await buatSkInitForm();
   }
 
-  // Otomatis terhubung dengan template yang sudah di-upload di Menu Template
-  const normKey = String(jenis).trim().toLowerCase().replace(/\s+/g, ' ');
-  const tmpl = (BUAT_SK.templatesMap || {})[jenis] || (BUAT_SK.templatesMap || {})[normKey];
-  if (!tmpl) {
-    showToast('error', `Belum ada template yang di-upload untuk "${jenis}". Silakan upload di Menu Template.`);
-    return;
-  }
+  // Cari template yang cocok
+  const tmpl = findTemplateForJenis(jenis);
 
-  BUAT_SK.templateId = tmpl.id;
+  if (tmpl) {
+    BUAT_SK.templateId = tmpl.id;
+    const tplSel = document.getElementById('buatSk_template');
+    if (tplSel) tplSel.value = tmpl.id;
 
-  const PERLU_UNIT = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Dekan Wadek'];
-  const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
+    const PERLU_UNIT = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Dekan Wadek'];
+    const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
 
-  if (PERLU_UNIT.includes(jenis)) {
-    document.getElementById('buatSk_unitWrap').style.display = '';
+    if (PERLU_UNIT.includes(jenis)) {
+      document.getElementById('buatSk_unitWrap').style.display = '';
+    } else {
+      document.getElementById('buatSk_searchEmpWrap').style.display = '';
+      await buatSkLoadPlaceholders();
+      if (PERLU_LOOP.includes(jenis)) document.getElementById('buatSk_loopWrap').style.display = '';
+      document.getElementById('buatSk_actionBar').style.display = 'flex';
+    }
   } else {
-    document.getElementById('buatSk_searchEmpWrap').style.display = '';
-    await buatSkLoadPlaceholders();
-    if (PERLU_LOOP.includes(jenis)) document.getElementById('buatSk_loopWrap').style.display = '';
-    document.getElementById('buatSk_actionBar').style.display = 'flex';
+    // Jika tidak ditemukan secara otomatis, tampilkan dropdown pilihan template manual
+    document.getElementById('buatSk_templateWrap').style.display = '';
+    showToast('info', `Silakan pilih template secara manual dari dropdown di bawah.`);
   }
 }
 async function buatSkUnitChange() {
