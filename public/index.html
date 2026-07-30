@@ -9424,9 +9424,11 @@ async function buatSkInitForm() {
     const tmpls = await rpc('getTemplates', [SESSION.token, 'Buat SK dan Surat']);
     BUAT_SK.templatesMap = {};
     (tmpls || []).forEach(t => {
-      const sub = t.subMenu || t.sub_menu;
-      if (sub && !BUAT_SK.templatesMap[sub]) {
-        BUAT_SK.templatesMap[sub] = t;
+      const sub = String(t.subMenu || t.sub_menu || '').trim();
+      if (sub) {
+        if (!BUAT_SK.templatesMap[sub]) BUAT_SK.templatesMap[sub] = t;
+        const normKey = sub.toLowerCase().replace(/\s+/g, ' ');
+        if (!BUAT_SK.templatesMap[normKey]) BUAT_SK.templatesMap[normKey] = t;
       }
     });
 
@@ -9446,7 +9448,8 @@ async function buatSkInitForm() {
     if (selJenis) {
       selJenis.innerHTML = '<option value="">-- Pilih Jenis SK / Surat --</option>' +
         ALL_JENIS.map(jenis => {
-          const tmpl = BUAT_SK.templatesMap[jenis];
+          const normKey = jenis.toLowerCase().replace(/\s+/g, ' ');
+          const tmpl = BUAT_SK.templatesMap[jenis] || BUAT_SK.templatesMap[normKey];
           if (tmpl) {
             return `<option value="${escHtml(jenis)}">${escHtml(jenis)}</option>`;
           } else {
@@ -9471,8 +9474,14 @@ async function buatSkJenisChange() {
 
   if (!jenis) return;
 
+  // Jika templatesMap belum terisi, coba load ulang
+  if (!BUAT_SK.templatesMap || Object.keys(BUAT_SK.templatesMap).length === 0) {
+    await buatSkInitForm();
+  }
+
   // Otomatis terhubung dengan template yang sudah di-upload di Menu Template
-  const tmpl = (BUAT_SK.templatesMap || {})[jenis];
+  const normKey = String(jenis).trim().toLowerCase().replace(/\s+/g, ' ');
+  const tmpl = (BUAT_SK.templatesMap || {})[jenis] || (BUAT_SK.templatesMap || {})[normKey];
   if (!tmpl) {
     showToast('error', `Belum ada template yang di-upload untuk "${jenis}". Silakan upload di Menu Template.`);
     return;

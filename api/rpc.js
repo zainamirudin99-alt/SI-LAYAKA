@@ -1880,10 +1880,10 @@ const methods = {
     let query = db.from('templates').select('*').order('dibuat_pada', { ascending: false });
 
     if (layanan) {
-      if (layanan === 'Kenaikan Pangkat SK') {
-        query = query.or('layanan.eq."Kenaikan Pangkat SK",layanan.eq."Kenaikan Pangkat"');
+      if (layanan === 'Kenaikan Pangkat SK' || layanan === 'Kenaikan Pangkat') {
+        query = query.ilike('layanan', '%Kenaikan Pangkat%');
       } else if (layanan === 'Buat SK dan Surat' || layanan === 'Buat SK') {
-        query = query.or('layanan.eq."Buat SK dan Surat",layanan.eq."Buat SK"');
+        query = query.ilike('layanan', '%Buat SK%');
       } else {
         query = query.eq('layanan', layanan);
       }
