@@ -9486,51 +9486,53 @@ async function buatSkJenisChange() {
 
   const hideAll = ['templateWrap','strukturalWrap','unitWrap','searchEmpWrap','dynamicFormWrap','loopWrap','actionBar'];
   hideAll.forEach(id => { const el = document.getElementById('buatSk_' + id); if (el) el.style.display = 'none'; });
-  document.getElementById('buatSk_dynamicFields').innerHTML = '';
 
   if (!jenis) return;
-
-  // Pastikan daftar template terisi
-  if (!BUAT_SK.templatesList || BUAT_SK.templatesList.length === 0) {
-    await buatSkInitForm();
-  }
-
-  // Cari template yang paling cocok
-  let tmpl = findTemplateForJenis(jenis);
-
-  if (!tmpl && BUAT_SK.templatesList.length > 0) {
-    tmpl = BUAT_SK.templatesList[0];
-    document.getElementById('buatSk_templateWrap').style.display = '';
-  }
-
-  if (tmpl) {
-    BUAT_SK.templateId = tmpl.id;
-    const tplSel = document.getElementById('buatSk_template');
-    if (tplSel) tplSel.value = tmpl.id;
-  }
 
   const PERLU_UNIT = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Dekan Wadek'];
   const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
   const IS_CPTU   = (jenis === 'SK CPTU');
 
+  // 1. LANGSUNG RENDER FORM SINKRON AGAR FORM TIDAK PERNAH BLANK
   if (jenis === 'SK Tutam Struktural') {
     document.getElementById('buatSk_strukturalWrap').style.display = '';
-    return;
-  }
-
-  if (PERLU_UNIT.includes(jenis)) {
+  } else if (PERLU_UNIT.includes(jenis)) {
     document.getElementById('buatSk_unitWrap').style.display = '';
   } else {
-    // SK CPTU: TIDAK ADA AUTO-FILL (Semua input manual)
-    if (IS_CPTU) {
-      document.getElementById('buatSk_searchEmpWrap').style.display = 'none';
-    } else {
+    if (!IS_CPTU) {
       document.getElementById('buatSk_searchEmpWrap').style.display = '';
     }
-
-    await buatSkLoadPlaceholders();
+    // Render default dynamic fields secara sinkron
+    buatSkRenderDynamicFields([
+      'nomor_sk', 'tgl_sk', 'nip', 'nama_lengkap', 'golongan', 'pangkat',
+      'jabatan', 'unit_es_ii', 'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan',
+      'masa_kerja_gol', 'gaji_pokok'
+    ]);
+    document.getElementById('buatSk_dynamicFormWrap').style.display = '';
     if (PERLU_LOOP.includes(jenis)) document.getElementById('buatSk_loopWrap').style.display = '';
     document.getElementById('buatSk_actionBar').style.display = 'flex';
+  }
+
+  // 2. PROSES TEMPLATE & PLACEHOLDERS KHUSUS DI BACKGROUND (NON-BLOCKING)
+  try {
+    if (!BUAT_SK.templatesList || BUAT_SK.templatesList.length === 0) {
+      await buatSkInitForm();
+    }
+
+    let tmpl = findTemplateForJenis(jenis);
+    if (!tmpl && BUAT_SK.templatesList && BUAT_SK.templatesList.length > 0) {
+      tmpl = BUAT_SK.templatesList[0];
+      document.getElementById('buatSk_templateWrap').style.display = '';
+    }
+
+    if (tmpl) {
+      BUAT_SK.templateId = tmpl.id;
+      const tplSel = document.getElementById('buatSk_template');
+      if (tplSel) tplSel.value = tmpl.id;
+      await buatSkLoadPlaceholders();
+    }
+  } catch(errAsync) {
+    console.warn('[buatSkJenisChange] Async load warning:', errAsync);
   }
 }
 
@@ -9554,9 +9556,16 @@ function buatSkStrukturalCustomChange() {
 async function buatSkStrukturalProceed() {
   if (!BUAT_SK.jenisTutamStruktural) return;
   document.getElementById('buatSk_searchEmpWrap').style.display = '';
-  await buatSkLoadPlaceholders();
+  // Render sinkron
+  buatSkRenderDynamicFields([
+    'nomor_sk', 'tgl_sk', 'nip', 'nama_lengkap', 'golongan', 'pangkat',
+    'jabatan', 'unit_es_ii', 'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan',
+    'masa_kerja_gol', 'gaji_pokok'
+  ]);
+  document.getElementById('buatSk_dynamicFormWrap').style.display = '';
   document.getElementById('buatSk_loopWrap').style.display = '';
   document.getElementById('buatSk_actionBar').style.display = 'flex';
+  try { await buatSkLoadPlaceholders(); } catch(_) {}
 }
 
 async function buatSkTemplateChange() {
@@ -9593,10 +9602,18 @@ async function buatSkUnitChange() {
   } catch(_) {}
 
   document.getElementById('buatSk_searchEmpWrap').style.display = '';
-  await buatSkLoadPlaceholders();
+  // Render sinkron
+  buatSkRenderDynamicFields([
+    'nomor_sk', 'tgl_sk', 'nip', 'nama_lengkap', 'golongan', 'pangkat',
+    'jabatan', 'unit_es_ii', 'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan',
+    'masa_kerja_gol', 'gaji_pokok'
+  ]);
+  document.getElementById('buatSk_dynamicFormWrap').style.display = '';
   const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
   if (PERLU_LOOP.includes(BUAT_SK.jenisSk)) document.getElementById('buatSk_loopWrap').style.display = '';
   document.getElementById('buatSk_actionBar').style.display = 'flex';
+
+  try { await buatSkLoadPlaceholders(); } catch(_) {}
 }
 
 async function buatSkLoadPlaceholders() {
