@@ -1957,6 +1957,22 @@
                     <option value="SK Tutam Dekan Wadek">SK Tutam Dekan Wadek</option>
                   </select>
                 </div>
+                <!-- Step 1b: Pilihan Jenis Tutam Struktural (khusus SK Tutam Struktural) -->
+                <div class="stack-field grid-full" id="buatSk_strukturalWrap" style="display:none;">
+                  <label class="kp-label">Pilih Jenis Tutam Struktural <span style="color:#ef4444;">*</span></label>
+                  <select id="buatSk_jenisTutamStruktural" class="field-input" onchange="buatSkStrukturalChange()">
+                    <option value="">-- Pilih Jabatan Struktural --</option>
+                    <option value="Direktur">Direktur</option>
+                    <option value="Wakil Direktur">Wakil Direktur</option>
+                    <option value="Kepala Badan">Kepala Badan</option>
+                    <option value="Kepala Kantor">Kepala Kantor</option>
+                    <option value="Manajer">Manajer</option>
+                    <option value="Supervisor">Supervisor</option>
+                    <option value="Ketua Lembaga">Ketua Lembaga</option>
+                    <option value="custom">Lainnya (Input Manual)...</option>
+                  </select>
+                  <input type="text" id="buatSk_customJenisTutamStruktural" class="field-input" placeholder="Ketik jenis tutam manual..." style="display:none;margin-top:8px;" oninput="buatSkStrukturalCustomChange()" />
+                </div>
                 <!-- Step 2: Pilih Template -->
                 <div class="stack-field" id="buatSk_templateWrap" style="display:none;">
                   <label class="kp-label">Template <span style="color:#ef4444;">*</span></label>
@@ -1995,6 +2011,7 @@
                 <div style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:24px;">
                   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
                     <h4 style="margin:0;font-size:14px;font-weight:700;">👥 Pejabat yang Dilantik</h4>
+                    <div style="font-size:12px;color:var(--text-muted);margin:6px 0 10px 0;padding:6px 10px;background:var(--surface-alt);border-radius:6px;border:1px solid var(--border);">ℹ️ <strong>Format Excel Dilantik:</strong> Nomor, Nama Lengkap, NIP, Jabatan, Golongan, Jenis Tutam</div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
                       <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;" onclick="buatSkAddRowDilantik()">➕ Tambah Manual</button>
                       <label class="btn btn-secondary" style="font-size:12px;padding:5px 12px;cursor:pointer;" title="Format: Nama Lengkap | NIP | Jabatan | Golongan | Jenis Tutam">
@@ -2024,6 +2041,7 @@
                 <div style="border-top:1px solid var(--border);padding-top:16px;">
                   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
                     <h4 style="margin:0;font-size:14px;font-weight:700;">🚫 Pejabat yang Diberhentikan</h4>
+                    <div style="font-size:12px;color:var(--text-muted);margin:6px 0 10px 0;padding:6px 10px;background:var(--surface-alt);border-radius:6px;border:1px solid var(--border);">ℹ️ <strong>Format Excel Diberhentikan:</strong> Nomor, Nama Lengkap, NIP, Jenis Tutam</div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
                       <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;" onclick="buatSkAddRowDiberhentikan()">➕ Tambah Manual</button>
                       <label class="btn btn-secondary" style="font-size:12px;padding:5px 12px;cursor:pointer;" title="Format: Nama Lengkap | NIP | Jenis Tutam">
@@ -9466,7 +9484,7 @@ async function buatSkJenisChange() {
   BUAT_SK.pejabatDilantik = []; BUAT_SK.pejabatDiberhentikan = [];
   buatSkRenderTabelDilantik(); buatSkRenderTabelDiberhentikan();
 
-  const hideAll = ['templateWrap','unitWrap','searchEmpWrap','dynamicFormWrap','loopWrap','actionBar'];
+  const hideAll = ['templateWrap','strukturalWrap','unitWrap','searchEmpWrap','dynamicFormWrap','loopWrap','actionBar'];
   hideAll.forEach(id => { const el = document.getElementById('buatSk_' + id); if (el) el.style.display = 'none'; });
   document.getElementById('buatSk_dynamicFields').innerHTML = '';
 
@@ -9481,7 +9499,6 @@ async function buatSkJenisChange() {
   let tmpl = findTemplateForJenis(jenis);
 
   if (!tmpl && BUAT_SK.templatesList.length > 0) {
-    // Gunakan template pertama sebagai fallback default agar form TIDAK PERNAH KOSONG
     tmpl = BUAT_SK.templatesList[0];
     document.getElementById('buatSk_templateWrap').style.display = '';
   }
@@ -9494,15 +9511,52 @@ async function buatSkJenisChange() {
 
   const PERLU_UNIT = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Dekan Wadek'];
   const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
+  const IS_CPTU   = (jenis === 'SK CPTU');
+
+  if (jenis === 'SK Tutam Struktural') {
+    document.getElementById('buatSk_strukturalWrap').style.display = '';
+    return;
+  }
 
   if (PERLU_UNIT.includes(jenis)) {
     document.getElementById('buatSk_unitWrap').style.display = '';
   } else {
-    document.getElementById('buatSk_searchEmpWrap').style.display = '';
+    // SK CPTU: TIDAK ADA AUTO-FILL (Semua input manual)
+    if (IS_CPTU) {
+      document.getElementById('buatSk_searchEmpWrap').style.display = 'none';
+    } else {
+      document.getElementById('buatSk_searchEmpWrap').style.display = '';
+    }
+
     await buatSkLoadPlaceholders();
     if (PERLU_LOOP.includes(jenis)) document.getElementById('buatSk_loopWrap').style.display = '';
     document.getElementById('buatSk_actionBar').style.display = 'flex';
   }
+}
+
+function buatSkStrukturalChange() {
+  const sel = document.getElementById('buatSk_jenisTutamStruktural').value;
+  const customInput = document.getElementById('buatSk_customJenisTutamStruktural');
+  if (sel === 'custom') {
+    customInput.style.display = '';
+    BUAT_SK.jenisTutamStruktural = customInput.value.trim();
+  } else {
+    customInput.style.display = 'none';
+    BUAT_SK.jenisTutamStruktural = sel;
+  }
+  buatSkStrukturalProceed();
+}
+
+function buatSkStrukturalCustomChange() {
+  BUAT_SK.jenisTutamStruktural = document.getElementById('buatSk_customJenisTutamStruktural').value.trim();
+}
+
+async function buatSkStrukturalProceed() {
+  if (!BUAT_SK.jenisTutamStruktural) return;
+  document.getElementById('buatSk_searchEmpWrap').style.display = '';
+  await buatSkLoadPlaceholders();
+  document.getElementById('buatSk_loopWrap').style.display = '';
+  document.getElementById('buatSk_actionBar').style.display = 'flex';
 }
 
 async function buatSkTemplateChange() {
@@ -9518,8 +9572,11 @@ async function buatSkTemplateChange() {
     await buatSkLoadPlaceholders();
   } else if (!PERLU_UNIT.includes(jenis)) {
     await buatSkLoadPlaceholders();
+    if (PERLU_LOOP.includes(jenis)) document.getElementById('buatSk_loopWrap').style.display = '';
+    document.getElementById('buatSk_actionBar').style.display = 'flex';
   }
 }
+
 async function buatSkUnitChange() {
   const unit = document.getElementById('buatSk_unit').value;
   BUAT_SK.unitEsIi = unit;
@@ -9541,40 +9598,76 @@ async function buatSkUnitChange() {
   if (PERLU_LOOP.includes(BUAT_SK.jenisSk)) document.getElementById('buatSk_loopWrap').style.display = '';
   document.getElementById('buatSk_actionBar').style.display = 'flex';
 }
+
 async function buatSkLoadPlaceholders() {
-  const res = await rpc('getTemplatePlaceholders', [SESSION.token, BUAT_SK.templateId]);
-  BUAT_SK.placeholders = res.placeholders || [];
-  buatSkRenderDynamicFields(BUAT_SK.placeholders);
+  let placeholders = [
+    'nomor_sk', 'tgl_sk', 'nip', 'nama_lengkap', 'golongan', 'pangkat',
+    'jabatan', 'unit_es_ii', 'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan',
+    'masa_kerja_gol', 'gaji_pokok'
+  ];
+
+  if (BUAT_SK.templateId) {
+    try {
+      const res = await rpc('getTemplatePlaceholders', [SESSION.token, BUAT_SK.templateId]);
+      if (res && res.placeholders && res.placeholders.length > 0) {
+        placeholders = res.placeholders;
+      }
+    } catch(errScan) {
+      console.warn('[buatSkLoadPlaceholders] Scan template error, fallback to defaults:', errScan);
+    }
+  }
+
+  BUAT_SK.placeholders = placeholders;
+  buatSkRenderDynamicFields(placeholders);
   document.getElementById('buatSk_dynamicFormWrap').style.display = '';
 }
+
 function buatSkRenderDynamicFields(placeholders) {
   const container = document.getElementById('buatSk_dynamicFields');
   container.innerHTML = '';
-  const AUTO_RESOLVE = new Set(['pimpinan','nama_pimpinan','nama_jabatan','today','tgl_buat','tgl_generate','gaji_pokok']);
+  const AUTO_RESOLVE = new Set(['pimpinan','nama_pimpinan','nama_jabatan','today','tgl_buat','tgl_generate']);
   const LOOP_KEYS = new Set(['pejabat_dilantik','pejabat_diberhentikan','no','nama_lengkap_item','nip_item']);
+  const isCptu = (BUAT_SK.jenisSk === 'SK CPTU');
   const filtered = placeholders.filter(p => !AUTO_RESOLVE.has(p) && !LOOP_KEYS.has(p));
 
   filtered.forEach(key => {
     const label = key.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
     const isDate = /^(tgl_|tmt_|tanggal_)/.test(key);
     const isGol  = key === 'golongan';
-    const isAutofilled = ['nip','nama_lengkap','nama','jabatan','pangkat','unit_es_ii','jenis_peg','pendidikan','tmp_lhr'].includes(key);
+    const isMkg  = key === 'masa_kerja_gol' || key === 'mkg';
+    const isAutofilled = !isCptu && ['nip','nama_lengkap','nama','jabatan','pangkat','unit_es_ii','jenis_peg','pendidikan','tmp_lhr'].includes(key);
 
     let inputHtml;
     if (isGol) {
       const opts = ['I/a','I/b','I/c','I/d','II/a','II/b','II/c','II/d','III/a','III/b','III/c','III/d','IV/a','IV/b','IV/c','IV/d','IV/e'].map(g => `<option value="${g}">${g}</option>`).join('');
-      inputHtml = `<select id="bsk_field_${key}" class="field-input"><option value="">-- Pilih Golongan --</option>${opts}</select>`;
+      inputHtml = `<select id="bsk_field_${key}" class="field-input" onchange="buatSkHitungGajiPokok()"><option value="">-- Pilih Golongan --</option>${opts}</select>`;
     } else if (isDate) {
       inputHtml = `<input type="date" id="bsk_field_${key}" class="field-input" />`;
+    } else if (isMkg) {
+      inputHtml = `<input type="number" id="bsk_field_${key}" class="field-input" min="0" placeholder="0" oninput="buatSkHitungGajiPokok()" onchange="buatSkHitungGajiPokok()" />`;
     } else {
       inputHtml = `<input type="text" id="bsk_field_${key}" class="field-input" placeholder="${escHtml(label)}" ${isAutofilled ? 'style="background:var(--surface-alt);"' : ''} />`;
     }
 
     const spanAuto = isAutofilled ? ' <span style="font-size:11px;color:#10b981;font-weight:600;">(auto-fill)</span>' : '';
-    container.innerHTML += `<div class="stack-field"><label class="kp-label">{{${key}}}${spanAuto}</label>${inputHtml}</div>`;
+    const spanCptu = isCptu ? ' <span style="font-size:11px;color:var(--text-muted);">(manual)</span>' : '';
+    container.innerHTML += `<div class="stack-field"><label class="kp-label">{{${key}}}${spanAuto}${spanCptu}</label>${inputHtml}</div>`;
   });
 
   if (container.innerHTML === '') container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;grid-column:1/-1;">Tidak ada field manual — semua placeholder akan terisi otomatis.</p>';
+}
+
+function buatSkHitungGajiPokok() {
+  const gol = document.getElementById('bsk_field_golongan')?.value || '';
+  const mkg = document.getElementById('bsk_field_masa_kerja_gol')?.value || '0';
+  const fieldGaji = document.getElementById('bsk_field_gaji_pokok');
+  if (fieldGaji && gol) {
+    const mkgNum = parseInt(mkg, 10) || 0;
+    const gaji = hitungGajiPokokNonAsn(gol, mkgNum);
+    if (gaji > 0) {
+      fieldGaji.value = formatRupiah(gaji);
+    }
+  }
 }
 
 // Auto-fill dari data_utama
