@@ -1899,6 +1899,15 @@ const methods = {
 
     const { data, error } = await query;
     if (error) throw error;
+    
+    // Fallback: jika kueri dengan filter layanan mengembalikan 0 baris, ambil seluruh template yang ada
+    if ((!data || data.length === 0) && (layanan || subMenu)) {
+      const { data: allData } = await db.from('templates').select('*').order('dibuat_pada', { ascending: false });
+      if (allData && allData.length > 0) {
+        return allData.map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || 'gdocs', dibuatPada: t.dibuat_pada }));
+      }
+    }
+
     return (data || []).map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || 'gdocs', dibuatPada: t.dibuat_pada }));
   },
 

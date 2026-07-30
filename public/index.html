@@ -9477,29 +9477,47 @@ async function buatSkJenisChange() {
     await buatSkInitForm();
   }
 
-  // Cari template yang cocok
-  const tmpl = findTemplateForJenis(jenis);
+  // Cari template yang paling cocok
+  let tmpl = findTemplateForJenis(jenis);
+
+  if (!tmpl && BUAT_SK.templatesList.length > 0) {
+    // Gunakan template pertama sebagai fallback default agar form TIDAK PERNAH KOSONG
+    tmpl = BUAT_SK.templatesList[0];
+    document.getElementById('buatSk_templateWrap').style.display = '';
+  }
 
   if (tmpl) {
     BUAT_SK.templateId = tmpl.id;
     const tplSel = document.getElementById('buatSk_template');
     if (tplSel) tplSel.value = tmpl.id;
+  }
 
-    const PERLU_UNIT = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Dekan Wadek'];
-    const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
+  const PERLU_UNIT = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Dekan Wadek'];
+  const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
 
-    if (PERLU_UNIT.includes(jenis)) {
-      document.getElementById('buatSk_unitWrap').style.display = '';
-    } else {
-      document.getElementById('buatSk_searchEmpWrap').style.display = '';
-      await buatSkLoadPlaceholders();
-      if (PERLU_LOOP.includes(jenis)) document.getElementById('buatSk_loopWrap').style.display = '';
-      document.getElementById('buatSk_actionBar').style.display = 'flex';
-    }
+  if (PERLU_UNIT.includes(jenis)) {
+    document.getElementById('buatSk_unitWrap').style.display = '';
   } else {
-    // Jika tidak ditemukan secara otomatis, tampilkan dropdown pilihan template manual
-    document.getElementById('buatSk_templateWrap').style.display = '';
-    showToast('info', `Silakan pilih template secara manual dari dropdown di bawah.`);
+    document.getElementById('buatSk_searchEmpWrap').style.display = '';
+    await buatSkLoadPlaceholders();
+    if (PERLU_LOOP.includes(jenis)) document.getElementById('buatSk_loopWrap').style.display = '';
+    document.getElementById('buatSk_actionBar').style.display = 'flex';
+  }
+}
+
+async function buatSkTemplateChange() {
+  const jenis = BUAT_SK.jenisSk;
+  const templateId = document.getElementById('buatSk_template').value;
+  BUAT_SK.templateId = templateId;
+  if (!templateId) return;
+
+  const PERLU_UNIT = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Dekan Wadek'];
+  const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
+
+  if (PERLU_UNIT.includes(jenis) && document.getElementById('buatSk_unit').value) {
+    await buatSkLoadPlaceholders();
+  } else if (!PERLU_UNIT.includes(jenis)) {
+    await buatSkLoadPlaceholders();
   }
 }
 async function buatSkUnitChange() {
