@@ -1843,6 +1843,221 @@
           </div>
         </div>
 
+                <!-- ============ VIEW: BUAT SK DAN SURAT ============ -->
+        <div class="view-panel" id="view-buat-sk" style="display:none;">
+          <div class="card kp-panel">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:16px;">
+              <div>
+                <h3 style="margin:0;font-size:17px;font-weight:700;">📋 Buat SK dan Surat</h3>
+                <p style="margin:4px 0 0 0;color:var(--text-muted);font-size:13px;">Kelola pengajuan dan pembuatan Surat Keputusan (SK) dan Surat Jabatan.</p>
+              </div>
+            </div>
+            <!-- TAB NAVIGATION -->
+            <div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap;">
+              <button class="btn btn-outline" id="tabBuatSkUsulSk" onclick="buatSkSwitchTab('usul-sk')" style="font-size:13px;padding:7px 16px;font-weight:600;">📤 Usul SK</button>
+              <button class="btn btn-outline" id="tabBuatSkUsulanMasuk" onclick="buatSkSwitchTab('usulan-masuk')" style="font-size:13px;padding:7px 16px;font-weight:600;display:none;">📥 Usulan Masuk</button>
+              <button class="btn btn-primary" id="tabBuatSkBuatSk" onclick="buatSkSwitchTab('buat-sk')" style="font-size:13px;padding:7px 16px;font-weight:600;display:none;">⚡ Buat SK dan Surat</button>
+            </div>
+
+            <!-- TAB: USUL SK (user + admin) -->
+            <div id="buatSkTab-usul-sk">
+              <h4 style="margin:0 0 16px 0;color:var(--text-muted);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Ajukan Usulan SK / Surat</h4>
+              <div class="kp-grid">
+                <div class="stack-field grid-full">
+                  <label class="kp-label">Nama / NIP Pegawai yang Diusulkan <span style="color:#ef4444;">*</span></label>
+                  <input type="text" id="usulSk_searchEmp" class="field-input" placeholder="Ketik nama atau NIP..." autocomplete="off" oninput="usulSkSearchEmployee()" />
+                  <div id="usulSk_searchDropdown" style="display:none;position:relative;z-index:200;"></div>
+                  <input type="hidden" id="usulSk_nipTarget" />
+                  <div id="usulSk_selectedTarget" style="display:none;padding:8px 12px;background:var(--surface-alt);border-radius:8px;border:1px solid var(--border);font-size:13px;margin-top:6px;"></div>
+                </div>
+                <div class="stack-field">
+                  <label class="kp-label">Jenis Proposal <span style="color:#ef4444;">*</span></label>
+                  <select id="usulSk_jenisProposal" class="field-input" onchange="usulSkJenisProposalChange()">
+                    <option value="">-- Pilih Jenis --</option>
+                    <option value="Kaprodi">Kaprodi</option>
+                    <option value="Kadep">Kadep</option>
+                    <option value="Sekprodi">Sekprodi</option>
+                    <option value="PLT">PLT</option>
+                    <option value="PLH">PLH</option>
+                  </select>
+                </div>
+                <div class="stack-field" id="usulSk_sekprodiWrap" style="display:none;">
+                  <label class="kp-label">Jumlah Mahasiswa <span style="color:#ef4444;">*</span></label>
+                  <input type="number" id="usulSk_jumlahMahasiswa" class="field-input" min="0" placeholder="Harus lebih dari 100" />
+                  <div id="usulSk_sekprodiAlert" class="helper-text" style="display:none;color:#ef4444;margin-top:6px;">⚠️ Jumlah mahasiswa harus lebih dari 100 untuk Sekprodi.</div>
+                </div>
+                <div class="stack-field">
+                  <label class="kp-label">Nomor Surat Usulan</label>
+                  <input type="text" id="usulSk_nomorSurat" class="field-input" placeholder="Nomor surat resmi" />
+                </div>
+                <div class="stack-field">
+                  <label class="kp-label">Tanggal Surat</label>
+                  <input type="date" id="usulSk_tglSurat" class="field-input" />
+                </div>
+                <div class="stack-field grid-full">
+                  <label class="kp-label">Upload Surat Usulan (PDF/JPG) <span style="color:#ef4444;">*</span></label>
+                  <input type="file" id="usulSk_fileSurat" class="field-input" accept=".pdf,.jpg,.jpeg,.png" />
+                </div>
+                <div class="grid-full" style="margin-top:8px;">
+                  <button class="btn btn-primary" onclick="submitUsulSk()">📤 Ajukan Usulan</button>
+                </div>
+              </div>
+              <!-- Riwayat Usulan Saya -->
+              <div style="margin-top:32px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                  <h4 style="margin:0;font-size:14px;font-weight:700;">📋 Riwayat Usulan Saya</h4>
+                  <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;" onclick="loadUsulanSkSaya()">🔄 Refresh</button>
+                </div>
+                <div id="usulSk_riwayatList"><div class="ce-dashboard-card cdc-empty">Memuat riwayat usulan...</div></div>
+              </div>
+            </div>
+
+            <!-- TAB: USULAN MASUK (admin) -->
+            <div id="buatSkTab-usulan-masuk" style="display:none;">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+                <h4 style="margin:0;font-size:14px;font-weight:700;">📥 Usulan SK Masuk</h4>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <select id="usulanMasuk_filterStatus" class="field-input" style="font-size:12.5px;padding:5px 10px;max-width:180px;" onchange="loadUsulanSkMasuk()">
+                    <option value="">Semua Status</option>
+                    <option value="Diajukan">Diajukan</option>
+                    <option value="Diverifikasi">Diverifikasi</option>
+                    <option value="SK Dibuat">SK Dibuat</option>
+                    <option value="Ditolak">Ditolak</option>
+                  </select>
+                  <select id="usulanMasuk_filterJenis" class="field-input" style="font-size:12.5px;padding:5px 10px;max-width:160px;" onchange="loadUsulanSkMasuk()">
+                    <option value="">Semua Jenis</option>
+                    <option value="Kaprodi">Kaprodi</option>
+                    <option value="Kadep">Kadep</option>
+                    <option value="Sekprodi">Sekprodi</option>
+                    <option value="PLT">PLT</option>
+                    <option value="PLH">PLH</option>
+                  </select>
+                  <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;" onclick="loadUsulanSkMasuk()">🔄 Refresh</button>
+                </div>
+              </div>
+              <div id="usulanSkMasukList"><div class="ce-dashboard-card cdc-empty">Memuat usulan masuk...</div></div>
+            </div>
+
+            <!-- TAB: BUAT SK DAN SURAT (admin) -->
+            <div id="buatSkTab-buat-sk" style="display:none;">
+              <h4 style="margin:0 0 16px 0;color:var(--text-muted);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Buat SK dan Surat</h4>
+              <div class="kp-grid">
+                <!-- Step 1: Jenis SK -->
+                <div class="stack-field">
+                  <label class="kp-label">Jenis SK / Surat <span style="color:#ef4444;">*</span></label>
+                  <select id="buatSk_jenisSk" class="field-input" onchange="buatSkJenisChange()">
+                    <option value="">-- Pilih Jenis --</option>
+                    <option value="SK CPTU">SK CPTU</option>
+                    <option value="SK PTU 100%">SK PTU 100%</option>
+                    <option value="SK Tutam Kadep &amp; Kaprodi">SK Tutam Kadep &amp; Kaprodi</option>
+                    <option value="SK Tutam Sekprodi">SK Tutam Sekprodi</option>
+                    <option value="Surat PLT">Surat PLT</option>
+                    <option value="Surat PLH">Surat PLH</option>
+                    <option value="SK Tutam Struktural">SK Tutam Struktural</option>
+                    <option value="SK Tutam Dekan Wadek">SK Tutam Dekan Wadek</option>
+                  </select>
+                </div>
+                <!-- Step 2: Pilih Template -->
+                <div class="stack-field" id="buatSk_templateWrap" style="display:none;">
+                  <label class="kp-label">Template <span style="color:#ef4444;">*</span></label>
+                  <select id="buatSk_template" class="field-input" onchange="buatSkTemplateChange()">
+                    <option value="">-- Pilih Template --</option>
+                  </select>
+                </div>
+                <!-- Step 3: Pilih Unit (untuk SK yang perlu unit) -->
+                <div class="stack-field grid-full" id="buatSk_unitWrap" style="display:none;">
+                  <label class="kp-label">Unit / Fakultas <span style="color:#ef4444;">*</span></label>
+                  <select id="buatSk_unit" class="field-input" onchange="buatSkUnitChange()">
+                    <option value="">-- Pilih Unit --</option>
+                  </select>
+                  <div id="buatSk_pimpinanBadge" style="display:none;padding:8px 12px;background:var(--surface-alt);border-radius:8px;border:1px solid var(--border);font-size:13px;margin-top:8px;"></div>
+                </div>
+                <!-- Step 4: Search Pegawai untuk auto-fill (untuk SK dengan 1 subjek) -->
+                <div class="stack-field grid-full" id="buatSk_searchEmpWrap" style="display:none;">
+                  <label class="kp-label">Cari Pegawai untuk Auto-fill</label>
+                  <input type="text" id="buatSk_searchEmp" class="field-input" placeholder="Ketik nama atau NIP untuk auto-isi form..." autocomplete="off" oninput="buatSkSearchEmployee()" />
+                  <div id="buatSk_searchDropdown" style="display:none;position:relative;z-index:200;"></div>
+                </div>
+              </div>
+
+              <!-- Step 5: Dynamic Form Fields -->
+              <div id="buatSk_dynamicFormWrap" style="display:none;margin-top:16px;">
+                <div style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:12px;">
+                  <h4 style="margin:0 0 4px 0;font-size:14px;font-weight:700;">📝 Data SK</h4>
+                  <p style="margin:0;font-size:12px;color:var(--text-muted);">Field yang diisi otomatis (pimpinan, nama jabatan, gaji pokok) tidak perlu diisi manual.</p>
+                </div>
+                <div id="buatSk_dynamicFields" class="kp-grid"></div>
+              </div>
+
+              <!-- Step 6: Loop Tabel Pejabat (untuk SK Tutam) -->
+              <div id="buatSk_loopWrap" style="display:none;margin-top:24px;">
+                <!-- Tabel Pejabat Dilantik -->
+                <div style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:24px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+                    <h4 style="margin:0;font-size:14px;font-weight:700;">👥 Pejabat yang Dilantik</h4>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                      <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;" onclick="buatSkAddRowDilantik()">➕ Tambah Manual</button>
+                      <label class="btn btn-secondary" style="font-size:12px;padding:5px 12px;cursor:pointer;" title="Format: Nama Lengkap | NIP | Jabatan | Golongan | Jenis Tutam">
+                        📂 Import Excel
+                        <input type="file" id="buatSk_excelDilantik" accept=".xlsx,.xls" style="display:none;" onchange="buatSkImportExcel('dilantik')" />
+                      </label>
+                      <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;" onclick="buatSkShowSpreadsheetModal('dilantik')">🔗 Link Spreadsheet</button>
+                    </div>
+                  </div>
+                  <div style="overflow-x:auto;">
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                      <thead><tr style="background:var(--surface-alt);">
+                        <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);width:40px;">No</th>
+                        <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);">Nama Lengkap</th>
+                        <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);">NIP</th>
+                        <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);">Jabatan</th>
+                        <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);">Golongan</th>
+                        <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);">Jenis Tutam</th>
+                        <th style="padding:8px 10px;text-align:center;border:1px solid var(--border);width:60px;">Hapus</th>
+                      </tr></thead>
+                      <tbody id="buatSk_tabelDilantikBody"></tbody>
+                    </table>
+                  </div>
+                  <div id="buatSk_dilantikEmpty" style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px;border:1px dashed var(--border);border-radius:8px;margin-top:8px;">Belum ada data. Tambah manual atau import.</div>
+                </div>
+                <!-- Tabel Pejabat Diberhentikan -->
+                <div style="border-top:1px solid var(--border);padding-top:16px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+                    <h4 style="margin:0;font-size:14px;font-weight:700;">🚫 Pejabat yang Diberhentikan</h4>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                      <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;" onclick="buatSkAddRowDiberhentikan()">➕ Tambah Manual</button>
+                      <label class="btn btn-secondary" style="font-size:12px;padding:5px 12px;cursor:pointer;" title="Format: Nama Lengkap | NIP | Jenis Tutam">
+                        📂 Import Excel
+                        <input type="file" id="buatSk_excelDiberhentikan" accept=".xlsx,.xls" style="display:none;" onchange="buatSkImportExcel('diberhentikan')" />
+                      </label>
+                      <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;" onclick="buatSkShowSpreadsheetModal('diberhentikan')">🔗 Link Spreadsheet</button>
+                    </div>
+                  </div>
+                  <div style="overflow-x:auto;">
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                      <thead><tr style="background:var(--surface-alt);">
+                        <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);width:40px;">No</th>
+                        <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);">Nama Lengkap</th>
+                        <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);">NIP</th>
+                        <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);">Jenis Tutam</th>
+                        <th style="padding:8px 10px;text-align:center;border:1px solid var(--border);width:60px;">Hapus</th>
+                      </tr></thead>
+                      <tbody id="buatSk_tabelDiberhentikanBody"></tbody>
+                    </table>
+                  </div>
+                  <div id="buatSk_diberhentikanEmpty" style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px;border:1px dashed var(--border);border-radius:8px;margin-top:8px;">Belum ada data. Tambah manual atau import.</div>
+                </div>
+              </div>
+
+              <!-- Tombol Generate -->
+              <div id="buatSk_actionBar" style="display:none;margin-top:24px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn btn-primary" onclick="buatSkGenerate()" style="font-weight:700;">⚡ Buat SK</button>
+                <button class="btn btn-secondary" onclick="buatSkReset()">🔄 Reset Form</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- ============ VIEW: PERUBAHAN STATUS AKUN (khusus Super Admin) ============ -->
         <div class="view-panel" id="view-peran-akun" style="display:none;">
           <div class="card kp-panel">
@@ -2642,6 +2857,7 @@ function bindSidebarNav() {
       if (view === 'peran-akun') loadPeranAkunList();
       if (view === 'kontrak') initKontrakViewForUser();
       if (view === 'pmk') loadPmkUsulanList();
+      if (view === 'buat-sk') onEnterBuatSkView();
     });
   });
   document.getElementById('logoutBtn').addEventListener('click', logoutUser);
