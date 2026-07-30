@@ -2225,6 +2225,29 @@
   <div class="toast-container" id="toastContainer"></div>
 
   <script>
+// Helper Global RPC untuk Vercel / Supabase API
+async function rpc(methodName, params = []) {
+  try {
+    const response = await fetch('/api/rpc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method: methodName, params: Array.isArray(params) ? params : [params] })
+    });
+    const text = await response.text();
+    let data;
+    try { data = JSON.parse(text); } catch(e) {
+      throw new Error('Respon server tidak valid (' + response.status + ')');
+    }
+    if (!response.ok || data.success === false) {
+      throw new Error((data && (data.message || data.error)) || 'Terjadi kesalahan pada server (' + response.status + ')');
+    }
+    return data;
+  } catch(err) {
+    console.error('[rpc] Fetch error:', err);
+    throw err;
+  }
+}
+window.rpc = rpc;
 if (typeof google === 'undefined' || !google.script || !google.script.run) {
   var google = {
     script: {
