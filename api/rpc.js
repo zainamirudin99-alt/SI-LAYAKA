@@ -1940,19 +1940,40 @@ const methods = {
   // BUAT SK — REFERENSI DATA
   // ================================================================
 
-  /** Ambil daftar unit_es_ii yang unik dari data_utama */
+  /** Ambil daftar unit_es_ii yang unik dari data_utama & pimpinan (lengkap dengan fallback) */
   async getUnitList(args) {
     const [token] = extractArgs(args);
     verifyToken(token);
     const db = getDb();
-    const { data, error } = await db
-      .from('data_utama')
-      .select('unit_es_ii')
-      .not('unit_es_ii', 'is', null)
-      .order('unit_es_ii');
-    if (error) throw error;
-    const units = [...new Set((data || []).map(r => r.unit_es_ii).filter(Boolean))].sort();
-    return { success: true, data: units };
+
+    // 1. Ambil unit dari data_utama
+    const { data: dMain } = await db.from('data_utama').select('unit_es_ii').not('unit_es_ii', 'is', null);
+    // 2. Ambil unit dari pimpinan
+    const { data: dPimp } = await db.from('pimpinan').select('unit_es_ii').not('unit_es_ii', 'is', null);
+
+    const list1 = (dMain || []).map(r => r.unit_es_ii).filter(Boolean);
+    const list2 = (dPimp || []).map(r => r.unit_es_ii).filter(Boolean);
+
+    const FALLBACK_UNITS = [
+      'Fakultas Sains dan Matematika',
+      'Fakultas Teknik',
+      'Fakultas Ekonomika dan Bisnis',
+      'Fakultas Hukum',
+      'Fakultas Kedokteran',
+      'Fakultas Ilmu Budaya',
+      'Fakultas Ilmu Sosial dan Ilmu Politik',
+      'Fakultas Kesehatan Masyarakat',
+      'Fakultas Perikanan dan Ilmu Kelautan',
+      'Fakultas Peternakan dan Pertanian',
+      'Fakultas Psikologi',
+      'Sekolah Vokasi',
+      'Sekolah Pascasarjana',
+      'Direktorat Sumber Daya Manusia',
+      'Direktorat Akademik'
+    ];
+
+    const combined = [...new Set([...list1, ...list2, ...FALLBACK_UNITS])].map(s => String(s).trim()).filter(Boolean).sort();
+    return { success: true, data: combined };
   },
 
   /** Ambil data pimpinan berdasarkan unit_es_ii untuk auto-resolve {{pimpinan}} */

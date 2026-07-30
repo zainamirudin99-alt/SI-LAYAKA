@@ -9427,15 +9427,26 @@ function buatSkTolakUsulan(id) {
 // TAB: BUAT SK DAN SURAT (admin)
 // ================================================================
 async function buatSkInitForm() {
-  // 1. Load unit list untuk dropdown
+  // 1. Load unit list untuk dropdown dengan fallback lengkap
   try {
     const res = await rpc('getUnitList', [SESSION.token]);
     const sel = document.getElementById('buatSk_unit');
+    const DEFAULT_UNITS = [
+      'Fakultas Sains dan Matematika', 'Fakultas Teknik', 'Fakultas Ekonomika dan Bisnis',
+      'Fakultas Hukum', 'Fakultas Kedokteran', 'Fakultas Ilmu Budaya',
+      'Fakultas Ilmu Sosial dan Ilmu Politik', 'Fakultas Kesehatan Masyarakat',
+      'Fakultas Perikanan dan Ilmu Kelautan', 'Fakultas Peternakan dan Pertanian',
+      'Fakultas Psikologi', 'Sekolah Vokasi', 'Sekolah Pascasarjana',
+      'Direktorat Sumber Daya Manusia', 'Direktorat Akademik'
+    ];
+    const units = (res && res.data && res.data.length > 0) ? res.data : DEFAULT_UNITS;
     if (sel) {
-      sel.innerHTML = '<option value="">-- Pilih Unit --</option>';
-      (res.data || []).forEach(u => sel.innerHTML += `<option value="${escHtml(u)}">${escHtml(u)}</option>`);
+      sel.innerHTML = '<option value="">-- Pilih Unit / Fakultas --</option>' +
+        units.map(u => `<option value="${escHtml(u)}">${escHtml(u)}</option>`).join('');
     }
-  } catch(_) {}
+  } catch(e) {
+    console.warn('[buatSkInitForm] Gagal memuat list unit:', e);
+  }
 
   // 2. Fetch templates (termasuk fallback ke seluruh template sistem jika layanan tidak cocok)
   try {
@@ -9496,22 +9507,28 @@ async function buatSkJenisChange() {
   // 1. LANGSUNG RENDER FORM SINKRON AGAR FORM TIDAK PERNAH BLANK
   if (jenis === 'SK Tutam Struktural') {
     document.getElementById('buatSk_strukturalWrap').style.display = '';
-  } else if (PERLU_UNIT.includes(jenis)) {
-    document.getElementById('buatSk_unitWrap').style.display = '';
-  } else {
-    if (!IS_CPTU) {
-      document.getElementById('buatSk_searchEmpWrap').style.display = '';
-    }
-    // Render default dynamic fields secara sinkron
-    buatSkRenderDynamicFields([
-      'nomor_sk', 'tgl_sk', 'nip', 'nama_lengkap', 'golongan', 'pangkat',
-      'jabatan', 'unit_es_ii', 'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan',
-      'masa_kerja_gol', 'gaji_pokok'
-    ]);
-    document.getElementById('buatSk_dynamicFormWrap').style.display = '';
-    if (PERLU_LOOP.includes(jenis)) document.getElementById('buatSk_loopWrap').style.display = '';
-    document.getElementById('buatSk_actionBar').style.display = 'flex';
   }
+
+  if (PERLU_UNIT.includes(jenis)) {
+    document.getElementById('buatSk_unitWrap').style.display = '';
+  }
+
+  // Tampilkan bar pencarian pegawai (kecuali SK CPTU)
+  if (!IS_CPTU) {
+    document.getElementById('buatSk_searchEmpWrap').style.display = '';
+  } else {
+    document.getElementById('buatSk_searchEmpWrap').style.display = 'none';
+  }
+
+  // Langsung render dynamic fields default secara sinkron
+  buatSkRenderDynamicFields([
+    'nomor_sk', 'tgl_sk', 'nip', 'nama_lengkap', 'golongan', 'pangkat',
+    'jabatan', 'unit_es_ii', 'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan',
+    'masa_kerja_gol', 'gaji_pokok'
+  ]);
+  document.getElementById('buatSk_dynamicFormWrap').style.display = '';
+  if (PERLU_LOOP.includes(jenis)) document.getElementById('buatSk_loopWrap').style.display = '';
+  document.getElementById('buatSk_actionBar').style.display = 'flex';
 
   // 2. PROSES TEMPLATE & PLACEHOLDERS KHUSUS DI BACKGROUND (NON-BLOCKING)
   try {
@@ -9717,11 +9734,43 @@ async function buatSkSelectEmployee(nip) {
   document.getElementById('buatSk_searchEmp').value = '';
   try {
     const emp = await rpc('getEmployeeFullData', [SESSION.token, nip]);
-    BUAT_SK.placeholders.forEach(key => {
+    if (!emp) return showToast('error', 'Data pegawai tidak ditemukan.');
+
+    const empNama = emp.nama || emp.nama_lengkap || '';
+    const empNip  = emp.nip || nip;
+    const empGol  = emp.golongan || emp.gol || '';
+    const empJab  = emp.jabatan || '';
+    const empUnit = emp.unit_es_ii || emp.unit || '';
+
+    // Mapping lengkap seluruh alias kolom data_utama
+    const mapVal = {
+      nip:          empNip,
+      nama_lengkap: empNama,
+      nama:         empNama,
+      jabatan:      empJab,
+      golongan:     empGol,
+      pangkat:      emp.pangkat || '',
+      unit_es_ii:   empUnit,
+      tmp_lhr:      emp.tmp_lhr || emp.tempat_lahir || '',
+      tgl_lhr:      emp.tgl_lhr || emp.tanggal_lahir || '',
+      tmt_pengangkatan: emp.tmt_pengangkatan || emp.tmt_pengangkatan_asn || '',
+      jenis_peg:    emp.jenis_peg || emp.jenis_pegawai || '',
+      pendidikan:   emp.pendidikan || ''
+    };
+
+    // Populate bsk_field_ inputs
+    Object.entries(mapVal).forEach(([k, val]) => {
+      const field = document.getElementById('bsk_field_' + k);
+      if (field && val) field.value = val;
+    });
+
+    // Populate placeholders lain yang belum terisi
+    (BUAT_SK.placeholders || []).forEach(key => {
       const field = document.getElementById('bsk_field_' + key);
-      if (!field) return;
-      const val = emp[key] || emp[key.replace('_lengkap','')] || '';
-      if (val) field.value = val;
+      if (field && !field.value) {
+        const val = emp[key] || emp[key.replace('_lengkap','')] || mapVal[key] || '';
+        if (val) field.value = val;
+      }
     });
 
     // Auto-fill mkg_tahun dan mkg_bulan dari data_utama
@@ -9734,7 +9783,24 @@ async function buatSkSelectEmployee(nip) {
       }
     }
     buatSkHitungGajiPokok();
-    showToast('success', 'Data pegawai berhasil diisi otomatis.');
+
+    // Auto-add ke tabel Pejabat Dilantik jika SK Tutam & belum ada di tabel
+    const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
+    if (PERLU_LOOP.includes(BUAT_SK.jenisSk)) {
+      const exists = BUAT_SK.pejabatDilantik.some(p => p.nip === empNip);
+      if (!exists) {
+        BUAT_SK.pejabatDilantik.push({
+          nama_lengkap: empNama,
+          nip: empNip,
+          jabatan: empJab,
+          golongan: empGol,
+          jenis_tutam: BUAT_SK.jenisTutamStruktural || BUAT_SK.jenisSk || ''
+        });
+        buatSkRenderTabelDilantik();
+      }
+    }
+
+    showToast('success', `Data pegawai "${empNama}" berhasil diisi otomatis.`);
   } catch(e) { showToast('error', 'Gagal mengambil data pegawai: ' + e.message); }
 }
 
