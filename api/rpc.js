@@ -1653,14 +1653,29 @@ const methods = {
   async searchEmployees(args) {
     const [token, query] = extractArgs(args);
     const decoded = verifyToken(token);
-    const q=String(query||'').trim().toLowerCase();
-    if (q.length<1) return [];
-    const db=getDb();
-    let req = db.from('data_utama')
-      .select('nip,nama_lengkap,nama,unit_es_ii,jenis_peg')
-      .or(`nama_lengkap.ilike.%${q}%,nama.ilike.%${q}%,nip.ilike.%${q}%`);
+    const rawQ = String(query || '').trim();
+    if (rawQ.length < 1) return [];
+    const db = getDb();
 
-    // Pembatasan Akses: Jika peran akun adalah 'user', HANYA dapat mencari pegawai di unit_es_ii yang sama
+    // Split words for multi-word search (e.g. "ari kri")
+    const words = rawQ.split(/\s+/).filter(Boolean);
+    let req = db.from('data_utama').select('nip,nama_lengkap,nama,unit_es_ii,jenis_peg');
+
+    if (words.length > 1) {
+      words.forEach(w => {
+        const cleanW = w.replace(/[^a-zA-Z0-9]/g, '');
+        if (cleanW) {
+          req = req.or(`nama_lengkap.ilike."%${cleanW}%",nama.ilike."%${cleanW}%",nip.ilike."%${cleanW}%"`);
+        }
+      });
+    } else {
+      const cleanW = rawQ.replace(/[^a-zA-Z0-9]/g, '');
+      if (cleanW) {
+        req = req.or(`nama_lengkap.ilike."%${cleanW}%",nama.ilike."%${cleanW}%",nip.ilike."%${cleanW}%"`);
+      }
+    }
+
+    // Role filtering for standard user
     if (decoded.role === 'user') {
       const callerUnit = await getCallerUnit(decoded, db);
       if (callerUnit) {
@@ -1668,9 +1683,18 @@ const methods = {
       }
     }
 
-    const {data,error} = await req.limit(20);
-    if (error) throw error;
-    return (data||[]).map(e=>({nip:e.nip,nama:e.nama_lengkap||e.nama,unitEsIi:e.unit_es_ii,jenis_pegawai:e.jenis_peg||e.jenis_pegawai||''}));
+    const { data, error } = await req.limit(25);
+    if (error) {
+      console.warn('[searchEmployees] Supabase query error, beralih ke fallback local filter:', error);
+      const { data: fbData } = await db.from('data_utama').select('nip,nama_lengkap,nama,unit_es_ii,jenis_peg').limit(200);
+      const filtered = (fbData || []).filter(e => {
+        const fullText = (String(e.nama_lengkap || '') + ' ' + String(e.nama || '') + ' ' + String(e.nip || '')).toLowerCase();
+        return words.every(w => fullText.includes(w.toLowerCase()));
+      });
+      return filtered.slice(0, 25).map(e => ({ nip: e.nip, nama: e.nama_lengkap || e.nama || e.nip, unitEsIi: e.unit_es_ii, jenis_pegawai: e.jenis_peg || '' }));
+    }
+
+    return (data || []).map(e => ({ nip: e.nip, nama: e.nama_lengkap || e.nama || e.nip, unitEsIi: e.unit_es_ii, jenis_pegawai: e.jenis_peg || '' }));
   },
 
   async getEmployeeFullData(args) {

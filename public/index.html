@@ -1989,10 +1989,10 @@
                   <div id="buatSk_pimpinanBadge" style="display:none;padding:8px 12px;background:var(--surface-alt);border-radius:8px;border:1px solid var(--border);font-size:13px;margin-top:8px;"></div>
                 </div>
                 <!-- Step 4: Search Pegawai untuk auto-fill (untuk SK dengan 1 subjek) -->
-                <div class="stack-field grid-full" id="buatSk_searchEmpWrap" style="display:none;">
+                <div class="stack-field grid-full" id="buatSk_searchEmpWrap" style="display:none;position:relative;">
                   <label class="kp-label">Cari Pegawai untuk Auto-fill</label>
                   <input type="text" id="buatSk_searchEmp" class="field-input" placeholder="Ketik nama atau NIP untuk auto-isi form..." autocomplete="off" oninput="buatSkSearchEmployee()" />
-                  <div id="buatSk_searchDropdown" style="display:none;position:relative;z-index:200;"></div>
+                  <div id="buatSk_searchDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:var(--surface,#ffffff);border:1px solid var(--border,#cbd5e1);border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,0.15);max-height:250px;overflow-y:auto;margin-top:4px;"></div>
                 </div>
               </div>
 
@@ -9795,12 +9795,29 @@ function buatSkSearchEmployee() {
   const q = document.getElementById('buatSk_searchEmp').value.trim();
   const dropdown = document.getElementById('buatSk_searchDropdown');
   if (q.length < 2) { dropdown.style.display = 'none'; return; }
+
   bskEmpSearchTimer = setTimeout(async () => {
     try {
+      dropdown.innerHTML = '<div style="padding:10px 14px;font-size:13px;color:var(--text-muted);text-align:center;">🔍 Mencari data pegawai...</div>';
+      dropdown.style.display = 'block';
+
       const results = await rpc('searchEmployees', [SESSION.token, q]);
-      dropdown.innerHTML = results.map(e => `<div class="autocomplete-item" onclick="buatSkSelectEmployee('${e.nip}')" style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);">${escHtml(e.nama)} <span style="color:var(--text-muted);font-size:12px;">(${e.nip})</span></div>`).join('');
-      dropdown.style.display = results.length ? 'block' : 'none';
-    } catch(_) {}
+      if (results && results.length > 0) {
+        dropdown.innerHTML = results.map(e => `
+          <div class="autocomplete-item" onclick="buatSkSelectEmployee('${e.nip}')" style="padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);transition:background 0.15s ease;" onmouseover="this.style.background='var(--surface-alt)'" onmouseout="this.style.background='transparent'">
+            <div style="font-weight:600;color:var(--text-main);">${escHtml(e.nama)}</div>
+            <div style="font-size:11px;color:var(--text-muted);">NIP: ${escHtml(e.nip)} | ${escHtml(e.unitEsIi||'')}</div>
+          </div>`).join('');
+        dropdown.style.display = 'block';
+      } else {
+        dropdown.innerHTML = '<div style="padding:12px;font-size:13px;color:var(--text-muted);text-align:center;">Pencarian tidak menemukan pegawai.</div>';
+        dropdown.style.display = 'block';
+      }
+    } catch(err) {
+      console.error('[buatSkSearchEmployee] Error:', err);
+      dropdown.innerHTML = `<div style="padding:12px;font-size:13px;color:#ef4444;text-align:center;">Gagal mencari pegawai: ${escHtml(err.message)}</div>`;
+      dropdown.style.display = 'block';
+    }
   }, 300);
 }
 async function buatSkSelectEmployee(nip) {
