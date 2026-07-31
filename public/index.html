@@ -9554,7 +9554,7 @@ function populateUnitDropdown() {
   }
 }
 
-async function buatSkJenisChange() {
+function buatSkJenisChange() {
   try {
     const jenis = document.getElementById('buatSk_jenisSk')?.value || '';
     BUAT_SK.jenisSk = jenis;
@@ -9587,7 +9587,7 @@ async function buatSkJenisChange() {
       if (el) el.style.display = '';
     }
 
-    // Render dynamic fields default secara sinkron (langsung tampil)
+    // Render dynamic fields default secara SINKRON SEKETIKA (0 ms delay)
     const defaultPlaceholders = [
       'nomor_sk', 'tgl_sk', 'nip', 'nama_lengkap', 'golongan', 'pangkat',
       'jabatan', 'unit_es_ii', 'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan',
@@ -9609,17 +9609,22 @@ async function buatSkJenisChange() {
 
     buatSkHitungGajiPokok();
 
-    // 2. PROSES TEMPLATE & PLACEHOLDERS KHUSUS (BACKGROUND)
-    try {
-      if (!BUAT_SK.templatesList || BUAT_SK.templatesList.length === 0) {
-        await buatSkInitForm();
-        tmpl = findTemplateForJenis(jenis);
-        if (tmpl) BUAT_SK.templateId = tmpl.id;
-      }
-      if (tmpl && tmpl.id) await buatSkLoadPlaceholders();
-    } catch(errAsync) {
-      console.warn('[buatSkJenisChange] Async load warning:', errAsync);
-    }
+    // Pemindaian template khusus secara asynchronous di latar belakang tanpa memblokir UI
+    setTimeout(() => {
+      (async () => {
+        try {
+          if (!BUAT_SK.templatesList || BUAT_SK.templatesList.length === 0) {
+            await buatSkInitForm();
+            tmpl = findTemplateForJenis(jenis);
+            if (tmpl) BUAT_SK.templateId = tmpl.id;
+          }
+          if (tmpl && tmpl.id) await buatSkLoadPlaceholders();
+        } catch (eBg) {
+          console.warn('[buatSkJenisChange] Async background scan warning:', eBg);
+        }
+      })();
+    }, 50);
+
   } catch(errMain) {
     console.error('[buatSkJenisChange] Error:', errMain);
   }
@@ -10112,11 +10117,11 @@ async function buatSkGenerate() {
   BUAT_SK.jenisSk = jenisSk;
   BUAT_SK.templateId = templateId;
 
-  // Kumpulkan form_data dari dynamic fields
+  // Kumpulkan form_data dari seluruh elemen bsk_field_ di DOM
   const form_data = {};
-  (BUAT_SK.placeholders || []).forEach(key => {
-    const field = document.getElementById('bsk_field_' + key);
-    if (field) form_data[key] = field.value;
+  document.querySelectorAll('[id^="bsk_field_"]').forEach(el => {
+    const key = el.id.replace('bsk_field_', '');
+    if (key) form_data[key] = el.value;
   });
 
   // Format {{masa_kerja_gol}} dari dua kolom Tahun dan Bulan
@@ -10140,7 +10145,7 @@ async function buatSkGenerate() {
     form_data.nama_pimpinan = BUAT_SK.pimpinanInfo.nama_pimpinan || '';
   }
 
-  showLoadingOverlay('Membuat SK...');
+  showLoadingOverlay('Memproses Pembuatan SK...');
   try {
     const res = await rpc('generateSkBaru', [SESSION.token, {
       jenis_sk: jenisSk, template_id: templateId, form_data,
@@ -10154,26 +10159,29 @@ async function buatSkGenerate() {
       const byteChars = atob(res.base64);
       const byteArr   = new Uint8Array(byteChars.length);
       for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
-      const blob = new Blob([byteArr], { type: res.mimeType });
+      const blob = new Blob([byteArr], { type: res.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
       const url  = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = res.fileName; a.click();
+      const a = document.createElement('a'); a.href = url; a.download = res.fileName || `${jenisSk}.docx`; a.click();
       URL.revokeObjectURL(url);
 
       // Simpan ke riwayat
-      await rpc('saveSkGenerated', [SESSION.token, {
-        jenis_sk: jenisSk, template_id: templateId,
-        unit_es_ii: BUAT_SK.unitEsIi, form_data,
-        pejabat_dilantik: BUAT_SK.pejabatDilantik,
-        pejabat_diberhentikan: BUAT_SK.pejabatDiberhentikan,
-        output_type: 'docx'
-      }]);
+      try {
+        await rpc('saveSkGenerated', [SESSION.token, {
+          jenis_sk: jenisSk, template_id: templateId,
+          unit_es_ii: BUAT_SK.unitEsIi, form_data,
+          pejabat_dilantik: BUAT_SK.pejabatDilantik,
+          pejabat_diberhentikan: BUAT_SK.pejabatDiberhentikan,
+          output_type: 'docx'
+        }]);
+      } catch(sErr) { console.warn('[saveSkGenerated] warning:', sErr); }
+
       showToast('success', `✅ SK "${jenisSk}" berhasil dibuat dan sedang diunduh.`);
     } else if (res.needsGas) {
       showToast('info', res.message || 'Template GDocs memerlukan Google Apps Script.');
     } else {
       showToast('error', res.message || 'Gagal membuat SK.');
     }
-  } catch(e) { hideLoadingOverlay(); showToast('error', 'Error: ' + e.message); }
+  } catch(e) { hideLoadingOverlay(); showToast('error', 'Error: ' + (e.message || e)); }
 }
 
 // Preview SK
@@ -10184,10 +10192,11 @@ async function buatSkPreview() {
   BUAT_SK.jenisSk = jenisSk;
   BUAT_SK.templateId = templateId;
 
+  // Kumpulkan form_data dari seluruh elemen bsk_field_ di DOM
   const form_data = {};
-  (BUAT_SK.placeholders || []).forEach(key => {
-    const field = document.getElementById('bsk_field_' + key);
-    if (field) form_data[key] = field.value;
+  document.querySelectorAll('[id^="bsk_field_"]').forEach(el => {
+    const key = el.id.replace('bsk_field_', '');
+    if (key) form_data[key] = el.value;
   });
 
   const mkgThnEl = document.getElementById('bsk_field_mkg_tahun');
@@ -10228,7 +10237,7 @@ async function buatSkPreview() {
       for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
       const blob = new Blob([byteArr], { type: res.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
       const url  = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = res.fileName || 'Preview_SK.docx'; a.click();
+      const a = document.createElement('a'); a.href = url; a.download = res.fileName || `Preview_${jenisSk}.docx`; a.click();
       URL.revokeObjectURL(url);
       showToast('success', '👁️ File Preview SK berhasil diunduh.');
     } else if (res.needsGas) {
@@ -10236,7 +10245,7 @@ async function buatSkPreview() {
     } else {
       showToast('error', res.message || 'Gagal membuat Preview SK.');
     }
-  } catch(e) { hideLoadingOverlay(); showToast('error', 'Error Preview: ' + e.message); }
+  } catch(e) { hideLoadingOverlay(); showToast('error', 'Error Preview: ' + (e.message || e)); }
 }
 function buatSkReset() {
   BUAT_SK.jenisSk = null; BUAT_SK.templateId = null; BUAT_SK.unitEsIi = null;
