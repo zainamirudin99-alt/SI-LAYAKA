@@ -534,6 +534,56 @@ function cleanWordXmlParagraphBraces(xml) {
 
     return pMatch.replace(pBody, cleanedBody);
   });
+async function downloadTemplateBuffer(fileId) {
+  if (!fileId) throw new Error('File ID template kosong.');
+
+  // 1. Jika fileId adalah URL HTTP/HTTPS penuh
+  if (fileId.startsWith('http://') || fileId.startsWith('https://')) {
+    const res = await fetch(fileId);
+    if (!res.ok) throw new Error(`Gagal mengunduh template dari URL (HTTP ${res.status})`);
+    const arrayBuffer = await res.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
+
+  // 2. Ekstrak Google Drive ID jika string berupa URL Drive
+  let cleanId = String(fileId).trim();
+  const driveMatch = cleanId.match(/\/d\/([a-zA-Z0-9_-]{20,})/) || cleanId.match(/id=([a-zA-Z0-9_-]{20,})/);
+  if (driveMatch) cleanId = driveMatch[1];
+
+  // 3. Coba unduh dari Google Drive (Export DOCX / Direct Download)
+  const exportUrls = [
+    `https://docs.google.com/document/d/${cleanId}/export?format=docx`,
+    `https://drive.google.com/uc?export=download&id=${cleanId}`
+  ];
+
+  for (const url of exportUrls) {
+    try {
+      const res = await fetch(url, { redirect: 'follow' });
+      if (res.ok) {
+        const arrayBuffer = await res.arrayBuffer();
+        const buf = Buffer.from(arrayBuffer);
+        // Cek header berkas ZIP / DOCX (PK\x03\x04 = 0x50 0x4B 0x03 0x04)
+        if (buf.length > 500 && buf[0] === 0x50 && buf[1] === 0x4b) {
+          return buf;
+        }
+      }
+    } catch (e) {
+      console.warn(`[downloadTemplateBuffer] Error downloading from ${url}:`, e.message);
+    }
+  }
+
+  // 4. Fallback ke Supabase Storage (bucket templates)
+  try {
+    const db = getDb();
+    const { data, error } = await db.storage.from('templates').download(cleanId);
+    if (!error && data) {
+      const arrayBuffer = await data.arrayBuffer();
+      const buf = Buffer.from(arrayBuffer);
+      if (buf.length > 0) return buf;
+    }
+  } catch (_) {}
+
+  throw new Error(`Gagal mengunduh template ID "${cleanId}". Pastikan link Google Drive diset ke publik ("Siapa saja yang memiliki link").`);
 }
 
 function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
@@ -1933,6 +1983,40 @@ const methods = {
     }
 
     return (data || []).map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || 'gdocs', dibuatPada: t.dibuat_pada }));
+  async getTemplatePlaceholders(args) {
+    const [token, templateId] = extractArgs(args);
+    verifyToken(token);
+    const DEFAULT_PLACEHOLDERS = [
+      'nomor_sk', 'tgl_sk', 'nip', 'nama_lengkap', 'golongan', 'pangkat',
+      'jabatan', 'unit_es_ii', 'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan',
+      'masa_kerja_gol', 'gaji_pokok'
+    ];
+    if (!templateId || String(templateId).startsWith('default_')) {
+      return { success: true, placeholders: DEFAULT_PLACEHOLDERS };
+    }
+    try {
+      const db = getDb();
+      const { data: tmpl } = await db.from('templates').select('file_id').eq('id', templateId).maybeSingle();
+      if (!tmpl || !tmpl.file_id) return { success: true, placeholders: DEFAULT_PLACEHOLDERS };
+
+      const buf = await downloadTemplateBuffer(tmpl.file_id);
+      const PizZip = require('pizzip');
+      const zip = new PizZip(buf);
+      const docXml = zip.file('word/document.xml')?.asText() || '';
+      const matches = docXml.match(/\{([^{}]+)\}/g) || [];
+      const found = new Set();
+      matches.forEach(m => {
+        const clean = m.replace(/<[^>]+>/g, '').replace(/[{}]/g, '').trim();
+        if (clean && !clean.startsWith('#') && !clean.startsWith('/') && !clean.startsWith('^')) {
+          found.add(clean.toLowerCase());
+        }
+      });
+      const result = found.size > 0 ? Array.from(found) : DEFAULT_PLACEHOLDERS;
+      return { success: true, placeholders: result };
+    } catch(e) {
+      console.warn('[getTemplatePlaceholders] warning:', e.message);
+      return { success: true, placeholders: DEFAULT_PLACEHOLDERS };
+    }
   },
 
   async addTemplate(args) {
