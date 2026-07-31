@@ -1,50 +1,26 @@
 /**
- * api/parse_check.js — Syntax checker for api/rpc.js
- * Uses vm.Script to compile JavaScript exactly like Node.js module loader.
+ * api/parse_check.js — Find the extra closing brace in api/rpc.js
  * DELETE this file after debugging is complete.
  */
 const vm = require('vm');
 const fs = require('fs');
 const path = require('path');
 
-function tryParse(code) {
-  try { new vm.Script(code); return null; }
-  catch (e) { return e.message; }
-}
-
 module.exports = async function handler(req, res) {
   try {
     const rpcPath = path.join(__dirname, 'rpc.js');
     const content = fs.readFileSync(rpcPath, 'utf8');
-    const totalLines = content.split('\n').length;
-    const totalBytes = Buffer.byteLength(content, 'utf8');
-    const fullError = tryParse(content);
-
-    if (!fullError) {
-      return res.status(200).json({ totalLines, totalBytes, status: 'FILE_PARSES_OK' });
-    }
-
-    // Detect what kind of unclosed construct exists by trying to add closing tokens
-    const fixResults = {
-      add_1_brace:           tryParse(content + '\n}') === null ? 'FIXES' : 'no',
-      add_2_braces:          tryParse(content + '\n}\n}') === null ? 'FIXES' : 'no',
-      add_3_braces:          tryParse(content + '\n}\n}\n}') === null ? 'FIXES' : 'no',
-      add_block_comment_end: tryParse(content + '\n*/') === null ? 'FIXES' : 'no',
-      add_backtick:          tryParse(content + '\n`') === null ? 'FIXES' : 'no',
-      add_single_quote:      tryParse(content + "\n'") === null ? 'FIXES' : 'no',
-      add_double_quote:      tryParse(content + '\n"') === null ? 'FIXES' : 'no',
-      add_paren:             tryParse(content + '\n)') === null ? 'FIXES' : 'no',
-      add_bracket:           tryParse(content + '\n]') === null ? 'FIXES' : 'no',
-    };
-
-    // Count brace depth line by line, tracking context properly
     const lines = content.split('\n');
+
     let depth = 0;
     let inStr = false, strCh = '', inBlock = false;
-    const openBraceLines = [];
+    let firstNegativeLine = null;
+    let firstNegativeContext = [];
+    const depthByLine = [];
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
+      const prevDepth = depth;
       for (let j = 0; j < line.length; j++) {
         const c = line[j];
         if (inBlock) {
@@ -59,18 +35,29 @@ module.exports = async function handler(req, res) {
         if (c === '/' && line[j+1] === '/') break;
         if (c === '/' && line[j+1] === '*') { inBlock = true; j++; continue; }
         if (c === '"' || c === "'" || c === '`') { inStr = true; strCh = c; continue; }
-        if (c === '{') { depth++; openBraceLines.push(i + 1); }
-        if (c === '}') { depth--; if (openBraceLines.length > 0) openBraceLines.pop(); }
+        if (c === '{') depth++;
+        if (c === '}') depth--;
+        // Track first time depth goes below 0
+        if (depth < 0 && firstNegativeLine === null) {
+          firstNegativeLine = i + 1;
+          firstNegativeContext = lines.slice(Math.max(0, i-5), i+6).map((l, k) => {
+            const ln = Math.max(1, i-4) + k;
+            return (ln === i+1 ? '>>>' : '   ') + ' ' + ln + ': ' + l;
+          });
+        }
+      }
+      // Track depth at each line for analysis (only near problem area)
+      if (depth < 0 || (firstNegativeLine && i < firstNegativeLine + 10)) {
+        depthByLine.push({ line: i+1, depth, content: line.substring(0, 80) });
       }
     }
 
     res.status(200).json({
-      totalLines,
-      totalBytes,
-      fullFileError: fullError,
-      braceDepthAtEOF: depth,
-      lastUnclosedBracesAtLines: openBraceLines.slice(-10),
-      fixAttempts: fixResults
+      totalLines: lines.length,
+      finalDepth: depth,
+      firstExtraClosingBraceAtLine: firstNegativeLine,
+      context: firstNegativeContext.join('\n'),
+      depthTrace: depthByLine.slice(0, 20)
     });
   } catch (e) {
     res.status(200).json({ fatal: e.message });
