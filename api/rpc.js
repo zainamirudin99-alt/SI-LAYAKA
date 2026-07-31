@@ -231,23 +231,24 @@ async function getCallerUnit(decoded, db) {
 // ================================================================
 async function findEmployeeByNip(inputNip) {
   const db = getDb();
-  const inputTrim = String(inputNip||'').trim();
+  const inputTrim = String(inputNip || '').trim();
+  if (!inputTrim) return null;
 
-  // Direct lookup by NIP
-  const { data, error } = await db.from('data_utama').select('*').eq('nip', inputTrim).maybeSingle();
-  if (error) throw error;
-  if (data) return data;
+  try {
+    const { data, error } = await db.from('data_utama').select('*').eq('nip', inputTrim).maybeSingle();
+    if (!error && data) return data;
+  } catch (_) {}
 
-  // Try without H.7. prefix
   const nipStripped = inputTrim.startsWith(CONFIG.NIP_IGNORED_PREFIX)
     ? inputTrim.substring(CONFIG.NIP_IGNORED_PREFIX.length)
     : inputTrim;
 
-  const { data: data2, error: err2 } = await db.from('data_utama').select('*')
-    .or(`nip.eq.${inputTrim},nip.eq.${nipStripped}`)
-    .maybeSingle();
-  if (err2) throw err2;
-  return data2 || null;
+  try {
+    const { data: data2 } = await db.from('data_utama').select('*').eq('nip', nipStripped).maybeSingle();
+    if (data2) return data2;
+  } catch (_) {}
+
+  return null;
 }
 
 async function getUserRole(nip) {
@@ -1719,15 +1720,50 @@ const methods = {
 
 
   async login(args) {
-    const [nip, password] = extractArgs(args);
-    if (!nip||!password) return {success:false,message:'NIP dan password wajib diisi.'};
-    const emp = await findEmployeeByNip(nip);
-    if (!emp) return {success:false,message:'NIP tidak ditemukan.'};
-    const valid = extractPassword(emp.nip, emp.status_kepegawaian);
-    if (!valid||String(password).trim()!==valid) return {success:false,message:`Password salah. Gunakan ${CONFIG.PASSWORD_DIGIT_LENGTH} digit pertama dari NIP.`};
-    const { role, sub_role } = await getUserRole(emp.nip);
-    const token = signToken(emp, role, sub_role);
-    return {success:true,message:'Login berhasil.',token,user:{nip:emp.nip,nama:emp.nama_lengkap||emp.nama,jabatan:emp.jabatan||'',status_kepegawaian:emp.status_kepegawaian||'',unitEsIi:emp.unit_es_ii||'',role,sub_role}};
+    try {
+      const [nip, password] = extractArgs(args);
+      if (!nip || !password) return { success: false, message: 'NIP dan password wajib diisi.' };
+
+      let emp = null;
+      try {
+        emp = await findEmployeeByNip(nip);
+      } catch (dbErr) {
+        console.error('[login] Error database findEmployeeByNip:', dbErr.message);
+        return { success: false, message: 'Gagal terhubung ke basis data: ' + dbErr.message };
+      }
+
+      if (!emp) return { success: false, message: 'NIP tidak ditemukan.' };
+      const valid = extractPassword(emp.nip, emp.status_kepegawaian);
+      if (!valid || String(password).trim() !== valid) {
+        return { success: false, message: `Password salah. Gunakan ${CONFIG.PASSWORD_DIGIT_LENGTH} digit pertama dari NIP.` };
+      }
+
+      let role = 'normal', sub_role = null;
+      try {
+        const roles = await getUserRole(emp.nip);
+        role = roles.role || 'normal';
+        sub_role = roles.sub_role || null;
+      } catch (_) {}
+
+      const token = signToken(emp, role, sub_role);
+      return {
+        success: true,
+        message: 'Login berhasil.',
+        token,
+        user: {
+          nip: emp.nip,
+          nama: emp.nama_lengkap || emp.nama || '',
+          jabatan: emp.jabatan || '',
+          status_kepegawaian: emp.status_kepegawaian || '',
+          unitEsIi: emp.unit_es_ii || '',
+          role,
+          sub_role
+        }
+      };
+    } catch (err) {
+      console.error('[login] Unhandled error:', err.message);
+      return { success: false, message: 'Gagal melakukan login: ' + err.message };
+    }
   },
 
   async register(args) {
