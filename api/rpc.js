@@ -1983,6 +1983,8 @@ const methods = {
     }
 
     return (data || []).map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || 'gdocs', dibuatPada: t.dibuat_pada }));
+  },
+
   async getTemplatePlaceholders(args) {
     const [token, templateId] = extractArgs(args);
     verifyToken(token);
