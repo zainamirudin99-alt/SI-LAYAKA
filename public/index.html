@@ -9909,10 +9909,26 @@ function buatSkRenderDynamicFields(placeholders) {
   if (!container) return;
 
   const AUTO_RESOLVE = new Set(['pimpinan','nama_pimpinan','nama_jabatan','today']);
-  const LOOP_KEYS = new Set(['pejabat_dilantik','pejabat_diberhentikan','no','nama_lengkap_item','nip_item']);
-  const isCptu = (BUAT_SK.jenisSk === 'SK CPTU');
+  const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
+  const hasLoop = PERLU_LOOP.includes(BUAT_SK.jenisSk);
+
+  // Untuk jenis SK yang memiliki tabel loop, kolom-kolom tabel loop HANYA tampil di tabel, TIDAK di form atas!
+  const LOOP_COLUMNS = new Set([
+    'pejabat_dilantik','pejabat_diberhentikan','no',
+    'nama_lengkap','nip','jabatan','golongan','pangkat','jenis_tutam','tugas_tambahan',
+    'nama_lengkap_item','nip_item','jabatan_item','golongan_item','pangkat_item','jenis_tutam_item','tugas_tambahan_item'
+  ]);
+
   const todayIso = new Date().toISOString().split('T')[0];
-  const filtered = (placeholders || []).filter(p => !AUTO_RESOLVE.has(p) && !LOOP_KEYS.has(p));
+  const isCptu = (BUAT_SK.jenisSk === 'SK CPTU');
+
+  const filtered = (placeholders || []).filter(p => {
+    if (!p) return false;
+    const lowerP = String(p).toLowerCase();
+    if (AUTO_RESOLVE.has(lowerP)) return false;
+    if (hasLoop && LOOP_COLUMNS.has(lowerP)) return false;
+    return true;
+  });
 
   let htmlStr = '';
   filtered.forEach(key => {
@@ -10231,15 +10247,16 @@ async function buatSkSelectEmployee(nip) {
   } catch(e) { showToast('error', 'Gagal mengambil data pegawai: ' + e.message); }
 }
 
-// Inline search & auto-fill per baris untuk Pejabat Dilantik (Kategori 1)
+// Inline search & auto-fill per baris untuk Pejabat Dilantik & Pejabat Diberhentikan
 const _bskRowSearchTimers = {};
-function buatSkSearchRowEmployee(rowIdx, q) {
-  clearTimeout(_bskRowSearchTimers[rowIdx]);
-  const dropdown = document.getElementById(`row_search_dropdown_${rowIdx}`);
+function buatSkSearchRowEmployee(tableType, rowIdx, q) {
+  const keyTimer = `${tableType}_${rowIdx}`;
+  clearTimeout(_bskRowSearchTimers[keyTimer]);
+  const dropdown = document.getElementById(`row_emp_dropdown_${tableType}_${rowIdx}`);
   if (!dropdown) return;
   if (!q || q.trim().length < 2) { dropdown.style.display = 'none'; return; }
 
-  _bskRowSearchTimers[rowIdx] = setTimeout(async () => {
+  _bskRowSearchTimers[keyTimer] = setTimeout(async () => {
     try {
       dropdown.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--text-muted);text-align:center;">🔍 Mencari...</div>';
       dropdown.style.display = 'block';
@@ -10247,7 +10264,7 @@ function buatSkSearchRowEmployee(rowIdx, q) {
       const results = await rpc('searchEmployees', [SESSION.token, q.trim()]);
       if (results && results.length > 0) {
         dropdown.innerHTML = results.map(e => `
-          <div class="autocomplete-item" onclick="buatSkSelectRowEmployee(${rowIdx}, '${e.nip}')" style="padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border);" onmouseover="this.style.background='var(--surface-alt)'" onmouseout="this.style.background='transparent'">
+          <div class="autocomplete-item" onclick="buatSkSelectRowEmployee('${tableType}', ${rowIdx}, '${e.nip}')" style="padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border);" onmouseover="this.style.background='var(--surface-alt)'" onmouseout="this.style.background='transparent'">
             <div style="font-weight:600;color:var(--text-main);">${escHtml(e.nama)}</div>
             <div style="font-size:10px;color:var(--text-muted);">NIP: ${escHtml(e.nip)}</div>
           </div>`).join('');
@@ -10260,8 +10277,8 @@ function buatSkSearchRowEmployee(rowIdx, q) {
   }, 300);
 }
 
-async function buatSkSelectRowEmployee(rowIdx, nip) {
-  const dropdown = document.getElementById(`row_search_dropdown_${rowIdx}`);
+async function buatSkSelectRowEmployee(tableType, rowIdx, nip) {
+  const dropdown = document.getElementById(`row_emp_dropdown_${tableType}_${rowIdx}`);
   if (dropdown) dropdown.style.display = 'none';
   try {
     const emp = await rpc('getEmployeeFullData', [SESSION.token, nip]);
@@ -10272,17 +10289,45 @@ async function buatSkSelectRowEmployee(rowIdx, nip) {
     const empGol  = emp.golongan || emp.gol || '';
     const empJab  = emp.jabatan || '';
 
-    if (BUAT_SK.pejabatDilantik[rowIdx]) {
-      BUAT_SK.pejabatDilantik[rowIdx].nama_lengkap = empNama;
-      BUAT_SK.pejabatDilantik[rowIdx].nip = empNip;
-      BUAT_SK.pejabatDilantik[rowIdx].jabatan = empJab;
-      BUAT_SK.pejabatDilantik[rowIdx].golongan = empGol;
-      // jenis_tutam sengaja tidak di-autofill dari emp — diisi via dropdown DB
+    const targetList = (tableType === 'diberhentikan') ? BUAT_SK.pejabatDiberhentikan : BUAT_SK.pejabatDilantik;
+    if (targetList[rowIdx]) {
+      targetList[rowIdx].nama_lengkap = empNama;
+      targetList[rowIdx].nip = empNip;
+      if (targetList[rowIdx].jabatan !== undefined) targetList[rowIdx].jabatan = empJab;
+      if (targetList[rowIdx].golongan !== undefined) targetList[rowIdx].golongan = empGol;
     }
-    buatSkRenderTabelDilantik();
-    buatSkAutoFillFormFromEmp(emp);
-    showToast('success', `Data pegawai "${empNama}" berhasil diisi ke baris ${rowIdx+1} & form.`);
+
+    if (tableType === 'diberhentikan') buatSkRenderTabelDiberhentikan();
+    else buatSkRenderTabelDilantik();
+
+    showToast('success', `Data pegawai "${empNama}" terisi ke tabel ${tableType === 'diberhentikan' ? 'Diberhentikan' : 'Dilantik'}.`);
   } catch(e) { showToast('error', 'Gagal mengambil data pegawai: ' + e.message); }
+}
+
+// Searchable Autocomplete Jenis Tutam per Baris
+function buatSkSearchRowJenisTutam(tableType, rowIdx, q) {
+  const dropdown = document.getElementById(`row_tutam_dropdown_${tableType}_${rowIdx}`);
+  if (!dropdown) return;
+  const list = BUAT_SK.jenisTutamList || [];
+  const filtered = q ? list.filter(j => j.toLowerCase().includes(q.toLowerCase())) : list;
+  if (filtered.length === 0) {
+    dropdown.style.display = 'none';
+    return;
+  }
+  dropdown.innerHTML = filtered.map(item => `
+    <div style="padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border);" 
+         onmouseover="this.style.background='var(--surface-alt)'" 
+         onmouseout="this.style.background='transparent'"
+         onclick="
+           if('${tableType}'==='diberhentikan') BUAT_SK.pejabatDiberhentikan[${rowIdx}].jenis_tutam='${escHtml(item)}';
+           else BUAT_SK.pejabatDilantik[${rowIdx}].jenis_tutam='${escHtml(item)}';
+           if('${tableType}'==='diberhentikan') buatSkRenderTabelDiberhentikan();
+           else buatSkRenderTabelDilantik();
+         ">
+      ${escHtml(item)}
+    </div>
+  `).join('');
+  dropdown.style.display = 'block';
 }
 
 // Tabel Loop — Dilantik
@@ -10294,34 +10339,25 @@ function buatSkRenderTabelDilantik() {
   if (!BUAT_SK.pejabatDilantik.length) { if(empty) empty.style.display=''; return; }
   if(empty) empty.style.display = 'none';
 
-  const KAT1 = ['SK Tutam Kadep & Kaprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
-  const isKat1 = KAT1.includes(BUAT_SK.jenisSk);
-  const tutamOpts = (BUAT_SK.jenisTutamList || []).map(j => `<option value="${escHtml(j)}">${escHtml(j)}</option>`).join('');
-
   BUAT_SK.pejabatDilantik.forEach((p, i) => {
-    let jenisTutamCell;
-    if (tutamOpts) {
-      jenisTutamCell = `<select onchange="BUAT_SK.pejabatDilantik[${i}].jenis_tutam=this.value" style="border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;width:100%;background:var(--surface);">
-        <option value="">-- Pilih Jenis Tutam --</option>
-        ${(BUAT_SK.jenisTutamList || []).map(j => `<option value="${escHtml(j)}" ${p.jenis_tutam===j ? 'selected':''}>${escHtml(j)}</option>`).join('')}
-      </select>`;
-    } else {
-      jenisTutamCell = `<input type="text" value="${escHtml(p.jenis_tutam||'')}" onchange="BUAT_SK.pejabatDilantik[${i}].jenis_tutam=this.value" style="border:none;background:transparent;width:100%;font-size:13px;" />`;
-    }
+    const jenisTutamCell = `
+      <div style="position:relative;">
+        <input type="text" value="${escHtml(p.jenis_tutam||'')}" 
+               placeholder="Cari / Ketik Jenis Tutam..." 
+               oninput="BUAT_SK.pejabatDilantik[${i}].jenis_tutam=this.value; buatSkSearchRowJenisTutam('dilantik', ${i}, this.value)" 
+               onfocus="buatSkSearchRowJenisTutam('dilantik', ${i}, this.value)" 
+               style="border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;width:100%;background:var(--surface);" />
+        <div id="row_tutam_dropdown_dilantik_${i}" style="position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:6px;max-height:160px;overflow-y:auto;z-index:200;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+      </div>`;
 
-    let namaCell;
-    if (isKat1) {
-      namaCell = `
-        <div style="position:relative;">
-          <input type="text" value="${escHtml(p.nama_lengkap||'')}" 
-                 placeholder="Cari / Ketik Nama Pegawai..." 
-                 oninput="BUAT_SK.pejabatDilantik[${i}].nama_lengkap=this.value; buatSkSearchRowEmployee(${i}, this.value)" 
-                 style="border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;width:100%;background:var(--surface);" />
-          <div id="row_search_dropdown_${i}" style="position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:6px;max-height:160px;overflow-y:auto;z-index:200;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
-        </div>`;
-    } else {
-      namaCell = `<input type="text" value="${escHtml(p.nama_lengkap||'')}" onchange="BUAT_SK.pejabatDilantik[${i}].nama_lengkap=this.value" style="border:none;background:transparent;width:100%;font-size:13px;" />`;
-    }
+    const namaCell = `
+      <div style="position:relative;">
+        <input type="text" value="${escHtml(p.nama_lengkap||'')}" 
+               placeholder="Cari / Ketik Nama Pegawai..." 
+               oninput="BUAT_SK.pejabatDilantik[${i}].nama_lengkap=this.value; buatSkSearchRowEmployee('dilantik', ${i}, this.value)" 
+               style="border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;width:100%;background:var(--surface);" />
+        <div id="row_emp_dropdown_dilantik_${i}" style="position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:6px;max-height:160px;overflow-y:auto;z-index:200;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+      </div>`;
 
     tbody.innerHTML += `<tr>
       <td style="padding:6px 10px;border:1px solid var(--border);text-align:center;">${i+1}</td>
@@ -10347,12 +10383,32 @@ function buatSkRenderTabelDiberhentikan() {
   tbody.innerHTML = '';
   if (!BUAT_SK.pejabatDiberhentikan.length) { if(empty) empty.style.display=''; return; }
   if(empty) empty.style.display = 'none';
+
   BUAT_SK.pejabatDiberhentikan.forEach((p, i) => {
+    const jenisTutamCell = `
+      <div style="position:relative;">
+        <input type="text" value="${escHtml(p.jenis_tutam||'')}" 
+               placeholder="Cari / Ketik Jenis Tutam..." 
+               oninput="BUAT_SK.pejabatDiberhentikan[${i}].jenis_tutam=this.value; buatSkSearchRowJenisTutam('diberhentikan', ${i}, this.value)" 
+               onfocus="buatSkSearchRowJenisTutam('diberhentikan', ${i}, this.value)" 
+               style="border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;width:100%;background:var(--surface);" />
+        <div id="row_tutam_dropdown_diberhentikan_${i}" style="position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:6px;max-height:160px;overflow-y:auto;z-index:200;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+      </div>`;
+
+    const namaCell = `
+      <div style="position:relative;">
+        <input type="text" value="${escHtml(p.nama_lengkap||'')}" 
+               placeholder="Cari / Ketik Nama Pegawai..." 
+               oninput="BUAT_SK.pejabatDiberhentikan[${i}].nama_lengkap=this.value; buatSkSearchRowEmployee('diberhentikan', ${i}, this.value)" 
+               style="border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;width:100%;background:var(--surface);" />
+        <div id="row_emp_dropdown_diberhentikan_${i}" style="position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:6px;max-height:160px;overflow-y:auto;z-index:200;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+      </div>`;
+
     tbody.innerHTML += `<tr>
       <td style="padding:6px 10px;border:1px solid var(--border);text-align:center;">${i+1}</td>
-      <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.nama_lengkap||'')}" onchange="BUAT_SK.pejabatDiberhentikan[${i}].nama_lengkap=this.value" style="border:none;background:transparent;width:100%;font-size:13px;" /></td>
+      <td style="padding:6px 10px;border:1px solid var(--border);">${namaCell}</td>
       <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.nip||'')}" onchange="BUAT_SK.pejabatDiberhentikan[${i}].nip=this.value" style="border:none;background:transparent;width:100%;font-size:13px;" /></td>
-      <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.jenis_tutam||'')}" onchange="BUAT_SK.pejabatDiberhentikan[${i}].jenis_tutam=this.value" style="border:none;background:transparent;width:100%;font-size:13px;" /></td>
+      <td style="padding:6px 10px;border:1px solid var(--border);">${jenisTutamCell}</td>
       <td style="padding:6px 10px;border:1px solid var(--border);text-align:center;"><button onclick="buatSkRemoveRow('diberhentikan',${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;">&#x2715;</button></td>
     </tr>`;
   });
