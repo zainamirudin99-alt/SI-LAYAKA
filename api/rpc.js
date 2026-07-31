@@ -534,57 +534,7 @@ function cleanWordXmlParagraphBraces(xml) {
 
     return pMatch.replace(pBody, cleanedBody);
   });
-async function downloadTemplateBuffer(fileId) {
-  if (!fileId) throw new Error('File ID template kosong.');
 
-  // 1. Jika fileId adalah URL HTTP/HTTPS penuh
-  if (fileId.startsWith('http://') || fileId.startsWith('https://')) {
-    const res = await fetch(fileId);
-    if (!res.ok) throw new Error(`Gagal mengunduh template dari URL (HTTP ${res.status})`);
-    const arrayBuffer = await res.arrayBuffer();
-    return Buffer.from(arrayBuffer);
-  }
-
-  // 2. Ekstrak Google Drive ID jika string berupa URL Drive
-  let cleanId = String(fileId).trim();
-  const driveMatch = cleanId.match(/\/d\/([a-zA-Z0-9_-]{20,})/) || cleanId.match(/id=([a-zA-Z0-9_-]{20,})/);
-  if (driveMatch) cleanId = driveMatch[1];
-
-  // 3. Coba unduh dari Google Drive (Export DOCX / Direct Download)
-  const exportUrls = [
-    `https://docs.google.com/document/d/${cleanId}/export?format=docx`,
-    `https://drive.google.com/uc?export=download&id=${cleanId}`
-  ];
-
-  for (const url of exportUrls) {
-    try {
-      const res = await fetch(url, { redirect: 'follow' });
-      if (res.ok) {
-        const arrayBuffer = await res.arrayBuffer();
-        const buf = Buffer.from(arrayBuffer);
-        // Cek header berkas ZIP / DOCX (PK\x03\x04 = 0x50 0x4B 0x03 0x04)
-        if (buf.length > 500 && buf[0] === 0x50 && buf[1] === 0x4b) {
-          return buf;
-        }
-      }
-    } catch (e) {
-      console.warn(`[downloadTemplateBuffer] Error downloading from ${url}:`, e.message);
-    }
-  }
-
-  // 4. Fallback ke Supabase Storage (bucket templates)
-  try {
-    const db = getDb();
-    const { data, error } = await db.storage.from('templates').download(cleanId);
-    if (!error && data) {
-      const arrayBuffer = await data.arrayBuffer();
-      const buf = Buffer.from(arrayBuffer);
-      if (buf.length > 0) return buf;
-    }
-  } catch (_) {}
-
-  throw new Error(`Gagal mengunduh template ID "${cleanId}". Pastikan link Google Drive diset ke publik ("Siapa saja yang memiliki link").`);
-}
 
 function createDefaultSkDocxBuffer(jenis_sk, dataCtx) {
   const PizZip = require('pizzip');
@@ -1672,19 +1622,48 @@ const TEMPLATE_BUFFER_CACHE = new Map();
 
 async function downloadTemplateBuffer(fileIdOrUrl) {
   if (!fileIdOrUrl) throw new Error('File ID atau URL template tidak boleh kosong');
-  if (TEMPLATE_BUFFER_CACHE.has(fileIdOrUrl)) {
-    return TEMPLATE_BUFFER_CACHE.get(fileIdOrUrl);
+  const cacheKey = String(fileIdOrUrl).trim();
+  if (TEMPLATE_BUFFER_CACHE.has(cacheKey)) {
+    return TEMPLATE_BUFFER_CACHE.get(cacheKey);
   }
 
   const db = getDb();
-  let path = fileIdOrUrl;
-  
+  let path = cacheKey;
+
+  // 1. Tangani Google Drive ID / Link (d/1abc... atau id=1abc...)
+  let cleanDriveId = path;
+  const driveMatch = path.match(/\/d\/([a-zA-Z0-9_-]{20,})/) || path.match(/id=([a-zA-Z0-9_-]{20,})/);
+  if (driveMatch) cleanDriveId = driveMatch[1];
+
+  if (/^[a-zA-Z0-9_-]{20,}$/.test(cleanDriveId) && !path.includes('/storage/v1/')) {
+    const exportUrls = [
+      `https://docs.google.com/document/d/${cleanDriveId}/export?format=docx`,
+      `https://drive.google.com/uc?export=download&id=${cleanDriveId}`
+    ];
+    for (const url of exportUrls) {
+      try {
+        const res = await fetch(url, { redirect: 'follow' });
+        if (res.ok) {
+          const arrayBuffer = await res.arrayBuffer();
+          const buf = Buffer.from(arrayBuffer);
+          if (buf.length > 500 && buf[0] === 0x50 && buf[1] === 0x4b) {
+            TEMPLATE_BUFFER_CACHE.set(cacheKey, buf);
+            return buf;
+          }
+        }
+      } catch (e) {
+        console.warn(`[downloadTemplateBuffer] Google Drive fetch failed for ${url}:`, e.message);
+      }
+    }
+  }
+
+  // 2. Tangani Supabase Storage URL
   if (path.includes('/storage/v1/object/public/lampiran-usulan/')) {
     path = path.split('/storage/v1/object/public/lampiran-usulan/')[1];
   } else if (path.includes('/storage/v1/object/sign/lampiran-usulan/')) {
     path = path.split('/storage/v1/object/sign/lampiran-usulan/')[1].split('?')[0];
   }
-  
+
   let buf = null;
   if (!path.startsWith('http://') && !path.startsWith('https://')) {
     try {
@@ -1692,25 +1671,38 @@ async function downloadTemplateBuffer(fileIdOrUrl) {
       if (!error && data) {
         const arrayBuf = await data.arrayBuffer();
         buf = Buffer.from(arrayBuf);
-      } else {
-        console.warn(`[rpc download] SDK download failed for path=${path}:`, error?.message || error);
       }
-    } catch (e) {
-      console.warn(`[rpc download] SDK download exception for path=${path}:`, e.message);
+    } catch (_) {}
+
+    if (!buf) {
+      try {
+        const { data, error } = await db.storage.from('templates').download(path);
+        if (!error && data) {
+          const arrayBuf = await data.arrayBuffer();
+          buf = Buffer.from(arrayBuf);
+        }
+      } catch (_) {}
     }
   }
-  
-  if (!buf) {
-    const fetchResp = await fetch(fileIdOrUrl);
-    if (!fetchResp.ok) throw new Error(`Fetch failed with status ${fetchResp.status}`);
-    const arrayBuf = await fetchResp.arrayBuffer();
-    buf = Buffer.from(arrayBuf);
+
+  if (!buf && (fileIdOrUrl.startsWith('http://') || fileIdOrUrl.startsWith('https://'))) {
+    try {
+      const fetchResp = await fetch(fileIdOrUrl);
+      if (fetchResp.ok) {
+        const arrayBuf = await fetchResp.arrayBuffer();
+        buf = Buffer.from(arrayBuf);
+      }
+    } catch (e) {
+      console.warn(`[downloadTemplateBuffer] HTTP fetch failed:`, e.message);
+    }
   }
 
   if (buf && buf.length > 0) {
-    TEMPLATE_BUFFER_CACHE.set(fileIdOrUrl, buf);
+    TEMPLATE_BUFFER_CACHE.set(cacheKey, buf);
+    return buf;
   }
-  return buf;
+
+  throw new Error(`Gagal mengunduh file template "${fileIdOrUrl}". Pastikan link Google Drive atau berkas Supabase diset publik.`);
 }
 
 // ================================================================
