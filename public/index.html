@@ -9905,6 +9905,7 @@ function buatSkRenderDynamicFields(placeholders) {
     const isDate = /^(tgl_|tmt_|tanggal_)/.test(key) || key.includes('tgl') || key.includes('tanggal');
     const isTodayDefault = /^(tgl_buat|tanggal_buat|tgl_sk|tanggal_sk|tgl_generate)$/.test(key);
     const isGol  = key === 'golongan';
+    const isMkg  = key === 'masa_kerja_gol';
     const isAutofilled = isTodayDefault || (!isCptu && [
       'nip','nama_lengkap','nama','golongan','jabatan','pangkat','unit_es_ii',
       'jenis_peg','pendidikan','jurusan','prodi','program_studi','thn_lulus',
