@@ -9525,13 +9525,16 @@ function findTemplateForJenis(jenis, targetTipe = null) {
 
   const matchFilter = (t) => {
     if (!filterTipe) return true;
-    // Inferkan tipe dari ekstensi file_id jika field tipe belum diset
+    // Cek dari field tipe (null = belum diset, cocokkan semua)
     const rawTipe = String(t.tipe || '').toLowerCase();
-    const fileId  = String(t.file_id || t.fileId || '').toLowerCase();
-    const tTipe   = rawTipe || (fileId.endsWith('.docx') ? 'docx' : (fileId ? 'gdocs' : ''));
-    if (!tTipe) return true; // Tidak diketahui → cocokkan semua
-    if (filterTipe === 'docx')  return tTipe === 'docx';
-    if (filterTipe === 'gdocs') return tTipe === 'gdocs' || tTipe === 'gdrive';
+    // Infer dari ekstensi fileId (camelCase dari API) atau file_id
+    const fileId = String(t.fileId || t.file_id || '').toLowerCase();
+    const inferredTipe = rawTipe || (fileId.endsWith('.docx') ? 'docx' : '');
+
+    // Jika tipe tidak diketahui / belum diset → tampilkan di semua filter
+    if (!inferredTipe) return true;
+    if (filterTipe === 'docx')  return inferredTipe === 'docx';
+    if (filterTipe === 'gdocs') return inferredTipe === 'gdocs' || inferredTipe === 'gdrive';
     return true;
   };
 
@@ -9681,8 +9684,13 @@ async function buatSkJenisChange() {
       await (_buatSkInitPromise || buatSkStartTemplatePreload());
     }
 
+    // DEBUG: tampilkan semua template yang tersedia di console
+    console.log('[buatSkJenisChange] Jenis:', jenis, '| Tipe:', tipeTemplate);
+    console.log('[buatSkJenisChange] templatesList:', BUAT_SK.templatesList);
+
     // Cari template yang tepat untuk jenis dan tipe terpilih
     const tmpl = findTemplateForJenis(jenis, tipeTemplate);
+    console.log('[buatSkJenisChange] template ditemukan:', tmpl);
 
     // BILA TEMPLATE BELUM DIUPLOAD
     if (!tmpl) {

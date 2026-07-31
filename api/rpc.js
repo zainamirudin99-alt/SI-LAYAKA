@@ -2119,7 +2119,7 @@ const methods = {
     verifyToken(token);
     const {data,error}=await getDb().from('templates').select('*').order('dibuat_pada',{ascending:false});
     if (error) throw error;
-    return (data||[]).map(t=>({id:t.id,judul:t.judul,fileId:t.file_id,layanan:t.layanan,subMenu:t.sub_menu,tipe:t.tipe || 'gdocs',dibuatPada:t.dibuat_pada}));
+    return (data||[]).map(t=>({id:t.id,judul:t.judul,fileId:t.file_id,file_id:t.file_id,layanan:t.layanan,subMenu:t.sub_menu,tipe:t.tipe||null,dibuatPada:t.dibuat_pada}));
   },
 
   async getTemplates(args) {
@@ -2153,12 +2153,13 @@ const methods = {
     if ((!data || data.length === 0) && (layanan || subMenu)) {
       const { data: allData } = await db.from('templates').select('*').order('dibuat_pada', { ascending: false });
       if (allData && allData.length > 0) {
-        return allData.map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || 'gdocs', dibuatPada: t.dibuat_pada }));
+        return allData.map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, file_id: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || null, dibuatPada: t.dibuat_pada }));
       }
     }
 
-    return (data || []).map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || 'gdocs', dibuatPada: t.dibuat_pada }));
+    return (data || []).map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, file_id: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || null, dibuatPada: t.dibuat_pada }));
   },
+
 
   async getTemplatePlaceholders(args) {
     const [token, templateId] = extractArgs(args);
