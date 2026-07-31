@@ -2149,16 +2149,52 @@ const methods = {
       const buf = await downloadTemplateBuffer(tmpl.file_id);
       const PizZip = require('pizzip');
       const zip = new PizZip(buf);
-      const docXml = zip.file('word/document.xml')?.asText() || '';
-      const matches = docXml.match(/\{([^{}]+)\}/g) || [];
+
+      // Scan SEMUA file XML dalam DOCX: dokumen, header, footer, footnote, endnote
+      const xmlFilesToScan = Object.keys(zip.files).filter(f =>
+        f.endsWith('.xml') && (
+          f.includes('word/document') ||
+          f.includes('word/header')  ||
+          f.includes('word/footer')  ||
+          f.includes('word/footnote') ||
+          f.includes('word/endnote')
+        )
+      );
+
       const found = new Set();
-      matches.forEach(m => {
-        const clean = m.replace(/<[^>]+>/g, '').replace(/[{}]/g, '').trim();
-        if (clean && !clean.startsWith('#') && !clean.startsWith('/') && !clean.startsWith('^')) {
-          found.add(clean.toLowerCase());
-        }
-      });
+      const VALID_ID = /^[a-zA-Z_][a-zA-Z0-9_]{0,59}$/; // identifier yang masuk akal
+
+      for (const fileName of xmlFilesToScan) {
+        const xmlFile = zip.file(fileName);
+        if (!xmlFile) continue;
+        const xml = xmlFile.asText();
+
+        // Pass 1 — cari {…} di raw XML (boleh ada tag XML di dalam)
+        (xml.match(/\{[^{}]{1,120}\}/g) || []).forEach(m => {
+          const clean = m.replace(/<[^>]+>/g, '').replace(/[{}]/g, '').trim();
+          if (clean && VALID_ID.test(clean) &&
+              !clean.startsWith('#') && !clean.startsWith('/') && !clean.startsWith('^')) {
+            found.add(clean.toLowerCase());
+          }
+        });
+
+        // Pass 2 — strip seluruh tag XML lalu cari {{…}} dan {…}
+        const textOnly = xml.replace(/<[^>]+>/g, ' ');
+        (textOnly.match(/\{\{([a-zA-Z_][a-zA-Z0-9_]{0,59})\}\}/g) || []).forEach(m => {
+          const clean = m.replace(/[{}]/g, '').trim();
+          if (clean && VALID_ID.test(clean)) found.add(clean.toLowerCase());
+        });
+        (textOnly.match(/\{([a-zA-Z_][a-zA-Z0-9_]{0,59})\}/g) || []).forEach(m => {
+          const clean = m.replace(/[{}]/g, '').trim();
+          if (clean && VALID_ID.test(clean) &&
+              !clean.startsWith('#') && !clean.startsWith('/') && !clean.startsWith('^')) {
+            found.add(clean.toLowerCase());
+          }
+        });
+      }
+
       const result = found.size > 0 ? Array.from(found) : DEFAULT_PLACEHOLDERS;
+      console.log(`[getTemplatePlaceholders] templateId=${templateId} → ${result.length} placeholder(s):`, result);
       return { success: true, placeholders: result };
     } catch(e) {
       console.warn('[getTemplatePlaceholders] warning:', e.message);
