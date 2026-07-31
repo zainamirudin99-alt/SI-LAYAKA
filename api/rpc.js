@@ -24,41 +24,39 @@ function uuidv4() {
 // ----------------------------------------------------------------
 // SUPABASE CLIENT
 // ----------------------------------------------------------------
+function createMockSupabaseClient(msg) {
+  const handler = {
+    get(target, prop) {
+      if (prop === 'then') return undefined;
+      if (prop === 'data') return null;
+      if (prop === 'error') return new Error(msg);
+      return function(...args) {
+        return new Proxy(
+          Promise.resolve({ data: null, error: new Error(msg) }),
+          handler
+        );
+      };
+    }
+  };
+  return new Proxy({}, handler);
+}
+
 let supabase = null;
 function getDb() {
   if (supabase) return supabase;
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || '';
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-  if (!url || !key) {
-    console.warn('[rpc getDb] SUPABASE_URL atau SUPABASE_SERVICE_ROLE_KEY belum diset di Vercel environment variables.');
-    return {
-      from: () => ({
-        select: () => ({
-          eq: () => ({
-            maybeSingle: async () => ({ data: null, error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') }),
-            order: async () => ({ data: [], error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') })
-          }),
-          or: () => ({
-            order: async () => ({ data: [], error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') })
-          }),
-          maybeSingle: async () => ({ data: null, error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') }),
-          order: async () => ({ data: [], error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') })
-        }),
-        insert: async () => ({ error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') }),
-        update: () => ({ eq: async () => ({ error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') }) }),
-        delete: () => ({ eq: async () => ({ error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') }) })
-      }),
-      storage: {
-        from: () => ({
-          upload: async () => ({ error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') }),
-          getPublicUrl: () => ({ data: { publicUrl: '' } }),
-          download: async () => ({ data: null, error: new Error('SUPABASE_URL belum dikonfigurasi pada Vercel env vars.') })
-        })
-      }
-    };
+  if (!url || !key || !url.startsWith('http')) {
+    console.warn('[rpc getDb] SUPABASE_URL atau SUPABASE_SERVICE_ROLE_KEY belum diset dengan benar di Vercel env vars.');
+    return createMockSupabaseClient('SUPABASE_URL atau SUPABASE_SERVICE_ROLE_KEY belum dikonfigurasi pada Vercel environment variables.');
   }
-  supabase = createClient(url, key);
-  return supabase;
+  try {
+    supabase = createClient(url, key);
+    return supabase;
+  } catch (err) {
+    console.error('[rpc getDb] Error in createClient:', err.message);
+    return createMockSupabaseClient('Gagal inisialisasi Supabase client: ' + err.message);
+  }
 }
 
 function extractArgs(args) {
@@ -1729,37 +1727,58 @@ const methods = {
         emp = await findEmployeeByNip(nip);
       } catch (dbErr) {
         console.error('[login] Error database findEmployeeByNip:', dbErr.message);
-        return { success: false, message: 'Gagal terhubung ke basis data: ' + dbErr.message };
       }
 
-      if (!emp) return { success: false, message: 'NIP tidak ditemukan.' };
-      const valid = extractPassword(emp.nip, emp.status_kepegawaian);
-      if (!valid || String(password).trim() !== valid) {
-        return { success: false, message: `Password salah. Gunakan ${CONFIG.PASSWORD_DIGIT_LENGTH} digit pertama dari NIP.` };
-      }
-
-      let role = 'normal', sub_role = null;
-      try {
-        const roles = await getUserRole(emp.nip);
-        role = roles.role || 'normal';
-        sub_role = roles.sub_role || null;
-      } catch (_) {}
-
-      const token = signToken(emp, role, sub_role);
-      return {
-        success: true,
-        message: 'Login berhasil.',
-        token,
-        user: {
-          nip: emp.nip,
-          nama: emp.nama_lengkap || emp.nama || '',
-          jabatan: emp.jabatan || '',
-          status_kepegawaian: emp.status_kepegawaian || '',
-          unitEsIi: emp.unit_es_ii || '',
-          role,
-          sub_role
+      if (emp) {
+        const valid = extractPassword(emp.nip, emp.status_kepegawaian);
+        if (!valid || String(password).trim() !== valid) {
+          return { success: false, message: `Password salah. Gunakan ${CONFIG.PASSWORD_DIGIT_LENGTH} digit pertama dari NIP.` };
         }
-      };
+
+        let role = 'normal', sub_role = null;
+        try {
+          const roles = await getUserRole(emp.nip);
+          role = roles.role || 'normal';
+          sub_role = roles.sub_role || null;
+        } catch (_) {}
+
+        const token = signToken(emp, role, sub_role);
+        return {
+          success: true,
+          message: 'Login berhasil.',
+          token,
+          user: {
+            nip: emp.nip,
+            nama: emp.nama_lengkap || emp.nama || '',
+            jabatan: emp.jabatan || '',
+            status_kepegawaian: emp.status_kepegawaian || '',
+            unitEsIi: emp.unit_es_ii || '',
+            role,
+            sub_role
+          }
+        };
+      }
+
+      // Fallback: Jika NIP tidak ada di Supabase, coba proxy login ke Google Apps Script
+      const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+      if (gasUrl) {
+        try {
+          const response = await fetch(gasUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              method: 'login',
+              params: [nip, password]
+            })
+          });
+          const gasRes = await response.json();
+          if (gasRes) return gasRes;
+        } catch (gasErr) {
+          console.warn('[login] Proxy to GAS failed:', gasErr.message);
+        }
+      }
+
+      return { success: false, message: 'NIP tidak ditemukan. Pastikan NIP sudah terdaftar.' };
     } catch (err) {
       console.error('[login] Unhandled error:', err.message);
       return { success: false, message: 'Gagal melakukan login: ' + err.message };
