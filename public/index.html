@@ -9905,7 +9905,7 @@ function buatSkRenderDynamicFields(placeholders) {
     const isDate = /^(tgl_|tmt_|tanggal_)/.test(key) || key.includes('tgl') || key.includes('tanggal');
     const isTodayDefault = /^(tgl_buat|tanggal_buat|tgl_sk|tanggal_sk|tgl_generate)$/.test(key);
     const isGol  = key === 'golongan';
-    const isMkg  = key === 'masa_kerja_gol';
+    const isMkg  = key === 'masa_kerja_gol' || key === 'masa_kerja';
     const isAutofilled = isTodayDefault || (!isCptu && [
       'nip','nama_lengkap','nama','golongan','jabatan','pangkat','unit_es_ii',
       'jenis_peg','pendidikan','jurusan','prodi','program_studi','thn_lulus',
@@ -9937,6 +9937,22 @@ function buatSkRenderDynamicFields(placeholders) {
 
     const spanAuto = isAutofilled ? ' <span style="font-size:11px;color:#10b981;font-weight:600;">(auto-fill)</span>' : '';
     const spanCptu = isCptu && !isTodayDefault ? ' <span style="font-size:11px;color:var(--text-muted);">(manual)</span>' : '';
+    // Untuk isMkg: render dual-input dengan id berdasarkan key agar bisa dibaca di generate
+    const mkgSuffix = key === 'masa_kerja' ? 'mk' : 'mkg';
+    if (isMkg) {
+      // Ganti konten inputHtml untuk isMkg dengan id yang sesuai key
+      inputHtml = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Tahun</label>
+            <input type="number" id="bsk_field_${mkgSuffix}_tahun" class="field-input" min="0" placeholder="Contoh: 5" oninput="buatSkHitungGajiPokok()" onchange="buatSkHitungGajiPokok()" />
+          </div>
+          <div>
+            <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Bulan</label>
+            <input type="number" id="bsk_field_${mkgSuffix}_bulan" class="field-input" min="0" max="11" placeholder="Contoh: 2" oninput="buatSkHitungGajiPokok()" onchange="buatSkHitungGajiPokok()" />
+          </div>
+        </div>`;
+    }
     htmlStr += `<div class="stack-field ${isMkg ? 'grid-full' : ''}"><label class="kp-label">{{${key}}}${spanAuto}${spanCptu}</label>${inputHtml}</div>`;
   });
 
@@ -10023,7 +10039,11 @@ function getPangkatForGolongan(gol, isCptu = false) {
 
 function buatSkHitungGajiPokok() {
   const gol = document.getElementById('bsk_field_golongan')?.value || '';
-  const mkgThn = document.getElementById('bsk_field_mkg_tahun')?.value || document.getElementById('bsk_field_masa_kerja_gol')?.value || '0';
+  // Baca tahun dari input mkg_tahun (masa_kerja_gol) atau mk_tahun (masa_kerja)
+  const mkgThn = document.getElementById('bsk_field_mkg_tahun')?.value
+    || document.getElementById('bsk_field_mk_tahun')?.value
+    || document.getElementById('bsk_field_masa_kerja_gol')?.value
+    || '0';
   const fieldGaji = document.getElementById('bsk_field_gaji_pokok');
   const fieldPangkat = document.getElementById('bsk_field_pangkat') || document.getElementById('bsk_field_nama_pangkat');
 
@@ -10143,13 +10163,19 @@ async function buatSkSelectEmployee(nip) {
       }
     });
 
-    // Auto-fill mkg_tahun dan mkg_bulan dari data_utama
-    const mkgStr = String(emp.masa_kerja_gol || emp.mkg || emp.masa_kerja || '');
+    // Auto-fill mkg_tahun/mkg_bulan (masa_kerja_gol) dan mk_tahun/mk_bulan (masa_kerja) dari data_utama
+    const mkgStr = String(emp.masa_kerja_gol || emp.masa_kerja || emp.mkg || '');
     if (mkgStr) {
       const match = mkgStr.match(/(\d+)\s*(?:tahun|\.|\/)?\s*(\d+)?/i);
       if (match) {
-        if (document.getElementById('bsk_field_mkg_tahun')) document.getElementById('bsk_field_mkg_tahun').value = match[1] || '0';
-        if (document.getElementById('bsk_field_mkg_bulan')) document.getElementById('bsk_field_mkg_bulan').value = match[2] || '0';
+        const thnVal = match[1] || '0';
+        const blnVal = match[2] || '0';
+        // masa_kerja_gol inputs
+        if (document.getElementById('bsk_field_mkg_tahun')) document.getElementById('bsk_field_mkg_tahun').value = thnVal;
+        if (document.getElementById('bsk_field_mkg_bulan')) document.getElementById('bsk_field_mkg_bulan').value = blnVal;
+        // masa_kerja inputs
+        if (document.getElementById('bsk_field_mk_tahun'))  document.getElementById('bsk_field_mk_tahun').value  = thnVal;
+        if (document.getElementById('bsk_field_mk_bulan'))  document.getElementById('bsk_field_mk_bulan').value  = blnVal;
       }
     }
     buatSkHitungGajiPokok();
@@ -10288,19 +10314,21 @@ async function buatSkGenerate() {
     if (key) form_data[key] = el.value;
   });
 
-  // Format {{masa_kerja_gol}} dari dua kolom Tahun dan Bulan
-  const mkgThnEl = document.getElementById('bsk_field_mkg_tahun');
-  const mkgBlnEl = document.getElementById('bsk_field_mkg_bulan');
+  // Format {{masa_kerja_gol}} dan {{masa_kerja}} dari dua kolom Tahun dan Bulan
+  // Cek dua pasangan id: mkg_tahun/mkg_bulan (untuk masa_kerja_gol) dan mk_tahun/mk_bulan (untuk masa_kerja)
+  const mkgThnEl = document.getElementById('bsk_field_mkg_tahun') || document.getElementById('bsk_field_mk_tahun');
+  const mkgBlnEl = document.getElementById('bsk_field_mkg_bulan') || document.getElementById('bsk_field_mk_bulan');
   if (mkgThnEl || mkgBlnEl) {
     const thn = parseInt(mkgThnEl?.value || '0', 10) || 0;
     const bln = parseInt(mkgBlnEl?.value || '0', 10) || 0;
     const formattedMkg = `${thn} Tahun ${bln} Bulan`;
     form_data.masa_kerja_gol = formattedMkg;
-    form_data.mkg = formattedMkg;
+    form_data.masa_kerja     = formattedMkg;
+    form_data.mkg            = formattedMkg;
     form_data.mkg_tahun = thn;
     form_data.mkg_bulan = bln;
-    form_data.mk_tahun = thn;
-    form_data.mk_bulan = bln;
+    form_data.mk_tahun  = thn;
+    form_data.mk_bulan  = bln;
   }
 
   if (BUAT_SK.unitEsIi) form_data.unit_es_ii = BUAT_SK.unitEsIi;
