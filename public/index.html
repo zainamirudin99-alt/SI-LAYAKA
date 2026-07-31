@@ -9553,64 +9553,73 @@ function populateUnitDropdown() {
 }
 
 async function buatSkJenisChange() {
-  const jenis = document.getElementById('buatSk_jenisSk').value;
-  BUAT_SK.jenisSk = jenis;
-  BUAT_SK.pejabatDilantik = []; BUAT_SK.pejabatDiberhentikan = [];
-  buatSkRenderTabelDilantik(); buatSkRenderTabelDiberhentikan();
-
-  const hideAll = ['templateWrap','strukturalWrap','unitWrap','searchEmpWrap','dynamicFormWrap','loopWrap','actionBar'];
-  hideAll.forEach(id => { const el = document.getElementById('buatSk_' + id); if (el) el.style.display = 'none'; });
-
-  if (!jenis) return;
-
-  let tmpl = findTemplateForJenis(jenis);
-  BUAT_SK.templateId = tmpl ? tmpl.id : ('default_' + jenis.toLowerCase().replace(/[^a-z0-9]/g, '_'));
-
-  const PERLU_UNIT = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Dekan Wadek'];
-  const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
-  const NEED_TOP_SEARCH = ['SK PTU 100%', 'Surat PLT', 'Surat PLH']; // HANYA SK dengan 1 subjek tunggal
-
-  // 1. Tampilkan Langkah Sesuai Aturan Jenis SK
-  if (jenis === 'SK Tutam Struktural') {
-    document.getElementById('buatSk_strukturalWrap').style.display = '';
-  } else if (PERLU_UNIT.includes(jenis)) {
-    populateUnitDropdown();
-    document.getElementById('buatSk_unitWrap').style.display = '';
-  }
-
-  // Tampilkan bar pencarian teratas HANYA untuk SK subjek tunggal (SK PTU 100%, Surat PLT/PLH)
-  if (NEED_TOP_SEARCH.includes(jenis)) {
-    document.getElementById('buatSk_searchEmpWrap').style.display = '';
-  } else {
-    document.getElementById('buatSk_searchEmpWrap').style.display = 'none';
-  }
-
-  // Render dynamic fields default secara sinkron (langsung tampil)
-  buatSkRenderDynamicFields([
-    'nomor_sk', 'tgl_sk', 'nip', 'nama_lengkap', 'golongan', 'pangkat',
-    'jabatan', 'unit_es_ii', 'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan',
-    'masa_kerja_gol', 'gaji_pokok'
-  ]);
-  document.getElementById('buatSk_dynamicFormWrap').style.display = '';
-
-  if (PERLU_LOOP.includes(jenis)) {
-    document.getElementById('buatSk_loopWrap').style.display = '';
-  }
-  document.getElementById('buatSk_actionBar').style.display = 'flex';
-
-  // 2. PROSES TEMPLATE & PLACEHOLDERS KHUSUS (BACKGROUND)
   try {
-    if (!BUAT_SK.templatesList || BUAT_SK.templatesList.length === 0) {
-      await buatSkInitForm();
-      tmpl = findTemplateForJenis(jenis);
-      if (tmpl) BUAT_SK.templateId = tmpl.id;
+    const jenis = document.getElementById('buatSk_jenisSk')?.value || '';
+    BUAT_SK.jenisSk = jenis;
+    BUAT_SK.pejabatDilantik = []; BUAT_SK.pejabatDiberhentikan = [];
+    buatSkRenderTabelDilantik(); buatSkRenderTabelDiberhentikan();
+
+    const hideAll = ['templateWrap','strukturalWrap','unitWrap','searchEmpWrap','dynamicFormWrap','loopWrap','actionBar'];
+    hideAll.forEach(id => { const el = document.getElementById('buatSk_' + id); if (el) el.style.display = 'none'; });
+
+    if (!jenis) return;
+
+    let tmpl = findTemplateForJenis(jenis);
+    BUAT_SK.templateId = tmpl ? tmpl.id : ('default_' + jenis.toLowerCase().replace(/[^a-z0-9]/g, '_'));
+
+    const PERLU_UNIT = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Dekan Wadek'];
+    const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
+    const NEED_TOP_SEARCH = ['SK PTU 100%', 'Surat PLT', 'Surat PLH']; // HANYA SK dengan 1 subjek tunggal
+
+    if (jenis === 'SK Tutam Struktural') {
+      const el = document.getElementById('buatSk_strukturalWrap');
+      if (el) el.style.display = '';
+    } else if (PERLU_UNIT.includes(jenis)) {
+      populateUnitDropdown();
+      const el = document.getElementById('buatSk_unitWrap');
+      if (el) el.style.display = '';
     }
 
-    const tplSel = document.getElementById('buatSk_template');
-    if (tplSel && BUAT_SK.templateId) tplSel.value = BUAT_SK.templateId;
-    if (tmpl) await buatSkLoadPlaceholders();
-  } catch(errAsync) {
-    console.warn('[buatSkJenisChange] Async load warning:', errAsync);
+    if (NEED_TOP_SEARCH.includes(jenis)) {
+      const el = document.getElementById('buatSk_searchEmpWrap');
+      if (el) el.style.display = '';
+    }
+
+    // Render dynamic fields default secara sinkron (langsung tampil)
+    const defaultPlaceholders = [
+      'nomor_sk', 'tgl_sk', 'nip', 'nama_lengkap', 'golongan', 'pangkat',
+      'jabatan', 'unit_es_ii', 'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan',
+      'masa_kerja_gol', 'gaji_pokok'
+    ];
+    BUAT_SK.placeholders = defaultPlaceholders;
+    buatSkRenderDynamicFields(defaultPlaceholders);
+
+    const wrapForm = document.getElementById('buatSk_dynamicFormWrap');
+    if (wrapForm) wrapForm.style.display = '';
+
+    if (PERLU_LOOP.includes(jenis)) {
+      const wrapLoop = document.getElementById('buatSk_loopWrap');
+      if (wrapLoop) wrapLoop.style.display = '';
+    }
+
+    const wrapAct = document.getElementById('buatSk_actionBar');
+    if (wrapAct) wrapAct.style.display = 'flex';
+
+    buatSkHitungGajiPokok();
+
+    // 2. PROSES TEMPLATE & PLACEHOLDERS KHUSUS (BACKGROUND)
+    try {
+      if (!BUAT_SK.templatesList || BUAT_SK.templatesList.length === 0) {
+        await buatSkInitForm();
+        tmpl = findTemplateForJenis(jenis);
+        if (tmpl) BUAT_SK.templateId = tmpl.id;
+      }
+      if (tmpl && tmpl.id) await buatSkLoadPlaceholders();
+    } catch(errAsync) {
+      console.warn('[buatSkJenisChange] Async load warning:', errAsync);
+    }
+  } catch(errMain) {
+    console.error('[buatSkJenisChange] Error:', errMain);
   }
 }
 
@@ -9634,7 +9643,6 @@ function buatSkStrukturalCustomChange() {
 async function buatSkStrukturalProceed() {
   if (!BUAT_SK.jenisTutamStruktural) return;
   document.getElementById('buatSk_searchEmpWrap').style.display = '';
-  // Render sinkron
   buatSkRenderDynamicFields([
     'nomor_sk', 'tgl_sk', 'nip', 'nama_lengkap', 'golongan', 'pangkat',
     'jabatan', 'unit_es_ii', 'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan',
@@ -9680,7 +9688,6 @@ async function buatSkUnitChange() {
   } catch(_) {}
 
   document.getElementById('buatSk_searchEmpWrap').style.display = '';
-  // Render sinkron
   buatSkRenderDynamicFields([
     'nomor_sk', 'tgl_sk', 'nip', 'nama_lengkap', 'golongan', 'pangkat',
     'jabatan', 'unit_es_ii', 'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan',
@@ -9701,7 +9708,7 @@ async function buatSkLoadPlaceholders() {
     'masa_kerja_gol', 'gaji_pokok'
   ];
 
-  if (BUAT_SK.templateId) {
+  if (BUAT_SK.templateId && !String(BUAT_SK.templateId).startsWith('default_')) {
     try {
       const res = await rpc('getTemplatePlaceholders', [SESSION.token, BUAT_SK.templateId]);
       if (res && res.placeholders && res.placeholders.length > 0) {
@@ -9714,21 +9721,25 @@ async function buatSkLoadPlaceholders() {
 
   BUAT_SK.placeholders = placeholders;
   buatSkRenderDynamicFields(placeholders);
-  document.getElementById('buatSk_dynamicFormWrap').style.display = '';
+  const wrapForm = document.getElementById('buatSk_dynamicFormWrap');
+  if (wrapForm) wrapForm.style.display = '';
   buatSkHitungGajiPokok();
 }
 
 function buatSkRenderDynamicFields(placeholders) {
   const container = document.getElementById('buatSk_dynamicFields');
-  container.innerHTML = '';
+  if (!container) return;
+
   const AUTO_RESOLVE = new Set(['pimpinan','nama_pimpinan','nama_jabatan','today']);
   const LOOP_KEYS = new Set(['pejabat_dilantik','pejabat_diberhentikan','no','nama_lengkap_item','nip_item']);
   const isCptu = (BUAT_SK.jenisSk === 'SK CPTU');
   const todayIso = new Date().toISOString().split('T')[0];
-  const filtered = placeholders.filter(p => !AUTO_RESOLVE.has(p) && !LOOP_KEYS.has(p));
+  const filtered = (placeholders || []).filter(p => !AUTO_RESOLVE.has(p) && !LOOP_KEYS.has(p));
 
+  let htmlStr = '';
   filtered.forEach(key => {
-    const label = key.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
+    if (!key) return;
+    const label = String(key).replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
     const isDate = /^(tgl_|tmt_|tanggal_)/.test(key) || key.includes('tgl') || key.includes('tanggal');
     const isTodayDefault = /^(tgl_buat|tanggal_buat|tgl_sk|tanggal_sk|tgl_generate)$/.test(key);
     const isGol  = key === 'golongan';
@@ -9760,10 +9771,11 @@ function buatSkRenderDynamicFields(placeholders) {
 
     const spanAuto = isAutofilled ? ' <span style="font-size:11px;color:#10b981;font-weight:600;">(auto-fill)</span>' : '';
     const spanCptu = isCptu && !isTodayDefault ? ' <span style="font-size:11px;color:var(--text-muted);">(manual)</span>' : '';
-    container.innerHTML += `<div class="stack-field ${isMkg ? 'grid-full' : ''}"><label class="kp-label">{{${key}}}${spanAuto}${spanCptu}</label>${inputHtml}</div>`;
+    htmlStr += `<div class="stack-field ${isMkg ? 'grid-full' : ''}"><label class="kp-label">{{${key}}}${spanAuto}${spanCptu}</label>${inputHtml}</div>`;
   });
 
-  if (container.innerHTML === '') container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;grid-column:1/-1;">Tidak ada field manual — semua placeholder akan terisi otomatis.</p>';
+  if (!htmlStr) htmlStr = '<p style="color:var(--text-muted);font-size:13px;grid-column:1/-1;">Tidak ada field manual — semua placeholder akan terisi otomatis.</p>';
+  container.innerHTML = htmlStr;
 }
 
 // GAJI POKOK NON-ASN UNDIP 2024 (Peraturan Rektor No. 1 Tahun 2024)
