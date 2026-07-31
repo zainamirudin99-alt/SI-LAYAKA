@@ -9585,7 +9585,7 @@ async function buatSkJenisChange() {
     document.getElementById('buatSk_searchEmpWrap').style.display = 'none';
   }
 
-  // Render dynamic fields default secara sinkron
+  // Render dynamic fields default secara sinkron (langsung tampil)
   buatSkRenderDynamicFields([
     'nomor_sk', 'tgl_sk', 'nip', 'nama_lengkap', 'golongan', 'pangkat',
     'jabatan', 'unit_es_ii', 'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan',
@@ -9598,7 +9598,7 @@ async function buatSkJenisChange() {
   }
   document.getElementById('buatSk_actionBar').style.display = 'flex';
 
-  // 2. PROSES TEMPLATE & PLACEHOLDERS KHUSUS
+  // 2. PROSES TEMPLATE & PLACEHOLDERS KHUSUS (BACKGROUND)
   try {
     if (!BUAT_SK.templatesList || BUAT_SK.templatesList.length === 0) {
       await buatSkInitForm();
@@ -9608,7 +9608,6 @@ async function buatSkJenisChange() {
 
     const tplSel = document.getElementById('buatSk_template');
     if (tplSel && BUAT_SK.templateId) tplSel.value = BUAT_SK.templateId;
-    document.getElementById('buatSk_templateWrap').style.display = '';
     if (tmpl) await buatSkLoadPlaceholders();
   } catch(errAsync) {
     console.warn('[buatSkJenisChange] Async load warning:', errAsync);
