@@ -389,6 +389,36 @@ function formatRupiah(angka) {
   return String(Math.round(Number(angka) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
+/**
+ * Otomatis menghitung gaji_80, gaji_80_persen, dan total_gaji jika gaji_pokok ada
+ */
+function enrichGajiPlaceholders(rawCtx, jenis_sk) {
+  if (!rawCtx) return;
+  if (rawCtx.golongan && rawCtx.masa_kerja_gol !== undefined && !rawCtx.gaji_pokok) {
+    const calcGaji = hitungGajiPokokNonAsn(rawCtx.golongan, Number(rawCtx.masa_kerja_gol || 0));
+    if (calcGaji > 0) rawCtx.gaji_pokok = formatRupiah(calcGaji);
+  }
+
+  if (rawCtx.gaji_pokok) {
+    const numGaji = parseFloat(String(rawCtx.gaji_pokok).replace(/[^0-9]/g, '')) || 0;
+    if (numGaji > 0) {
+      const gaji80 = Math.round(numGaji * 0.8);
+      const gaji80Str = formatRupiah(gaji80);
+      const numGajiStr = formatRupiah(numGaji);
+
+      rawCtx.gaji_80 = gaji80Str;
+      rawCtx.gaji_80_persen = gaji80Str;
+      rawCtx.gaji_80_persen_rupiah = `Rp ${gaji80Str}`;
+      rawCtx.gaji_pokok_80 = gaji80Str;
+      rawCtx.gaji_cptu = gaji80Str;
+
+      if (!rawCtx.total_gaji) {
+        rawCtx.total_gaji = (jenis_sk === 'SK CPTU') ? gaji80Str : numGajiStr;
+      }
+    }
+  }
+}
+
 // ================================================================
 // SUPABASE STORAGE — upload base64 lampiran
 // ================================================================
@@ -2169,28 +2199,26 @@ const methods = {
         if (!xmlFile) continue;
         const xml = xmlFile.asText();
 
-        // Pass 1 — cari {…} di raw XML (boleh ada tag XML di dalam)
-        (xml.match(/\{[^{}]{1,120}\}/g) || []).forEach(m => {
-          const clean = m.replace(/<[^>]+>/g, '').replace(/[{}]/g, '').trim();
-          if (clean && VALID_ID.test(clean) &&
-              !clean.startsWith('#') && !clean.startsWith('/') && !clean.startsWith('^')) {
+        // Helper untuk ekstrak tag
+        const parseTagStr = (str) => {
+          if (!str) return;
+          const clean = str.replace(/<[^>]+>/g, '').replace(/[{}]/g, '').trim();
+          if (!clean || clean.startsWith('#') || clean.startsWith('/') || clean.startsWith('^')) return;
+          if (/^set\s+/i.test(clean)) {
+            const setTarget = clean.split('=')[0].replace(/^set\s+/i, '').trim();
+            if (setTarget && VALID_ID.test(setTarget)) found.add(setTarget.toLowerCase());
+          } else if (VALID_ID.test(clean)) {
             found.add(clean.toLowerCase());
           }
-        });
+        };
+
+        // Pass 1 — cari {…} di raw XML
+        (xml.match(/\{[^{}]{1,120}\}/g) || []).forEach(parseTagStr);
 
         // Pass 2 — strip seluruh tag XML lalu cari {{…}} dan {…}
         const textOnly = xml.replace(/<[^>]+>/g, ' ');
-        (textOnly.match(/\{\{([a-zA-Z_][a-zA-Z0-9_]{0,59})\}\}/g) || []).forEach(m => {
-          const clean = m.replace(/[{}]/g, '').trim();
-          if (clean && VALID_ID.test(clean)) found.add(clean.toLowerCase());
-        });
-        (textOnly.match(/\{([a-zA-Z_][a-zA-Z0-9_]{0,59})\}/g) || []).forEach(m => {
-          const clean = m.replace(/[{}]/g, '').trim();
-          if (clean && VALID_ID.test(clean) &&
-              !clean.startsWith('#') && !clean.startsWith('/') && !clean.startsWith('^')) {
-            found.add(clean.toLowerCase());
-          }
-        });
+        (textOnly.match(/\{\{([^{}]+)\}\}/g) || []).forEach(parseTagStr);
+        (textOnly.match(/\{([^{}]+)\}/g) || []).forEach(parseTagStr);
       }
 
       const result = found.size > 0 ? Array.from(found) : DEFAULT_PLACEHOLDERS;
@@ -2542,6 +2570,7 @@ const methods = {
       const gajiPokok = hitungGajiPokokNonAsn(rawCtx.golongan, Number(rawCtx.masa_kerja_gol || 0));
       if (gajiPokok > 0) rawCtx.gaji_pokok = formatRupiah(gajiPokok);
     }
+    enrichGajiPlaceholders(rawCtx, jenis_sk);
 
     if (rawCtx.golongan && (!rawCtx.pangkat || !String(rawCtx.pangkat).trim())) {
       const golStr = String(rawCtx.golongan).trim();
@@ -2669,6 +2698,7 @@ const methods = {
       const gajiPokok = hitungGajiPokokNonAsn(rawCtx.golongan, Number(rawCtx.masa_kerja_gol || 0));
       if (gajiPokok > 0) rawCtx.gaji_pokok = formatRupiah(gajiPokok);
     }
+    enrichGajiPlaceholders(rawCtx, jenis_sk);
 
     if (rawCtx.golongan && (!rawCtx.pangkat || !String(rawCtx.pangkat).trim())) {
       const golStr = String(rawCtx.golongan).trim();
