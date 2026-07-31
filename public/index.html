@@ -9810,8 +9810,11 @@ function buatSkRenderDynamicFields(placeholders) {
     const isDate = /^(tgl_|tmt_|tanggal_)/.test(key) || key.includes('tgl') || key.includes('tanggal');
     const isTodayDefault = /^(tgl_buat|tanggal_buat|tgl_sk|tanggal_sk|tgl_generate)$/.test(key);
     const isGol  = key === 'golongan';
-    const isMkg  = key === 'masa_kerja_gol' || key === 'mkg' || key === 'masa_kerja';
-    const isAutofilled = isTodayDefault || (!isCptu && ['nip','nama_lengkap','nama','golongan','jabatan','pangkat','unit_es_ii','jenis_peg','pendidikan','tmp_lhr'].includes(key));
+    const isAutofilled = isTodayDefault || (!isCptu && [
+      'nip','nama_lengkap','nama','golongan','jabatan','pangkat','unit_es_ii',
+      'jenis_peg','pendidikan','jurusan','prodi','program_studi','thn_lulus',
+      'tahun_lulus','tmp_lhr'
+    ].includes(key));
 
     let inputHtml;
     if (isGol) {
@@ -10000,7 +10003,12 @@ async function buatSkSelectEmployee(nip) {
       tgl_lhr:      emp.tgl_lhr || emp.tanggal_lahir || '',
       tmt_pengangkatan: emp.tmt_pengangkatan || emp.tmt_pengangkatan_asn || '',
       jenis_peg:    emp.jenis_peg || emp.jenis_pegawai || '',
-      pendidikan:   emp.pendidikan || ''
+      pendidikan:   emp.pendidikan || emp.tingkat_pendidikan || emp.jenjang_pendidikan || '',
+      jurusan:      emp.jurusan || emp.program_studi || emp.prodi || '',
+      prodi:        emp.jurusan || emp.program_studi || emp.prodi || '',
+      program_studi:emp.jurusan || emp.program_studi || emp.prodi || '',
+      thn_lulus:    emp.thn_lulus || emp.tahun_lulus || emp.th_lulus || emp.tgl_lulus || '',
+      tahun_lulus:  emp.thn_lulus || emp.tahun_lulus || emp.th_lulus || emp.tgl_lulus || ''
     };
 
     // Populate bsk_field_ inputs
