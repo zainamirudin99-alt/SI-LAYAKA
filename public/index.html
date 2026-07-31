@@ -2078,9 +2078,10 @@
                 </div>
               </div>
 
-              <!-- Tombol Generate -->
+              <!-- Tombol Generate & Preview -->
               <div id="buatSk_actionBar" style="display:none;margin-top:24px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;">
                 <button class="btn btn-primary" onclick="buatSkGenerate()" style="font-weight:700;">⚡ Buat SK</button>
+                <button class="btn btn-secondary" onclick="buatSkPreview()" style="font-weight:600;background:var(--surface-alt);color:var(--text-main);border:1px solid var(--border);">👁️ Preview SK</button>
                 <button class="btn btn-secondary" onclick="buatSkReset()">🔄 Reset Form</button>
               </div>
             </div>
@@ -9501,11 +9502,11 @@ async function buatSkInitForm() {
     // Populasi fallback dropdown manual template
     const selTpl = document.getElementById('buatSk_template');
     if (selTpl) {
-      selTpl.innerHTML = '<option value="">-- Pilih Template Manual --</option>' +
+      selTpl.innerHTML = '<option value="">-- Pilih Template --</option>' +
         (tmpls || []).map(t => `<option value="${t.id}">${escHtml(t.judul)} (${escHtml(t.layanan||'')} - ${escHtml(t.subMenu||t.sub_menu||'')})</option>`).join('');
     }
 
-    // 3. Render dropdown jenis SK
+    // 3. Render dropdown jenis SK tanpa menghapus nilai terpilih
     const ALL_JENIS = [
       'SK CPTU',
       'SK PTU 100%',
@@ -9518,13 +9519,15 @@ async function buatSkInitForm() {
     ];
 
     const selJenis = document.getElementById('buatSk_jenisSk');
-    if (selJenis) {
+    if (selJenis && selJenis.options.length <= 1) {
+      const curVal = selJenis.value;
       selJenis.innerHTML = '<option value="">-- Pilih Jenis SK / Surat --</option>' +
         ALL_JENIS.map(jenis => {
           const tmpl = findTemplateForJenis(jenis);
           const badge = tmpl ? ' ✅' : '';
           return `<option value="${escHtml(jenis)}">${escHtml(jenis)}${badge}</option>`;
         }).join('');
+      if (curVal) selJenis.value = curVal;
     }
   } catch(e) {
     console.warn('[buatSkInitForm] Gagal memuat template:', e);
@@ -9592,7 +9595,7 @@ async function buatSkJenisChange() {
   }
   document.getElementById('buatSk_actionBar').style.display = 'flex';
 
-  // 2. PROSES TEMPLATE & PLACEHOLDERS KHUSUS DI BACKGROUND (NON-BLOCKING)
+  // 2. PROSES TEMPLATE & PLACEHOLDERS KHUSUS
   try {
     if (!BUAT_SK.templatesList || BUAT_SK.templatesList.length === 0) {
       await buatSkInitForm();
@@ -9601,14 +9604,16 @@ async function buatSkJenisChange() {
     let tmpl = findTemplateForJenis(jenis);
     if (!tmpl && BUAT_SK.templatesList && BUAT_SK.templatesList.length > 0) {
       tmpl = BUAT_SK.templatesList[0];
-      document.getElementById('buatSk_templateWrap').style.display = '';
     }
 
     if (tmpl) {
       BUAT_SK.templateId = tmpl.id;
       const tplSel = document.getElementById('buatSk_template');
       if (tplSel) tplSel.value = tmpl.id;
+      document.getElementById('buatSk_templateWrap').style.display = '';
       await buatSkLoadPlaceholders();
+    } else {
+      document.getElementById('buatSk_templateWrap').style.display = '';
     }
   } catch(errAsync) {
     console.warn('[buatSkJenisChange] Async load warning:', errAsync);
@@ -10093,9 +10098,11 @@ async function buatSkImportFromSpreadsheet() {
 
 // Generate SK
 async function buatSkGenerate() {
-  const jenisSk   = BUAT_SK.jenisSk;
-  const templateId = BUAT_SK.templateId;
+  const jenisSk   = BUAT_SK.jenisSk || document.getElementById('buatSk_jenisSk')?.value || '';
+  const templateId = BUAT_SK.templateId || document.getElementById('buatSk_template')?.value || '';
   if (!jenisSk || !templateId) return showToast('error', 'Pilih jenis SK dan template terlebih dahulu.');
+  BUAT_SK.jenisSk = jenisSk;
+  BUAT_SK.templateId = templateId;
 
   // Kumpulkan form_data dari dynamic fields
   const form_data = {};
@@ -10159,6 +10166,69 @@ async function buatSkGenerate() {
       showToast('error', res.message || 'Gagal membuat SK.');
     }
   } catch(e) { hideLoadingOverlay(); showToast('error', 'Error: ' + e.message); }
+}
+
+// Preview SK
+async function buatSkPreview() {
+  const jenisSk   = BUAT_SK.jenisSk || document.getElementById('buatSk_jenisSk')?.value || '';
+  const templateId = BUAT_SK.templateId || document.getElementById('buatSk_template')?.value || '';
+  if (!jenisSk || !templateId) return showToast('error', 'Pilih jenis SK dan template terlebih dahulu.');
+  BUAT_SK.jenisSk = jenisSk;
+  BUAT_SK.templateId = templateId;
+
+  const form_data = {};
+  (BUAT_SK.placeholders || []).forEach(key => {
+    const field = document.getElementById('bsk_field_' + key);
+    if (field) form_data[key] = field.value;
+  });
+
+  const mkgThnEl = document.getElementById('bsk_field_mkg_tahun');
+  const mkgBlnEl = document.getElementById('bsk_field_mkg_bulan');
+  if (mkgThnEl || mkgBlnEl) {
+    const thn = parseInt(mkgThnEl?.value || '0', 10) || 0;
+    const bln = parseInt(mkgBlnEl?.value || '0', 10) || 0;
+    const formattedMkg = `${thn} Tahun ${bln} Bulan`;
+    form_data.masa_kerja_gol = formattedMkg;
+    form_data.mkg = formattedMkg;
+    form_data.mkg_tahun = thn;
+    form_data.mkg_bulan = bln;
+    form_data.mk_tahun = thn;
+    form_data.mk_bulan = bln;
+  }
+
+  if (BUAT_SK.unitEsIi) form_data.unit_es_ii = BUAT_SK.unitEsIi;
+  if (BUAT_SK.pimpinanInfo) {
+    form_data.pimpinan      = BUAT_SK.pimpinanInfo.pimpinan_resolved || '';
+    form_data.nama_pimpinan = BUAT_SK.pimpinanInfo.nama_pimpinan || '';
+  }
+
+  showLoadingOverlay('Membuat Preview SK...');
+  try {
+    const res = await rpc('previewSkBaru', [SESSION.token, {
+      jenis_sk: jenisSk, template_id: templateId, form_data,
+      pejabat_dilantik: BUAT_SK.pejabatDilantik,
+      pejabat_diberhentikan: BUAT_SK.pejabatDiberhentikan
+    }]);
+    hideLoadingOverlay();
+
+    if (res.success && res.pdfUrl) {
+      window.open(res.pdfUrl, '_blank');
+      showToast('success', '👁️ Preview SK berhasil dibuka.');
+    } else if (res.success && res.base64) {
+      const byteChars = atob(res.base64);
+      const byteArr   = new Uint8Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
+      const blob = new Blob([byteArr], { type: res.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      const url  = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = res.fileName || 'Preview_SK.docx'; a.click();
+      URL.revokeObjectURL(url);
+      showToast('success', '👁️ File Preview SK berhasil diunduh.');
+    } else if (res.needsGas) {
+      showToast('info', res.message || 'Template GDocs memerlukan Google Apps Script.');
+    } else {
+      showToast('error', res.message || 'Gagal membuat Preview SK.');
+    }
+  } catch(e) { hideLoadingOverlay(); showToast('error', 'Error Preview: ' + e.message); }
 }
 function buatSkReset() {
   BUAT_SK.jenisSk = null; BUAT_SK.templateId = null; BUAT_SK.unitEsIi = null;

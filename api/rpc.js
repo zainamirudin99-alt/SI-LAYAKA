@@ -2343,6 +2343,133 @@ const methods = {
   },
 
   /**
+   * Generates a preview for SK baru without saving to history.
+   */
+  async previewSkBaru(args) {
+    const [token, payload] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+
+    const { jenis_sk, template_id, form_data, pejabat_dilantik, pejabat_diberhentikan } = payload || {};
+    if (!jenis_sk) throw new Error('Jenis SK wajib diisi.');
+    if (!template_id) throw new Error('Template wajib dipilih.');
+
+    const db = getDb();
+    const { data: tmpl, error: tmplErr } = await db.from('templates')
+      .select('file_id, judul, tipe, layanan, sub_menu')
+      .eq('id', template_id)
+      .maybeSingle();
+    if (tmplErr || !tmpl) throw new Error('Template tidak ditemukan.');
+    if (!tmpl.file_id) throw new Error('Template tidak memiliki file terhubung.');
+
+    const rawCtx = { ...(form_data || {}) };
+
+    if (rawCtx.unit_es_ii) {
+      try {
+        const { data: pm } = await db.from('pimpinan')
+          .select('nama_pimpinan, kategori_pimpinan')
+          .eq('unit_es_ii', String(rawCtx.unit_es_ii).trim())
+          .maybeSingle();
+        if (pm) {
+          rawCtx.nama_pimpinan = pm.nama_pimpinan || '';
+          rawCtx.pimpinan = CONFIG.PIMPINAN_KATEGORI_RESOLVE[pm.kategori_pimpinan] || pm.kategori_pimpinan || pm.nama_pimpinan || '';
+        }
+      } catch (_) {}
+    }
+
+    if (rawCtx.jenis_tutam) {
+      try {
+        const { data: jt } = await db.from('jenis_tutam')
+          .select('nama_detail, jenis_tutam')
+          .eq('jenis_tutam', String(rawCtx.jenis_tutam).trim())
+          .maybeSingle();
+        if (jt) rawCtx.nama_jabatan = jt.nama_detail || jt.jenis_tutam || rawCtx.jenis_tutam;
+      } catch (_) {}
+    }
+
+    if (['SK CPTU', 'SK PTU 100%'].includes(jenis_sk) && rawCtx.golongan && rawCtx.masa_kerja_gol !== undefined) {
+      const gajiPokok = hitungGajiPokokNonAsn(rawCtx.golongan, Number(rawCtx.masa_kerja_gol || 0));
+      if (gajiPokok > 0) rawCtx.gaji_pokok = formatRupiah(gajiPokok);
+    }
+
+    if (rawCtx.golongan && (!rawCtx.pangkat || !String(rawCtx.pangkat).trim())) {
+      const golStr = String(rawCtx.golongan).trim();
+      const isSet = /^set/i.test(golStr);
+      const cleanGol = golStr.replace(/^setara\s*/i, '').replace(/^set\.\s*/i, '').trim();
+      let matchedPangkat = '';
+      Object.entries(CONFIG.PANGKAT_NON_ASN || {}).forEach(([k, v]) => {
+        if (k.toLowerCase() === cleanGol.toLowerCase() || k.toLowerCase() === golStr.toLowerCase()) matchedPangkat = v;
+      });
+      if (matchedPangkat) rawCtx.pangkat = isSet ? `Setara ${matchedPangkat}` : matchedPangkat;
+    }
+
+    rawCtx.today    = rawCtx.today    || formatTanggalIndonesia(new Date());
+    rawCtx.tgl_sk   = rawCtx.tgl_sk   || rawCtx.today;
+    rawCtx.tgl_buat = rawCtx.tgl_buat || rawCtx.today;
+
+    const dataCtx = processDataCtxFormatting(rawCtx, false);
+
+    if (Array.isArray(pejabat_dilantik) && pejabat_dilantik.length > 0) {
+      dataCtx.pejabat_dilantik = pejabat_dilantik.map((p, i) => ({
+        ...p, no: p.no || (i + 1),
+        nama_lengkap: String(p.nama_lengkap || '').toUpperCase(),
+        nip: String(p.nip || ''), jabatan: String(p.jabatan || ''),
+        golongan: String(p.golongan || ''), jenis_tutam: String(p.jenis_tutam || '')
+      }));
+    }
+    if (Array.isArray(pejabat_diberhentikan) && pejabat_diberhentikan.length > 0) {
+      dataCtx.pejabat_diberhentikan = pejabat_diberhentikan.map((p, i) => ({
+        ...p, no: p.no || (i + 1),
+        nama_lengkap: String(p.nama_lengkap || '').toUpperCase(),
+        nip: String(p.nip || ''), jenis_tutam: String(p.jenis_tutam || '')
+      }));
+    }
+
+    const tipe = tmpl.tipe || 'gdocs';
+    if (tipe === 'docx') {
+      const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
+      const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, null);
+      const base64 = renderedBuffer.toString('base64');
+      const safeName = 'PREVIEW_' + String(jenis_sk).replace(/[^a-zA-Z0-9&]/g, '_');
+      return {
+        success: true,
+        outputType: 'docx',
+        base64,
+        fileName: `${safeName}.docx`,
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        dataCtx
+      };
+    }
+
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (gasUrl) {
+      try {
+        const shortId = uuidv4();
+        const response = await fetch(gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            method: 'previewDocument',
+            params: [shortId, { templateFileId: tmpl.file_id, formData: dataCtx, dataCtx, layanan: 'Buat SK', subLayanan: jenis_sk }],
+            remoteSession: { id: shortId, data: { nip: decoded.nip, role: decoded.role } }
+          })
+        });
+        const gasResult = await response.json();
+        if (gasResult && gasResult.pdfUrl) {
+          return { success: true, pdfUrl: gasResult.pdfUrl, pdfBase64: gasResult.pdfBase64 };
+        }
+      } catch (gasErr) { console.warn('[previewSkBaru] GAS Preview warning:', gasErr.message); }
+    }
+
+    return {
+      success: true,
+      needsGas: true,
+      fileId: tmpl.file_id,
+      dataCtx,
+      message: 'Preview template GDocs. Silakan pastikan Google Apps Script terhubung.'
+    };
+  },
+
+  /**
    * Parse data dari Google Spreadsheet link atau file Excel (base64)
    * untuk mengisi tabel loop pejabat dilantik / diberhentikan.
    * Kolom disesuaikan dengan nama placeholder di template.
