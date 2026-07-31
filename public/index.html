@@ -9692,18 +9692,34 @@ async function buatSkJenisChange() {
       if (el) el.style.display = '';
     }
 
-    // Tunggu pre-load template (jika belum)
-    if (!BUAT_SK.templatesList || BUAT_SK.templatesList.length === 0) {
-      await (_buatSkInitPromise || buatSkStartTemplatePreload());
+    // Pastikan template sudah di-load — force fetch jika kosong
+    const listNow = Array.isArray(BUAT_SK.templatesList) ? BUAT_SK.templatesList : [];
+    if (listNow.length === 0) {
+      try {
+        let raw = await rpc('getTemplates', [SESSION.token, 'Buat SK dan Surat']);
+        let tmpls = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : [];
+        if (tmpls.length === 0) {
+          raw = await rpc('getTemplates', [SESSION.token]);
+          tmpls = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : [];
+        }
+        BUAT_SK.templatesList = tmpls;
+        console.log('[buatSkJenisChange] Force-loaded templates:', tmpls.length, tmpls);
+      } catch(eLoad) {
+        console.error('[buatSkJenisChange] Gagal load templates:', eLoad);
+      }
     }
 
     // DEBUG: tampilkan semua template yang tersedia di console
     console.log('[buatSkJenisChange] Jenis:', jenis, '| Tipe:', tipeTemplate);
-    console.log('[buatSkJenisChange] templatesList:', BUAT_SK.templatesList);
+    console.log('[buatSkJenisChange] templatesList count:', (BUAT_SK.templatesList||[]).length);
+    (BUAT_SK.templatesList||[]).forEach((t,i) =>
+      console.log(`  [${i}] subMenu="${t.subMenu}" tipe="${t.tipe}" fileId="${t.fileId}"`)
+    );
 
     // Cari template yang tepat untuk jenis dan tipe terpilih
     const tmpl = findTemplateForJenis(jenis, tipeTemplate);
     console.log('[buatSkJenisChange] template ditemukan:', tmpl);
+
 
     // BILA TEMPLATE BELUM DIUPLOAD
     if (!tmpl) {
