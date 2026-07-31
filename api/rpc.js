@@ -2296,6 +2296,25 @@ const methods = {
     return { success: true, data: combined };
   },
 
+  /** Ambil daftar jenis tutam dari tabel jenis_tutam untuk dropdown */
+  async getJenisTutam(args) {
+    const [token] = extractArgs(args);
+    verifyToken(token);
+    try {
+      const { data, error } = await getDb()
+        .from('jenis_tutam')
+        .select('jenis_tutam')
+        .not('jenis_tutam', 'is', null)
+        .order('jenis_tutam', { ascending: true });
+      if (error) throw error;
+      return { success: true, data: (data || []).map(r => r.jenis_tutam).filter(Boolean) };
+    } catch(e) {
+      console.warn('[getJenisTutam] Tabel jenis_tutam mungkin belum ada:', e.message);
+      return { success: true, data: [] };
+    }
+  },
+
+
   /** Ambil data pimpinan berdasarkan unit_es_ii untuk auto-resolve {{pimpinan}} */
   async getPimpinanByUnit(args) {
     const [token, unitEsIi] = extractArgs(args);
