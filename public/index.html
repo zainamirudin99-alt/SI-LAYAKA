@@ -9525,8 +9525,12 @@ function findTemplateForJenis(jenis, targetTipe = null) {
 
   const matchFilter = (t) => {
     if (!filterTipe) return true;
-    const tTipe = String(t.tipe || 'gdocs').toLowerCase();
-    if (filterTipe === 'docx') return tTipe === 'docx';
+    // Inferkan tipe dari ekstensi file_id jika field tipe belum diset
+    const rawTipe = String(t.tipe || '').toLowerCase();
+    const fileId  = String(t.file_id || t.fileId || '').toLowerCase();
+    const tTipe   = rawTipe || (fileId.endsWith('.docx') ? 'docx' : (fileId ? 'gdocs' : ''));
+    if (!tTipe) return true; // Tidak diketahui → cocokkan semua
+    if (filterTipe === 'docx')  return tTipe === 'docx';
     if (filterTipe === 'gdocs') return tTipe === 'gdocs' || tTipe === 'gdrive';
     return true;
   };
@@ -9659,12 +9663,14 @@ async function buatSkJenisChange() {
     if (jenis === 'SK Tutam Struktural') {
       const el = document.getElementById('buatSk_strukturalWrap');
       if (el) el.style.display = '';
-    } else if (PERLU_UNIT.includes(jenis)) {
+      return; // lanjut di buatSkStrukturalProceed setelah sub-pilih
+    }
+    if (PERLU_UNIT.includes(jenis)) {
       populateUnitDropdown();
       const el = document.getElementById('buatSk_unitWrap');
       if (el) el.style.display = '';
+      return; // lanjut di buatSkUnitChange setelah unit dipilih
     }
-
     if (NEED_SEARCH.includes(jenis)) {
       const el = document.getElementById('buatSk_searchEmpWrap');
       if (el) el.style.display = '';
@@ -9745,7 +9751,6 @@ async function buatSkStrukturalProceed() {
   if (!BUAT_SK.jenisTutamStruktural) return;
   document.getElementById('buatSk_searchEmpWrap').style.display = '';
 
-  // Spinner sementara menunggu template scan
   const container = document.getElementById('buatSk_dynamicFields');
   if (container) container.innerHTML = `<div style="grid-column:1/-1;padding:20px;text-align:center;"><div style="width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--primary,#6366f1);border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 10px;"></div><p style="margin:0;font-size:13px;color:var(--text-muted);">Memuat kolom...</p></div>`;
   document.getElementById('buatSk_dynamicFormWrap').style.display = '';
@@ -9753,12 +9758,12 @@ async function buatSkStrukturalProceed() {
   if (!BUAT_SK.templatesList || BUAT_SK.templatesList.length === 0) {
     await (_buatSkInitPromise || buatSkStartTemplatePreload());
   }
-  const tmpl = findTemplateForJenis(BUAT_SK.jenisSk || 'SK Tutam Struktural');
+  const tipe = BUAT_SK.tipeTemplate || document.getElementById('buatSk_tipeTemplate')?.value || 'docx';
+  const tmpl = findTemplateForJenis(BUAT_SK.jenisSk || 'SK Tutam Struktural', tipe);
   if (tmpl) BUAT_SK.templateId = tmpl.id;
 
   await buatSkLoadPlaceholders();
   document.getElementById('buatSk_loopWrap').style.display = '';
-  document.getElementById('buatSk_actionBar').style.display = 'flex';
 }
 
 async function buatSkTemplateChange() {
@@ -9804,31 +9809,36 @@ async function buatSkUnitChange() {
   if (!BUAT_SK.templatesList || BUAT_SK.templatesList.length === 0) {
     await (_buatSkInitPromise || buatSkStartTemplatePreload());
   }
-  const tmpl = findTemplateForJenis(BUAT_SK.jenisSk);
+  const tipe = BUAT_SK.tipeTemplate || document.getElementById('buatSk_tipeTemplate')?.value || 'docx';
+  const tmpl = findTemplateForJenis(BUAT_SK.jenisSk, tipe);
   if (tmpl) BUAT_SK.templateId = tmpl.id;
 
   await buatSkLoadPlaceholders();
 
   const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
   if (PERLU_LOOP.includes(BUAT_SK.jenisSk)) document.getElementById('buatSk_loopWrap').style.display = '';
-  document.getElementById('buatSk_actionBar').style.display = 'flex';
 }
 
 async function buatSkLoadPlaceholders() {
-  let placeholders = [
+  const DEFAULT_PLACEHOLDERS = [
     'nomor_sk', 'tgl_sk', 'nip', 'nama_lengkap', 'golongan', 'pangkat',
     'jabatan', 'unit_es_ii', 'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan',
     'masa_kerja_gol', 'gaji_pokok'
   ];
+  let placeholders = [...DEFAULT_PLACEHOLDERS];
 
-  if (BUAT_SK.templateId && !String(BUAT_SK.templateId).startsWith('default_')) {
+  const templateId = BUAT_SK.templateId;
+  console.log('[buatSkLoadPlaceholders] templateId=', templateId);
+
+  if (templateId && !String(templateId).startsWith('default_')) {
     try {
-      const res = await rpc('getTemplatePlaceholders', [SESSION.token, BUAT_SK.templateId]);
+      const res = await rpc('getTemplatePlaceholders', [SESSION.token, templateId]);
+      console.log('[buatSkLoadPlaceholders] API result:', res);
       if (res && res.placeholders && res.placeholders.length > 0) {
         placeholders = res.placeholders;
       }
     } catch(errScan) {
-      console.warn('[buatSkLoadPlaceholders] Scan template error, fallback to defaults:', errScan);
+      console.warn('[buatSkLoadPlaceholders] Scan error, pakai default:', errScan);
     }
   }
 
@@ -9836,6 +9846,9 @@ async function buatSkLoadPlaceholders() {
   buatSkRenderDynamicFields(placeholders);
   const wrapForm = document.getElementById('buatSk_dynamicFormWrap');
   if (wrapForm) wrapForm.style.display = '';
+  // Tampilkan action bar (tombol Buat SK & Preview)
+  const wrapAct = document.getElementById('buatSk_actionBar');
+  if (wrapAct) wrapAct.style.display = 'flex';
   buatSkHitungGajiPokok();
 }
 
