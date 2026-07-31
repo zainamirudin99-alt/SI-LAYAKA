@@ -9519,7 +9519,11 @@ function buatSkTolakUsulan(id) {
 // template pertama agar template yang salah tidak dipakai.
 // ================================================================
 function findTemplateForJenis(jenis, targetTipe = null) {
-  if (!BUAT_SK.templatesList || BUAT_SK.templatesList.length === 0) return null;
+  // Guard: pastikan templatesList benar-benar array
+  const list = Array.isArray(BUAT_SK.templatesList) ? BUAT_SK.templatesList
+    : Array.isArray(BUAT_SK.templatesList?.data) ? BUAT_SK.templatesList.data
+    : [];
+  if (list.length === 0) return null;
   const target = String(jenis || '').toLowerCase().replace(/\s+/g, '');
   const filterTipe = targetTipe ? String(targetTipe).toLowerCase() : null;
 
@@ -9539,14 +9543,14 @@ function findTemplateForJenis(jenis, targetTipe = null) {
   };
 
   // 1. Exact match pada sub_menu / subMenu
-  let match = BUAT_SK.templatesList.find(t => {
+  let match = list.find(t => {
     const sub = String(t.subMenu || t.sub_menu || '').toLowerCase().replace(/\s+/g, '');
     return sub === target && matchFilter(t);
   });
   if (match) return match;
 
   // 2. Substring match pada sub_menu / subMenu / judul
-  match = BUAT_SK.templatesList.find(t => {
+  match = list.find(t => {
     const sub = String(t.subMenu || t.sub_menu || t.judul || '').toLowerCase().replace(/\s+/g, '');
     return (sub.includes(target) || target.includes(sub)) && matchFilter(t);
   });
@@ -9577,11 +9581,20 @@ async function buatSkInitForm() {
 
   // 2. Fetch templates
   try {
-    let tmpls = await rpc('getTemplates', [SESSION.token, 'Buat SK dan Surat']);
-    if (!tmpls || tmpls.length === 0) {
-      tmpls = await rpc('getTemplates', [SESSION.token]);
+    let raw = await rpc('getTemplates', [SESSION.token, 'Buat SK dan Surat']);
+    // Normalisasi: API bisa mengembalikan array langsung atau {data: [...]}
+    let tmpls = Array.isArray(raw) ? raw
+      : Array.isArray(raw?.data) ? raw.data
+      : [];
+
+    if (tmpls.length === 0) {
+      raw = await rpc('getTemplates', [SESSION.token]);
+      tmpls = Array.isArray(raw) ? raw
+        : Array.isArray(raw?.data) ? raw.data
+        : [];
     }
-    BUAT_SK.templatesList = tmpls || [];
+    console.log('[buatSkInitForm] templates loaded:', tmpls.length, tmpls);
+    BUAT_SK.templatesList = tmpls;
 
     // Populasi dropdown manual template
     const selTpl = document.getElementById('buatSk_template');
