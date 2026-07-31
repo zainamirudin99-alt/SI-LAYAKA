@@ -2071,7 +2071,7 @@
                 <div style="border-top:1px solid var(--border);padding-top:16px;">
                   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
                     <h4 style="margin:0;font-size:14px;font-weight:700;">🚫 Pejabat yang Diberhentikan</h4>
-                    <div style="font-size:12px;color:var(--text-muted);margin:6px 0 10px 0;padding:6px 10px;background:var(--surface-alt);border-radius:6px;border:1px solid var(--border);">ℹ️ <strong>Format Excel Diberhentikan:</strong> Nomor, Nama Lengkap, NIP, Jenis Tutam</div>
+                    <div style="font-size:12px;color:var(--text-muted);margin:6px 0 10px 0;padding:6px 10px;background:var(--surface-alt);border-radius:6px;border:1px solid var(--border);">ℹ️ <strong>Format Excel Diberhentikan:</strong> Nomor, Nama Lengkap, NIP, Jabatan, Golongan, Jenis Tutam</div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
                       <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;background:var(--primary);color:#fff;border:none;" onclick="buatSkOpenSearchLoopModal('diberhentikan')">🔍 Cari &amp; Tambah Pegawai</button><button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;" onclick="buatSkAddRowDiberhentikan()">➕ Baris Kosong</button>
                       <label class="btn btn-secondary" style="font-size:12px;padding:5px 12px;cursor:pointer;" title="Format: Nama Lengkap | NIP | Jenis Tutam">
@@ -2087,6 +2087,8 @@
                         <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);width:40px;">No</th>
                         <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);">Nama Lengkap</th>
                         <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);">NIP</th>
+                        <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);">Jabatan</th>
+                        <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);">Golongan</th>
                         <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);">Jenis Tutam</th>
                         <th style="padding:8px 10px;text-align:center;border:1px solid var(--border);width:60px;">Hapus</th>
                       </tr></thead>
@@ -9896,6 +9898,11 @@ async function buatSkLoadPlaceholders() {
 
   BUAT_SK.placeholders = placeholders;
   buatSkRenderDynamicFields(placeholders);
+
+  // Jika ada field unit_es_ii di form (untuk SK non-tutam), isi otomatis dari pilihan unit di atas
+  const fieldUnit = document.getElementById('bsk_field_unit_es_ii');
+  if (fieldUnit && BUAT_SK.unitEsIi) fieldUnit.value = BUAT_SK.unitEsIi;
+
   const wrapForm = document.getElementById('buatSk_dynamicFormWrap');
   if (wrapForm) wrapForm.style.display = '';
   // Tampilkan action bar (tombol Buat SK & Preview)
@@ -9910,12 +9917,19 @@ function buatSkRenderDynamicFields(placeholders) {
 
   const AUTO_RESOLVE = new Set(['pimpinan','nama_pimpinan','nama_jabatan','today']);
   const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
+  const PERLU_UNIT = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Dekan Wadek','SK Tutam Struktural'];
   const hasLoop = PERLU_LOOP.includes(BUAT_SK.jenisSk);
+  const hasUnitSelect = PERLU_UNIT.includes(BUAT_SK.jenisSk) && !!BUAT_SK.unitEsIi;
 
-  // Untuk jenis SK yang memiliki tabel loop, kolom-kolom tabel loop HANYA tampil di tabel, TIDAK di form atas!
+  // Kunci loop tabel (array mustache section) — tidak dirender sebagai form tunggal
+  const LOOP_SECTION_KEYS = new Set([
+    'pejabat_dilantik','pejabat_lantik','dilantik',
+    'pejabat_diberhentikan','pejabat_berhenti','diberhentikan',
+    'pejabat_terkait','pejabat'
+  ]);
+  // Kolom-kolom di dalam loop tabel — tidak muncul di form atas jika hasLoop
   const LOOP_COLUMNS = new Set([
-    'pejabat_dilantik','pejabat_diberhentikan','no',
-    'nama_lengkap','nip','jabatan','golongan','pangkat','jenis_tutam','tugas_tambahan',
+    'no','nama_lengkap','nip','jabatan','golongan','pangkat','jenis_tutam','tugas_tambahan',
     'nama_lengkap_item','nip_item','jabatan_item','golongan_item','pangkat_item','jenis_tutam_item','tugas_tambahan_item'
   ]);
 
@@ -9924,9 +9938,17 @@ function buatSkRenderDynamicFields(placeholders) {
 
   const filtered = (placeholders || []).filter(p => {
     if (!p) return false;
-    const lowerP = String(p).toLowerCase();
+    const raw = String(p).trim();
+    // Filter tag mustache section seperti #pejabat_berhenti atau /pejabat_berhenti
+    if (raw.startsWith('#') || raw.startsWith('/')) return false;
+    const lowerP = raw.toLowerCase();
     if (AUTO_RESOLVE.has(lowerP)) return false;
+    // Filter semua kunci loop section
+    if (LOOP_SECTION_KEYS.has(lowerP)) return false;
+    // Filter kolom loop jika jenis SK menggunakan tabel loop
     if (hasLoop && LOOP_COLUMNS.has(lowerP)) return false;
+    // Filter unit_es_ii jika sudah dipilih dari dropdown Unit di atas
+    if (hasUnitSelect && lowerP === 'unit_es_ii') return false;
     return true;
   });
 
@@ -10291,10 +10313,14 @@ async function buatSkSelectRowEmployee(tableType, rowIdx, nip) {
 
     const targetList = (tableType === 'diberhentikan') ? BUAT_SK.pejabatDiberhentikan : BUAT_SK.pejabatDilantik;
     if (targetList[rowIdx]) {
-      targetList[rowIdx].nama_lengkap = empNama;
-      targetList[rowIdx].nip = empNip;
-      if (targetList[rowIdx].jabatan !== undefined) targetList[rowIdx].jabatan = empJab;
-      if (targetList[rowIdx].golongan !== undefined) targetList[rowIdx].golongan = empGol;
+      const row = targetList[rowIdx];
+      row.nama_lengkap = empNama;
+      row.nip          = empNip;
+      row.jabatan      = emp.jabatan || row.jabatan || '';
+      row.golongan     = empGol;
+      row.pangkat      = emp.pangkat || row.pangkat || '';
+      // Jangan overwrite jenis_tutam yang mungkin sudah diisi user
+      // row.jenis_tutam sudah ada di objek, biarkan
     }
 
     if (tableType === 'diberhentikan') buatSkRenderTabelDiberhentikan();
@@ -10408,13 +10434,15 @@ function buatSkRenderTabelDiberhentikan() {
       <td style="padding:6px 10px;border:1px solid var(--border);text-align:center;">${i+1}</td>
       <td style="padding:6px 10px;border:1px solid var(--border);">${namaCell}</td>
       <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.nip||'')}" onchange="BUAT_SK.pejabatDiberhentikan[${i}].nip=this.value" style="border:none;background:transparent;width:100%;font-size:13px;" /></td>
+      <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.jabatan||'')}" onchange="BUAT_SK.pejabatDiberhentikan[${i}].jabatan=this.value" style="border:none;background:transparent;width:100%;font-size:13px;" /></td>
+      <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.golongan||'')}" onchange="BUAT_SK.pejabatDiberhentikan[${i}].golongan=this.value" style="border:none;background:transparent;width:80px;font-size:13px;" /></td>
       <td style="padding:6px 10px;border:1px solid var(--border);">${jenisTutamCell}</td>
       <td style="padding:6px 10px;border:1px solid var(--border);text-align:center;"><button onclick="buatSkRemoveRow('diberhentikan',${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;">&#x2715;</button></td>
     </tr>`;
   });
 }
 function buatSkAddRowDiberhentikan() {
-  BUAT_SK.pejabatDiberhentikan.push({nama_lengkap:'',nip:'',jenis_tutam:''});
+  BUAT_SK.pejabatDiberhentikan.push({nama_lengkap:'',nip:'',jabatan:'',golongan:'',jenis_tutam:''});
   buatSkRenderTabelDiberhentikan();
 }
 function buatSkRemoveRow(tipe, idx) {
