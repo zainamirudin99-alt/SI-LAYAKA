@@ -586,6 +586,94 @@ async function downloadTemplateBuffer(fileId) {
   throw new Error(`Gagal mengunduh template ID "${cleanId}". Pastikan link Google Drive diset ke publik ("Siapa saja yang memiliki link").`);
 }
 
+function createDefaultSkDocxBuffer(jenis_sk, dataCtx) {
+  const PizZip = require('pizzip');
+  const zip = new PizZip();
+
+  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
+
+  const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+  const docRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+</Relationships>`;
+
+  const escXml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+
+  let tableRows = '';
+  const labels = {
+    nomor_sk: 'Nomor SK',
+    tgl_sk: 'Tanggal SK',
+    nip: 'NIP',
+    nama_lengkap: 'Nama Lengkap',
+    golongan: 'Golongan',
+    pangkat: 'Pangkat',
+    jabatan: 'Jabatan',
+    unit_es_ii: 'Unit / Fakultas',
+    tmp_lhr: 'Tempat Lahir',
+    tgl_lhr: 'Tanggal Lahir',
+    tmt_pengangkatan: 'TMT Pengangkatan',
+    masa_kerja_gol: 'Masa Kerja Golongan',
+    gaji_pokok: 'Gaji Pokok',
+    pimpinan: 'Pimpinan / Pengesah'
+  };
+
+  for (const [k, v] of Object.entries(dataCtx || {})) {
+    if (typeof v === 'object' || !v || k.startsWith('mkg_') || k.startsWith('mk_') || k === 'today' || k === 'tgl_buat') continue;
+    const labelText = labels[k] || k.replace(/_/g, ' ').toUpperCase();
+    const valText = String(v);
+    tableRows += `<w:tr>
+      <w:tc><w:tcPr><w:tcW w:w="3200" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>${escXml(labelText)}</w:t></w:r></w:p></w:tc>
+      <w:tc><w:tcPr><w:tcW w:w="300" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>:</w:t></w:r></w:p></w:tc>
+      <w:tc><w:tcPr><w:tcW w:w="5500" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${escXml(valText)}</w:t></w:r></w:p></w:tc>
+    </w:tr>`;
+  }
+
+  let loopSection = '';
+  if (Array.isArray(dataCtx.pejabat_dilantik) && dataCtx.pejabat_dilantik.length > 0) {
+    loopSection += `<w:p><w:r><w:rPr><w:b/><w:sz w:val="24"/></w:rPr><w:t>DAFTAR PEJABAT YANG DILANTIK:</w:t></w:r></w:p>`;
+    dataCtx.pejabat_dilantik.forEach((p, idx) => {
+      loopSection += `<w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${idx + 1}. ${escXml(p.nama_lengkap || '')} - NIP: ${escXml(p.nip || '')} - Jabatan: ${escXml(p.jabatan || p.jenis_tutam || '')}</w:t></w:r></w:p>`;
+    });
+  }
+
+  const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="32"/></w:rPr><w:t>SURAT KEPUTUSAN</w:t></w:r></w:p>
+    <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="26"/></w:rPr><w:t>${escXml(String(jenis_sk).toUpperCase())}</w:t></w:r></w:p>
+    <w:p/>
+    <w:tbl>
+      <w:tblPr><w:tblW w:w="9000" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/><w:left w:val="none"/><w:right w:val="none"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="EEEEEE"/><w:insideV w:val="none"/></w:tblBorders></w:tblPr>
+      ${tableRows}
+    </w:tbl>
+    <w:p/>
+    ${loopSection}
+    <w:p/>
+    <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>Ditetapkan di Semarang</w:t></w:r></w:p>
+    <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>Pada tanggal: ${escXml(dataCtx.tgl_sk || dataCtx.today || '')}</w:t></w:r></w:p>
+    <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>${escXml(dataCtx.pimpinan || 'REKTOR UNIVERSITAS DIPONEGORO')}</w:t></w:r></w:p>
+    <w:p/><w:p/><w:p/>
+    <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:b/><w:u w:val="single"/><w:sz w:val="22"/></w:rPr><w:t>${escXml(dataCtx.nama_pimpinan || 'Prof. Dr. Suharnomo, S.E., M.Si.')}</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+
+  zip.file('[Content_Types].xml', contentTypesXml);
+  zip.file('_rels/.rels', relsXml);
+  zip.file('word/_rels/document.xml.rels', docRelsXml);
+  zip.file('word/document.xml', docXml);
+
+  return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
+}
+
 function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
   const PizZip = require('pizzip');
   const Docxtemplater = require('docxtemplater');
@@ -2295,94 +2383,6 @@ const methods = {
 
     return { success: true, data, message: 'SK berhasil disimpan ke riwayat.' };
   },
-
-function createDefaultSkDocxBuffer(jenis_sk, dataCtx) {
-  const PizZip = require('pizzip');
-  const zip = new PizZip();
-
-  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-  <Default Extension="xml" ContentType="application/xml"/>
-  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
-</Types>`;
-
-  const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
-</Relationships>`;
-
-  const docRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-</Relationships>`;
-
-  const escXml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
-
-  let tableRows = '';
-  const labels = {
-    nomor_sk: 'Nomor SK',
-    tgl_sk: 'Tanggal SK',
-    nip: 'NIP',
-    nama_lengkap: 'Nama Lengkap',
-    golongan: 'Golongan',
-    pangkat: 'Pangkat',
-    jabatan: 'Jabatan',
-    unit_es_ii: 'Unit / Fakultas',
-    tmp_lhr: 'Tempat Lahir',
-    tgl_lhr: 'Tanggal Lahir',
-    tmt_pengangkatan: 'TMT Pengangkatan',
-    masa_kerja_gol: 'Masa Kerja Golongan',
-    gaji_pokok: 'Gaji Pokok',
-    pimpinan: 'Pimpinan / Pengesah'
-  };
-
-  for (const [k, v] of Object.entries(dataCtx || {})) {
-    if (typeof v === 'object' || !v || k.startsWith('mkg_') || k.startsWith('mk_') || k === 'today' || k === 'tgl_buat') continue;
-    const labelText = labels[k] || k.replace(/_/g, ' ').toUpperCase();
-    const valText = String(v);
-    tableRows += `<w:tr>
-      <w:tc><w:tcPr><w:tcW w:w="3200" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>${escXml(labelText)}</w:t></w:r></w:p></w:tc>
-      <w:tc><w:tcPr><w:tcW w:w="300" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>:</w:t></w:r></w:p></w:tc>
-      <w:tc><w:tcPr><w:tcW w:w="5500" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${escXml(valText)}</w:t></w:r></w:p></w:tc>
-    </w:tr>`;
-  }
-
-  let loopSection = '';
-  if (Array.isArray(dataCtx.pejabat_dilantik) && dataCtx.pejabat_dilantik.length > 0) {
-    loopSection += `<w:p><w:r><w:rPr><w:b/><w:sz w:val="24"/></w:rPr><w:t>DAFTAR PEJABAT YANG DILANTIK:</w:t></w:r></w:p>`;
-    dataCtx.pejabat_dilantik.forEach((p, idx) => {
-      loopSection += `<w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${idx + 1}. ${escXml(p.nama_lengkap || '')} - NIP: ${escXml(p.nip || '')} - Jabatan: ${escXml(p.jabatan || p.jenis_tutam || '')}</w:t></w:r></w:p>`;
-    });
-  }
-
-  const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:body>
-    <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="32"/></w:rPr><w:t>SURAT KEPUTUSAN</w:t></w:r></w:p>
-    <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="26"/></w:rPr><w:t>${escXml(String(jenis_sk).toUpperCase())}</w:t></w:r></w:p>
-    <w:p/>
-    <w:tbl>
-      <w:tblPr><w:tblW w:w="9000" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/><w:left w:val="none"/><w:right w:val="none"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="EEEEEE"/><w:insideV w:val="none"/></w:tblBorders></w:tblPr>
-      ${tableRows}
-    </w:tbl>
-    <w:p/>
-    ${loopSection}
-    <w:p/>
-    <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>Ditetapkan di Semarang</w:t></w:r></w:p>
-    <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>Pada tanggal: ${escXml(dataCtx.tgl_sk || dataCtx.today || '')}</w:t></w:r></w:p>
-    <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>${escXml(dataCtx.pimpinan || 'REKTOR UNIVERSITAS DIPONEGORO')}</w:t></w:r></w:p>
-    <w:p/><w:p/><w:p/>
-    <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:b/><w:u w:val="single"/><w:sz w:val="22"/></w:rPr><w:t>${escXml(dataCtx.nama_pimpinan || 'Prof. Dr. Suharnomo, S.E., M.Si.')}</w:t></w:r></w:p>
-  </w:body>
-</w:document>`;
-
-  zip.file('[Content_Types].xml', contentTypesXml);
-  zip.file('_rels/.rels', relsXml);
-  zip.file('word/_rels/document.xml.rels', docRelsXml);
-  zip.file('word/document.xml', docXml);
-
-  return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
-}
 
   /**
    * Orchestrator utama: render template SK dengan data form + auto-resolve placeholder.
