@@ -2053,7 +2053,7 @@
                   </div>
                   <div style="overflow-x:auto;">
                     <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                      <thead><tr style="background:var(--surface-alt);">
+                      <thead id="buatSk_tabelDilantikHead"><tr style="background:var(--surface-alt);">
                         <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);width:40px;">No</th>
                         <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);">Nama Lengkap</th>
                         <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);">NIP</th>
@@ -2083,7 +2083,7 @@
                   </div>
                   <div style="overflow-x:auto;">
                     <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                      <thead><tr style="background:var(--surface-alt);">
+                      <thead id="buatSk_tabelDiberhentikanHead"><tr style="background:var(--surface-alt);">
                         <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);width:40px;">No</th>
                         <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);">Nama Lengkap</th>
                         <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);">NIP</th>
@@ -9307,7 +9307,11 @@ const BUAT_SK = {
   pimpinanInfo: null, placeholders: [],
   pejabatDilantik: [], pejabatDiberhentikan: [],
   searchTimer: null, empSearchTimer: null,
-  activeLoopTarget: null // 'dilantik' | 'diberhentikan' saat modal spreadsheet
+  activeLoopTarget: null, // 'dilantik' | 'diberhentikan' saat modal spreadsheet
+  loopColumns: {},        // { 'pejabat_dilantik': ['nama_lengkap','nip','jabatan',...], ... }
+  jenisTutamList: [],     // daftar jenis tutam dari DB
+  jenisTutamStruktural: null, // sub-jenis yang dipilih untuk SK Tutam Struktural
+  templatesList: null
 };
 
 // Pre-load promise — diset saat user masuk view agar templates sudah siap
@@ -9891,6 +9895,15 @@ async function buatSkLoadPlaceholders() {
       if (res && res.placeholders && res.placeholders.length > 0) {
         placeholders = res.placeholders;
       }
+      // Simpan loop_columns: { 'pejabat_dilantik': ['nama_lengkap','nip','jabatan',...], ... }
+      if (res && res.loop_columns && typeof res.loop_columns === 'object') {
+        BUAT_SK.loopColumns = res.loop_columns;
+        console.log('[buatSkLoadPlaceholders] loop_columns:', BUAT_SK.loopColumns);
+        // Re-render tabel dengan kolom dinamis setelah data tersedia
+        buatSkRenderTabelDilantik();
+        buatSkRenderTabelDiberhentikan();
+        buatSkUpdateTabelHeaders();
+      }
     } catch(errScan) {
       console.warn('[buatSkLoadPlaceholders] Scan error, pakai default:', errScan);
     }
@@ -10356,7 +10369,81 @@ function buatSkSearchRowJenisTutam(tableType, rowIdx, q) {
   dropdown.style.display = 'block';
 }
 
-// Tabel Loop — Dilantik
+// ============================================================
+// Helper: ambil kolom loop dari template scan (dengan fallback)
+// ============================================================
+function buatSkGetLoopCols(sectionKey) {
+  const SECTION_ALIASES = {
+    dilantik: ['pejabat_dilantik','pejabat_lantik','dilantik'],
+    diberhentikan: ['pejabat_diberhentikan','pejabat_berhenti','diberhentikan']
+  };
+  const aliases = SECTION_ALIASES[sectionKey] || [sectionKey];
+  const lc = BUAT_SK.loopColumns || {};
+  for (const alias of aliases) {
+    if (lc[alias] && lc[alias].length > 0) return lc[alias];
+  }
+  // Fallback default columns
+  return ['nama_lengkap','nip','jabatan','golongan','jenis_tutam'];
+}
+
+// Humanize kolom key → label
+function buatSkColLabel(key) {
+  const MAP = {
+    nama_lengkap:'Nama Lengkap', nip:'NIP', jabatan:'Jabatan',
+    golongan:'Golongan', pangkat:'Pangkat', jenis_tutam:'Jenis Tutam',
+    tugas_tambahan:'Tugas Tambahan'
+  };
+  return MAP[key] || String(key).replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+// Update thead tabel dilantik & diberhentikan sesuai loop_columns
+function buatSkUpdateTabelHeaders() {
+  ['dilantik','diberhentikan'].forEach(tipe => {
+    const cols = buatSkGetLoopCols(tipe);
+    const headerId = tipe === 'dilantik' ? 'buatSk_tabelDilantikHead' : 'buatSk_tabelDiberhentikanHead';
+    const thead = document.getElementById(headerId);
+    if (!thead) return;
+    thead.innerHTML = `<tr style="background:var(--surface-alt);">
+      <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);width:40px;">No</th>
+      ${cols.map(c => `<th style="padding:8px 10px;text-align:left;border:1px solid var(--border);">${escHtml(buatSkColLabel(c))}</th>`).join('')}
+      <th style="padding:8px 10px;text-align:center;border:1px solid var(--border);width:60px;">Hapus</th>
+    </tr>`;
+  });
+}
+
+// Render satu cell input berdasarkan key kolom
+function buatSkRenderCell(tipe, rowIdx, colKey, rowObj) {
+  const listRef = tipe === 'dilantik' ? 'BUAT_SK.pejabatDilantik' : 'BUAT_SK.pejabatDiberhentikan';
+  const style = 'border:none;background:transparent;width:100%;font-size:13px;';
+  const cellStyle = 'padding:6px 10px;border:1px solid var(--border);';
+
+  if (colKey === 'nama_lengkap') {
+    return `<td style="${cellStyle}">
+      <div style="position:relative;">
+        <input type="text" value="${escHtml(rowObj.nama_lengkap||'')}" placeholder="Cari / Ketik Nama..."
+               oninput="${listRef}[${rowIdx}].nama_lengkap=this.value; buatSkSearchRowEmployee('${tipe}', ${rowIdx}, this.value)"
+               style="border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;width:100%;background:var(--surface);" />
+        <div id="row_emp_dropdown_${tipe}_${rowIdx}" style="position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:6px;max-height:160px;overflow-y:auto;z-index:200;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+      </div></td>`;
+  }
+  if (colKey === 'jenis_tutam') {
+    return `<td style="${cellStyle}">
+      <div style="position:relative;">
+        <input type="text" value="${escHtml(rowObj.jenis_tutam||'')}" placeholder="Cari / Ketik Jenis Tutam..."
+               oninput="${listRef}[${rowIdx}].jenis_tutam=this.value; buatSkSearchRowJenisTutam('${tipe}', ${rowIdx}, this.value)"
+               onfocus="buatSkSearchRowJenisTutam('${tipe}', ${rowIdx}, this.value)"
+               style="border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;width:100%;background:var(--surface);" />
+        <div id="row_tutam_dropdown_${tipe}_${rowIdx}" style="position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:6px;max-height:160px;overflow-y:auto;z-index:200;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+      </div></td>`;
+  }
+  if (colKey === 'golongan') {
+    return `<td style="${cellStyle}"><input type="text" value="${escHtml(rowObj.golongan||'')}" onchange="${listRef}[${rowIdx}].golongan=this.value" style="${style}width:80px;" /></td>`;
+  }
+  // Generic text column
+  return `<td style="${cellStyle}"><input type="text" value="${escHtml(rowObj[colKey]||'')}" onchange="${listRef}[${rowIdx}]['${colKey}']=this.value" style="${style}" /></td>`;
+}
+
+// Tabel Loop — Dilantik (dinamis sesuai loop_columns dari template)
 function buatSkRenderTabelDilantik() {
   const tbody = document.getElementById('buatSk_tabelDilantikBody');
   const empty = document.getElementById('buatSk_dilantikEmpty');
@@ -10364,44 +10451,24 @@ function buatSkRenderTabelDilantik() {
   tbody.innerHTML = '';
   if (!BUAT_SK.pejabatDilantik.length) { if(empty) empty.style.display=''; return; }
   if(empty) empty.style.display = 'none';
-
+  const cols = buatSkGetLoopCols('dilantik');
   BUAT_SK.pejabatDilantik.forEach((p, i) => {
-    const jenisTutamCell = `
-      <div style="position:relative;">
-        <input type="text" value="${escHtml(p.jenis_tutam||'')}" 
-               placeholder="Cari / Ketik Jenis Tutam..." 
-               oninput="BUAT_SK.pejabatDilantik[${i}].jenis_tutam=this.value; buatSkSearchRowJenisTutam('dilantik', ${i}, this.value)" 
-               onfocus="buatSkSearchRowJenisTutam('dilantik', ${i}, this.value)" 
-               style="border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;width:100%;background:var(--surface);" />
-        <div id="row_tutam_dropdown_dilantik_${i}" style="position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:6px;max-height:160px;overflow-y:auto;z-index:200;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
-      </div>`;
-
-    const namaCell = `
-      <div style="position:relative;">
-        <input type="text" value="${escHtml(p.nama_lengkap||'')}" 
-               placeholder="Cari / Ketik Nama Pegawai..." 
-               oninput="BUAT_SK.pejabatDilantik[${i}].nama_lengkap=this.value; buatSkSearchRowEmployee('dilantik', ${i}, this.value)" 
-               style="border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;width:100%;background:var(--surface);" />
-        <div id="row_emp_dropdown_dilantik_${i}" style="position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:6px;max-height:160px;overflow-y:auto;z-index:200;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
-      </div>`;
-
     tbody.innerHTML += `<tr>
       <td style="padding:6px 10px;border:1px solid var(--border);text-align:center;">${i+1}</td>
-      <td style="padding:6px 10px;border:1px solid var(--border);">${namaCell}</td>
-      <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.nip||'')}" onchange="BUAT_SK.pejabatDilantik[${i}].nip=this.value" style="border:none;background:transparent;width:100%;font-size:13px;" /></td>
-      <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.jabatan||'')}" onchange="BUAT_SK.pejabatDilantik[${i}].jabatan=this.value" style="border:none;background:transparent;width:100%;font-size:13px;" /></td>
-      <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.golongan||'')}" onchange="BUAT_SK.pejabatDilantik[${i}].golongan=this.value" style="border:none;background:transparent;width:80px;font-size:13px;" /></td>
-      <td style="padding:6px 10px;border:1px solid var(--border);">${jenisTutamCell}</td>
+      ${cols.map(c => buatSkRenderCell('dilantik', i, c, p)).join('')}
       <td style="padding:6px 10px;border:1px solid var(--border);text-align:center;"><button onclick="buatSkRemoveRow('dilantik',${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;">&#x2715;</button></td>
     </tr>`;
   });
 }
 function buatSkAddRowDilantik() {
-  BUAT_SK.pejabatDilantik.push({nama_lengkap:'',nip:'',jabatan:'',golongan:'',jenis_tutam:''});
+  const cols = buatSkGetLoopCols('dilantik');
+  const row = {};
+  cols.forEach(c => { row[c] = ''; });
+  BUAT_SK.pejabatDilantik.push(row);
   buatSkRenderTabelDilantik();
 }
 
-// Tabel Loop — Diberhentikan
+// Tabel Loop — Diberhentikan (dinamis sesuai loop_columns dari template)
 function buatSkRenderTabelDiberhentikan() {
   const tbody = document.getElementById('buatSk_tabelDiberhentikanBody');
   const empty = document.getElementById('buatSk_diberhentikanEmpty');
@@ -10409,40 +10476,20 @@ function buatSkRenderTabelDiberhentikan() {
   tbody.innerHTML = '';
   if (!BUAT_SK.pejabatDiberhentikan.length) { if(empty) empty.style.display=''; return; }
   if(empty) empty.style.display = 'none';
-
+  const cols = buatSkGetLoopCols('diberhentikan');
   BUAT_SK.pejabatDiberhentikan.forEach((p, i) => {
-    const jenisTutamCell = `
-      <div style="position:relative;">
-        <input type="text" value="${escHtml(p.jenis_tutam||'')}" 
-               placeholder="Cari / Ketik Jenis Tutam..." 
-               oninput="BUAT_SK.pejabatDiberhentikan[${i}].jenis_tutam=this.value; buatSkSearchRowJenisTutam('diberhentikan', ${i}, this.value)" 
-               onfocus="buatSkSearchRowJenisTutam('diberhentikan', ${i}, this.value)" 
-               style="border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;width:100%;background:var(--surface);" />
-        <div id="row_tutam_dropdown_diberhentikan_${i}" style="position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:6px;max-height:160px;overflow-y:auto;z-index:200;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
-      </div>`;
-
-    const namaCell = `
-      <div style="position:relative;">
-        <input type="text" value="${escHtml(p.nama_lengkap||'')}" 
-               placeholder="Cari / Ketik Nama Pegawai..." 
-               oninput="BUAT_SK.pejabatDiberhentikan[${i}].nama_lengkap=this.value; buatSkSearchRowEmployee('diberhentikan', ${i}, this.value)" 
-               style="border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;width:100%;background:var(--surface);" />
-        <div id="row_emp_dropdown_diberhentikan_${i}" style="position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:6px;max-height:160px;overflow-y:auto;z-index:200;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
-      </div>`;
-
     tbody.innerHTML += `<tr>
       <td style="padding:6px 10px;border:1px solid var(--border);text-align:center;">${i+1}</td>
-      <td style="padding:6px 10px;border:1px solid var(--border);">${namaCell}</td>
-      <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.nip||'')}" onchange="BUAT_SK.pejabatDiberhentikan[${i}].nip=this.value" style="border:none;background:transparent;width:100%;font-size:13px;" /></td>
-      <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.jabatan||'')}" onchange="BUAT_SK.pejabatDiberhentikan[${i}].jabatan=this.value" style="border:none;background:transparent;width:100%;font-size:13px;" /></td>
-      <td style="padding:6px 10px;border:1px solid var(--border);"><input type="text" value="${escHtml(p.golongan||'')}" onchange="BUAT_SK.pejabatDiberhentikan[${i}].golongan=this.value" style="border:none;background:transparent;width:80px;font-size:13px;" /></td>
-      <td style="padding:6px 10px;border:1px solid var(--border);">${jenisTutamCell}</td>
+      ${cols.map(c => buatSkRenderCell('diberhentikan', i, c, p)).join('')}
       <td style="padding:6px 10px;border:1px solid var(--border);text-align:center;"><button onclick="buatSkRemoveRow('diberhentikan',${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;">&#x2715;</button></td>
     </tr>`;
   });
 }
 function buatSkAddRowDiberhentikan() {
-  BUAT_SK.pejabatDiberhentikan.push({nama_lengkap:'',nip:'',jabatan:'',golongan:'',jenis_tutam:''});
+  const cols = buatSkGetLoopCols('diberhentikan');
+  const row = {};
+  cols.forEach(c => { row[c] = ''; });
+  BUAT_SK.pejabatDiberhentikan.push(row);
   buatSkRenderTabelDiberhentikan();
 }
 function buatSkRemoveRow(tipe, idx) {

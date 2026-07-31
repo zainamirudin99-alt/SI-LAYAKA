@@ -926,6 +926,21 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = n
       xml = xml.replace(regSingle, val);
     }
 
+    // 3. Ganti {{ key|filter }} — replace placeholder berfilter (upper, lower, tanggal, rupiah)
+    //    Contoh: {{unit_es_ii|upper}} → nilai unit_es_ii di-uppercase
+    const KNOWN_FILTERS = ['upper','lower','terbilang','rupiah','tanggal'];
+    for (const [k, val] of Object.entries(fullData)) {
+      for (const filterName of KNOWN_FILTERS) {
+        let filteredVal = val;
+        try { filteredVal = String(docxApplyFilter(filterName, val)); } catch(_) { filteredVal = val; }
+        const escapedFiltVal = escapeXmlText(filteredVal);
+        const regDF = new RegExp(`\\{\\{\\s*${k}\\s*\\|\\s*${filterName}\\s*\\}\\}`, 'gi');
+        xml = xml.replace(regDF, escapedFiltVal);
+        const regSF = new RegExp(`\\{\\s*${k}\\s*\\|\\s*${filterName}\\s*\\}`, 'gi');
+        xml = xml.replace(regSF, escapedFiltVal);
+      }
+    }
+
     zip.file(fileName, xml);
   }
 
@@ -2170,12 +2185,12 @@ const methods = {
       'masa_kerja_gol', 'gaji_pokok'
     ];
     if (!templateId || String(templateId).startsWith('default_')) {
-      return { success: true, placeholders: DEFAULT_PLACEHOLDERS };
+      return { success: true, placeholders: DEFAULT_PLACEHOLDERS, loop_columns: {} };
     }
     try {
       const db = getDb();
       const { data: tmpl } = await db.from('templates').select('file_id').eq('id', templateId).maybeSingle();
-      if (!tmpl || !tmpl.file_id) return { success: true, placeholders: DEFAULT_PLACEHOLDERS };
+      if (!tmpl || !tmpl.file_id) return { success: true, placeholders: DEFAULT_PLACEHOLDERS, loop_columns: {} };
 
       const buf = await downloadTemplateBuffer(tmpl.file_id);
       const PizZip = require('pizzip');
@@ -2193,41 +2208,99 @@ const methods = {
       );
 
       const found = new Set();
-      const VALID_ID = /^[a-zA-Z_][a-zA-Z0-9_]{0,59}$/; // identifier yang masuk akal
+      // loop_columns: { 'pejabat_dilantik': Set(['nama_lengkap','nip','jabatan',...]), ... }
+      const loopColumnsMap = {};
+      const VALID_ID = /^[a-zA-Z_][a-zA-Z0-9_]{0,59}$/;
+
+      // Nama-nama section loop yang diketahui
+      const LOOP_SECTION_NAMES = [
+        'pejabat_dilantik','pejabat_lantik','dilantik',
+        'pejabat_diberhentikan','pejabat_berhenti','diberhentikan',
+        'pejabat_terkait','pejabat'
+      ];
+
+      // Helper: dapatkan base key dari ekspresi (strip filter |upper dsb, strip [dropdown], strip set)
+      const extractBaseKey = (raw) => {
+        if (!raw) return null;
+        const clean = String(raw).replace(/<[^>]+>/g, '').replace(/[{}]/g, '').trim();
+        if (!clean || clean.startsWith('#') || clean.startsWith('/') || clean.startsWith('^')) return null;
+        if (/^set\s+/i.test(clean)) {
+          const setTarget = clean.split('=')[0].replace(/^set\s+/i, '').trim();
+          return VALID_ID.test(setTarget) ? setTarget.toLowerCase() : null;
+        }
+        // Ambil bagian sebelum | (filter) dan [ (dropdown)
+        const baseExpr = clean.split('|')[0].split('[')[0].trim();
+        // Hanya identifier sederhana (bukan ekspresi kompleks seperti a+b, a>b, dll)
+        if (VALID_ID.test(baseExpr)) return baseExpr.toLowerCase();
+        return null;
+      };
 
       for (const fileName of xmlFilesToScan) {
         const xmlFile = zip.file(fileName);
         if (!xmlFile) continue;
         const xml = xmlFile.asText();
 
-        // Helper untuk ekstrak tag
-        const parseTagStr = (str) => {
-          if (!str) return;
-          const clean = str.replace(/<[^>]+>/g, '').replace(/[{}]/g, '').trim();
-          if (!clean || clean.startsWith('#') || clean.startsWith('/') || clean.startsWith('^')) return;
-          if (/^set\s+/i.test(clean)) {
-            const setTarget = clean.split('=')[0].replace(/^set\s+/i, '').trim();
-            if (setTarget && VALID_ID.test(setTarget)) found.add(setTarget.toLowerCase());
-          } else if (VALID_ID.test(clean)) {
-            found.add(clean.toLowerCase());
-          }
-        };
-
         // Pass 1 — cari {…} di raw XML
-        (xml.match(/\{[^{}]{1,120}\}/g) || []).forEach(parseTagStr);
+        (xml.match(/\{[^{}]{1,120}\}/g) || []).forEach(str => {
+          const key = extractBaseKey(str);
+          if (key) found.add(key);
+        });
 
         // Pass 2 — strip seluruh tag XML lalu cari {{…}} dan {…}
         const textOnly = xml.replace(/<[^>]+>/g, ' ');
-        (textOnly.match(/\{\{([^{}]+)\}\}/g) || []).forEach(parseTagStr);
-        (textOnly.match(/\{([^{}]+)\}/g) || []).forEach(parseTagStr);
+
+        // Deteksi loop section dan ekstrak kolom di dalamnya
+        // Pattern: {{#section_name}} ... {{/section_name}}
+        LOOP_SECTION_NAMES.forEach(sectionName => {
+          const reSection = new RegExp(
+            `\\{\\{\\s*#\\s*${sectionName}\\s*\\}\\}([\\s\\S]*?)\\{\\{\\s*\\/\\s*${sectionName}\\s*\\}\\}`,
+            'gi'
+          );
+          let m;
+          while ((m = reSection.exec(textOnly)) !== null) {
+            const inner = m[1] || '';
+            if (!loopColumnsMap[sectionName]) loopColumnsMap[sectionName] = new Set();
+            // Ekstrak placeholder di dalam loop
+            (inner.match(/\{\{([^{}]+)\}\}/g) || []).forEach(tag => {
+              const key = extractBaseKey(tag);
+              if (key && !key.startsWith('#') && !key.startsWith('/')) {
+                loopColumnsMap[sectionName].add(key);
+              }
+            });
+            (inner.match(/\{([^{}]+)\}/g) || []).forEach(tag => {
+              const key = extractBaseKey(tag);
+              if (key && !key.startsWith('#') && !key.startsWith('/')) {
+                loopColumnsMap[sectionName].add(key);
+              }
+            });
+          }
+        });
+
+        (textOnly.match(/\{\{([^{}]+)\}\}/g) || []).forEach(str => {
+          const key = extractBaseKey(str);
+          if (key) found.add(key);
+        });
+        (textOnly.match(/\{([^{}]+)\}/g) || []).forEach(str => {
+          const key = extractBaseKey(str);
+          if (key) found.add(key);
+        });
+      }
+
+      // Konversi loopColumnsMap Set → Array
+      const loopColumns = {};
+      for (const [sec, colSet] of Object.entries(loopColumnsMap)) {
+        // Hapus 'no' dan kunci section itu sendiri dari kolom
+        const cols = Array.from(colSet).filter(c => c !== 'no' && !LOOP_SECTION_NAMES.includes(c));
+        if (cols.length > 0) loopColumns[sec] = cols;
       }
 
       const result = found.size > 0 ? Array.from(found) : DEFAULT_PLACEHOLDERS;
       console.log(`[getTemplatePlaceholders] templateId=${templateId} → ${result.length} placeholder(s):`, result);
-      return { success: true, placeholders: result };
+      console.log(`[getTemplatePlaceholders] loop_columns:`, loopColumns);
+      return { success: true, placeholders: result, loop_columns: loopColumns };
     } catch(e) {
       console.warn('[getTemplatePlaceholders] warning:', e.message);
-      return { success: true, placeholders: DEFAULT_PLACEHOLDERS };
+      return { success: true, placeholders: DEFAULT_PLACEHOLDERS, loop_columns: {} };
     }
   },
 
@@ -2609,27 +2682,32 @@ const methods = {
 
     const dataCtx = processDataCtxFormatting(rawCtx, false);
 
-    // 4. Sisipkan array loop untuk SK Tutam
-    if (Array.isArray(pejabat_dilantik) && pejabat_dilantik.length > 0) {
-      dataCtx.pejabat_dilantik = pejabat_dilantik.map((p, i) => ({
-        ...p,
-        no: p.no || (i + 1),
-        nama_lengkap: String(p.nama_lengkap || '').toUpperCase(),
-        nip:          String(p.nip || ''),
-        jabatan:      String(p.jabatan || ''),
-        golongan:     String(p.golongan || ''),
-        jenis_tutam:  String(p.jenis_tutam || '')
-      }));
-    }
-    if (Array.isArray(pejabat_diberhentikan) && pejabat_diberhentikan.length > 0) {
-      dataCtx.pejabat_diberhentikan = pejabat_diberhentikan.map((p, i) => ({
-        ...p,
-        no: p.no || (i + 1),
-        nama_lengkap: String(p.nama_lengkap || '').toUpperCase(),
-        nip:          String(p.nip || ''),
-        jenis_tutam:  String(p.jenis_tutam || '')
-      }));
-    }
+    // 4. Sisipkan array loop untuk SK Tutam (dengan alias untuk variasi tag mustache)
+    const dilantikArr = (Array.isArray(pejabat_dilantik) ? pejabat_dilantik : []).map((p, i) => ({
+      ...p,
+      no: p.no || (i + 1),
+      nama_lengkap: String(p.nama_lengkap || '').toUpperCase(),
+      nip:          String(p.nip || ''),
+      jabatan:      String(p.jabatan || ''),
+      golongan:     String(p.golongan || ''),
+      jenis_tutam:  String(p.jenis_tutam || '')
+    }));
+    dataCtx.pejabat_dilantik = dilantikArr;
+    dataCtx.pejabat_lantik   = dilantikArr;
+    dataCtx.dilantik         = dilantikArr;
+
+    const diberhentikanArr = (Array.isArray(pejabat_diberhentikan) ? pejabat_diberhentikan : []).map((p, i) => ({
+      ...p,
+      no: p.no || (i + 1),
+      nama_lengkap: String(p.nama_lengkap || '').toUpperCase(),
+      nip:          String(p.nip || ''),
+      jabatan:      String(p.jabatan || ''),
+      golongan:     String(p.golongan || ''),
+      jenis_tutam:  String(p.jenis_tutam || '')
+    }));
+    dataCtx.pejabat_diberhentikan = diberhentikanArr;
+    dataCtx.pejabat_berhenti     = diberhentikanArr;
+    dataCtx.diberhentikan        = diberhentikanArr;
 
     // 5. Render template DOCX dengan fallback otomatis
     let renderedBuffer = null;
