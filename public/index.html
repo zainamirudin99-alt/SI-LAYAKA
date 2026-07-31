@@ -9579,22 +9579,22 @@ async function buatSkInitForm() {
     console.warn('[buatSkInitForm] Gagal memuat list unit:', e);
   }
 
-  // 2. Fetch templates
+  // 2. Fetch templates — pakai getAllTemplates (no server filter) lalu filter frontend
   try {
-    let raw = await rpc('getTemplates', [SESSION.token, 'Buat SK dan Surat']);
-    // Normalisasi: API bisa mengembalikan array langsung atau {data: [...]}
-    let tmpls = Array.isArray(raw) ? raw
+    let raw = await rpc('getAllTemplates', [SESSION.token]);
+    let allTmpls = Array.isArray(raw) ? raw
       : Array.isArray(raw?.data) ? raw.data
       : [];
 
-    if (tmpls.length === 0) {
-      raw = await rpc('getTemplates', [SESSION.token]);
-      tmpls = Array.isArray(raw) ? raw
-        : Array.isArray(raw?.data) ? raw.data
-        : [];
-    }
-    console.log('[buatSkInitForm] templates loaded:', tmpls.length, tmpls);
+    // Filter frontend untuk layanan "Buat SK"
+    let tmpls = allTmpls.filter(t =>
+      String(t.layanan || '').toLowerCase().includes('buat sk')
+    );
+    if (tmpls.length === 0) tmpls = allTmpls; // fallback: semua template
+
+    console.log('[buatSkInitForm] getAllTemplates total:', allTmpls.length, '| filtered:', tmpls.length, tmpls);
     BUAT_SK.templatesList = tmpls;
+
 
     // Populasi dropdown manual template
     const selTpl = document.getElementById('buatSk_template');
@@ -9696,18 +9696,17 @@ async function buatSkJenisChange() {
     const listNow = Array.isArray(BUAT_SK.templatesList) ? BUAT_SK.templatesList : [];
     if (listNow.length === 0) {
       try {
-        let raw = await rpc('getTemplates', [SESSION.token, 'Buat SK dan Surat']);
-        let tmpls = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : [];
-        if (tmpls.length === 0) {
-          raw = await rpc('getTemplates', [SESSION.token]);
-          tmpls = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : [];
-        }
+        let raw = await rpc('getAllTemplates', [SESSION.token]);
+        let allTmpls = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : [];
+        let tmpls = allTmpls.filter(t => String(t.layanan||'').toLowerCase().includes('buat sk'));
+        if (tmpls.length === 0) tmpls = allTmpls;
         BUAT_SK.templatesList = tmpls;
-        console.log('[buatSkJenisChange] Force-loaded templates:', tmpls.length, tmpls);
+        console.log('[buatSkJenisChange] Force-loaded via getAllTemplates:', allTmpls.length, '→ filtered:', tmpls.length, tmpls);
       } catch(eLoad) {
         console.error('[buatSkJenisChange] Gagal load templates:', eLoad);
       }
     }
+
 
     // DEBUG: tampilkan semua template yang tersedia di console
     console.log('[buatSkJenisChange] Jenis:', jenis, '| Tipe:', tipeTemplate);
