@@ -542,6 +542,7 @@ function cleanWordXmlParagraphBraces(xml) {
 
     return pMatch.replace(pBody, cleanedBody);
   });
+}
 
 
 function createDefaultSkDocxBuffer(jenis_sk, dataCtx) {
