@@ -9716,6 +9716,7 @@ async function buatSkLoadPlaceholders() {
   BUAT_SK.placeholders = placeholders;
   buatSkRenderDynamicFields(placeholders);
   document.getElementById('buatSk_dynamicFormWrap').style.display = '';
+  buatSkHitungGajiPokok();
 }
 
 function buatSkRenderDynamicFields(placeholders) {
@@ -9814,30 +9815,31 @@ function hitungGajiPokokNonAsn(golonganSlash, mkgTahun) {
 }
 
 const GOLONGAN_TO_PANGKAT = {
-  'I/a': 'Juru Muda',
-  'I/b': 'Juru Muda Tingkat I',
-  'I/c': 'Juru',
-  'I/d': 'Juru Tingkat I',
-  'II/a': 'Pengatur Muda',
-  'II/b': 'Pengatur Muda Tingkat I',
-  'II/c': 'Pengatur',
-  'II/d': 'Pengatur Tingkat I',
-  'III/a': 'Penata Muda',
-  'III/b': 'Penata Muda Tingkat I',
-  'III/c': 'Penata',
-  'III/d': 'Penata Tingkat I',
-  'IV/a': 'Pembina',
-  'IV/b': 'Pembina Tingkat I',
-  'IV/c': 'Pembina Utama Muda',
-  'IV/d': 'Pembina Utama Madya',
-  'IV/e': 'Pembina Utama'
+  'I/A': 'Juru Muda',
+  'I/B': 'Juru Muda Tingkat I',
+  'I/C': 'Juru',
+  'I/D': 'Juru Tingkat I',
+  'II/A': 'Pengatur Muda',
+  'II/B': 'Pengatur Muda Tingkat I',
+  'II/C': 'Pengatur',
+  'II/D': 'Pengatur Tingkat I',
+  'III/A': 'Penata Muda',
+  'III/B': 'Penata Muda Tingkat I',
+  'III/C': 'Penata',
+  'III/D': 'Penata Tingkat I',
+  'IV/A': 'Pembina',
+  'IV/B': 'Pembina Tingkat I',
+  'IV/C': 'Pembina Utama Muda',
+  'IV/D': 'Pembina Utama Madya',
+  'IV/E': 'Pembina Utama'
 };
 
 function getPangkatForGolongan(gol, isCptu = false) {
   const s = String(gol || '').trim();
+  if (!s) return '';
   const isSet = /^set/i.test(s);
-  const baseGol = s.toLowerCase().replace(/^setara\s*/i, '').replace(/^set\.\s*/i, '').trim();
-  const basePangkat = GOLONGAN_TO_PANGKAT[baseGol] || GOLONGAN_TO_PANGKAT[s.toLowerCase()] || '';
+  const baseGol = s.toUpperCase().replace(/^SETARA\s*/i, '').replace(/^SET\.\s*/i, '').trim();
+  const basePangkat = GOLONGAN_TO_PANGKAT[baseGol] || GOLONGAN_TO_PANGKAT[s.toUpperCase()] || '';
   if (!basePangkat) return '';
   return isSet ? `Setara ${basePangkat}` : basePangkat;
 }

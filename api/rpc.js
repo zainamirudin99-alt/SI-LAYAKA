@@ -2269,6 +2269,22 @@ const methods = {
       }
     }
 
+    // Auto-resolve {{pangkat}} jika golongan diisi tapi pangkat kosong
+    if (rawCtx.golongan && (!rawCtx.pangkat || !String(rawCtx.pangkat).trim())) {
+      const golStr = String(rawCtx.golongan).trim();
+      const isSet = /^set/i.test(golStr);
+      const cleanGol = golStr.replace(/^setara\s*/i, '').replace(/^set\.\s*/i, '').trim();
+      let matchedPangkat = '';
+      Object.entries(CONFIG.PANGKAT_NON_ASN || {}).forEach(([k, v]) => {
+        if (k.toLowerCase() === cleanGol.toLowerCase() || k.toLowerCase() === golStr.toLowerCase()) {
+          matchedPangkat = v;
+        }
+      });
+      if (matchedPangkat) {
+        rawCtx.pangkat = isSet ? `Setara ${matchedPangkat}` : matchedPangkat;
+      }
+    }
+
     // Tanggal default
     rawCtx.today    = rawCtx.today    || formatTanggalIndonesia(new Date());
     rawCtx.tgl_sk   = rawCtx.tgl_sk   || rawCtx.today;
