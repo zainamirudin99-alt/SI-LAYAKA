@@ -1,4 +1,10 @@
 {
+  "functions": {
+    "api/rpc.js": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",

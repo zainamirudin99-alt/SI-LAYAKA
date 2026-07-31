@@ -6504,21 +6504,25 @@ function extractDriveFileId(url) {
 // ================================================================
 module.exports = async function handler(req, res) {
   try {
-    if (res && typeof res.setHeader === 'function') {
+    if (!res || typeof res.status !== 'function') return;
+    if (typeof res.setHeader === 'function') {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     }
 
-    if (req.method === 'OPTIONS') { res.status(200).end(); return; }
-    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const httpMethod = (req && req.method) ? String(req.method).toUpperCase() : 'POST';
+    if (httpMethod === 'OPTIONS') { res.status(200).end(); return; }
+    if (httpMethod !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
-    let body;
-    try {
-      body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-    } catch (parseErr) {
-      res.status(200).json({ success: false, message: 'Invalid JSON body: ' + parseErr.message });
-      return;
+    let body = {};
+    if (req) {
+      try {
+        body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+      } catch (parseErr) {
+        res.status(200).json({ success: false, message: 'Invalid JSON body: ' + parseErr.message });
+        return;
+      }
     }
 
     const { method } = body || {};
