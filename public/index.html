@@ -1864,10 +1864,10 @@
               </div>
             </div>
             <!-- TAB NAVIGATION -->
-            <div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap;">
-              <button class="btn btn-outline" id="tabBuatSkUsulSk" onclick="buatSkSwitchTab('usul-sk')" style="font-size:13px;padding:7px 16px;font-weight:600;">📤 Usul SK</button>
-              <button class="btn btn-outline" id="tabBuatSkUsulanMasuk" onclick="buatSkSwitchTab('usulan-masuk')" style="font-size:13px;padding:7px 16px;font-weight:600;display:none;">📥 Usulan Masuk</button>
-              <button class="btn btn-primary" id="tabBuatSkBuatSk" onclick="buatSkSwitchTab('buat-sk')" style="font-size:13px;padding:7px 16px;font-weight:600;display:none;">⚡ Buat SK dan Surat</button>
+            <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
+              <button class="btn btn-outline" id="tabBuatSkUsulSk" onclick="buatSkSwitchTab('usul-sk')" style="font-size:13px;padding:0 20px;font-weight:600;min-width:180px;height:42px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;">📤 Usul SK</button>
+              <button class="btn btn-outline" id="tabBuatSkUsulanMasuk" onclick="buatSkSwitchTab('usulan-masuk')" style="font-size:13px;padding:0 20px;font-weight:600;display:none;min-width:180px;height:42px;align-items:center;justify-content:center;box-sizing:border-box;">📥 Usulan Masuk</button>
+              <button class="btn btn-primary" id="tabBuatSkBuatSk" onclick="buatSkSwitchTab('buat-sk')" style="font-size:13px;padding:0 20px;font-weight:600;display:none;min-width:180px;height:42px;align-items:center;justify-content:center;box-sizing:border-box;">⚡ Buat SK dan Surat</button>
             </div>
 
             <!-- TAB: USUL SK (user + admin) -->
@@ -9287,11 +9287,13 @@ function buatSkSwitchTab(tab) {
 function onEnterBuatSkView() {
   const role = (SESSION.user && SESSION.user.role) || 'normal';
   const isAdmin = role === 'admin' || role === 'super_admin';
-  // Tampilkan tab sesuai role
+  // Tampilkan tab sesuai role dengan layout flex seragam
+  const tabUS = document.getElementById('tabBuatSkUsulSk');
   const tabUM = document.getElementById('tabBuatSkUsulanMasuk');
   const tabBS = document.getElementById('tabBuatSkBuatSk');
-  if (tabUM) tabUM.style.display = isAdmin ? '' : 'none';
-  if (tabBS) tabBS.style.display = isAdmin ? '' : 'none';
+  if (tabUS) tabUS.style.display = 'inline-flex';
+  if (tabUM) tabUM.style.display = isAdmin ? 'inline-flex' : 'none';
+  if (tabBS) tabBS.style.display = isAdmin ? 'inline-flex' : 'none';
   // Default tab: user → usul-sk, admin → buat-sk
   buatSkSwitchTab(isAdmin ? 'buat-sk' : 'usul-sk');
 }
