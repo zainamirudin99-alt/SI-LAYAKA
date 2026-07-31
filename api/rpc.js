@@ -389,20 +389,6 @@ async function uploadLampiran(base64DataUrl, namaFile, subfolder) {
 // ================================================================
 // DOCX TEMPLATE RENDERING (PizZip + Docxtemplater + XML Fallback)
 // ================================================================
-async function downloadTemplateBuffer(fileIdOrUrl) {
-  const str = String(fileIdOrUrl || '').trim();
-  if (str.startsWith('http://') || str.startsWith('https://')) {
-    const res = await fetch(str);
-    if (!res.ok) throw new Error(`Gagal mengunduh template docx: HTTP ${res.status}`);
-    const arrayBuffer = await res.arrayBuffer();
-    return Buffer.from(arrayBuffer);
-  }
-  const db = getDb();
-  const { data, error } = await db.storage.from('templates-docx').download(str);
-  if (error) throw error;
-  const arrayBuffer = await data.arrayBuffer();
-  return Buffer.from(arrayBuffer);
-}
 
 function escapeXmlText(str) {
   if (str === null || str === undefined) return '';
