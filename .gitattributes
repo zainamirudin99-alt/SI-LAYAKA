@@ -1,0 +1,6 @@
+# Force LF line endings for all JS/JSON files to prevent CRLF issues on Vercel
+* text=auto eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.css text eol=lf

@@ -9,9 +9,10 @@
  * ================================================================
  */
 
-const { createClient } = require('@supabase/supabase-js');
-const jwt              = require('jsonwebtoken');
-const crypto           = require('crypto');
+let createClient, jwt, crypto;
+try { ({ createClient } = require('@supabase/supabase-js')); } catch(e) { console.error('[rpc] Failed to load @supabase/supabase-js:', e.message); createClient = null; }
+try { jwt = require('jsonwebtoken'); } catch(e) { console.error('[rpc] Failed to load jsonwebtoken:', e.message); jwt = null; }
+try { crypto = require('crypto'); } catch(e) { console.error('[rpc] Failed to load crypto:', e.message); crypto = null; }
 
 function uuidv4() {
   if (crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
@@ -44,6 +45,9 @@ function createMockSupabaseClient(msg) {
 let supabase = null;
 function getDb() {
   if (supabase) return supabase;
+  if (typeof createClient !== 'function') {
+    return createMockSupabaseClient('@supabase/supabase-js gagal dimuat. Periksa package.json dan Vercel build logs.');
+  }
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || '';
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
   if (!url || !key || !url.startsWith('http')) {
