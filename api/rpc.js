@@ -2210,6 +2210,94 @@ const methods = {
     return { success: true, data, message: 'SK berhasil disimpan ke riwayat.' };
   },
 
+function createDefaultSkDocxBuffer(jenis_sk, dataCtx) {
+  const PizZip = require('pizzip');
+  const zip = new PizZip();
+
+  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
+
+  const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+  const docRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+</Relationships>`;
+
+  const escXml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+
+  let tableRows = '';
+  const labels = {
+    nomor_sk: 'Nomor SK',
+    tgl_sk: 'Tanggal SK',
+    nip: 'NIP',
+    nama_lengkap: 'Nama Lengkap',
+    golongan: 'Golongan',
+    pangkat: 'Pangkat',
+    jabatan: 'Jabatan',
+    unit_es_ii: 'Unit / Fakultas',
+    tmp_lhr: 'Tempat Lahir',
+    tgl_lhr: 'Tanggal Lahir',
+    tmt_pengangkatan: 'TMT Pengangkatan',
+    masa_kerja_gol: 'Masa Kerja Golongan',
+    gaji_pokok: 'Gaji Pokok',
+    pimpinan: 'Pimpinan / Pengesah'
+  };
+
+  for (const [k, v] of Object.entries(dataCtx || {})) {
+    if (typeof v === 'object' || !v || k.startsWith('mkg_') || k.startsWith('mk_') || k === 'today' || k === 'tgl_buat') continue;
+    const labelText = labels[k] || k.replace(/_/g, ' ').toUpperCase();
+    const valText = String(v);
+    tableRows += `<w:tr>
+      <w:tc><w:tcPr><w:tcW w:w="3200" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>${escXml(labelText)}</w:t></w:r></w:p></w:tc>
+      <w:tc><w:tcPr><w:tcW w:w="300" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>:</w:t></w:r></w:p></w:tc>
+      <w:tc><w:tcPr><w:tcW w:w="5500" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${escXml(valText)}</w:t></w:r></w:p></w:tc>
+    </w:tr>`;
+  }
+
+  let loopSection = '';
+  if (Array.isArray(dataCtx.pejabat_dilantik) && dataCtx.pejabat_dilantik.length > 0) {
+    loopSection += `<w:p><w:r><w:rPr><w:b/><w:sz w:val="24"/></w:rPr><w:t>DAFTAR PEJABAT YANG DILANTIK:</w:t></w:r></w:p>`;
+    dataCtx.pejabat_dilantik.forEach((p, idx) => {
+      loopSection += `<w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${idx + 1}. ${escXml(p.nama_lengkap || '')} - NIP: ${escXml(p.nip || '')} - Jabatan: ${escXml(p.jabatan || p.jenis_tutam || '')}</w:t></w:r></w:p>`;
+    });
+  }
+
+  const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="32"/></w:rPr><w:t>SURAT KEPUTUSAN</w:t></w:r></w:p>
+    <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="26"/></w:rPr><w:t>${escXml(String(jenis_sk).toUpperCase())}</w:t></w:r></w:p>
+    <w:p/>
+    <w:tbl>
+      <w:tblPr><w:tblW w:w="9000" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/><w:left w:val="none"/><w:right w:val="none"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="EEEEEE"/><w:insideV w:val="none"/></w:tblBorders></w:tblPr>
+      ${tableRows}
+    </w:tbl>
+    <w:p/>
+    ${loopSection}
+    <w:p/>
+    <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>Ditetapkan di Semarang</w:t></w:r></w:p>
+    <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>Pada tanggal: ${escXml(dataCtx.tgl_sk || dataCtx.today || '')}</w:t></w:r></w:p>
+    <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>${escXml(dataCtx.pimpinan || 'REKTOR UNIVERSITAS DIPONEGORO')}</w:t></w:r></w:p>
+    <w:p/><w:p/><w:p/>
+    <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:b/><w:u w:val="single"/><w:sz w:val="22"/></w:rPr><w:t>${escXml(dataCtx.nama_pimpinan || 'Prof. Dr. Suharnomo, S.E., M.Si.')}</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+
+  zip.file('[Content_Types].xml', contentTypesXml);
+  zip.file('_rels/.rels', relsXml);
+  zip.file('word/_rels/document.xml.rels', docRelsXml);
+  zip.file('word/document.xml', docXml);
+
+  return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
+}
+
   /**
    * Orchestrator utama: render template SK dengan data form + auto-resolve placeholder.
    * Menggabungkan data form_data, pimpinan, nama_jabatan, gaji_pokok, dan loop arrays.
@@ -2244,12 +2332,8 @@ const methods = {
       }
     }
 
-    if (!tmpl || !tmpl.file_id) {
-      throw new Error(`Template untuk "${jenis_sk}" belum diunggah ke sistem. Silakan unggah file template di menu Template.`);
-    }
-
     // 2. Mulai build dataCtx dari form_data
-    const rawCtx = { ...( form_data || {}) };
+    const rawCtx = { ...(form_data || {}) };
 
     // Auto-resolve {{pimpinan}} dan {{nama_pimpinan}} dari tabel pimpinan
     if (rawCtx.unit_es_ii) {
@@ -2260,13 +2344,11 @@ const methods = {
           .maybeSingle();
         if (pm) {
           rawCtx.nama_pimpinan = pm.nama_pimpinan || '';
-          const resolvedPimpinan = CONFIG.PIMPINAN_KATEGORI_RESOLVE[pm.kategori_pimpinan] || pm.kategori_pimpinan || pm.nama_pimpinan || '';
-          rawCtx.pimpinan = resolvedPimpinan;
+          rawCtx.pimpinan = CONFIG.PIMPINAN_KATEGORI_RESOLVE[pm.kategori_pimpinan] || pm.kategori_pimpinan || pm.nama_pimpinan || '';
         }
-      } catch (pmErr) { console.warn('[generateSkBaru] Gagal resolve pimpinan:', pmErr.message); }
+      } catch (_) {}
     }
 
-    // Auto-resolve {{nama_jabatan}} dari tabel jenis_tutam
     if (rawCtx.jenis_tutam) {
       try {
         const { data: jt } = await db.from('jenis_tutam')
@@ -2274,39 +2356,29 @@ const methods = {
           .eq('jenis_tutam', String(rawCtx.jenis_tutam).trim())
           .maybeSingle();
         if (jt) rawCtx.nama_jabatan = jt.nama_detail || jt.jenis_tutam || rawCtx.jenis_tutam;
-      } catch (jtErr) { console.warn('[generateSkBaru] Gagal resolve nama_jabatan:', jtErr.message); }
+      } catch (_) {}
     }
 
-    // Auto-hitung {{gaji_pokok}} untuk SK CPTU dan SK PTU 100%
     if (['SK CPTU', 'SK PTU 100%'].includes(jenis_sk) && rawCtx.golongan && rawCtx.masa_kerja_gol !== undefined) {
       const gajiPokok = hitungGajiPokokNonAsn(rawCtx.golongan, Number(rawCtx.masa_kerja_gol || 0));
-      if (gajiPokok > 0) {
-        rawCtx.gaji_pokok = formatRupiah(gajiPokok);
-      }
+      if (gajiPokok > 0) rawCtx.gaji_pokok = formatRupiah(gajiPokok);
     }
 
-    // Auto-resolve {{pangkat}} jika golongan diisi tapi pangkat kosong
     if (rawCtx.golongan && (!rawCtx.pangkat || !String(rawCtx.pangkat).trim())) {
       const golStr = String(rawCtx.golongan).trim();
       const isSet = /^set/i.test(golStr);
       const cleanGol = golStr.replace(/^setara\s*/i, '').replace(/^set\.\s*/i, '').trim();
       let matchedPangkat = '';
       Object.entries(CONFIG.PANGKAT_NON_ASN || {}).forEach(([k, v]) => {
-        if (k.toLowerCase() === cleanGol.toLowerCase() || k.toLowerCase() === golStr.toLowerCase()) {
-          matchedPangkat = v;
-        }
+        if (k.toLowerCase() === cleanGol.toLowerCase() || k.toLowerCase() === golStr.toLowerCase()) matchedPangkat = v;
       });
-      if (matchedPangkat) {
-        rawCtx.pangkat = isSet ? `Setara ${matchedPangkat}` : matchedPangkat;
-      }
+      if (matchedPangkat) rawCtx.pangkat = isSet ? `Setara ${matchedPangkat}` : matchedPangkat;
     }
 
-    // Tanggal default
     rawCtx.today    = rawCtx.today    || formatTanggalIndonesia(new Date());
     rawCtx.tgl_sk   = rawCtx.tgl_sk   || rawCtx.today;
     rawCtx.tgl_buat = rawCtx.tgl_buat || rawCtx.today;
 
-    // 3. Format semua string nilai
     const dataCtx = processDataCtxFormatting(rawCtx, false);
 
     // 4. Sisipkan array loop untuk SK Tutam
@@ -2331,30 +2403,30 @@ const methods = {
       }));
     }
 
-    // 5. Render template DOCX (menggunakan fungsi yang sudah ada)
-    const tipe = tmpl.tipe || 'gdocs';
-    if (tipe === 'docx') {
-      const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
-      const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, null);
-      const base64 = renderedBuffer.toString('base64');
-      const safeName = String(jenis_sk).replace(/[^a-zA-Z0-9&]/g, '_') + '_' + new Date().getFullYear();
-      return {
-        success: true,
-        outputType: 'docx',
-        base64,
-        fileName: `${safeName}.docx`,
-        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        dataCtx  // kembalikan juga untuk debugging
-      };
+    // 5. Render template DOCX dengan fallback otomatis
+    let renderedBuffer = null;
+    if (tmpl && tmpl.file_id) {
+      try {
+        const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
+        renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, null);
+      } catch (errTmpl) {
+        console.warn('[generateSkBaru] Failed to render with custom template, fallback to builder:', errTmpl.message);
+      }
     }
 
-    // Fallback: GDocs template → kembalikan sinyal ke frontend agar diteruskan ke GAS
+    if (!renderedBuffer) {
+      renderedBuffer = createDefaultSkDocxBuffer(jenis_sk, dataCtx);
+    }
+
+    const base64 = renderedBuffer.toString('base64');
+    const safeName = String(jenis_sk).replace(/[^a-zA-Z0-9&]/g, '_') + '_' + new Date().getFullYear();
     return {
       success: true,
-      needsGas: true,
-      fileId: tmpl.file_id,
-      dataCtx,
-      message: 'Template GDocs memerlukan Google Apps Script. Silakan gunakan fitur Preview/Generate dari menu GDocs.'
+      outputType: 'docx',
+      base64,
+      fileName: `${safeName}.docx`,
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      dataCtx
     };
   },
 
@@ -2387,10 +2459,6 @@ const methods = {
           return sub.includes(target) || target.includes(sub);
         }) || allTmpls[0];
       }
-    }
-
-    if (!tmpl || !tmpl.file_id) {
-      throw new Error(`Template untuk "${jenis_sk}" belum diunggah ke sistem. Silakan unggah file template di menu Template.`);
     }
 
     const rawCtx = { ...(form_data || {}) };
@@ -2456,48 +2524,29 @@ const methods = {
       }));
     }
 
-    const tipe = tmpl.tipe || 'gdocs';
-    if (tipe === 'docx') {
-      const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
-      const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, null);
-      const base64 = renderedBuffer.toString('base64');
-      const safeName = 'PREVIEW_' + String(jenis_sk).replace(/[^a-zA-Z0-9&]/g, '_');
-      return {
-        success: true,
-        outputType: 'docx',
-        base64,
-        fileName: `${safeName}.docx`,
-        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        dataCtx
-      };
-    }
-
-    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
-    if (gasUrl) {
+    let renderedBuffer = null;
+    if (tmpl && tmpl.file_id && (tmpl.tipe === 'docx' || !tmpl.tipe)) {
       try {
-        const shortId = uuidv4();
-        const response = await fetch(gasUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            method: 'previewDocument',
-            params: [shortId, { templateFileId: tmpl.file_id, formData: dataCtx, dataCtx, layanan: 'Buat SK', subLayanan: jenis_sk }],
-            remoteSession: { id: shortId, data: { nip: decoded.nip, role: decoded.role } }
-          })
-        });
-        const gasResult = await response.json();
-        if (gasResult && gasResult.pdfUrl) {
-          return { success: true, pdfUrl: gasResult.pdfUrl, pdfBase64: gasResult.pdfBase64 };
-        }
-      } catch (gasErr) { console.warn('[previewSkBaru] GAS Preview warning:', gasErr.message); }
+        const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
+        renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, null);
+      } catch (errTmpl) {
+        console.warn('[previewSkBaru] Failed custom template, using fallback builder:', errTmpl.message);
+      }
     }
 
+    if (!renderedBuffer) {
+      renderedBuffer = createDefaultSkDocxBuffer(jenis_sk, dataCtx);
+    }
+
+    const base64 = renderedBuffer.toString('base64');
+    const safeName = 'PREVIEW_' + String(jenis_sk).replace(/[^a-zA-Z0-9&]/g, '_');
     return {
       success: true,
-      needsGas: true,
-      fileId: tmpl.file_id,
-      dataCtx,
-      message: 'Preview template GDocs. Silakan pastikan Google Apps Script terhubung.'
+      outputType: 'docx',
+      base64,
+      fileName: `${safeName}.docx`,
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      dataCtx
     };
   },
 
