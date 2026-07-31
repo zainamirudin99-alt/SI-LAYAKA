@@ -9563,6 +9563,9 @@ async function buatSkJenisChange() {
 
   if (!jenis) return;
 
+  let tmpl = findTemplateForJenis(jenis);
+  BUAT_SK.templateId = tmpl ? tmpl.id : ('default_' + jenis.toLowerCase().replace(/[^a-z0-9]/g, '_'));
+
   const PERLU_UNIT = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Dekan Wadek'];
   const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
   const NEED_TOP_SEARCH = ['SK PTU 100%', 'Surat PLT', 'Surat PLH']; // HANYA SK dengan 1 subjek tunggal
@@ -9599,22 +9602,14 @@ async function buatSkJenisChange() {
   try {
     if (!BUAT_SK.templatesList || BUAT_SK.templatesList.length === 0) {
       await buatSkInitForm();
+      tmpl = findTemplateForJenis(jenis);
+      if (tmpl) BUAT_SK.templateId = tmpl.id;
     }
 
-    let tmpl = findTemplateForJenis(jenis);
-    if (!tmpl && BUAT_SK.templatesList && BUAT_SK.templatesList.length > 0) {
-      tmpl = BUAT_SK.templatesList[0];
-    }
-
-    if (tmpl) {
-      BUAT_SK.templateId = tmpl.id;
-      const tplSel = document.getElementById('buatSk_template');
-      if (tplSel) tplSel.value = tmpl.id;
-      document.getElementById('buatSk_templateWrap').style.display = '';
-      await buatSkLoadPlaceholders();
-    } else {
-      document.getElementById('buatSk_templateWrap').style.display = '';
-    }
+    const tplSel = document.getElementById('buatSk_template');
+    if (tplSel && BUAT_SK.templateId) tplSel.value = BUAT_SK.templateId;
+    document.getElementById('buatSk_templateWrap').style.display = '';
+    if (tmpl) await buatSkLoadPlaceholders();
   } catch(errAsync) {
     console.warn('[buatSkJenisChange] Async load warning:', errAsync);
   }
@@ -10099,8 +10094,8 @@ async function buatSkImportFromSpreadsheet() {
 // Generate SK
 async function buatSkGenerate() {
   const jenisSk   = BUAT_SK.jenisSk || document.getElementById('buatSk_jenisSk')?.value || '';
-  const templateId = BUAT_SK.templateId || document.getElementById('buatSk_template')?.value || '';
-  if (!jenisSk || !templateId) return showToast('error', 'Pilih jenis SK dan template terlebih dahulu.');
+  if (!jenisSk) return showToast('error', 'Silakan pilih Jenis SK / Surat terlebih dahulu.');
+  const templateId = BUAT_SK.templateId || document.getElementById('buatSk_template')?.value || ('default_' + jenisSk.toLowerCase().replace(/[^a-z0-9]/g, '_'));
   BUAT_SK.jenisSk = jenisSk;
   BUAT_SK.templateId = templateId;
 
@@ -10171,8 +10166,8 @@ async function buatSkGenerate() {
 // Preview SK
 async function buatSkPreview() {
   const jenisSk   = BUAT_SK.jenisSk || document.getElementById('buatSk_jenisSk')?.value || '';
-  const templateId = BUAT_SK.templateId || document.getElementById('buatSk_template')?.value || '';
-  if (!jenisSk || !templateId) return showToast('error', 'Pilih jenis SK dan template terlebih dahulu.');
+  if (!jenisSk) return showToast('error', 'Silakan pilih Jenis SK / Surat terlebih dahulu.');
+  const templateId = BUAT_SK.templateId || document.getElementById('buatSk_template')?.value || ('default_' + jenisSk.toLowerCase().replace(/[^a-z0-9]/g, '_'));
   BUAT_SK.jenisSk = jenisSk;
   BUAT_SK.templateId = templateId;
 

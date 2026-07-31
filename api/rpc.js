@@ -2220,17 +2220,33 @@ const methods = {
 
     const { jenis_sk, template_id, form_data, pejabat_dilantik, pejabat_diberhentikan } = payload || {};
     if (!jenis_sk) throw new Error('Jenis SK wajib diisi.');
-    if (!template_id) throw new Error('Template wajib dipilih.');
 
     const db = getDb();
 
-    // 1. Ambil metadata template
-    const { data: tmpl, error: tmplErr } = await db.from('templates')
-      .select('file_id, judul, tipe, layanan, sub_menu')
-      .eq('id', template_id)
-      .maybeSingle();
-    if (tmplErr || !tmpl) throw new Error('Template tidak ditemukan atau terjadi kesalahan database.');
-    if (!tmpl.file_id) throw new Error('Template tidak memiliki file yang terhubung.');
+    // 1. Ambil metadata template dengan smart fallback berdasar jenis_sk
+    let tmpl = null;
+    if (template_id && !String(template_id).startsWith('default_')) {
+      const { data } = await db.from('templates')
+        .select('id, file_id, judul, tipe, layanan, sub_menu')
+        .eq('id', template_id)
+        .maybeSingle();
+      tmpl = data;
+    }
+
+    if (!tmpl) {
+      const target = String(jenis_sk).toLowerCase().replace(/\s+/g, '');
+      const { data: allTmpls } = await db.from('templates').select('id, file_id, judul, tipe, layanan, sub_menu');
+      if (allTmpls && allTmpls.length > 0) {
+        tmpl = allTmpls.find(t => {
+          const sub = String(t.sub_menu || t.layanan || t.judul || '').toLowerCase().replace(/\s+/g, '');
+          return sub.includes(target) || target.includes(sub);
+        }) || allTmpls[0];
+      }
+    }
+
+    if (!tmpl || !tmpl.file_id) {
+      throw new Error(`Template untuk "${jenis_sk}" belum diunggah ke sistem. Silakan unggah file template di menu Template.`);
+    }
 
     // 2. Mulai build dataCtx dari form_data
     const rawCtx = { ...( form_data || {}) };
@@ -2351,15 +2367,31 @@ const methods = {
 
     const { jenis_sk, template_id, form_data, pejabat_dilantik, pejabat_diberhentikan } = payload || {};
     if (!jenis_sk) throw new Error('Jenis SK wajib diisi.');
-    if (!template_id) throw new Error('Template wajib dipilih.');
 
     const db = getDb();
-    const { data: tmpl, error: tmplErr } = await db.from('templates')
-      .select('file_id, judul, tipe, layanan, sub_menu')
-      .eq('id', template_id)
-      .maybeSingle();
-    if (tmplErr || !tmpl) throw new Error('Template tidak ditemukan.');
-    if (!tmpl.file_id) throw new Error('Template tidak memiliki file terhubung.');
+    let tmpl = null;
+    if (template_id && !String(template_id).startsWith('default_')) {
+      const { data } = await db.from('templates')
+        .select('id, file_id, judul, tipe, layanan, sub_menu')
+        .eq('id', template_id)
+        .maybeSingle();
+      tmpl = data;
+    }
+
+    if (!tmpl) {
+      const target = String(jenis_sk).toLowerCase().replace(/\s+/g, '');
+      const { data: allTmpls } = await db.from('templates').select('id, file_id, judul, tipe, layanan, sub_menu');
+      if (allTmpls && allTmpls.length > 0) {
+        tmpl = allTmpls.find(t => {
+          const sub = String(t.sub_menu || t.layanan || t.judul || '').toLowerCase().replace(/\s+/g, '');
+          return sub.includes(target) || target.includes(sub);
+        }) || allTmpls[0];
+      }
+    }
+
+    if (!tmpl || !tmpl.file_id) {
+      throw new Error(`Template untuk "${jenis_sk}" belum diunggah ke sistem. Silakan unggah file template di menu Template.`);
+    }
 
     const rawCtx = { ...(form_data || {}) };
 
