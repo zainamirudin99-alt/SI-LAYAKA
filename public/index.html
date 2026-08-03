@@ -1987,21 +1987,26 @@
                     <div id="buatSk_noTemplateMsg" style="margin-top:2px;font-size:12px;color:#b91c1c;">Template untuk jenis ini belum diupload oleh Admin. Silakan upload template terlebih dahulu di menu <strong>Template Management</strong>.</div>
                   </div>
                 </div>
-                <!-- Step 1b: Pilihan Jenis Tutam Struktural (khusus SK Tutam Struktural) -->
-                <div class="stack-field grid-full" id="buatSk_strukturalWrap" style="display:none;">
-                  <label class="kp-label">Pilih Jenis Tutam Struktural <span style="color:#ef4444;">*</span></label>
-                  <select id="buatSk_jenisTutamStruktural" class="field-input" onchange="buatSkStrukturalChange()">
-                    <option value="">-- Pilih Jabatan Struktural --</option>
-                    <option value="Direktur">Direktur</option>
-                    <option value="Wakil Direktur">Wakil Direktur</option>
-                    <option value="Kepala Badan">Kepala Badan</option>
-                    <option value="Kepala Kantor">Kepala Kantor</option>
-                    <option value="Manajer">Manajer</option>
-                    <option value="Supervisor">Supervisor</option>
-                    <option value="Ketua Lembaga">Ketua Lembaga</option>
-                    <option value="custom">Lainnya (Input Manual)...</option>
-                  </select>
-                  <input type="text" id="buatSk_customJenisTutamStruktural" class="field-input" placeholder="Ketik jenis tutam manual..." style="display:none;margin-top:8px;" oninput="buatSkStrukturalCustomChange()" />
+                <!-- Step 1b: Pilihan Jenis Tutam Struktural (khusus SK Tutam Struktural - Multi Select) -->
+                <div class="stack-field grid-full" id="buatSk_strukturalWrap" style="display:none;margin-top:12px;">
+                  <label class="kp-label" style="font-weight:700;margin-bottom:8px;display:block;">
+                    Pilih Jenis Tutam Struktural <span style="color:#ef4444;">*</span>
+                    <span style="font-size:12px;color:var(--text-muted);font-weight:400;margin-left:6px;">(Bisa pilih lebih dari satu)</span>
+                  </label>
+                  <div id="buatSk_strukturalChips" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+                    <!-- Rendered via renderStrukturalChips() -->
+                  </div>
+                  <div id="buatSk_customStrukturalWrap" style="display:none;margin-top:8px;">
+                    <label style="font-size:12px;color:var(--text-muted);margin-bottom:4px;display:block;">Jabatan Struktural Lainnya (Ketik manual, pisahkan koma jika &gt; 1):</label>
+                    <input type="text" id="buatSk_customJenisTutamStruktural" class="field-input" placeholder="Contoh: Kepala Pusat, Sekretaris Lembaga" oninput="buatSkUpdateStrukturalSelection()" />
+                  </div>
+                  <div id="buatSk_strukturalSelectedPreview" style="margin-top:10px;padding:10px 14px;background:var(--surface-alt,#f8fafc);border:1px solid var(--border,#cbd5e1);border-radius:8px;font-size:13px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+                    <div>
+                      <span style="color:var(--text-muted);">Hasil Pilihan:</span>
+                      <strong id="buatSk_strukturalPreviewText" style="margin-left:6px;color:var(--primary,#4f46e5);">- Belum ada yang dipilih -</strong>
+                    </div>
+                    <button type="button" class="btn btn-primary" id="buatSk_btnProceedStruktural" onclick="buatSkStrukturalProceed()" style="font-size:12px;padding:6px 16px;font-weight:600;" disabled>Lanjutkan ke Form ➔</button>
+                  </div>
                 </div>
                 <!-- Step 2: Pilih Template -->
                 <div class="stack-field" id="buatSk_templateWrap" style="display:none;">
@@ -9714,6 +9719,7 @@ async function buatSkJenisChange() {
 
     // Jenis yang perlu sub-pilihan dulu sebelum render form
     if (jenis === 'SK Tutam Struktural') {
+      renderStrukturalChips();
       const el = document.getElementById('buatSk_strukturalWrap');
       if (el) el.style.display = '';
       return; // lanjut di buatSkStrukturalProceed setelah sub-pilih
@@ -9803,31 +9809,110 @@ async function buatSkJenisChange() {
   }
 }
 
-function buatSkStrukturalChange() {
-  const sel = document.getElementById('buatSk_jenisTutamStruktural').value;
-  const customInput = document.getElementById('buatSk_customJenisTutamStruktural');
-  if (sel === 'custom') {
-    customInput.style.display = '';
-    BUAT_SK.jenisTutamStruktural = customInput.value.trim();
-  } else {
-    customInput.style.display = 'none';
-    BUAT_SK.jenisTutamStruktural = sel;
-  }
-  buatSkStrukturalProceed();
+const STRUKTURAL_OPTIONS = [
+  'Direktur', 'Wakil Direktur', 'Kepala Badan', 'Kepala Kantor',
+  'Manajer', 'Supervisor', 'Ketua Lembaga'
+];
+
+function renderStrukturalChips() {
+  const container = document.getElementById('buatSk_strukturalChips');
+  if (!container) return;
+
+  let html = STRUKTURAL_OPTIONS.map(opt => `
+    <label class="struktural-chip" style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:var(--surface,#fff);border:1px solid var(--border,#cbd5e1);border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;user-select:none;transition:all 0.15s ease;">
+      <input type="checkbox" value="${escHtml(opt)}" class="bsk-struktural-cb" onchange="buatSkUpdateStrukturalSelection()" style="width:16px;height:16px;cursor:pointer;" />
+      <span>${escHtml(opt)}</span>
+    </label>
+  `).join('');
+
+  html += `
+    <label class="struktural-chip" style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:var(--surface,#fff);border:1px solid var(--border,#cbd5e1);border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;user-select:none;transition:all 0.15s ease;">
+      <input type="checkbox" value="custom" id="bsk_cb_custom_struktural" class="bsk-struktural-cb" onchange="buatSkUpdateStrukturalSelection()" style="width:16px;height:16px;cursor:pointer;" />
+      <span>Lainnya (Input Manual)...</span>
+    </label>
+  `;
+
+  container.innerHTML = html;
+  buatSkUpdateStrukturalSelection();
 }
 
-function buatSkStrukturalCustomChange() {
-  BUAT_SK.jenisTutamStruktural = document.getElementById('buatSk_customJenisTutamStruktural').value.trim();
+function formatIndonesianList(arr) {
+  if (!arr || !arr.length) return '';
+  if (arr.length === 1) return arr[0];
+  if (arr.length === 2) return `${arr[0]} dan ${arr[1]}`;
+  return `${arr.slice(0, -1).join(', ')}, dan ${arr[arr.length - 1]}`;
+}
+
+function buatSkUpdateStrukturalSelection() {
+  const checkboxes = Array.from(document.querySelectorAll('.bsk-struktural-cb:checked'));
+  const selectedValues = [];
+  let customChecked = false;
+
+  checkboxes.forEach(cb => {
+    if (cb.value === 'custom') {
+      customChecked = true;
+    } else {
+      selectedValues.push(cb.value);
+    }
+  });
+
+  const customWrap = document.getElementById('buatSk_customStrukturalWrap');
+  if (customWrap) {
+    customWrap.style.display = customChecked ? 'block' : 'none';
+  }
+
+  if (customChecked) {
+    const customVal = document.getElementById('buatSk_customJenisTutamStruktural')?.value?.trim() || '';
+    if (customVal) {
+      customVal.split(',').forEach(c => {
+        const item = c.trim();
+        if (item && !selectedValues.includes(item)) selectedValues.push(item);
+      });
+    }
+  }
+
+  document.querySelectorAll('.struktural-chip').forEach(chip => {
+    const cb = chip.querySelector('input[type="checkbox"]');
+    if (cb && cb.checked) {
+      chip.style.borderColor = 'var(--primary,#6366f1)';
+      chip.style.background = 'rgba(99, 102, 241, 0.12)';
+      chip.style.color = 'var(--primary,#6366f1)';
+    } else {
+      chip.style.borderColor = 'var(--border,#cbd5e1)';
+      chip.style.background = 'var(--surface,#fff)';
+      chip.style.color = 'var(--text-main,#0f172a)';
+    }
+  });
+
+  const formattedStr = formatIndonesianList(selectedValues);
+  BUAT_SK.jenisTutamStruktural = formattedStr;
+
+  const previewEl = document.getElementById('buatSk_strukturalPreviewText');
+  const btnProceed = document.getElementById('buatSk_btnProceedStruktural');
+
+  if (previewEl) {
+    previewEl.textContent = formattedStr ? `"${formattedStr}"` : '- Belum ada yang dipilih -';
+  }
+  if (btnProceed) {
+    btnProceed.disabled = !formattedStr;
+  }
 }
 
 async function buatSkStrukturalProceed() {
-  if (!BUAT_SK.jenisTutamStruktural) return;
-  // Hapus top searchEmpWrap untuk SK Tutam Struktural (Kategori 1)
+  if (!BUAT_SK.jenisTutamStruktural) return showToast('error', 'Silakan pilih minimal satu Jenis Tutam Struktural.');
+
+  // Set hidden/dynamic form field if present
+  const fieldStruktural = document.getElementById('bsk_field_jenis_tutam_struktural') || document.getElementById('bsk_field_jenis_tutam');
+  if (fieldStruktural) {
+    fieldStruktural.value = BUAT_SK.jenisTutamStruktural;
+  }
+
+  // Search wrap tidak dipakai untuk SK Tutam Struktural (Kategori 1)
   const searchWrap = document.getElementById('buatSk_searchEmpWrap');
   if (searchWrap) searchWrap.style.display = 'none';
 
   const container = document.getElementById('buatSk_dynamicFields');
-  if (container) container.innerHTML = `<div style="grid-column:1/-1;padding:20px;text-align:center;"><div style="width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--primary,#6366f1);border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 10px;"></div><p style="margin:0;font-size:13px;color:var(--text-muted);">Memuat kolom...</p></div>`;
+  if (container) container.innerHTML = `<div style="grid-column:1/-1;padding:20px;text-align:center;"><div style="width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--primary,#6366f1);border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 10px;"></div><p style="margin:0;font-size:13px;color:var(--text-muted);">Memuat kolom template SK Tutam Struktural...</p></div>`;
   document.getElementById('buatSk_dynamicFormWrap').style.display = '';
 
   if (!BUAT_SK.templatesList || BUAT_SK.templatesList.length === 0) {
@@ -10627,6 +10712,11 @@ async function buatSkGenerate() {
     form_data.pimpinan      = BUAT_SK.pimpinanInfo.pimpinan_resolved || '';
     form_data.nama_pimpinan = BUAT_SK.pimpinanInfo.nama_pimpinan || '';
   }
+  if (BUAT_SK.jenisTutamStruktural) {
+    form_data.jenis_tutam_struktural = BUAT_SK.jenisTutamStruktural;
+    form_data.jenis_tutam            = BUAT_SK.jenisTutamStruktural;
+    form_data.tugas_tambahan         = BUAT_SK.jenisTutamStruktural;
+  }
 
   showLoadingOverlay('Memproses Pembuatan SK...');
   try {
@@ -10700,6 +10790,11 @@ async function buatSkPreview() {
   if (BUAT_SK.pimpinanInfo) {
     form_data.pimpinan      = BUAT_SK.pimpinanInfo.pimpinan_resolved || '';
     form_data.nama_pimpinan = BUAT_SK.pimpinanInfo.nama_pimpinan || '';
+  }
+  if (BUAT_SK.jenisTutamStruktural) {
+    form_data.jenis_tutam_struktural = BUAT_SK.jenisTutamStruktural;
+    form_data.jenis_tutam            = BUAT_SK.jenisTutamStruktural;
+    form_data.tugas_tambahan         = BUAT_SK.jenisTutamStruktural;
   }
 
   showLoadingOverlay('Membuat Preview SK...');
