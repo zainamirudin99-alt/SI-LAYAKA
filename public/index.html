@@ -9701,7 +9701,7 @@ async function buatSkJenisChange() {
     // Kategori SK berdasarkan spec
     const KAT1 = ['SK Tutam Kadep & Kaprodi','SK Tutam Struktural','SK Tutam Dekan Wadek']; // search per baris tabel
     const PERLU_UNIT  = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Dekan Wadek'];
-    const PERLU_LOOP  = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
+    const PERLU_LOOP  = ['SK Tutam Kadep & Kaprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
     const NEED_SEARCH = ['SK PTU 100%', 'Surat PLT', 'Surat PLH', 'SK Tutam Sekprodi']; // Kat1 TIDAK di sini
 
     // Preload jenisTutamList untuk Kat1 dan Struktural
@@ -9848,7 +9848,7 @@ async function buatSkTemplateChange() {
   if (!templateId) return;
 
   const PERLU_UNIT = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Dekan Wadek'];
-  const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
+  const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
 
   if (PERLU_UNIT.includes(jenis) && document.getElementById('buatSk_unit').value) {
     await buatSkLoadPlaceholders();
@@ -9894,7 +9894,7 @@ async function buatSkUnitChange() {
 
   await buatSkLoadPlaceholders();
 
-  const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
+  const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
   if (PERLU_LOOP.includes(BUAT_SK.jenisSk)) document.getElementById('buatSk_loopWrap').style.display = '';
 }
 
@@ -9950,7 +9950,7 @@ function buatSkRenderDynamicFields(placeholders) {
   if (!container) return;
 
   const AUTO_RESOLVE = new Set(['pimpinan','nama_pimpinan','nama_jabatan','today']);
-  const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
+  const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
   const PERLU_UNIT = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Dekan Wadek','SK Tutam Struktural'];
   const hasLoop = PERLU_LOOP.includes(BUAT_SK.jenisSk);
   const hasUnitSelect = PERLU_UNIT.includes(BUAT_SK.jenisSk) && !!BUAT_SK.unitEsIi;
@@ -10224,7 +10224,7 @@ function buatSkAutoFillFormFromEmp(emp) {
     nama:         empNama,
     jabatan:      empJab,
     golongan:     empGol,
-    pangkat:      emp.pangkat || '',
+    pangkat:      emp.pangkat || (typeof getPangkatForGolongan === 'function' ? getPangkatForGolongan(empGol, BUAT_SK.jenisSk === 'SK CPTU') : '') || '',
     unit_es_ii:   empUnit,
     tmp_lhr:      emp.tmp_lhr || emp.tempat_lahir || '',
     tgl_lhr:      emp.tgl_lhr || emp.tanggal_lahir || '',
@@ -10301,7 +10301,7 @@ async function buatSkSelectEmployee(nip) {
     const empGol  = emp.golongan || emp.gol || '';
     const empJab  = emp.jabatan || '';
 
-    const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
+    const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
     if (PERLU_LOOP.includes(BUAT_SK.jenisSk)) {
       const exists = BUAT_SK.pejabatDilantik.some(p => p.nip === empNip);
       if (!exists) {
