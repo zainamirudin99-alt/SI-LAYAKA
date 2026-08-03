@@ -9887,6 +9887,11 @@ function buatSkUpdateStrukturalSelection() {
   const formattedStr = formatIndonesianList(selectedValues);
   BUAT_SK.jenisTutamStruktural = formattedStr;
 
+  ['jenis_tutam_struktural', 'jenis_tutam', 'tugas_tambahan'].forEach(k => {
+    const f = document.getElementById('bsk_field_' + k);
+    if (f) f.value = formattedStr || '';
+  });
+
   const previewEl = document.getElementById('buatSk_strukturalPreviewText');
   const btnProceed = document.getElementById('buatSk_btnProceedStruktural');
 
@@ -9902,10 +9907,10 @@ async function buatSkStrukturalProceed() {
   if (!BUAT_SK.jenisTutamStruktural) return showToast('error', 'Silakan pilih minimal satu Jenis Tutam Struktural.');
 
   // Set hidden/dynamic form field if present
-  const fieldStruktural = document.getElementById('bsk_field_jenis_tutam_struktural') || document.getElementById('bsk_field_jenis_tutam');
-  if (fieldStruktural) {
-    fieldStruktural.value = BUAT_SK.jenisTutamStruktural;
-  }
+  ['jenis_tutam_struktural', 'jenis_tutam', 'tugas_tambahan'].forEach(k => {
+    const f = document.getElementById('bsk_field_' + k);
+    if (f) f.value = BUAT_SK.jenisTutamStruktural;
+  });
 
   // Search wrap tidak dipakai untuk SK Tutam Struktural (Kategori 1)
   const searchWrap = document.getElementById('buatSk_searchEmpWrap');
@@ -10079,7 +10084,8 @@ function buatSkRenderDynamicFields(placeholders) {
     const isTodayDefault = /^(tgl_buat|tanggal_buat|tgl_sk|tanggal_sk|tgl_generate)$/.test(key);
     const isGol  = key === 'golongan';
     const isMkg  = key === 'masa_kerja_gol' || key === 'masa_kerja';
-    const isAutofilled = isTodayDefault || (!isCptu && [
+    const isStrukturalField = BUAT_SK.jenisTutamStruktural && ['jenis_tutam_struktural','jenis_tutam','tugas_tambahan'].includes(key.toLowerCase());
+    const isAutofilled = isTodayDefault || isStrukturalField || (!isCptu && [
       'nip','nama_lengkap','nama','golongan','jabatan','pangkat','unit_es_ii',
       'jenis_peg','pendidikan','jurusan','prodi','program_studi','thn_lulus',
       'tahun_lulus','tmp_lhr'
@@ -10113,7 +10119,8 @@ function buatSkRenderDynamicFields(placeholders) {
           </div>
         </div>`;
     } else {
-      inputHtml = `<input type="text" id="bsk_field_${key}" class="field-input ${isAutofilled ? 'bsk-auto-field' : ''}" placeholder="${escHtml(label)}" ${isAutofilled ? 'style="background:var(--surface-alt,#e2e8f0);color:var(--text-main,#0f172a);font-weight:600;"' : ''} />`;
+      const valStr = isStrukturalField ? escHtml(BUAT_SK.jenisTutamStruktural) : '';
+      inputHtml = `<input type="text" id="bsk_field_${key}" class="field-input ${isAutofilled ? 'bsk-auto-field' : ''}" value="${valStr}" placeholder="${escHtml(label)}" ${isAutofilled ? 'style="background:var(--surface-alt,#e2e8f0);color:var(--text-main,#0f172a);font-weight:600;"' : ''} />`;
     }
 
     const spanAuto = isAutofilled ? ' <span style="font-size:11px;color:#10b981;font-weight:600;">(auto-fill)</span>' : '';
@@ -10123,6 +10130,13 @@ function buatSkRenderDynamicFields(placeholders) {
 
   if (!htmlStr) htmlStr = '<p style="color:var(--text-muted);font-size:13px;grid-column:1/-1;">Tidak ada field manual — semua placeholder akan terisi otomatis.</p>';
   container.innerHTML = htmlStr;
+
+  if (BUAT_SK.jenisTutamStruktural) {
+    ['jenis_tutam_struktural', 'jenis_tutam', 'tugas_tambahan'].forEach(k => {
+      const f = document.getElementById('bsk_field_' + k);
+      if (f) f.value = BUAT_SK.jenisTutamStruktural;
+    });
+  }
 }
 
 async function buatSkEnsureJenisTutamLoaded() {
