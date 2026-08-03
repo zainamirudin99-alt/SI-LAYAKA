@@ -10093,12 +10093,20 @@ function buatSkRenderDynamicFields(placeholders) {
 
     let inputHtml;
     const isTugasJabatan = (key === 'tugas_jabatan') && ['Surat PLT', 'Surat PLH'].includes(BUAT_SK.jenisSk);
+    const keyClean = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const isDekanWadek = keyClean === 'dekanwadek' || keyClean === 'dekanatauwadek' || keyClean === 'pilihandekanwadek' || key.toLowerCase() === 'dekan_wadek';
 
     if (isTugasJabatan) {
       inputHtml = `<div style="position:relative">
         <input type="text" id="bsk_field_${key}" class="field-input" placeholder="Cari / Ketik Tugas Jabatan..." oninput="buatSkSearchTugasJabatan(this.value)" onfocus="buatSkSearchTugasJabatan(this.value)" autocomplete="off" />
         <div id="bsk_tugasJabatanDropdown" style="position:absolute;top:100%;left:0;right:0;background:var(--surface,#fff);border:1px solid var(--border,#cbd5e1);border-radius:8px;max-height:200px;overflow-y:auto;z-index:200;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
       </div>`;
+    } else if (isDekanWadek) {
+      inputHtml = `<select id="bsk_field_${key}" class="field-input">
+        <option value="">-- Pilih Dekan / Wakil Dekan --</option>
+        <option value="Dekan">Dekan</option>
+        <option value="Wakil Dekan">Wakil Dekan</option>
+      </select>`;
     } else if (isGol) {
       const opts = ['I/a','I/b','I/c','I/d','II/a','II/b','II/c','II/d','III/a','III/b','III/c','III/d','IV/a','IV/b','IV/c','IV/d','IV/e','Set.I/a','Set.I/b','Set.I/c','Set.I/d','Set.II/a','Set.II/b','Set.II/c','Set.II/d','Set.III/a','Set.III/b','Set.III/c','Set.III/d','Set.IV/a','Set.IV/b','Set.IV/c','Set.IV/d','Set.IV/e'].map(g => `<option value="${g}">${g}</option>`).join('');
       inputHtml = `<select id="bsk_field_${key}" class="field-input ${isAutofilled ? 'bsk-auto-field' : ''}" onchange="buatSkHitungGajiPokok()" oninput="buatSkHitungGajiPokok()" ${isAutofilled ? 'style="background:var(--surface-alt,#e2e8f0);color:var(--text-main,#0f172a);font-weight:600;"' : ''}><option value="">-- Pilih Golongan --</option>${opts}</select>`;
