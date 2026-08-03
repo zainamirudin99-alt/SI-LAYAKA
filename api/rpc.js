@@ -693,19 +693,39 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
       sanitizedData[k] = '';
       continue;
     }
-    let valStr = '';
-    if (v !== null && v !== undefined) {
-      if (typeof v === 'string' && (v.startsWith('data:') || v.includes('base64,') || v.length > 300)) {
-        valStr = '';
-      } else if (typeof v === 'object') {
-        valStr = JSON.stringify(v);
-      } else {
-        valStr = String(v);
+    if (Array.isArray(v)) {
+      // Pertahankan Array of Objects untuk Mustache Loop Sections (#pejabat_dilantik, #pejabat_berhenti)
+      const arrSan = v.map((item, idx) => {
+        if (typeof item === 'object' && item !== null) {
+          const objSan = { no: item.no || (idx + 1) };
+          for (const [ik, iv] of Object.entries(item)) {
+            const val = (iv === null || iv === undefined) ? '' : String(iv);
+            objSan[ik] = val;
+            objSan[ik.toLowerCase()] = val;
+            objSan[ik.toUpperCase()] = val;
+          }
+          return objSan;
+        }
+        return item;
+      });
+      sanitizedData[k] = arrSan;
+      sanitizedData[k.toLowerCase()] = arrSan;
+      sanitizedData[k.toUpperCase()] = arrSan;
+    } else if (typeof v === 'object' && v !== null) {
+      sanitizedData[k] = v;
+    } else {
+      let valStr = '';
+      if (v !== null && v !== undefined) {
+        if (typeof v === 'string' && (v.startsWith('data:') || v.includes('base64,') || v.length > 500)) {
+          valStr = '';
+        } else {
+          valStr = String(v);
+        }
       }
+      sanitizedData[k] = valStr;
+      sanitizedData[k.toLowerCase()] = valStr;
+      sanitizedData[k.toUpperCase()] = valStr;
     }
-    sanitizedData[k] = valStr;
-    sanitizedData[k.toLowerCase()] = valStr;
-    sanitizedData[k.toUpperCase()] = valStr;
   }
 
   // 4. Custom parser mendukung {{ ekspresi }} (set, filter, fungsi, ternary)
@@ -930,6 +950,7 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = n
     //    Contoh: {{unit_es_ii|upper}} → nilai unit_es_ii di-uppercase
     const KNOWN_FILTERS = ['upper','lower','terbilang','rupiah','tanggal'];
     for (const [k, val] of Object.entries(fullData)) {
+      if (typeof val === 'object') continue;
       for (const filterName of KNOWN_FILTERS) {
         let filteredVal = val;
         try { filteredVal = String(docxApplyFilter(filterName, val)); } catch(_) { filteredVal = val; }
@@ -940,6 +961,47 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = n
         xml = xml.replace(regSF, escapedFiltVal);
       }
     }
+
+    // 4. Render loop section jika masih tersisa tag {{#section}} ... {{/section}}
+    const LOOP_SECTIONS = [
+      'pejabat_dilantik', 'pejabat_lantik', 'dilantik',
+      'pejabat_diberhentikan', 'pejabat_berhenti', 'diberhentikan',
+      'pejabat_terkait', 'pejabat'
+    ];
+    LOOP_SECTIONS.forEach(secKey => {
+      const rawArr = dataCtx[secKey] || dataCtx[secKey.toUpperCase()] || [];
+      const arr = Array.isArray(rawArr) ? rawArr : [];
+
+      const reLoopDouble = new RegExp(`\\{\\{\\s*#\\s*${secKey}\\s*\\}\\}([\\s\\S]*?)\\{\\{\\s*\\/\\s*${secKey}\\s*\\}\\}`, 'gi');
+      xml = xml.replace(reLoopDouble, (match, innerContent) => {
+        if (arr.length === 0) return '';
+        return arr.map((item, idx) => {
+          let rowXml = innerContent;
+          const rowData = { no: idx + 1, ...(item || {}) };
+          for (const [rk, rv] of Object.entries(rowData)) {
+            const escapedVal = escapeXmlText(String(rv || ''));
+            rowXml = rowXml.replace(new RegExp(`\\{\\{\\s*${rk}\\s*\\}\\}`, 'gi'), () => escapedVal);
+            rowXml = rowXml.replace(new RegExp(`\\{\\s*${rk}\\s*\\}`, 'gi'), () => escapedVal);
+          }
+          return rowXml;
+        }).join('');
+      });
+
+      const reLoopSingle = new RegExp(`\\{\\s*#\\s*${secKey}\\s*\\}([\\s\\S]*?)\\{\\s*\\/\\s*${secKey}\\s*\\}`, 'gi');
+      xml = xml.replace(reLoopSingle, (match, innerContent) => {
+        if (arr.length === 0) return '';
+        return arr.map((item, idx) => {
+          let rowXml = innerContent;
+          const rowData = { no: idx + 1, ...(item || {}) };
+          for (const [rk, rv] of Object.entries(rowData)) {
+            const escapedVal = escapeXmlText(String(rv || ''));
+            rowXml = rowXml.replace(new RegExp(`\\{\\{\\s*${rk}\\s*\\}\\}`, 'gi'), () => escapedVal);
+            rowXml = rowXml.replace(new RegExp(`\\{\\s*${rk}\\s*\\}`, 'gi'), () => escapedVal);
+          }
+          return rowXml;
+        }).join('');
+      });
+    });
 
     zip.file(fileName, xml);
   }
@@ -2246,14 +2308,15 @@ const methods = {
           if (key) found.add(key);
         });
 
-        // Pass 2 — strip seluruh tag XML lalu cari {{…}} dan {…}
-        const textOnly = xml.replace(/<[^>]+>/g, ' ');
+        // Pass 2 — bersihkan run braces XML lalu strip tag XML
+        const cleanedXml = cleanWordXmlParagraphBraces(xml);
+        const textOnly = cleanedXml.replace(/<[^>]+>/g, ' ');
 
         // Deteksi loop section dan ekstrak kolom di dalamnya
-        // Pattern: {{#section_name}} ... {{/section_name}}
+        // Pattern: {{#section_name}}...{{/section_name}} atau {#section_name}...{/section_name}
         LOOP_SECTION_NAMES.forEach(sectionName => {
           const reSection = new RegExp(
-            `\\{\\{\\s*#\\s*${sectionName}\\s*\\}\\}([\\s\\S]*?)\\{\\{\\s*\\/\\s*${sectionName}\\s*\\}\\}`,
+            `\\{\\{?\\s*#\\s*${sectionName}\\s*\\}?\\}([\\s\\S]*?)\\{\\{?\\s*\\/\\s*${sectionName}\\s*\\}?\\}`,
             'gi'
           );
           let m;
