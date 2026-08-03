@@ -1,0 +1,29 @@
+{
+  "name": "Sistem Layanan Administrasi Kepegawaian - SI-LAYAKA",
+  "short_name": "SI-LAYAKA",
+  "description": "Sistem Layanan Administrasi Kepegawaian Universitas Diponegoro",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#faf8ff",
+  "theme_color": "#0037b0",
+  "icons": [
+    {
+      "src": "logo-silayaka.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo-silayaka.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "favicon.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    }
+  ]
+}
