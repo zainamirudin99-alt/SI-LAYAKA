@@ -700,7 +700,7 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
       const arrSan = v.map((item, idx) => {
         if (typeof item === 'object' && item !== null) {
           const noVal = item.no || (idx + 1);
-          const namaVal = String(item.nama_lengkap || item.nama || '').toUpperCase();
+          const namaVal = String(item.nama_lengkap || item.nama || '');
           const nipVal = String(item.nip || '');
           const jabVal = String(item.jabatan || '');
           const golVal = String(item.golongan || '');
@@ -753,7 +753,7 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
 
   // Alias data arrays untuk section tags alternatif (dilantik / diangkat / diberhentikan)
   if (sanitizedData.nama_lengkap) {
-    sanitizedData.nama_lengkap = String(sanitizedData.nama_lengkap).toUpperCase();
+    sanitizedData.nama_lengkap = String(sanitizedData.nama_lengkap);
     sanitizedData.NAMA_LENGKAP = sanitizedData.nama_lengkap;
   }
   const dilantikArr = sanitizedData.pejabat_dilantik || sanitizedData.pejabat_diangkat || sanitizedData.dilantik || sanitizedData.diangkat || [];
@@ -2065,14 +2065,14 @@ const methods = {
         return words.every(w => fullText.includes(w.toLowerCase()));
       });
       return filtered.slice(0, 25).map(e => {
-        const namaLengkapUpper = String(e.nama_lengkap || e.nama || e.nip || '').toUpperCase();
-        return { nip: e.nip, nama: namaLengkapUpper, nama_lengkap: namaLengkapUpper, unitEsIi: e.unit_es_ii, jenis_pegawai: e.jenis_peg || '' };
+        const namaFull = String(e.nama_lengkap || e.nama || e.nip || '');
+        return { nip: e.nip, nama: namaFull, nama_lengkap: namaFull, unitEsIi: e.unit_es_ii, jenis_pegawai: e.jenis_peg || '' };
       });
     }
 
     return (data || []).map(e => {
-      const namaLengkapUpper = String(e.nama_lengkap || e.nama || e.nip || '').toUpperCase();
-      return { nip: e.nip, nama: namaLengkapUpper, nama_lengkap: namaLengkapUpper, unitEsIi: e.unit_es_ii, jenis_pegawai: e.jenis_peg || '' };
+      const namaFull = String(e.nama_lengkap || e.nama || e.nip || '');
+      return { nip: e.nip, nama: namaFull, nama_lengkap: namaFull, unitEsIi: e.unit_es_ii, jenis_pegawai: e.jenis_peg || '' };
     });
   },
 
@@ -2825,7 +2825,7 @@ const methods = {
     // 4. Sisipkan array loop untuk SK Tutam (dengan alias & field komposit lengkap)
     const formatPejabatItem = (p, i) => {
       const noVal = p.no || (i + 1);
-      const namaVal = String(p.nama_lengkap || p.nama || '').toUpperCase();
+      const namaVal = String(p.nama_lengkap || p.nama || '');
       const nipVal = String(p.nip || '');
       const jabVal = String(p.jabatan || p.jenis_tutam || p.tugas_tambahan || '');
       const golVal = String(p.golongan || '');
@@ -2971,7 +2971,7 @@ const methods = {
 
     const formatPejabatItemPreview = (p, i) => {
       const noVal = p.no || (i + 1);
-      const namaVal = String(p.nama_lengkap || p.nama || '').toUpperCase();
+      const namaVal = String(p.nama_lengkap || p.nama || '');
       const nipVal = String(p.nip || '');
       const jabVal = String(p.jabatan || p.jenis_tutam || p.tugas_tambahan || '');
       const golVal = String(p.golongan || '');
