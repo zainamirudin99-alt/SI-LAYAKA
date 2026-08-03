@@ -752,6 +752,10 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
   }
 
   // Alias data arrays untuk section tags alternatif (dilantik / diangkat / diberhentikan)
+  if (sanitizedData.nama_lengkap) {
+    sanitizedData.nama_lengkap = String(sanitizedData.nama_lengkap).toUpperCase();
+    sanitizedData.NAMA_LENGKAP = sanitizedData.nama_lengkap;
+  }
   const dilantikArr = sanitizedData.pejabat_dilantik || sanitizedData.pejabat_diangkat || sanitizedData.dilantik || sanitizedData.diangkat || [];
   const diberhentikanArr = sanitizedData.pejabat_diberhentikan || sanitizedData.pejabat_berhenti || sanitizedData.diberhentikan || sanitizedData.berhenti || [];
   ['pejabat_dilantik', 'pejabat_diangkat', 'pejabat_lantik', 'dilantik', 'diangkat', 'pejabat'].forEach(ak => {
@@ -2060,10 +2064,16 @@ const methods = {
         const fullText = (String(e.nama_lengkap || '') + ' ' + String(e.nama || '') + ' ' + String(e.nip || '')).toLowerCase();
         return words.every(w => fullText.includes(w.toLowerCase()));
       });
-      return filtered.slice(0, 25).map(e => ({ nip: e.nip, nama: e.nama_lengkap || e.nama || e.nip, unitEsIi: e.unit_es_ii, jenis_pegawai: e.jenis_peg || '' }));
+      return filtered.slice(0, 25).map(e => {
+        const namaLengkapUpper = String(e.nama_lengkap || e.nama || e.nip || '').toUpperCase();
+        return { nip: e.nip, nama: namaLengkapUpper, nama_lengkap: namaLengkapUpper, unitEsIi: e.unit_es_ii, jenis_pegawai: e.jenis_peg || '' };
+      });
     }
 
-    return (data || []).map(e => ({ nip: e.nip, nama: e.nama_lengkap || e.nama || e.nip, unitEsIi: e.unit_es_ii, jenis_pegawai: e.jenis_peg || '' }));
+    return (data || []).map(e => {
+      const namaLengkapUpper = String(e.nama_lengkap || e.nama || e.nip || '').toUpperCase();
+      return { nip: e.nip, nama: namaLengkapUpper, nama_lengkap: namaLengkapUpper, unitEsIi: e.unit_es_ii, jenis_pegawai: e.jenis_peg || '' };
+    });
   },
 
   async getEmployeeFullData(args) {

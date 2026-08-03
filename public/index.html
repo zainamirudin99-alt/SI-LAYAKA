@@ -10311,7 +10311,7 @@ function buatSkSearchEmployee() {
 }
 function buatSkAutoFillFormFromEmp(emp) {
   if (!emp) return;
-  const empNama = emp.nama || emp.nama_lengkap || '';
+  const empNama = String(emp.nama_lengkap || emp.nama || '').toUpperCase();
   const empNip  = emp.nip || '';
   const empGol  = emp.golongan || emp.gol || '';
   const empJab  = emp.jabatan || '';
@@ -10395,7 +10395,7 @@ async function buatSkSelectEmployee(nip) {
 
     buatSkAutoFillFormFromEmp(emp);
 
-    const empNama = emp.nama || emp.nama_lengkap || '';
+    const empNama = String(emp.nama_lengkap || emp.nama || '').toUpperCase();
     const empNip  = emp.nip || nip;
     const empGol  = emp.golongan || emp.gol || '';
     const empJab  = emp.jabatan || '';
@@ -10456,7 +10456,7 @@ async function buatSkSelectRowEmployee(tableType, rowIdx, nip) {
     const emp = await rpc('getEmployeeFullData', [SESSION.token, nip]);
     if (!emp) return showToast('error', 'Data pegawai tidak ditemukan.');
 
-    const empNama = emp.nama || emp.nama_lengkap || '';
+    const empNama = String(emp.nama_lengkap || emp.nama || '').toUpperCase();
     const empNip  = emp.nip || nip;
     const empGol  = emp.golongan || emp.gol || '';
     const empJab  = emp.jabatan || '';
