@@ -241,6 +241,60 @@
     border-color: var(--primary);
   }
 
+  .mecha-border {
+    position: relative;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 6px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .mecha-border::before, .mecha-border::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-color: #0037b0;
+    pointer-events: none;
+  }
+  .mecha-border::before {
+    top: -1px;
+    left: -1px;
+    border-top: 2px solid #0037b0;
+    border-left: 2px solid #0037b0;
+  }
+  .mecha-border::after {
+    bottom: -1px;
+    right: -1px;
+    border-bottom: 2px solid #0037b0;
+    border-right: 2px solid #0037b0;
+  }
+  body.theme-dark .mecha-border::before, body.theme-dark .mecha-border::after {
+    border-color: var(--primary);
+  }
+  body.theme-dark .mecha-border {
+    border-color: rgba(0, 240, 255, 0.25);
+    background: rgba(17, 24, 39, 0.85);
+  }
+
+  .label-tech {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .badge-auto-fill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    font-weight: 500;
+  }
+
   .login-logos {
     display: flex;
     align-items: center;
@@ -2139,11 +2193,63 @@
 
         <!-- ============ VIEW: PROFIL SAYA (peran 'normal') ============ -->
         <div class="view-panel" id="view-profil-saya" style="display:none;">
-          <div class="card kp-panel" style="max-width:640px;">
-            <div class="helper-text" style="margin-bottom:18px;">
-              Anda masuk sebagai akun dengan akses terbatas — hanya bisa melihat data diri sendiri di bawah ini.
+          <!-- Restricted Access Banner -->
+          <div class="mecha-border" style="margin-bottom:24px; padding:20px; background:var(--surface-alt); display:flex; align-items:flex-start; gap:16px;">
+            <div style="padding:10px; background:var(--primary-soft); border-radius:8px; color:var(--primary); flex-shrink:0;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
             </div>
-            <div id="profilSayaContent" class="ce-dashboard-list"></div>
+            <div>
+              <h3 style="margin:0 0 4px 0; font-size:16px; font-weight:700; color:var(--primary); font-family:'Sora',sans-serif;">Akses Terbatas (Restricted Access)</h3>
+              <p style="margin:0; font-size:13.5px; color:var(--text-muted); line-height:1.5;">
+                Anda saat ini masuk dengan peran <strong style="color:var(--primary);">Normal User</strong>. Sesuai kebijakan di SI-LAYAKA, akses Anda dibatasi hanya untuk melihat dan mengelola data profil pribadi. Menu administrasi tingkat lanjut dan manajemen data unit tidak tersedia untuk peran Anda.
+              </p>
+            </div>
+          </div>
+
+          <!-- Bento Profile Grid Layout -->
+          <div style="display:grid; grid-template-columns:repeat(12, 1fr); gap:24px;">
+            
+            <!-- Left Column: Main Data Card Container -->
+            <div style="grid-column: span 8 / span 8;">
+              <div id="profilSayaContent">
+                <!-- Dynamically rendered by loadProfilSaya() -->
+              </div>
+            </div>
+
+            <!-- Right Column: Avatar Card & Recent Activity -->
+            <div style="grid-column: span 4 / span 4; display:flex; flex-direction:column; gap:24px;">
+              <!-- Photo Verified Card -->
+              <div class="mecha-border" style="padding:16px; background:var(--surface); text-align:center;">
+                <div style="position:relative; width:100%; aspect-ratio:1/1; background:var(--surface-alt); border-radius:6px; overflow:hidden; display:flex; align-items:center; justify-content:center; margin-bottom:14px; border:1px solid var(--border);">
+                  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  <div class="label-tech" style="position:absolute; bottom:12px; right:12px; background:var(--primary); color:#fff; padding:4px 8px; border-radius:4px; font-size:10px;">Photo Verified</div>
+                </div>
+                <div style="font-weight:700; font-size:16px; color:var(--text);" id="prof_side_nama">Pegawai UNDIP</div>
+                <div style="font-size:13px; color:var(--text-muted); margin-top:2px;" id="prof_side_nip">NIP: -</div>
+              </div>
+
+              <!-- Status Timeline Card -->
+              <div class="mecha-border" style="padding:20px; background:var(--surface);">
+                <div class="label-tech" style="color:var(--primary); margin-bottom:16px;">Aktivitas Terakhir</div>
+                <div style="display:flex; flex-direction:column; gap:18px;">
+                  <div style="display:flex; gap:12px; align-items:flex-start;">
+                    <div style="width:12px; height:12px; border-radius:50%; background:var(--primary); margin-top:4px; flex-shrink:0; box-shadow:0 0 8px var(--primary-soft);"></div>
+                    <div>
+                      <div style="font-size:13.5px; font-weight:700; color:var(--text);">Sesi Login Aktif</div>
+                      <div style="font-size:12px; color:var(--text-muted);">Hari ini - Terverifikasi</div>
+                    </div>
+                  </div>
+                  <div style="display:flex; gap:12px; align-items:flex-start;">
+                    <div style="width:12px; height:12px; border-radius:50%; background:var(--border); margin-top:4px; flex-shrink:0;"></div>
+                    <div>
+                      <div style="font-size:13.5px; font-weight:700; color:var(--text);">Pemeriksaan Data Profil</div>
+                      <div style="font-size:12px; color:var(--text-muted);">Sistem Otomatis SI-LAYAKA</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
 
@@ -3098,24 +3204,108 @@ function terapkanBatasanPeran_() {
 
 /** Muat & tampilkan data diri terbatas (peran 'normal'). */
 function loadProfilSaya() {
-  const labelMap = {
-    nama_lengkap: 'Nama', tgl_lhr: 'Tanggal Lahir', golongan: 'Golongan',
-    status_kepegawaian: 'Status Kepegawaian', status_bekerja: 'Status Bekerja',
-    jabatan: 'Jabatan', tmt_pensiun_bup: 'TMT Pensiun'
-  };
   google.script.run
     .withSuccessHandler(res => {
       if (!res.success) { showToast('error', res.message); return; }
-      const el = document.getElementById('profilSayaContent');
-      el.innerHTML = Object.keys(res.profil).map(key => `
-        <div class="ce-dashboard-list-item" style="cursor:default;">
-          <div><div class="cdli-name">${escapeHtml(labelMap[key] || key)}</div></div>
-          <div class="cdli-meta">${escapeHtml(res.profil[key] || '-')}</div>
-        </div>
-      `).join('');
+      renderProfilSayaView(res.profil || {});
     })
     .withFailureHandler(err => showToast('error', 'Gagal memuat profil: ' + (err.message || err)))
     .getProfilSaya(SESSION.token);
+}
+
+function renderProfilSayaView(profil) {
+  const labelMap = {
+    nama_lengkap: 'Nama Lengkap',
+    nip: 'NIP / NIK',
+    unit_kerja: 'Unit Kerja',
+    jabatan: 'Jabatan Terakhir',
+    golongan: 'Pangkat / Golongan',
+    tmt_pensiun_bup: 'TMT BUP (Pensiun)',
+    tgl_lhr: 'Tanggal Lahir',
+    status_kepegawaian: 'Status Kepegawaian',
+    status_bekerja: 'Status Bekerja'
+  };
+
+  const p = profil || {};
+  const nama = p.nama_lengkap || SESSION.nama || (SESSION.user && SESSION.user.nama_lengkap) || '-';
+  const nip = p.nip || SESSION.nip || (SESSION.user && SESSION.user.nip) || '-';
+  const unit = p.unit_kerja || SESSION.unit_kerja || (SESSION.user && SESSION.user.unit_kerja) || '-';
+  const jabatan = p.jabatan || SESSION.jabatan || '-';
+  const golongan = p.golongan || SESSION.golongan || '-';
+  const pensiun = p.tmt_pensiun_bup || p.tgl_lhr || '-';
+  const statPeg = p.status_kepegawaian || 'Aktif';
+  const statBek = p.status_bekerja || 'Aktif';
+
+  const sideNama = document.getElementById('prof_side_nama');
+  if (sideNama) sideNama.textContent = nama;
+  const sideNip = document.getElementById('prof_side_nip');
+  if (sideNip) sideNip.textContent = 'NIP: ' + nip;
+
+  const container = document.getElementById('profilSayaContent');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="mecha-border" style="padding:28px; background:var(--surface);">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; flex-wrap:wrap; gap:12px;">
+        <div>
+          <div class="label-tech" style="color:var(--primary); margin-bottom:4px;">Identitas Pegawai</div>
+          <h3 style="margin:0; font-family:'Sora',sans-serif; font-size:22px; font-weight:700; color:var(--text);">Data Utama Personal</h3>
+        </div>
+        <button type="button" class="btn btn-outline" onclick="alert('Untuk mengajukan perubahan data utama profil, silakan hubungi Subbagian Kepegawaian DSDM UNDIP dengan membawa dokumen pendukung.');" style="font-size:12px; font-weight:600; padding:6px 14px;">
+          ✏️ Ajukan Perubahan
+        </button>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px 36px;">
+        <div>
+          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">Nama Lengkap</label>
+          <p style="margin:0; font-size:16px; font-weight:700; color:var(--text);">${escapeHtml(nama)}</p>
+        </div>
+        <div>
+          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">NIP / NIK</label>
+          <p style="margin:0; font-size:16px; font-weight:700; color:var(--text);">${escapeHtml(nip)} <span class="badge-auto-fill">(auto-fill)</span></p>
+        </div>
+        <div>
+          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">Unit Kerja</label>
+          <p style="margin:0; font-size:15px; font-weight:600; color:var(--text);">${escapeHtml(unit)}</p>
+        </div>
+        <div>
+          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">Jabatan Terakhir</label>
+          <p style="margin:0; font-size:15px; font-weight:600; color:var(--text);">${escapeHtml(jabatan)}</p>
+        </div>
+        <div>
+          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">Pangkat / Golongan</label>
+          <p style="margin:0; font-size:15px; font-weight:600; color:var(--text);">${escapeHtml(golongan)}</p>
+        </div>
+        <div>
+          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">TMT BUP (Pensiun)</label>
+          <p style="margin:0; font-size:15px; font-weight:600; color:var(--text);">${escapeHtml(pensiun)}</p>
+        </div>
+        ${Object.keys(p).filter(k => !['nama_lengkap','nip','unit_kerja','jabatan','golongan','tmt_pensiun_bup','tgl_lhr','status_kepegawaian','status_bekerja'].includes(k)).map(k => `
+          <div>
+            <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">${escapeHtml(labelMap[k] || k)}</label>
+            <p style="margin:0; font-size:15px; font-weight:600; color:var(--text);">${escapeHtml(p[k] || '-')}</p>
+          </div>
+        `).join('')}
+      </div>
+
+      <!-- Summary Stats Bar -->
+      <div style="margin-top:32px; border-top:1px solid var(--border); display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; padding-top:24px;">
+        <div style="background:var(--surface-alt); padding:16px; border-radius:8px; text-align:center;">
+          <div class="label-tech" style="color:var(--text-muted); margin-bottom:4px;">Status Akun</div>
+          <div style="font-family:'Sora',sans-serif; font-size:17px; font-weight:700; color:var(--primary);">${escapeHtml(SESSION.peran || 'Normal User')}</div>
+        </div>
+        <div style="background:var(--surface-alt); padding:16px; border-radius:8px; text-align:center;">
+          <div class="label-tech" style="color:var(--text-muted); margin-bottom:4px;">Status Kepegawaian</div>
+          <div style="font-family:'Sora',sans-serif; font-size:17px; font-weight:700; color:var(--primary);">${escapeHtml(statPeg)}</div>
+        </div>
+        <div style="background:var(--surface-alt); padding:16px; border-radius:8px; text-align:center;">
+          <div class="label-tech" style="color:var(--text-muted); margin-bottom:4px;">Status Bekerja</div>
+          <div style="font-family:'Sora',sans-serif; font-size:17px; font-weight:700; color:var(--primary);">${escapeHtml(statBek)}</div>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 /* ------------------------- MENU PERUBAHAN STATUS AKUN (Super Admin) ------------------------- */
