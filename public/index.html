@@ -10419,8 +10419,8 @@ async function buatSkSearchRowJenisTutam(tableType, rowIdx, q) {
 // ============================================================
 function buatSkGetLoopCols(sectionKey) {
   const SECTION_ALIASES = {
-    dilantik: ['pejabat_dilantik','pejabat_lantik','dilantik'],
-    diberhentikan: ['pejabat_diberhentikan','pejabat_berhenti','diberhentikan']
+    dilantik: ['pejabat_dilantik','pejabat_diangkat','pejabat_lantik','dilantik','diangkat'],
+    diberhentikan: ['pejabat_diberhentikan','pejabat_berhenti','diberhentikan','berhenti']
   };
   const aliases = SECTION_ALIASES[sectionKey] || [sectionKey];
   const lc = BUAT_SK.loopColumns || {};
@@ -10436,7 +10436,8 @@ function buatSkColLabel(key) {
   const MAP = {
     nama_lengkap:'Nama Lengkap', nip:'NIP', jabatan:'Jabatan',
     golongan:'Golongan', pangkat:'Pangkat', jenis_tutam:'Jenis Tutam',
-    tugas_tambahan:'Tugas Tambahan'
+    tugas_tambahan:'Tugas Tambahan', nama_nip:'Nama / NIP', jabatan_gol:'Jabatan / Gol.',
+    diangkat_dalam_jabatan:'Diangkat Dalam Jabatan', diberhentikan_dari_jabatan:'Diberhentikan Dari Jabatan'
   };
   return MAP[key] || String(key).replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
 }

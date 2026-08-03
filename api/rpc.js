@@ -9,10 +9,12 @@
  * ================================================================
  */
 
-let createClient, jwt, crypto;
+let createClient, jwt, crypto, PizZip, Docxtemplater;
 try { ({ createClient } = require('@supabase/supabase-js')); } catch(e) { console.error('[rpc] Failed to load @supabase/supabase-js:', e.message); createClient = null; }
 try { jwt = require('jsonwebtoken'); } catch(e) { console.error('[rpc] Failed to load jsonwebtoken:', e.message); jwt = null; }
 try { crypto = require('crypto'); } catch(e) { console.error('[rpc] Failed to load crypto:', e.message); crypto = null; }
+try { PizZip = require('pizzip'); } catch(e) { console.error('[rpc] Failed to load pizzip:', e.message); PizZip = null; }
+try { Docxtemplater = require('docxtemplater'); } catch(e) { console.error('[rpc] Failed to load docxtemplater:', e.message); Docxtemplater = null; }
 
 function uuidv4() {
   if (crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
@@ -697,7 +699,28 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
       // Pertahankan Array of Objects untuk Mustache Loop Sections (#pejabat_dilantik, #pejabat_berhenti)
       const arrSan = v.map((item, idx) => {
         if (typeof item === 'object' && item !== null) {
-          const objSan = { no: item.no || (idx + 1) };
+          const noVal = item.no || (idx + 1);
+          const namaVal = String(item.nama_lengkap || item.nama || '').toUpperCase();
+          const nipVal = String(item.nip || '');
+          const jabVal = String(item.jabatan || '');
+          const golVal = String(item.golongan || '');
+          const pgtVal = String(item.pangkat || getPangkatForGolongan(golVal) || '');
+          const tutamVal = String(item.jenis_tutam || item.tugas_tambahan || item.nama_jabatan || '');
+          const namaNip = nipVal ? `${namaVal}\nNIP ${nipVal}` : namaVal;
+          const jabGol = golVal ? (pgtVal ? `${jabVal} (${pgtVal}, ${golVal})` : `${jabVal} (${golVal})`) : jabVal;
+
+          const objSan = {
+            no: noVal, NO: noVal, 'NO.': noVal,
+            nama_lengkap: namaVal, NAMA_LENGKAP: namaVal, nama: namaVal, NAMA: namaVal,
+            nip: nipVal, NIP: nipVal,
+            nama_nip: namaNip, NAMA_NIP: namaNip, 'NAMA/NIP': namaNip,
+            jabatan: jabVal, JABATAN: jabVal,
+            golongan: golVal, GOLONGAN: golVal,
+            pangkat: pgtVal, PANGKAT: pgtVal,
+            jabatan_gol: jabGol, JABATAN_GOL: jabGol, 'JABATAN/GOL.': jabGol, 'JABATAN/GOL': jabGol,
+            jenis_tutam: tutamVal, JENIS_TUTAM: tutamVal, tugas_tambahan: tutamVal, TUGAS_TAMBAHAN: tutamVal,
+            diangkat_dalam_jabatan: tutamVal, diberhentikan_dari_jabatan: tutamVal
+          };
           for (const [ik, iv] of Object.entries(item)) {
             const val = (iv === null || iv === undefined) ? '' : String(iv);
             objSan[ik] = val;
@@ -727,6 +750,16 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
       sanitizedData[k.toUpperCase()] = valStr;
     }
   }
+
+  // Alias data arrays untuk section tags alternatif (dilantik / diangkat / diberhentikan)
+  const dilantikArr = sanitizedData.pejabat_dilantik || sanitizedData.pejabat_diangkat || sanitizedData.dilantik || sanitizedData.diangkat || [];
+  const diberhentikanArr = sanitizedData.pejabat_diberhentikan || sanitizedData.pejabat_berhenti || sanitizedData.diberhentikan || sanitizedData.berhenti || [];
+  ['pejabat_dilantik', 'pejabat_diangkat', 'pejabat_lantik', 'dilantik', 'diangkat', 'pejabat'].forEach(ak => {
+    if (dilantikArr.length) { sanitizedData[ak] = dilantikArr; sanitizedData[ak.toUpperCase()] = dilantikArr; }
+  });
+  ['pejabat_diberhentikan', 'pejabat_berhenti', 'diberhentikan', 'berhenti'].forEach(ak => {
+    if (diberhentikanArr.length) { sanitizedData[ak] = diberhentikanArr; sanitizedData[ak.toUpperCase()] = diberhentikanArr; }
+  });
 
   // 4. Custom parser mendukung {{ ekspresi }} (set, filter, fungsi, ternary)
   const customParser = tag => ({
@@ -916,12 +949,12 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = n
 
   const fullData = {};
   for (const [k, v] of Object.entries(sanitizedData)) {
-    if (!v && v !== 0) continue;
+    if (Array.isArray(v) || typeof v === 'object') continue;
     const keyLower = String(k).toLowerCase();
     if (keyLower.includes('foto') || keyLower.includes('photo') || keyLower.includes('pas_foto')) {
       continue; // Cegah pencetakan teks base64 foto pada dokumen
     }
-    const escapedVal = escapeXmlText(String(v));
+    const escapedVal = escapeXmlText(String(v ?? ''));
     fullData[k] = escapedVal;
     fullData[k.toLowerCase()] = escapedVal;
     fullData[k.toUpperCase()] = escapedVal;
@@ -940,46 +973,78 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = n
     // 2. Ganti presisi setiap placeholder teks {{ key }} atau { key }
     for (const [k, val] of Object.entries(fullData)) {
       const regDouble = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
-      xml = xml.replace(regDouble, val);
+      xml = xml.replace(regDouble, () => val);
 
       const regSingle = new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi');
-      xml = xml.replace(regSingle, val);
+      xml = xml.replace(regSingle, () => val);
     }
 
-    // 3. Ganti {{ key|filter }} — replace placeholder berfilter (upper, lower, tanggal, rupiah)
-    //    Contoh: {{unit_es_ii|upper}} → nilai unit_es_ii di-uppercase
-    const KNOWN_FILTERS = ['upper','lower','terbilang','rupiah','tanggal'];
-    for (const [k, val] of Object.entries(fullData)) {
-      if (typeof val === 'object') continue;
-      for (const filterName of KNOWN_FILTERS) {
-        let filteredVal = val;
-        try { filteredVal = String(docxApplyFilter(filterName, val)); } catch(_) { filteredVal = val; }
-        const escapedFiltVal = escapeXmlText(filteredVal);
-        const regDF = new RegExp(`\\{\\{\\s*${k}\\s*\\|\\s*${filterName}\\s*\\}\\}`, 'gi');
-        xml = xml.replace(regDF, escapedFiltVal);
-        const regSF = new RegExp(`\\{\\s*${k}\\s*\\|\\s*${filterName}\\s*\\}`, 'gi');
-        xml = xml.replace(regSF, escapedFiltVal);
-      }
-    }
+    // 3. Ganti {{ key|filter }} — replace placeholder berfilter (upper, lower, tanggal, rupiah, terbilang)
+    xml = xml.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\|\s*([a-zA-Z0-9_]+)\s*\}\}/gi, (match, key, filterName) => {
+      const keyLower = key.toLowerCase();
+      let rawVal = sanitizedData[key] ?? sanitizedData[keyLower] ?? sanitizedData[key.toUpperCase()] ?? '';
+      let filteredVal = rawVal;
+      try { filteredVal = String(docxApplyFilter(filterName, rawVal)); } catch(_) { filteredVal = rawVal; }
+      return escapeXmlText(filteredVal ?? '');
+    });
+    xml = xml.replace(/\{\s*([a-zA-Z0-9_]+)\s*\|\s*([a-zA-Z0-9_]+)\s*\}/gi, (match, key, filterName) => {
+      const keyLower = key.toLowerCase();
+      let rawVal = sanitizedData[key] ?? sanitizedData[keyLower] ?? sanitizedData[key.toUpperCase()] ?? '';
+      let filteredVal = rawVal;
+      try { filteredVal = String(docxApplyFilter(filterName, rawVal)); } catch(_) { filteredVal = rawVal; }
+      return escapeXmlText(filteredVal ?? '');
+    });
 
-    // 4. Render loop section jika masih tersisa tag {{#section}} ... {{/section}}
+    // 4. Render loop section: duplikasi seluruh baris tabel <w:tr> ke bawah
     const LOOP_SECTIONS = [
-      'pejabat_dilantik', 'pejabat_lantik', 'dilantik',
-      'pejabat_diberhentikan', 'pejabat_berhenti', 'diberhentikan',
+      'pejabat_dilantik', 'pejabat_diangkat', 'pejabat_lantik', 'dilantik', 'diangkat',
+      'pejabat_diberhentikan', 'pejabat_berhenti', 'diberhentikan', 'berhenti',
       'pejabat_terkait', 'pejabat'
     ];
     LOOP_SECTIONS.forEach(secKey => {
       const rawArr = dataCtx[secKey] || dataCtx[secKey.toUpperCase()] || [];
       const arr = Array.isArray(rawArr) ? rawArr : [];
 
-      const reLoopDouble = new RegExp(`\\{\\{\\s*#\\s*${secKey}\\s*\\}\\}([\\s\\S]*?)\\{\\{\\s*\\/\\s*${secKey}\\s*\\}\\}`, 'gi');
-      xml = xml.replace(reLoopDouble, (match, innerContent) => {
+      // A. Jika section tag berada di dalam tabel baris (<w:tr> ... </w:tr>), duplikasi baris ke bawah
+      const reTrLoop = new RegExp(
+        `(<w:tr\\b[^>]*>(?:(?!<w:tr\\b)[\\s\\S])*?\\{\\{?\\s*#\\s*${secKey}\\s*\\}?\\}[\\s\\S]*?\\{\\{?\\s*\\/\\s*${secKey}\\s*\\}?\\}[\\s\\S]*?<\\/w:tr>)`,
+        'gi'
+      );
+      xml = xml.replace(reTrLoop, (match, fullTrXml) => {
         if (arr.length === 0) return '';
+        const cleanTrPattern = fullTrXml
+          .replace(new RegExp(`\\{\\{?\\s*#\\s*${secKey}\\s*\\}?\}`, 'gi'), '')
+          .replace(new RegExp(`\\{\\{?\\s*\\/\\s*${secKey}\\s*\\}?\}`, 'gi'), '');
+
         return arr.map((item, idx) => {
-          let rowXml = innerContent;
-          const rowData = { no: idx + 1, ...(item || {}) };
+          let rowXml = cleanTrPattern;
+          const noVal = item.no || (idx + 1);
+          const namaVal = String(item.nama_lengkap || item.nama || '').toUpperCase();
+          const nipVal = String(item.nip || '');
+          const jabVal = String(item.jabatan || '');
+          const golVal = String(item.golongan || '');
+          const pgtVal = String(item.pangkat || getPangkatForGolongan(golVal) || '');
+          const tutamVal = String(item.jenis_tutam || item.tugas_tambahan || item.nama_jabatan || '');
+          const namaNip = nipVal ? `${namaVal}\nNIP ${nipVal}` : namaVal;
+          const jabGol = golVal ? (pgtVal ? `${jabVal} (${pgtVal}, ${golVal})` : `${jabVal} (${golVal})`) : jabVal;
+
+          const rowData = {
+            no: noVal, NO: noVal, 'NO.': noVal,
+            nama_lengkap: namaVal, NAMA_LENGKAP: namaVal, nama: namaVal, NAMA: namaVal,
+            nip: nipVal, NIP: nipVal,
+            nama_nip: namaNip, NAMA_NIP: namaNip, 'NAMA/NIP': namaNip,
+            jabatan: jabVal, JABATAN: jabVal,
+            golongan: golVal, GOLONGAN: golVal,
+            pangkat: pgtVal, PANGKAT: pgtVal,
+            jabatan_gol: jabGol, JABATAN_GOL: jabGol, 'JABATAN/GOL.': jabGol, 'JABATAN/GOL': jabGol,
+            jenis_tutam: tutamVal, JENIS_TUTAM: tutamVal, tugas_tambahan: tutamVal, TUGAS_TAMBAHAN: tutamVal,
+            diangkat_dalam_jabatan: tutamVal, diberhentikan_dari_jabatan: tutamVal,
+            ...(item || {})
+          };
+
           for (const [rk, rv] of Object.entries(rowData)) {
-            const escapedVal = escapeXmlText(String(rv || ''));
+            if (typeof rv === 'object' && rv !== null) continue;
+            const escapedVal = escapeXmlText(String(rv ?? ''));
             rowXml = rowXml.replace(new RegExp(`\\{\\{\\s*${rk}\\s*\\}\\}`, 'gi'), () => escapedVal);
             rowXml = rowXml.replace(new RegExp(`\\{\\s*${rk}\\s*\\}`, 'gi'), () => escapedVal);
           }
@@ -987,14 +1052,16 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = n
         }).join('');
       });
 
-      const reLoopSingle = new RegExp(`\\{\\s*#\\s*${secKey}\\s*\\}([\\s\\S]*?)\\{\\s*\\/\\s*${secKey}\\s*\\}`, 'gi');
-      xml = xml.replace(reLoopSingle, (match, innerContent) => {
+      // B. Fallback jika section tag berada di luar <w:tr>
+      const reLoopDouble = new RegExp(`\\{\\{\\s*#\\s*${secKey}\\s*\\}\\}([\\s\\S]*?)\\{\\{\\s*\\/\\s*${secKey}\\s*\\}\\}`, 'gi');
+      xml = xml.replace(reLoopDouble, (match, innerContent) => {
         if (arr.length === 0) return '';
         return arr.map((item, idx) => {
           let rowXml = innerContent;
           const rowData = { no: idx + 1, ...(item || {}) };
           for (const [rk, rv] of Object.entries(rowData)) {
-            const escapedVal = escapeXmlText(String(rv || ''));
+            if (typeof rv === 'object' && rv !== null) continue;
+            const escapedVal = escapeXmlText(String(rv ?? ''));
             rowXml = rowXml.replace(new RegExp(`\\{\\{\\s*${rk}\\s*\\}\\}`, 'gi'), () => escapedVal);
             rowXml = rowXml.replace(new RegExp(`\\{\\s*${rk}\\s*\\}`, 'gi'), () => escapedVal);
           }
