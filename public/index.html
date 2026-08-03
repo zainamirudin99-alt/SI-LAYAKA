@@ -22,58 +22,71 @@
     --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  /* ============ 1. LIGHT THEME (Formal Office) ============ */
+  /* ============ 1. LIGHT THEME (Gundam Corporate - White & Royal Cobalt Navy) ============ */
   body.theme-light {
-    --bg: #eef3fb;
-    --bg-gradient: linear-gradient(135deg, #eef3fb 0%, #dbe7f7 100%);
+    --bg: #edf2f9;
+    --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 40%, #dbeafe 100%);
     --surface: #ffffff;
-    --surface-alt: #f4f7fc;
-    --border: #d8e2f0;
-    --text: #1c2b45;
-    --text-muted: #5a6b85;
-    --primary: #1957b3;
-    --primary-hover: #134386;
-    --primary-soft: #e6eefb;
-    --accent: #2f7fe0;
-    --accent-glow: rgba(47, 127, 224, 0.25);
-    --success: #1f9d55;
-    --danger: #d64545;
-    --shadow: 0 8px 28px rgba(24, 58, 110, 0.12);
-    --sidebar-bg: #0d2f66;
-    --sidebar-text: #dce6f7;
-    --sidebar-active: #1957b3;
+    --surface-alt: #f1f5f9;
+    --border: #cbd5e1;
+    --text: #0f172a;
+    --text-muted: #475569;
+    --primary: #1d4ed8;
+    --primary-hover: #1e40af;
+    --primary-soft: #dbeafe;
+    --accent: #0284c7;
+    --accent-glow: rgba(2, 132, 199, 0.2);
+    --success: #16a34a;
+    --danger: #dc2626;
+    --shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+    --sidebar-bg: #0f172a;
+    --sidebar-text: #f1f5f9;
+    --sidebar-active: #2563eb;
     --input-bg: #ffffff;
     --font-body: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
     --font-display: 'Sora', 'Inter', system-ui, sans-serif;
   }
 
-  /* ============ 2. DARK THEME (Cyberpunk High-Fantasy) ============ */
+  /* ============ 2. DARK THEME (Cyberpunk - Gundam Mecha vs Godzilla Atomic Kaiju) ============ */
   body.theme-dark {
-    --bg: #08050f;
-    --bg-gradient: radial-gradient(circle at 18% 15%, #1a0e2e 0%, #0a0716 45%, #08050f 100%);
-    --surface: #140f24;
-    --surface-alt: #1c1530;
-    --border: #3a2a5c;
-    --text: #eee6ff;
-    --text-muted: #9c8fc2;
-    --primary: #00e5ff; /* Neon Cyan */
-    --primary-hover: #00b8cc;
-    --primary-soft: rgba(0, 229, 255, 0.12);
-    --accent: #ff2ee0;  /* Neon Magenta */
-    --accent-glow: rgba(255, 46, 224, 0.4);
-    --success: #39ff8a;
-    --danger: #ff3b5c;
-    --shadow: 0 8px 32px rgba(255, 46, 224, 0.18), 0 0 0 1px rgba(0, 229, 255, 0.1);
-    --sidebar-bg: #0c0818;
-    --sidebar-text: #c3b6ea;
-    --sidebar-active: #00e5ff;
-    --input-bg: #1c1530;
+    --bg: #090d16;
+    --bg-gradient: radial-gradient(circle at 20% 20%, #111827 0%, #090d16 65%, #05070e 100%);
+    --surface: #111827;
+    --surface-alt: #1e293b;
+    --border: #334155;
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    --primary: #00f0ff; /* Gundam Beam / Neon Cyan */
+    --primary-hover: #00c8d6;
+    --primary-soft: rgba(0, 240, 255, 0.15);
+    --accent: #ff007f;  /* Godzilla Atomic Pulse / Neon Magenta */
+    --accent-glow: rgba(255, 0, 127, 0.35);
+    --success: #10b981; /* Kaiju Emerald Radiation */
+    --danger: #ff3355;
+    --shadow: 0 8px 32px rgba(0, 240, 255, 0.12), 0 0 0 1px rgba(255, 0, 127, 0.15);
+    --sidebar-bg: #0b0f19;
+    --sidebar-text: #cbd5e1;
+    --sidebar-active: #00f0ff;
+    --input-bg: #1e293b;
     --font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
     --font-display: 'Orbitron', 'Sora', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
   }
 
-  /* ---------- Dark Mode Global Effects ---------- */
+  /* ---------- Global Grid Overlay Effects ---------- */
+  body.theme-light::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    background-image: 
+      linear-gradient(rgba(37, 99, 235, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(37, 99, 235, 0.025) 1px, transparent 1px);
+    background-size: 36px 36px, 36px 36px;
+    opacity: 0.8;
+  }
+
   body.theme-dark::before {
     content: '';
     position: fixed;
@@ -81,12 +94,11 @@
     pointer-events: none;
     z-index: 9999;
     background-image: 
-      repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 3px),
-      linear-gradient(rgba(0,229,255,0.02) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,46,224,0.02) 1px, transparent 1px);
-    background-size: 100% 3px, 50px 50px, 50px 50px;
+      linear-gradient(rgba(0, 240, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 0, 127, 0.035) 1px, transparent 1px);
+    background-size: 40px 40px, 40px 40px;
     mix-blend-mode: screen;
-    opacity: 0.5;
+    opacity: 0.7;
   }
 
   /* ============ 3. BASE RESET & MAPPING ============ */
