@@ -1133,6 +1133,118 @@
     animation: neonFlicker 5s infinite;
   }
 
+  /* ===================================================================
+     RESPONSIVE ADAPTATION SYSTEM (Desktop & Mobile Modes)
+     =================================================================== */
+
+  /* Desktop Default Base (Width > 768px) */
+  @media (min-width: 769px) {
+    .mobile-only { display: none !important; }
+    .desktop-only { display: flex !important; }
+  }
+
+  /* Mobile & Tablet Mode Adaptations (Width <= 768px) */
+  @media (max-width: 768px) {
+    .desktop-only { display: none !important; }
+    .mobile-only { display: flex !important; }
+
+    /* App Layout Reflow */
+    .app-layout {
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* Sidebar Drawer Transformation */
+    .sidebar {
+      width: 100% !important;
+      max-width: 280px !important;
+      position: fixed !important;
+      top: 0 !important;
+      left: -100% !important;
+      height: 100vh !important;
+      z-index: 9999 !important;
+      transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+      box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5) !important;
+    }
+    .sidebar.mobile-open {
+      left: 0 !important;
+    }
+
+    /* Main Content Container Adjustments */
+    .main-content {
+      padding: 14px 14px 80px 14px !important;
+      margin-left: 0 !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+
+    /* Topbar Header Reflow */
+    .topbar {
+      padding-right: 0 !important;
+      flex-wrap: wrap !important;
+      gap: 10px !important;
+    }
+    .topbar h2 {
+      font-size: 17px !important;
+    }
+
+    /* Responsive Grid & Bento Layout Reflow */
+    div[style*="grid-template-columns"],
+    .grid-2, .kp-grid, .grid-3 {
+      grid-template-columns: 1fr !important;
+    }
+    div[style*="grid-column: span 8"],
+    div[style*="grid-column: span 4"],
+    div[style*="grid-column: span 6"] {
+      grid-column: span 12 / span 12 !important;
+    }
+
+    /* Responsive Tables Wrapping */
+    .table-wrapper, div:has(> table) {
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+      max-width: 100% !important;
+    }
+    table {
+      min-width: 580px !important;
+    }
+
+    /* Tabs Bar Touch Scroll */
+    .tabs {
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+      white-space: nowrap !important;
+      padding-bottom: 6px !important;
+    }
+    .tab-btn {
+      padding: 10px 14px !important;
+      font-size: 12.5px !important;
+    }
+
+    /* Cards & Modals Padding */
+    .card, .kp-panel, .mecha-border {
+      padding: 16px !important;
+    }
+
+    /* Login Screen Card Responsive Shrink */
+    .login-card {
+      max-width: 94% !important;
+      padding: 24px 18px !important;
+    }
+  }
+
+  /* Ultra Mobile Small Screens (Width <= 480px) */
+  @media (max-width: 480px) {
+    .btn {
+      padding: 9px 12px !important;
+      font-size: 12.5px !important;
+    }
+    .ce-dashboard-header {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+    }
+  }
+
   /* Enforcement font: Seluruh UI antarmuka sistem secara 100% mutlak dan seragam menggunakan Times New Roman */
   *, *::before, *::after, body, button, input, select, textarea, table, th, td, h1, h2, h3, h4, h5, h6, p, span, div, a, label {
     font-family: 'Times New Roman', Times, serif !important;
@@ -1327,9 +1439,14 @@
       <!-- MAIN CONTENT -->
       <div class="main-content">
         <div class="topbar">
-          <div>
-            <h2 id="topbarTitle">Kenaikan Pangkat</h2>
-            <div class="breadcrumb">Sistem Layanan Administrasi Kepegawaian</div>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <button type="button" class="mobile-only btn btn-secondary" onclick="const sb=document.querySelector('.sidebar'); if(sb) sb.classList.toggle('mobile-open');" style="padding:6px 12px; font-size:16px; border-radius:6px; font-weight:bold;">
+              ☰
+            </button>
+            <div>
+              <h2 id="topbarTitle">Kenaikan Pangkat</h2>
+              <div class="breadcrumb">Sistem Layanan Administrasi Kepegawaian</div>
+            </div>
           </div>
         </div>
 
@@ -3516,6 +3633,8 @@ function setBtnLoading(btn, loading, label) {
 function bindSidebarNav() {
   document.querySelectorAll('.nav-item[data-view]').forEach(item => {
     item.addEventListener('click', () => {
+      const sb = document.querySelector('.sidebar');
+      if (sb) sb.classList.remove('mobile-open');
       const view = item.getAttribute('data-view');
       if (view === 'lainnya') {
         showToast('info', 'postpone');
