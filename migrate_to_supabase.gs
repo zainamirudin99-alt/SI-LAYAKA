@@ -171,9 +171,11 @@ function migrasiDataUtama() {
     if (!nip) continue;
 
     const obj = {};
+    COLUMNS_DATA_UTAMA.forEach(col => obj[col] = null);
     headers.forEach((key, idx) => {
       if (key && COLUMNS_DATA_UTAMA.indexOf(key) !== -1) {
-        obj[key] = safeCellValue_(row[idx]);
+        const val = safeCellValue_(row[idx]);
+        if (val !== null && val !== '') obj[key] = val;
       }
     });
     batch.push(obj);
@@ -361,6 +363,7 @@ function migrasiJenisTutam() {
   let berhasil = 0, gagal = 0;
   const BATCH = 50;
   let batch  = [];
+  const seenKeys = new Set();
 
   // Peta alias nama kolom header sheet ke kolom database Supabase
   function mapHeaderToColumn(hKey) {
@@ -376,7 +379,7 @@ function migrasiJenisTutam() {
   function flushBatch() {
     if (!batch.length) return;
     try {
-      const r = UrlFetchApp.fetch(SUPABASE_URL + "/rest/v1/jenis_tutam", {
+      const r = UrlFetchApp.fetch(SUPABASE_URL + "/rest/v1/jenis_tutam?on_conflict=jenis_tutam", {
         method:  "POST",
         headers: Object.assign({}, buildHeaders_(), { "Prefer": "resolution=merge-duplicates" }),
         payload: JSON.stringify(batch),
@@ -394,7 +397,15 @@ function migrasiJenisTutam() {
     const row = values[i];
     if (row.every(c => c === '' || c === null)) continue;
 
-    const obj = {};
+    // Pastikan seluruh object batch memiliki struktur KUNCI YANG SAMA KANONIKAL (menghindari error PGRST102)
+    const obj = {
+      no: null,
+      jenis_tutam: null,
+      departemen: null,
+      unit_es_ii: null,
+      keterangan: null
+    };
+
     headers.forEach((hKey, idx) => {
       const targetCol = mapHeaderToColumn(hKey);
       if (targetCol) {
@@ -422,6 +433,11 @@ function migrasiJenisTutam() {
 
     // Wajib ada nilai 'jenis_tutam' agar tidak melanggar not-null constraint di database
     if (!obj.jenis_tutam) continue;
+
+    // Deduplikasi key 'jenis_tutam' agar tidak gagal karena duplicate key dalam 1 batch
+    const keyLower = String(obj.jenis_tutam).trim().toLowerCase();
+    if (seenKeys.has(keyLower)) continue;
+    seenKeys.add(keyLower);
 
     batch.push(obj);
     if (batch.length >= BATCH) flushBatch();
