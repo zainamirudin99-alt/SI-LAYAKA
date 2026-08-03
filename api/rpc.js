@@ -2812,32 +2812,46 @@ const methods = {
 
     const dataCtx = processDataCtxFormatting(rawCtx, false);
 
-    // 4. Sisipkan array loop untuk SK Tutam (dengan alias untuk variasi tag mustache)
-    const dilantikArr = (Array.isArray(pejabat_dilantik) ? pejabat_dilantik : []).map((p, i) => ({
-      ...p,
-      no: p.no || (i + 1),
-      nama_lengkap: String(p.nama_lengkap || '').toUpperCase(),
-      nip:          String(p.nip || ''),
-      jabatan:      String(p.jabatan || ''),
-      golongan:     String(p.golongan || ''),
-      jenis_tutam:  String(p.jenis_tutam || '')
-    }));
-    dataCtx.pejabat_dilantik = dilantikArr;
-    dataCtx.pejabat_lantik   = dilantikArr;
-    dataCtx.dilantik         = dilantikArr;
+    // 4. Sisipkan array loop untuk SK Tutam (dengan alias & field komposit lengkap)
+    const formatPejabatItem = (p, i) => {
+      const noVal = p.no || (i + 1);
+      const namaVal = String(p.nama_lengkap || p.nama || '').toUpperCase();
+      const nipVal = String(p.nip || '');
+      const jabVal = String(p.jabatan || p.jenis_tutam || p.tugas_tambahan || '');
+      const golVal = String(p.golongan || '');
+      const pgtVal = String(p.pangkat || getPangkatForGolongan(golVal) || '');
+      const tutamVal = String(p.jenis_tutam || p.tugas_tambahan || p.jabatan || '');
+      const namaNip = nipVal ? `${namaVal}\nNIP ${nipVal}` : namaVal;
+      const jabGol = golVal ? (pgtVal ? `${jabVal} (${pgtVal}, ${golVal})` : `${jabVal} (${golVal})`) : jabVal;
 
-    const diberhentikanArr = (Array.isArray(pejabat_diberhentikan) ? pejabat_diberhentikan : []).map((p, i) => ({
-      ...p,
-      no: p.no || (i + 1),
-      nama_lengkap: String(p.nama_lengkap || '').toUpperCase(),
-      nip:          String(p.nip || ''),
-      jabatan:      String(p.jabatan || ''),
-      golongan:     String(p.golongan || ''),
-      jenis_tutam:  String(p.jenis_tutam || '')
-    }));
-    dataCtx.pejabat_diberhentikan = diberhentikanArr;
-    dataCtx.pejabat_berhenti     = diberhentikanArr;
-    dataCtx.diberhentikan        = diberhentikanArr;
+      return {
+        ...p,
+        no: noVal, NO: noVal, 'NO.': noVal,
+        nama_lengkap: namaVal, NAMA_LENGKAP: namaVal, nama: namaVal, NAMA: namaVal,
+        nip: nipVal, NIP: nipVal,
+        nama_nip: namaNip, NAMA_NIP: namaNip, 'NAMA/NIP': namaNip,
+        jabatan: jabVal, JABATAN: jabVal,
+        golongan: golVal, GOLONGAN: golVal,
+        pangkat: pgtVal, PANGKAT: pgtVal,
+        jabatan_gol: jabGol, JABATAN_GOL: jabGol, 'JABATAN/GOL.': jabGol, 'JABATAN/GOL': jabGol,
+        jenis_tutam: tutamVal, JENIS_TUTAM: tutamVal, tugas_tambahan: tutamVal, TUGAS_TAMBAHAN: tutamVal,
+        diangkat_dalam_jabatan: tutamVal, diberhentikan_dari_jabatan: tutamVal,
+        DIANGKAT_DALAM_JABATAN: tutamVal, DIBERHENTIKAN_DARI_JABATAN: tutamVal
+      };
+    };
+
+    const dilantikArr = (Array.isArray(pejabat_dilantik) ? pejabat_dilantik : []).map(formatPejabatItem);
+    const diberhentikanArr = (Array.isArray(pejabat_diberhentikan) ? pejabat_diberhentikan : []).map(formatPejabatItem);
+
+    ['pejabat_dilantik', 'pejabat_diangkat', 'pejabat_lantik', 'dilantik', 'diangkat', 'pejabat'].forEach(k => {
+      dataCtx[k] = dilantikArr;
+      dataCtx[k.toUpperCase()] = dilantikArr;
+    });
+
+    ['pejabat_diberhentikan', 'pejabat_berhenti', 'diberhentikan', 'berhenti'].forEach(k => {
+      dataCtx[k] = diberhentikanArr;
+      dataCtx[k.toUpperCase()] = diberhentikanArr;
+    });
 
     // 5. Render template DOCX dengan fallback otomatis
     let renderedBuffer = null;
@@ -2945,21 +2959,45 @@ const methods = {
 
     const dataCtx = processDataCtxFormatting(rawCtx, false);
 
-    if (Array.isArray(pejabat_dilantik) && pejabat_dilantik.length > 0) {
-      dataCtx.pejabat_dilantik = pejabat_dilantik.map((p, i) => ({
-        ...p, no: p.no || (i + 1),
-        nama_lengkap: String(p.nama_lengkap || '').toUpperCase(),
-        nip: String(p.nip || ''), jabatan: String(p.jabatan || ''),
-        golongan: String(p.golongan || ''), jenis_tutam: String(p.jenis_tutam || '')
-      }));
-    }
-    if (Array.isArray(pejabat_diberhentikan) && pejabat_diberhentikan.length > 0) {
-      dataCtx.pejabat_diberhentikan = pejabat_diberhentikan.map((p, i) => ({
-        ...p, no: p.no || (i + 1),
-        nama_lengkap: String(p.nama_lengkap || '').toUpperCase(),
-        nip: String(p.nip || ''), jenis_tutam: String(p.jenis_tutam || '')
-      }));
-    }
+    const formatPejabatItemPreview = (p, i) => {
+      const noVal = p.no || (i + 1);
+      const namaVal = String(p.nama_lengkap || p.nama || '').toUpperCase();
+      const nipVal = String(p.nip || '');
+      const jabVal = String(p.jabatan || p.jenis_tutam || p.tugas_tambahan || '');
+      const golVal = String(p.golongan || '');
+      const pgtVal = String(p.pangkat || getPangkatForGolongan(golVal) || '');
+      const tutamVal = String(p.jenis_tutam || p.tugas_tambahan || p.jabatan || '');
+      const namaNip = nipVal ? `${namaVal}\nNIP ${nipVal}` : namaVal;
+      const jabGol = golVal ? (pgtVal ? `${jabVal} (${pgtVal}, ${golVal})` : `${jabVal} (${golVal})`) : jabVal;
+
+      return {
+        ...p,
+        no: noVal, NO: noVal, 'NO.': noVal,
+        nama_lengkap: namaVal, NAMA_LENGKAP: namaVal, nama: namaVal, NAMA: namaVal,
+        nip: nipVal, NIP: nipVal,
+        nama_nip: namaNip, NAMA_NIP: namaNip, 'NAMA/NIP': namaNip,
+        jabatan: jabVal, JABATAN: jabVal,
+        golongan: golVal, GOLONGAN: golVal,
+        pangkat: pgtVal, PANGKAT: pgtVal,
+        jabatan_gol: jabGol, JABATAN_GOL: jabGol, 'JABATAN/GOL.': jabGol, 'JABATAN/GOL': jabGol,
+        jenis_tutam: tutamVal, JENIS_TUTAM: tutamVal, tugas_tambahan: tutamVal, TUGAS_TAMBAHAN: tutamVal,
+        diangkat_dalam_jabatan: tutamVal, diberhentikan_dari_jabatan: tutamVal,
+        DIANGKAT_DALAM_JABATAN: tutamVal, DIBERHENTIKAN_DARI_JABATAN: tutamVal
+      };
+    };
+
+    const dilantikArrPreview = (Array.isArray(pejabat_dilantik) ? pejabat_dilantik : []).map(formatPejabatItemPreview);
+    const diberhentikanArrPreview = (Array.isArray(pejabat_diberhentikan) ? pejabat_diberhentikan : []).map(formatPejabatItemPreview);
+
+    ['pejabat_dilantik', 'pejabat_diangkat', 'pejabat_lantik', 'dilantik', 'diangkat', 'pejabat'].forEach(k => {
+      dataCtx[k] = dilantikArrPreview;
+      dataCtx[k.toUpperCase()] = dilantikArrPreview;
+    });
+
+    ['pejabat_diberhentikan', 'pejabat_berhenti', 'diberhentikan', 'berhenti'].forEach(k => {
+      dataCtx[k] = diberhentikanArrPreview;
+      dataCtx[k.toUpperCase()] = diberhentikanArrPreview;
+    });
 
     let renderedBuffer = null;
     if (tmpl && tmpl.file_id && (tmpl.tipe === 'docx' || !tmpl.tipe)) {
