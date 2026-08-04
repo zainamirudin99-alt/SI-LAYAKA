@@ -5186,6 +5186,34 @@ const methods = {
     };
   },
 
+  async getTemplateBase64(args) {
+    const [token, templateId] = extractArgs(args);
+    verifyToken(token);
+    const db = getDb();
+
+    const { data: tmpl, error: tmplErr } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
+    if (tmplErr) throw tmplErr;
+    if (!tmpl) return { success: false, message: 'Template tidak ditemukan.' };
+
+    if (tmpl.tipe === 'gdocs' || tmpl.tipe === 'gdrive') {
+      const fileId = extractDriveFileId(tmpl.file_id) || tmpl.file_id;
+      return {
+        success: true,
+        outputType: 'gdocs',
+        previewUrl: `https://docs.google.com/document/d/${fileId}/preview`,
+        fileName: tmpl.judul || 'Template_GDocs'
+      };
+    }
+
+    const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
+    return {
+      success: true,
+      outputType: 'docx',
+      base64: templateBuffer.toString('base64'),
+      fileName: (tmpl.judul ? tmpl.judul.replace(/[^a-zA-Z0-9_\-]/g, '_') : 'Template') + '.docx'
+    };
+  },
+
   async getTemplatePlaceholders(args) {
     const [token, templateId] = extractArgs(args);
     verifyToken(token);

@@ -2603,6 +2603,19 @@
                       +
                     </button>
                   </div>
+                  <!-- Card Info & Preview Template -->
+                  <div id="buatSk_templateCard" style="display:none; margin-top:12px; padding:14px 18px; background:var(--surface-alt, #f8fafc); border:1px solid var(--border, #e2e8f0); border-radius:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                      <div style="font-size:24px;">📄</div>
+                      <div>
+                        <div id="buatSk_tmplTitle" style="font-weight:700; font-size:14px; color:var(--text-main,#0f172a);">Template SK</div>
+                        <div id="buatSk_tmplDetail" style="font-size:12px; color:var(--text-muted);">Tipe: Word (.docx)</div>
+                      </div>
+                    </div>
+                    <button type="button" class="btn btn-secondary" onclick="buatSkPreviewTemplate()" style="font-size:12px; padding:6px 14px; font-weight:600; display:inline-flex; align-items:center; gap:6px;">
+                      👁️ Preview Template Kosong
+                    </button>
+                  </div>
                 </div>
                 <!-- Step 1a: Pilihan Tipe Template (Word vs GDocs) -->
                 <div class="stack-field" id="buatSk_tipeWrap" style="display:none;">
@@ -10491,6 +10504,9 @@ async function buatSkJenisChange() {
     // BILA TEMPLATE BELUM DIUPLOAD
     if (!tmpl) {
       BUAT_SK.templateId = null;
+      const cardEl = document.getElementById('buatSk_templateCard');
+      if (cardEl) cardEl.style.display = 'none';
+
       const alertEl = document.getElementById('buatSk_noTemplateAlert');
       const titleEl = document.getElementById('buatSk_noTemplateTitle');
       const msgEl   = document.getElementById('buatSk_noTemplateMsg');
@@ -10507,6 +10523,17 @@ async function buatSkJenisChange() {
 
     // BILA TEMPLATE DITEMUKAN
     BUAT_SK.templateId = tmpl.id;
+
+    // Tampilkan Card Info & Tombol Preview Template
+    const cardEl = document.getElementById('buatSk_templateCard');
+    const titleEl = document.getElementById('buatSk_tmplTitle');
+    const detailEl = document.getElementById('buatSk_tmplDetail');
+    if (cardEl && titleEl && detailEl) {
+      const tipeStr = tmpl.tipe === 'docx' ? 'Microsoft Word (.docx)' : 'Google Docs';
+      titleEl.textContent = tmpl.judul || `Template ${jenis}`;
+      detailEl.textContent = `Tipe: ${tipeStr} | Sub-menu: ${tmpl.subMenu || tmpl.sub_menu || jenis}`;
+      cardEl.style.display = 'flex';
+    }
 
     // Spinner sementara memuat placeholder
     const container = document.getElementById('buatSk_dynamicFields');
@@ -11612,12 +11639,39 @@ async function buatSkPreview() {
     }
   } catch(e) { hideLoadingOverlay(); showToast('error', 'Error Preview: ' + (e.message || e)); }
 }
+
+async function buatSkPreviewTemplate(templateId = null) {
+  const tmplId = templateId || BUAT_SK.templateId;
+  if (!tmplId) {
+    if (typeof showToast === 'function') showToast('error', 'Template belum dipilih.');
+    else alert('Template belum dipilih.');
+    return;
+  }
+  if (typeof showLoadingOverlay === 'function') showLoadingOverlay('Memuat Preview Template...');
+  try {
+    const res = await rpc('getTemplateBase64', [SESSION.token, tmplId]);
+    if (typeof hideLoadingOverlay === 'function') hideLoadingOverlay();
+    if (res && res.success && res.base64) {
+      openDocxPreviewModal(res.base64, res.fileName || 'Template_Document.docx');
+    } else if (res && res.previewUrl) {
+      openPreviewModal(res.previewUrl);
+    } else {
+      if (typeof showToast === 'function') showToast('error', res.message || 'Gagal memuat preview template.');
+      else alert(res.message || 'Gagal memuat preview template.');
+    }
+  } catch(err) {
+    if (typeof hideLoadingOverlay === 'function') hideLoadingOverlay();
+    if (typeof showToast === 'function') showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
+    else alert('Terjadi kesalahan: ' + (err.message || err));
+  }
+}
+
 function buatSkReset() {
   BUAT_SK.jenisSk = null; BUAT_SK.templateId = null; BUAT_SK.unitEsIi = null;
   BUAT_SK.pimpinanInfo = null; BUAT_SK.placeholders = [];
   BUAT_SK.pejabatDilantik = []; BUAT_SK.pejabatDiberhentikan = [];
   document.getElementById('buatSk_jenisSk').value = '';
-  const hide = ['templateWrap','unitWrap','searchEmpWrap','dynamicFormWrap','loopWrap'];
+  const hide = ['templateWrap','unitWrap','searchEmpWrap','dynamicFormWrap','loopWrap','templateCard'];
   hide.forEach(id => { const el = document.getElementById('buatSk_' + id); if(el) el.style.display = 'none'; });
   document.getElementById('buatSk_actionBar').style.display = 'none';
   document.getElementById('buatSk_pimpinanBadge').style.display = 'none';
