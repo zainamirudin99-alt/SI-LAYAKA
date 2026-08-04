@@ -4866,8 +4866,25 @@ function openDocxPreviewModal(base64Data, fileName) {
   const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
   
   const container = document.getElementById('docxPreviewContainer');
-  docx.renderAsync(blob, container)
-    .then(x => console.log("docx rendered"))
+  const renderOptions = {
+    className: "docx",
+    inWrapper: true,
+    ignoreWidth: false,
+    ignoreHeight: false,
+    ignoreFonts: false,
+    breakPages: true,
+    ignoreLastRenderedPageBreak: false,
+    experimental: true,
+    trimXmlDeclaration: true,
+    useBase64URL: true,
+    renderHeaders: true,
+    renderFooters: true,
+    renderFootnotes: true,
+    renderEndnotes: true
+  };
+
+  docx.renderAsync(blob, container, null, renderOptions)
+    .then(x => console.log("docx rendered with full styling options"))
     .catch(err => {
       container.innerHTML = `<div class="alert error" style="padding:12px; background:#fee2e2; color:#991b1b; border-radius:6px;">Gagal merender preview: ${err.message || err}</div>`;
     });

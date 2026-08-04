@@ -487,39 +487,14 @@ function processDataCtxFormatting(dataCtx, isDpcp = false) {
       result[k] = '';
       continue;
     }
-    if (typeof v !== 'string') {
-      result[k] = v;
-      continue;
-    }
-
-    const keyLower = k.toLowerCase();
-    // Biarkan NIP, URL, file, foto tanpa diubah kapitalisasinya
-    if (keyLower.includes('nip') || keyLower.includes('url') || keyLower.includes('foto') || keyLower.includes('file')) {
-      result[k] = v;
-      continue;
-    }
-
-    if (isDpcp) {
-      // Khusus DPCP: UPPERCASE untuk teks
-      if (keyLower.includes('golongan') || keyLower.includes('gol')) {
-        result[k] = formatGolonganDisplay(v);
-      } else {
-        result[k] = v.toUpperCase();
-      }
-    } else {
-      // Untuk Buat SK (Pensiun / KP / Surat): Capital Each Word (Title Case)
-      if (keyLower.includes('golongan') || keyLower.includes('gol')) {
-        result[k] = formatGolonganDisplay(v);
-      } else {
-        result[k] = toTitleCase(v);
-      }
-    }
+    // Pertahankan nilai dan format asli tanpa mengubah kapitalisasi atau font secara paksa
+    result[k] = v;
   }
   return result;
 }
 
 
-function enforceDocxFont(zip, fontName = 'Bookman Old Style') {
+function enforceDocxFont(zip, fontName = null) {
   if (!zip || !fontName) return;
 
   const fontXmlTag = `<w:rFonts w:ascii="${fontName}" w:hAnsi="${fontName}" w:cs="${fontName}"/>`;
@@ -4415,10 +4390,10 @@ const methods = {
       const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
       let renderedBuffer;
       try {
-        renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, 'Bookman Old Style');
+        renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, null);
       } catch (errRender) {
         console.warn('[generateSkKpNonAsn] docxRenderTemplate failed, using direct replacement:', errRender);
-        renderedBuffer = replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, 'Bookman Old Style');
+        renderedBuffer = replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, null);
       }
 
       resultOutput = {
@@ -4689,10 +4664,10 @@ const methods = {
       const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
       let renderedBuffer;
       try {
-        renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, 'Bookman Old Style');
+        renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, null);
       } catch (errRender) {
         console.warn('[generateSkPensiunNonAsn] docxRenderTemplate failed, using direct replacement:', errRender);
-        renderedBuffer = replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, 'Bookman Old Style');
+        renderedBuffer = replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, null);
       }
 
       resultOutput = {
@@ -4832,9 +4807,9 @@ const methods = {
         const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
         let renderedBuffer;
         try {
-          renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, 'Bookman Old Style');
+          renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, null);
         } catch (errRender) {
-          renderedBuffer = replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, 'Bookman Old Style');
+          renderedBuffer = replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, null);
         }
         return {
           success: true,
@@ -4945,9 +4920,9 @@ const methods = {
         const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
         let renderedBuffer;
         try {
-          renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, 'Bookman Old Style');
+          renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx, null);
         } catch (errRender) {
-          renderedBuffer = replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, 'Bookman Old Style');
+          renderedBuffer = replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, null);
         }
         return {
           success: true,
