@@ -92,7 +92,7 @@ function cekKoneksi() {
 // ============================================================
 function migrasiSemuaData() {
   if (cekKonfigurasi_()) return;
-  if (!confirmSafe_("Migrasi data (Data Utama, User Roles, Templates, Pimpinan, & Jenis Tutam) ke Supabase?\n(Data yang sudah ada akan di-upsert)", "Konfirmasi")) return;
+  if (!confirmSafe_("Migrasi data (Data Utama, User Roles, Templates, Pimpinan, & Jenis Tutam) ke Supabase?\n(Data Utama lama di Supabase akan terhapus total dan diganti dengan data dari Spreadsheet)", "Konfirmasi")) return;
 
   const r1 = migrasiDataUtama();
   const r2 = migrasiUserRoles();
@@ -145,6 +145,23 @@ function migrasiDataUtama() {
   if (nipIdx === -1) {
     Logger.log("Kolom 'NIP' tidak ditemukan di sheet Data Utama!");
     return {berhasil: 0, gagal: values.length - 1};
+  }
+
+  // Hapus seluruh data lama di tabel data_utama Supabase sebelum memasukkan data baru
+  try {
+    const delRes = UrlFetchApp.fetch(SUPABASE_URL + "/rest/v1/data_utama?nip=not.is.null", {
+      method:  "DELETE",
+      headers: buildHeaders_(),
+      muteHttpExceptions: true
+    });
+    const delCode = delRes.getResponseCode();
+    if (delCode === 200 || delCode === 204) {
+      Logger.log("Berhasil menghapus seluruh data lama di tabel data_utama Supabase.");
+    } else {
+      Logger.log("Peringatan saat menghapus data lama data_utama: " + delCode + " " + delRes.getContentText());
+    }
+  } catch(delErr) {
+    Logger.log("Error saat menghapus data lama data_utama: " + delErr.message);
   }
 
   function flushBatch() {

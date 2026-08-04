@@ -558,3 +558,35 @@ DO $$ BEGIN
     CREATE POLICY "deny_public_sk_generated" ON sk_generated FOR ALL TO public USING (false);
   END IF;
 END $$;
+
+-- ============================================================
+-- 18. TABEL: jenis_surat
+--     Penyimpanan jenis surat dinamis (In-place add)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS jenis_surat (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nama        TEXT UNIQUE NOT NULL,
+  layanan     TEXT DEFAULT 'Buat SK dan Surat',
+  dibuat_pada TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_jenis_surat_nama ON jenis_surat(nama);
+
+INSERT INTO jenis_surat (nama, layanan) VALUES
+  ('SK CPTU', 'Buat SK dan Surat'),
+  ('SK PTU 100%', 'Buat SK dan Surat'),
+  ('SK Tutam Kadep & Kaprodi', 'Buat SK dan Surat'),
+  ('SK Tutam Sekprodi', 'Buat SK dan Surat'),
+  ('Surat PLT', 'Buat SK dan Surat'),
+  ('Surat PLH', 'Buat SK dan Surat'),
+  ('SK Tutam Struktural', 'Buat SK dan Surat'),
+  ('SK Tutam Dekan Wadek', 'Buat SK dan Surat')
+ON CONFLICT (nama) DO NOTHING;
+
+ALTER TABLE jenis_surat ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='jenis_surat' AND policyname='deny_public_jenis_surat') THEN
+    CREATE POLICY "deny_public_jenis_surat" ON jenis_surat FOR ALL TO public USING (false);
+  END IF;
+END $$;
+

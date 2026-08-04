@@ -2584,20 +2584,25 @@
             <div id="buatSkTab-buat-sk" style="display:none;">
               <h4 style="margin:0 0 16px 0;color:var(--text-muted);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Buat SK dan Surat</h4>
               <div class="kp-grid">
-                <!-- Step 1: Jenis SK -->
+                <!-- Step 1: Jenis SK & Tombol Tambah In-place -->
                 <div class="stack-field">
                   <label class="kp-label">Jenis SK / Surat <span style="color:#ef4444;">*</span></label>
-                  <select id="buatSk_jenisSk" class="field-input" onchange="buatSkJenisChange()">
-                    <option value="">-- Pilih Jenis --</option>
-                    <option value="SK CPTU">SK CPTU</option>
-                    <option value="SK PTU 100%">SK PTU 100%</option>
-                    <option value="SK Tutam Kadep &amp; Kaprodi">SK Tutam Kadep &amp; Kaprodi</option>
-                    <option value="SK Tutam Sekprodi">SK Tutam Sekprodi</option>
-                    <option value="Surat PLT">Surat PLT</option>
-                    <option value="Surat PLH">Surat PLH</option>
-                    <option value="SK Tutam Struktural">SK Tutam Struktural</option>
-                    <option value="SK Tutam Dekan Wadek">SK Tutam Dekan Wadek</option>
-                  </select>
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    <select id="buatSk_jenisSk" class="field-input" onchange="buatSkJenisChange()" style="flex:1;">
+                      <option value="">-- Pilih Jenis --</option>
+                      <option value="SK CPTU">SK CPTU</option>
+                      <option value="SK PTU 100%">SK PTU 100%</option>
+                      <option value="SK Tutam Kadep &amp; Kaprodi">SK Tutam Kadep &amp; Kaprodi</option>
+                      <option value="SK Tutam Sekprodi">SK Tutam Sekprodi</option>
+                      <option value="Surat PLT">Surat PLT</option>
+                      <option value="Surat PLH">Surat PLH</option>
+                      <option value="SK Tutam Struktural">SK Tutam Struktural</option>
+                      <option value="SK Tutam Dekan Wadek">SK Tutam Dekan Wadek</option>
+                    </select>
+                    <button type="button" class="btn btn-secondary" onclick="openModalTambahJenisSurat()" title="Tambah Jenis Surat Baru" style="padding: 8px 12px; font-weight: bold; font-size: 16px; min-width: 40px; height: 38px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-radius: var(--radius-sm);">
+                      +
+                    </button>
+                  </div>
                 </div>
                 <!-- Step 1a: Pilihan Tipe Template (Word vs GDocs) -->
                 <div class="stack-field" id="buatSk_tipeWrap" style="display:none;">
@@ -3063,6 +3068,7 @@ document.addEventListener('DOMContentLoaded', () => {
   bindTabs();
   bindTemplateManagerForm();
   restoreSessionIfAny();
+  loadJenisSuratDinamis();
 
   const defaultFormOptions = {
     golongan: ['I/a','I/b','I/c','I/d','II/a','II/b','II/c','II/d','III/a','III/b','III/c','III/d','IV/a','IV/b','IV/c','IV/d','IV/e','Set. I/a','Set. I/b','Set. I/c','Set. I/d','Set. II/a','Set. II/b','Set. II/c','Set. II/d','Set. III/a','Set. III/b','Set. III/c','Set. III/d','Set. IV/a','Set. IV/b','Set. IV/c','Set. IV/d','Set. IV/e'],
@@ -11571,4 +11577,137 @@ function buatSkReset() {
 
 // Helper HTML escape
 function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;'); }
+
+/* ----------------------------------------------------------------
+   JENIS SURAT DINAMIS (In-place Add & Auto Sync Dropdowns)
+---------------------------------------------------------------- */
+let GLOBAL_JENIS_SURAT_LIST = [];
+
+async function loadJenisSuratDinamis(selectedVal = null) {
+  try {
+    const res = await callRpc('getJenisSuratList', []);
+    if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
+      GLOBAL_JENIS_SURAT_LIST = res.data.map(item => item.nama);
+    } else {
+      GLOBAL_JENIS_SURAT_LIST = [
+        'SK CPTU', 'SK PTU 100%', 'SK Tutam Kadep & Kaprodi', 
+        'SK Tutam Sekprodi', 'Surat PLT', 'Surat PLH', 
+        'SK Tutam Struktural', 'SK Tutam Dekan Wadek'
+      ];
+    }
+  } catch (err) {
+    console.warn('[loadJenisSuratDinamis] RPC error, using fallback list:', err.message);
+    GLOBAL_JENIS_SURAT_LIST = [
+      'SK CPTU', 'SK PTU 100%', 'SK Tutam Kadep & Kaprodi', 
+      'SK Tutam Sekprodi', 'Surat PLT', 'Surat PLH', 
+      'SK Tutam Struktural', 'SK Tutam Dekan Wadek'
+    ];
+  }
+
+  // 1. Update dropdown #buatSk_jenisSk (Buat SK dan Surat)
+  const selectBuatSk = document.getElementById('buatSk_jenisSk');
+  if (selectBuatSk) {
+    const currentVal = selectedVal || selectBuatSk.value;
+    selectBuatSk.innerHTML = '<option value="">-- Pilih Jenis --</option>';
+    GLOBAL_JENIS_SURAT_LIST.forEach(nama => {
+      const opt = document.createElement('option');
+      opt.value = nama;
+      opt.textContent = nama;
+      selectBuatSk.appendChild(opt);
+    });
+    if (currentVal) {
+      selectBuatSk.value = currentVal;
+      if (typeof buatSkJenisChange === 'function') buatSkJenisChange();
+    }
+  }
+
+  // 2. Synchronize ke CONFIG.LAYANAN_LIST['Buat SK dan Surat'] (Halaman Template)
+  if (typeof CONFIG !== 'undefined' && CONFIG.LAYANAN_LIST) {
+    CONFIG.LAYANAN_LIST['Buat SK dan Surat'] = GLOBAL_JENIS_SURAT_LIST;
+    updateTemplateSubMenuOptions();
+  }
+}
+
+function updateTemplateSubMenuOptions() {
+  const tplLayanan = document.getElementById('tplLayanan');
+  const tplSubMenu = document.getElementById('tplSubMenu');
+  if (tplLayanan && tplSubMenu && tplLayanan.value === 'Buat SK dan Surat' && typeof CONFIG !== 'undefined' && CONFIG.LAYANAN_LIST['Buat SK dan Surat']) {
+    const currentSub = tplSubMenu.value;
+    tplSubMenu.innerHTML = CONFIG.LAYANAN_LIST['Buat SK dan Surat'].map(s => `<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('');
+    if (currentSub && CONFIG.LAYANAN_LIST['Buat SK dan Surat'].includes(currentSub)) {
+      tplSubMenu.value = currentSub;
+    }
+  }
+}
+
+function openModalTambahJenisSurat() {
+  const input = document.getElementById('inputNamaJenisSurat');
+  if (input) input.value = '';
+  const modal = document.getElementById('modalTambahJenisSurat');
+  if (modal) {
+    modal.style.display = 'flex';
+    setTimeout(() => input && input.focus(), 100);
+  }
+}
+
+function closeModalTambahJenisSurat() {
+  const modal = document.getElementById('modalTambahJenisSurat');
+  if (modal) modal.style.display = 'none';
+}
+
+async function submitJenisSuratBaru() {
+  const input = document.getElementById('inputNamaJenisSurat');
+  const btn = document.getElementById('btnSimpanJenisSurat');
+  const namaBaru = input ? input.value.trim() : '';
+
+  if (!namaBaru) {
+    if (typeof showToast === 'function') showToast('error', 'Nama Jenis Surat wajib diisi!');
+    else alert('Nama Jenis Surat wajib diisi!');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Menyimpan...';
+
+  try {
+    const token = getSessionToken();
+    const res = await callRpc('tambahJenisSurat', [token, namaBaru]);
+
+    if (res && res.success) {
+      closeModalTambahJenisSurat();
+      await loadJenisSuratDinamis(namaBaru);
+      if (typeof showToast === 'function') showToast('success', res.message || 'Jenis surat baru berhasil ditambahkan!');
+      else alert('Jenis surat baru berhasil ditambahkan!');
+    } else {
+      if (typeof showToast === 'function') showToast('error', res.message || 'Gagal menambahkan jenis surat.');
+      else alert(res.message || 'Gagal menambahkan jenis surat.');
+    }
+  } catch (err) {
+    if (typeof showToast === 'function') showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
+    else alert('Terjadi kesalahan: ' + (err.message || err));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Simpan';
+  }
+}
 </script>
+
+<!-- MODAL POPUP: TAMBAH JENIS SURAT BARU -->
+<div class="modal-overlay" id="modalTambahJenisSurat" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; z-index:99999;">
+  <div class="card" style="width: 100%; max-width: 420px; padding: 24px; border-radius: 12px; background: var(--surface); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h3 style="margin:0; font-size:18px; font-weight:700;">Tambah Jenis Surat Baru</h3>
+      <button type="button" onclick="closeModalTambahJenisSurat()" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-muted);">&times;</button>
+    </div>
+    
+    <div class="stack-field" style="margin-bottom:20px;">
+      <label class="kp-label" for="inputNamaJenisSurat" style="display:block; margin-bottom:6px; font-weight:600;">Nama Jenis Surat <span style="color:#ef4444;">*</span></label>
+      <input type="text" id="inputNamaJenisSurat" class="field-input" placeholder="Contoh: SK Tugas Belajar" onkeyup="if(event.key==='Enter') submitJenisSuratBaru()" style="width:100%;">
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px;">
+      <button type="button" class="btn btn-secondary" onclick="closeModalTambahJenisSurat()">Batal</button>
+      <button type="button" class="btn btn-primary" id="btnSimpanJenisSurat" onclick="submitJenisSuratBaru()">Simpan</button>
+    </div>
+  </div>
+</div>

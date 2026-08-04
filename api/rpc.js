@@ -2469,6 +2469,53 @@ const methods = {
     return methods.getTemplates([token, layanan, subMenu]);
   },
 
+  // ----------------------------------------------------------------
+  // JENIS SURAT DINAMIS
+  // ----------------------------------------------------------------
+  async getJenisSuratList(args) {
+    const db = getDb();
+    try {
+      const { data, error } = await db
+        .from('jenis_surat')
+        .select('id, nama, layanan')
+        .order('nama', { ascending: true });
+
+      if (error || !data || data.length === 0) {
+        return { success: true, data: CONFIG.JENIS_SK_LIST.map(nama => ({ nama, layanan: 'Buat SK dan Surat' })) };
+      }
+      return { success: true, data };
+    } catch(e) {
+      return { success: true, data: CONFIG.JENIS_SK_LIST.map(nama => ({ nama, layanan: 'Buat SK dan Surat' })) };
+    }
+  },
+
+  async tambahJenisSurat(args) {
+    const [token, namaJenis] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+
+    if (!namaJenis || !String(namaJenis).trim()) {
+      return { success: false, message: 'Nama jenis surat tidak boleh kosong.' };
+    }
+
+    const namaClean = String(namaJenis).trim();
+    const db = getDb();
+
+    const { data, error } = await db
+      .from('jenis_surat')
+      .insert([{ nama: namaClean, layanan: 'Buat SK dan Surat' }])
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        return { success: false, message: 'Jenis surat tersebut sudah ada.' };
+      }
+      return { success: false, message: 'Gagal menyimpan jenis surat: ' + error.message };
+    }
+
+    return { success: true, data, message: `Jenis surat "${namaClean}" berhasil ditambahkan.` };
+  },
+
   // ================================================================
   // BUAT SK — REFERENSI DATA
   // ================================================================
