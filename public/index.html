@@ -11020,26 +11020,70 @@ function getPangkatForGolongan(gol, isCptu = false) {
   return isSet ? `Setara ${basePangkat}` : basePangkat;
 }
 
+function terbilangAngka(value) {
+  const n = Math.round(Number(value) || 0);
+  if (n === 0) return 'Nol';
+  if (n < 0) return 'Minus ' + terbilangAngka(Math.abs(n));
+  const satuan = ['', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan'];
+  function subThree(num) {
+    let s = '';
+    const h = Math.floor(num / 100), rem = num % 100, t = Math.floor(rem / 10), s1 = rem % 10;
+    if (h > 0) s += (h === 1 ? 'Seratus' : satuan[h] + ' Ratus') + ' ';
+    if (rem >= 11 && rem <= 19) { s += (rem === 11 ? 'Sebelas' : satuan[s1] + ' Belas') + ' '; }
+    else if (rem === 10) { s += 'Sepuluh '; }
+    else { if (t > 0) s += satuan[t] + ' Puluh '; if (s1 > 0) s += satuan[s1] + ' '; }
+    return s.trim();
+  }
+  const groups = [{value:1000000000000,label:'Triliun'},{value:1000000000,label:'Miliar'},{value:1000000,label:'Juta'},{value:1000,label:'Ribu'}];
+  let remaining = n, parts = [];
+  for (const g of groups) {
+    const count = Math.floor(remaining / g.value);
+    if (count > 0) {
+      parts.push(g.label === 'Ribu' && count === 1 ? 'Seribu' : subThree(count) + ' ' + g.label);
+      remaining %= g.value;
+    }
+  }
+  if (remaining > 0) parts.push(subThree(remaining));
+  return parts.join(' ').replace(/\s+/g, ' ').trim();
+}
+
 function buatSkHitungGajiPokok() {
   const gol = document.getElementById('bsk_field_golongan')?.value || '';
-  // Baca tahun dari input mkg_tahun (masa_kerja_gol) atau mk_tahun (masa_kerja)
-  const mkgThn = document.getElementById('bsk_field_mkg_tahun')?.value
-    || document.getElementById('bsk_field_mk_tahun')?.value
-    || document.getElementById('bsk_field_masa_kerja_gol')?.value
-    || '0';
+  const mkgThnEl = document.getElementById('bsk_field_mkg_tahun') || document.getElementById('bsk_field_mk_tahun');
+  const mkgBlnEl = document.getElementById('bsk_field_mkg_bulan') || document.getElementById('bsk_field_mk_bulan');
+  const mkgThn = mkgThnEl?.value || '0';
+  const mkgBln = mkgBlnEl?.value || '0';
+
   const fieldGaji = document.getElementById('bsk_field_gaji_pokok');
+  const fieldGaji80 = document.getElementById('bsk_field_gaji_80_persen') || document.getElementById('bsk_field_gaji_80') || document.getElementById('bsk_field_gaji_cptu');
+  const fieldTerbilang = document.getElementById('bsk_field_gaji_pokok_terbilang') || document.getElementById('bsk_field_terbilang_gaji') || document.getElementById('bsk_field_gaji_terbilang') || document.getElementById('bsk_field_terbilang');
+  const fieldTerbilang80 = document.getElementById('bsk_field_gaji_80_persen_terbilang') || document.getElementById('bsk_field_gaji_80_terbilang');
   const fieldPangkat = document.getElementById('bsk_field_pangkat') || document.getElementById('bsk_field_nama_pangkat');
+  const fieldMkgFull = document.getElementById('bsk_field_masa_kerja_gol') || document.getElementById('bsk_field_masa_kerja');
 
   if (fieldPangkat && gol) {
     const pangkatResolved = getPangkatForGolongan(gol, BUAT_SK.jenisSk === 'SK CPTU');
     if (pangkatResolved) fieldPangkat.value = pangkatResolved;
   }
 
-  if (fieldGaji && gol) {
+  if (fieldMkgFull) {
+    const thnNum = parseInt(mkgThn, 10) || 0;
+    const blnNum = parseInt(mkgBln, 10) || 0;
+    fieldMkgFull.value = `${thnNum} Tahun ${blnNum} Bulan`;
+  }
+
+  if (gol) {
     const mkgNum = parseInt(mkgThn, 10) || 0;
     const gaji = hitungGajiPokokNonAsn(gol, mkgNum);
     if (gaji > 0) {
-      fieldGaji.value = 'Rp ' + gaji.toLocaleString('id-ID');
+      if (fieldGaji) fieldGaji.value = 'Rp ' + gaji.toLocaleString('id-ID');
+      const terbilangStr = terbilangAngka(gaji) + ' Rupiah';
+      if (fieldTerbilang) fieldTerbilang.value = terbilangStr;
+
+      const gaji80 = Math.round(gaji * 0.8);
+      if (fieldGaji80) fieldGaji80.value = 'Rp ' + gaji80.toLocaleString('id-ID');
+      const terbilang80Str = terbilangAngka(gaji80) + ' Rupiah';
+      if (fieldTerbilang80) fieldTerbilang80.value = terbilang80Str;
     }
   }
 }

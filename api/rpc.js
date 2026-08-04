@@ -392,30 +392,53 @@ function formatRupiah(angka) {
 }
 
 /**
- * Otomatis menghitung gaji_80, gaji_80_persen, dan total_gaji jika gaji_pokok ada
+ * Otomatis menghitung gaji_pokok, pangkat, terbilang, gaji_80, dan total_gaji
  */
 function enrichGajiPlaceholders(rawCtx, jenis_sk) {
   if (!rawCtx) return;
-  if (rawCtx.golongan && rawCtx.masa_kerja_gol !== undefined && !rawCtx.gaji_pokok) {
-    const calcGaji = hitungGajiPokokNonAsn(rawCtx.golongan, Number(rawCtx.masa_kerja_gol || 0));
-    if (calcGaji > 0) rawCtx.gaji_pokok = formatRupiah(calcGaji);
+
+  // Auto-calculate pangkat dari golongan jika belum ada
+  if (rawCtx.golongan && (!rawCtx.pangkat || !String(rawCtx.pangkat).trim())) {
+    rawCtx.pangkat = getPangkatForGolongan(rawCtx.golongan, jenis_sk === 'SK CPTU');
+  }
+
+  // Auto-calculate gaji_pokok dari golongan & mkg jika belum ada atau nilai berupa angka murni
+  const mkgVal = Number(rawCtx.masa_kerja_gol || rawCtx.mkg_tahun || rawCtx.mk_tahun || 0);
+  if (rawCtx.golongan && (!rawCtx.gaji_pokok || !isNaN(Number(rawCtx.gaji_pokok)))) {
+    const calcGaji = hitungGajiPokokNonAsn(rawCtx.golongan, mkgVal);
+    if (calcGaji > 0) rawCtx.gaji_pokok = 'Rp ' + formatRupiah(calcGaji);
   }
 
   if (rawCtx.gaji_pokok) {
     const numGaji = parseFloat(String(rawCtx.gaji_pokok).replace(/[^0-9]/g, '')) || 0;
     if (numGaji > 0) {
+      const gajiStr = formatRupiah(numGaji);
+      const terbilangGaji = docxTerbilang(numGaji);
+      const terbilangGajiTitle = toTitleCase(terbilangGaji) + ' Rupiah';
+
+      rawCtx.gaji_pokok_angka = numGaji;
+      rawCtx.gaji_pokok_terbilang = terbilangGajiTitle;
+      rawCtx.terbilang_gaji = terbilangGajiTitle;
+      rawCtx.gaji_terbilang = terbilangGajiTitle;
+      rawCtx.terbilang = terbilangGajiTitle;
+
       const gaji80 = Math.round(numGaji * 0.8);
       const gaji80Str = formatRupiah(gaji80);
-      const numGajiStr = formatRupiah(numGaji);
+      const terbilang80 = docxTerbilang(gaji80);
+      const terbilang80Title = toTitleCase(terbilang80) + ' Rupiah';
 
-      rawCtx.gaji_80 = gaji80Str;
-      rawCtx.gaji_80_persen = gaji80Str;
+      rawCtx.gaji_80 = `Rp ${gaji80Str}`;
+      rawCtx.gaji_80_persen = `Rp ${gaji80Str}`;
       rawCtx.gaji_80_persen_rupiah = `Rp ${gaji80Str}`;
-      rawCtx.gaji_pokok_80 = gaji80Str;
-      rawCtx.gaji_cptu = gaji80Str;
+      rawCtx.gaji_pokok_80 = `Rp ${gaji80Str}`;
+      rawCtx.gaji_cptu = `Rp ${gaji80Str}`;
+
+      rawCtx.gaji_80_persen_terbilang = terbilang80Title;
+      rawCtx.gaji_80_terbilang = terbilang80Title;
+      rawCtx.terbilang_gaji_80 = terbilang80Title;
 
       if (!rawCtx.total_gaji) {
-        rawCtx.total_gaji = (jenis_sk === 'SK CPTU') ? gaji80Str : numGajiStr;
+        rawCtx.total_gaji = (jenis_sk === 'SK CPTU') ? `Rp ${gaji80Str}` : `Rp ${gajiStr}`;
       }
     }
   }
