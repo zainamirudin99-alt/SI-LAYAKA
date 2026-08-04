@@ -3213,7 +3213,15 @@ const methods = {
   },
 
   async getLayananOptions() {
-    return Object.assign({ success: true }, CONFIG.LAYANAN_LIST);
+    const layananMap = JSON.parse(JSON.stringify(CONFIG.LAYANAN_LIST));
+    try {
+      const db = getDb();
+      const { data } = await db.from('jenis_surat').select('nama').order('nama', { ascending: true });
+      if (data && data.length > 0) {
+        layananMap['Buat SK dan Surat'] = data.map(d => d.nama);
+      }
+    } catch (_) {}
+    return Object.assign({ success: true }, layananMap);
   },
 
   // ---- FORM OPTIONS (sebelumnya hanya di Apps Script) ----

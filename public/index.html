@@ -5067,14 +5067,22 @@ function bindTemplateManagerForm() {
   const subMenuSel = document.getElementById('tplSubMenu');
 
   google.script.run.withSuccessHandler(opts => {
+    if (GLOBAL_JENIS_SURAT_LIST && GLOBAL_JENIS_SURAT_LIST.length > 0 && opts) {
+      opts['Buat SK dan Surat'] = GLOBAL_JENIS_SURAT_LIST;
+    }
     layananSel.innerHTML = '<option value="">Pilih Layanan...</option>' +
-      Object.keys(opts).map(l => `<option value="${l}">${l}</option>`).join('');
+      Object.keys(opts || {}).map(l => `<option value="${escHtml(l)}">${escHtml(l)}</option>`).join('');
   }).getLayananOptions();
 
   layananSel.addEventListener('change', () => {
     google.script.run.withSuccessHandler(opts => {
-      const subs = opts[layananSel.value] || [];
-      subMenuSel.innerHTML = '<option value="">Pilih Sub-menu...</option>' + subs.map(s => `<option value="${s}">${s}</option>`).join('');
+      if (GLOBAL_JENIS_SURAT_LIST && GLOBAL_JENIS_SURAT_LIST.length > 0 && opts) {
+        opts['Buat SK dan Surat'] = GLOBAL_JENIS_SURAT_LIST;
+      }
+      const subs = (layananSel.value === 'Buat SK dan Surat' && GLOBAL_JENIS_SURAT_LIST.length > 0)
+        ? GLOBAL_JENIS_SURAT_LIST
+        : ((opts && opts[layananSel.value]) || []);
+      subMenuSel.innerHTML = '<option value="">Pilih Sub-menu...</option>' + subs.map(s => `<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('');
     }).getLayananOptions();
   });
 
@@ -11648,10 +11656,11 @@ async function loadJenisSuratDinamis(selectedVal = null) {
 function updateTemplateSubMenuOptions() {
   const tplLayanan = document.getElementById('tplLayanan');
   const tplSubMenu = document.getElementById('tplSubMenu');
-  if (tplLayanan && tplSubMenu && tplLayanan.value === 'Buat SK dan Surat' && typeof CONFIG !== 'undefined' && CONFIG.LAYANAN_LIST['Buat SK dan Surat']) {
+  if (tplLayanan && tplSubMenu && tplLayanan.value === 'Buat SK dan Surat' && GLOBAL_JENIS_SURAT_LIST.length > 0) {
     const currentSub = tplSubMenu.value;
-    tplSubMenu.innerHTML = CONFIG.LAYANAN_LIST['Buat SK dan Surat'].map(s => `<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('');
-    if (currentSub && CONFIG.LAYANAN_LIST['Buat SK dan Surat'].includes(currentSub)) {
+    tplSubMenu.innerHTML = '<option value="">Pilih Sub-menu...</option>' +
+      GLOBAL_JENIS_SURAT_LIST.map(s => `<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('');
+    if (currentSub && GLOBAL_JENIS_SURAT_LIST.includes(currentSub)) {
       tplSubMenu.value = currentSub;
     }
   }
