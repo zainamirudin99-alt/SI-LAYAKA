@@ -11672,6 +11672,10 @@ function closeModalTambahJenisSurat() {
   if (modal) modal.style.display = 'none';
 }
 
+function getSessionToken() {
+  return (typeof SESSION !== 'undefined' && SESSION.token) || sessionStorage.getItem('sikp_token') || '';
+}
+
 async function submitJenisSuratBaru() {
   const input = document.getElementById('inputNamaJenisSurat');
   const btn = document.getElementById('btnSimpanJenisSurat');
