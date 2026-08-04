@@ -1530,7 +1530,15 @@ function docxTerbilang(value) {
 
 function docxNum(v) {
   if (v === '' || v === null || v === undefined) return 0;
-  const n = Number(v); return isNaN(n) ? 0 : n;
+  if (typeof v === 'number') return isNaN(v) ? 0 : v;
+  let str = String(v).trim();
+  if (/^Rp\.?\s*/i.test(str) || /^\d{1,3}(\.\d{3})+$/.test(str)) {
+    str = str.replace(/^Rp\.?\s*/i, '').replace(/\./g, '').replace(/,/g, '.');
+  } else {
+    str = str.replace(/[^0-9.\-]/g, '');
+  }
+  const n = parseFloat(str);
+  return isNaN(n) ? 0 : n;
 }
 
 function docxSum(arr, fieldName) {
@@ -1654,7 +1662,15 @@ function docxEvaluateExpression(expr, dataCtx) {
     let left = parseMul();
     while (peek() && peek().type === 'op' && (peek().value === '+' || peek().value === '-')) {
       const op = next().value; const right = parseMul();
-      left = op === '+' ? (typeof left === 'string' || typeof right === 'string' ? String(left) + String(right) : left + right) : left - right;
+      if (op === '+') {
+        if (typeof left === 'string' && typeof right === 'string' && isNaN(Number(left)) && isNaN(Number(right))) {
+          left = left + right;
+        } else {
+          left = docxNum(left) + docxNum(right);
+        }
+      } else {
+        left = docxNum(left) - docxNum(right);
+      }
     }
     return left;
   }
@@ -1662,7 +1678,11 @@ function docxEvaluateExpression(expr, dataCtx) {
     let left = parseUnary();
     while (peek() && peek().type === 'op' && ['*', '/', '%'].includes(peek().value)) {
       const op = next().value; const right = parseUnary();
-      if (op === '*') left = left * right; else if (op === '/') left = right === 0 ? 0 : left / right; else left = left % right;
+      const nLeft = docxNum(left);
+      const nRight = docxNum(right);
+      if (op === '*') left = nLeft * nRight;
+      else if (op === '/') left = nRight === 0 ? 0 : nLeft / nRight;
+      else left = nLeft % nRight;
     }
     return left;
   }
@@ -1703,7 +1723,7 @@ function docxEvaluateExpression(expr, dataCtx) {
   return parseTernary();
 }
 
-const SET_EXPR_RE = /^set\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$/i;
+const SET_EXPR_RE = /^\s*set\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$/i;
 
 function docxCeil2Decimal(val) {
   if (val === null || val === undefined || val === '') return val;
