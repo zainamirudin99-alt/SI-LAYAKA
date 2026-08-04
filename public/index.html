@@ -11076,13 +11076,14 @@ function buatSkSearchEmployee() {
     }
   }, 300);
 }
-function buatSkAutoFillFormFromEmp(emp) {
+async function buatSkAutoFillFormFromEmp(emp) {
   if (!emp) return;
   const empNama = String(emp.nama_lengkap || emp.nama || '');
   const empNip  = emp.nip || '';
   const empGol  = emp.golongan || emp.gol || '';
   const empJab  = emp.jabatan || '';
-  const empUnit = emp.unit_es_ii || emp.unit || '';
+  const empUnit = emp.unit_es_ii || emp.unit_kerja || emp.unit || '';
+  const empTutam = emp.jenis_tutam || emp.tugas_tambahan || emp.nama_jabatan || '';
 
   const mapVal = {
     nip:          empNip,
@@ -11092,6 +11093,9 @@ function buatSkAutoFillFormFromEmp(emp) {
     golongan:     empGol,
     pangkat:      emp.pangkat || (typeof getPangkatForGolongan === 'function' ? getPangkatForGolongan(empGol, BUAT_SK.jenisSk === 'SK CPTU') : '') || '',
     unit_es_ii:   empUnit,
+    unit_kerja:   empUnit,
+    jenis_tutam:  empTutam,
+    tugas_tambahan: empTutam,
     tmp_lhr:      emp.tmp_lhr || emp.tempat_lahir || '',
     tgl_lhr:      emp.tgl_lhr || emp.tanggal_lahir || '',
     tmt_pengangkatan: emp.tmt_pengangkatan || emp.tmt_pengangkatan_asn || '',
@@ -11151,6 +11155,26 @@ function buatSkAutoFillFormFromEmp(emp) {
     }
   }
   buatSkHitungGajiPokok();
+
+  // Auto-resolve pimpinan berdasarkan unit_es_ii milik pegawai
+  if (empUnit) {
+    BUAT_SK.unitEsIi = empUnit;
+    try {
+      const resPim = await rpc('getPimpinanByUnit', [SESSION.token, empUnit]);
+      if (resPim && resPim.success && resPim.data) {
+        BUAT_SK.pimpinanInfo = resPim.data;
+        const badge = document.getElementById('buatSk_pimpinanBadge');
+        if (badge) {
+          badge.innerHTML = `<strong>📍 Pimpinan (${escHtml(empUnit)}):</strong> ${escHtml(resPim.data.kategori_pimpinan||'')} &nbsp;&mdash;&nbsp; ${escHtml(resPim.data.nama_pimpinan||'')} &nbsp;|&nbsp; <em>Placeholder {{pimpinan}} = "${escHtml(resPim.data.pimpinan_resolved||'')}"</em>`;
+          badge.style.display = '';
+        }
+        const fPim = document.getElementById('bsk_field_pimpinan');
+        if (fPim && !fPim.value) fPim.value = resPim.data.pimpinan_resolved || resPim.data.kategori_pimpinan || '';
+        const fNamaPim = document.getElementById('bsk_field_nama_pimpinan');
+        if (fNamaPim && !fNamaPim.value) fNamaPim.value = resPim.data.nama_pimpinan || '';
+      }
+    } catch(ePim) { console.warn('[buatSkAutoFill] Gagal auto-resolve pimpinan:', ePim); }
+  }
 }
 
 async function buatSkSelectEmployee(nip) {
