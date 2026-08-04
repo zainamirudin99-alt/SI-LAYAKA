@@ -10458,7 +10458,8 @@ async function buatSkJenisChange() {
       if (el) el.style.display = '';
       return; // lanjut di buatSkUnitChange setelah unit dipilih
     }
-    if (NEED_SEARCH.includes(jenis)) {
+    const PERLU_LOOP = ['SK Tutam Kadep & Kaprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
+    if (!PERLU_LOOP.includes(jenis)) {
       const el = document.getElementById('buatSk_searchEmpWrap');
       if (el) el.style.display = '';
     }
@@ -10823,11 +10824,18 @@ function buatSkRenderDynamicFields(placeholders) {
     const isTugasJabatan = (key === 'tugas_jabatan') && ['Surat PLT', 'Surat PLH'].includes(BUAT_SK.jenisSk);
     const keyClean = key.toLowerCase().replace(/[^a-z0-9]/g, '');
     const isDekanWadek = keyClean === 'dekanwadek' || keyClean === 'dekanatauwadek' || keyClean === 'pilihandekanwadek' || key.toLowerCase() === 'dekan_wadek';
+    const isEmpSearchField = ['nama_lengkap','nama','nip'].includes(key.toLowerCase());
 
     if (isTugasJabatan) {
       inputHtml = `<div style="position:relative">
         <input type="text" id="bsk_field_${key}" class="field-input" placeholder="Cari / Ketik Tugas Jabatan..." oninput="buatSkSearchTugasJabatan(this.value)" onfocus="buatSkSearchTugasJabatan(this.value)" autocomplete="off" />
         <div id="bsk_tugasJabatanDropdown" style="position:absolute;top:100%;left:0;right:0;background:var(--surface,#fff);border:1px solid var(--border,#cbd5e1);border-radius:8px;max-height:200px;overflow-y:auto;z-index:200;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+      </div>`;
+    } else if (isEmpSearchField) {
+      const valStr = isStrukturalField ? escHtml(BUAT_SK.jenisTutamStruktural) : '';
+      inputHtml = `<div style="position:relative">
+        <input type="text" id="bsk_field_${key}" class="field-input ${isAutofilled ? 'bsk-auto-field' : ''}" value="${valStr}" placeholder="Cari NIP atau Nama Pegawai..." oninput="buatSkSearchEmpForField(this, '${key}')" autocomplete="off" ${isAutofilled ? 'style="background:var(--surface-alt,#e2e8f0);color:var(--text-main,#0f172a);font-weight:600;"' : ''} />
+        <div id="bsk_fieldDropdown_${key}" style="position:absolute;top:100%;left:0;right:0;background:var(--surface,#fff);border:1px solid var(--border,#cbd5e1);border-radius:8px;max-height:220px;overflow-y:auto;z-index:250;display:none;box-shadow:0 8px 20px rgba(0,0,0,0.18);"></div>
       </div>`;
     } else if (isDekanWadek) {
       inputHtml = `<select id="bsk_field_${key}" class="field-input">
@@ -11153,6 +11161,45 @@ async function buatSkSelectEmployee(nip) {
 
     showToast('success', `Data pegawai "${empNama}" berhasil diisi otomatis.`);
   } catch(e) { showToast('error', 'Gagal mengambil data pegawai: ' + e.message); }
+}
+
+let _bskFieldSearchTimers = {};
+function buatSkSearchEmpForField(inputEl, fieldKey) {
+  const keyTimer = 'field_' + fieldKey;
+  clearTimeout(_bskFieldSearchTimers[keyTimer]);
+  const q = String(inputEl.value || '').trim();
+  const dropdown = document.getElementById('bsk_fieldDropdown_' + fieldKey);
+  if (!dropdown) return;
+  if (q.length < 2) { dropdown.style.display = 'none'; return; }
+
+  _bskFieldSearchTimers[keyTimer] = setTimeout(async () => {
+    try {
+      dropdown.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--text-muted);text-align:center;">🔍 Mencari di Data Utama...</div>';
+      dropdown.style.display = 'block';
+
+      const results = await rpc('searchEmployees', [SESSION.token, q]);
+      if (results && results.length > 0) {
+        dropdown.innerHTML = results.map(e => `
+          <div class="autocomplete-item" onclick="buatSkSelectEmpFromField('${e.nip}', '${fieldKey}')" style="padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);transition:background 0.15s ease;" onmouseover="this.style.background='var(--surface-alt)'" onmouseout="this.style.background='transparent'">
+            <div style="font-weight:600;color:var(--text-main);">${escHtml(e.nama)}</div>
+            <div style="font-size:11px;color:var(--text-muted);">NIP: ${escHtml(e.nip)} | ${escHtml(e.unitEsIi||'')}</div>
+          </div>`).join('');
+        dropdown.style.display = 'block';
+      } else {
+        dropdown.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--text-muted);text-align:center;">Tidak ada pegawai ditemukan.</div>';
+        dropdown.style.display = 'block';
+      }
+    } catch(err) {
+      console.error('[buatSkSearchEmpForField] Error:', err);
+      dropdown.style.display = 'none';
+    }
+  }, 300);
+}
+
+async function buatSkSelectEmpFromField(nip, fieldKey) {
+  const dropdown = document.getElementById('bsk_fieldDropdown_' + fieldKey);
+  if (dropdown) dropdown.style.display = 'none';
+  await buatSkSelectEmployee(nip);
 }
 
 // Inline search & auto-fill per baris untuk Pejabat Dilantik & Pejabat Diberhentikan
