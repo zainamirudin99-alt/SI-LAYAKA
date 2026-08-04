@@ -11581,6 +11581,23 @@ function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&
 /* ----------------------------------------------------------------
    JENIS SURAT DINAMIS (In-place Add & Auto Sync Dropdowns)
 ---------------------------------------------------------------- */
+async function callRpc(methodName, params = []) {
+  if (typeof window.rpc === 'function') {
+    return await window.rpc(methodName, params);
+  }
+  return new Promise((resolve, reject) => {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      const p = Array.isArray(params) ? params : [params];
+      google.script.run
+        .withSuccessHandler(res => resolve(res))
+        .withFailureHandler(err => reject(err))[methodName](...p);
+    } else {
+      reject(new Error('RPC client tidak tersedia'));
+    }
+  });
+}
+window.callRpc = callRpc;
+
 let GLOBAL_JENIS_SURAT_LIST = [];
 
 async function loadJenisSuratDinamis(selectedVal = null) {
