@@ -437,9 +437,13 @@ function enrichGajiPlaceholders(rawCtx, jenis_sk) {
       rawCtx.gaji_80_terbilang = terbilang80Title;
       rawCtx.terbilang_gaji_80 = terbilang80Title;
 
-      if (!rawCtx.total_gaji) {
-        rawCtx.total_gaji = (jenis_sk === 'SK CPTU') ? `Rp ${gaji80Str}` : `Rp ${gajiStr}`;
+      const defaultTotalGaji = (jenis_sk === 'SK CPTU') ? `Rp ${gaji80Str}` : `Rp ${gajiStr}`;
+      if (!rawCtx.total_gaji || rawCtx.total_gaji === '') {
+        rawCtx.total_gaji = defaultTotalGaji;
       }
+      rawCtx.TOTAL_GAJI = rawCtx.total_gaji;
+      rawCtx.total_gaji_rupiah = rawCtx.total_gaji;
+      rawCtx.total_gaji_terbilang = (jenis_sk === 'SK CPTU') ? terbilang80Title : terbilangGajiTitle;
     }
   }
 }
@@ -1741,7 +1745,14 @@ function docxEvaluateTag(rawExpr, dataCtx) {
     let value;
     try { value = docxEvaluateExpression(setMatch[2], dataCtx); } catch { value = 0; }
     value = docxCeil2Decimal(value);
-    dataCtx[setMatch[1]] = value;
+    const varName = setMatch[1];
+    dataCtx[varName] = value;
+    dataCtx[varName.toUpperCase()] = value;
+    dataCtx[varName.toLowerCase()] = value;
+    if (typeof value === 'number' && value > 0) {
+      dataCtx[varName + '_rupiah'] = 'Rp ' + formatRupiah(value);
+      dataCtx[varName + '_terbilang'] = toTitleCase(docxTerbilang(value)) + ' Rupiah';
+    }
     return '';
   }
 

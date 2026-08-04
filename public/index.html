@@ -11056,6 +11056,7 @@ function buatSkHitungGajiPokok() {
 
   const fieldGaji = document.getElementById('bsk_field_gaji_pokok');
   const fieldGaji80 = document.getElementById('bsk_field_gaji_80_persen') || document.getElementById('bsk_field_gaji_80') || document.getElementById('bsk_field_gaji_cptu');
+  const fieldTotalGaji = document.getElementById('bsk_field_total_gaji') || document.getElementById('bsk_field_total_gaji_rupiah');
   const fieldTerbilang = document.getElementById('bsk_field_gaji_pokok_terbilang') || document.getElementById('bsk_field_terbilang_gaji') || document.getElementById('bsk_field_gaji_terbilang') || document.getElementById('bsk_field_terbilang');
   const fieldTerbilang80 = document.getElementById('bsk_field_gaji_80_persen_terbilang') || document.getElementById('bsk_field_gaji_80_terbilang');
   const fieldPangkat = document.getElementById('bsk_field_pangkat') || document.getElementById('bsk_field_nama_pangkat');
@@ -11076,14 +11077,20 @@ function buatSkHitungGajiPokok() {
     const mkgNum = parseInt(mkgThn, 10) || 0;
     const gaji = hitungGajiPokokNonAsn(gol, mkgNum);
     if (gaji > 0) {
-      if (fieldGaji) fieldGaji.value = 'Rp ' + gaji.toLocaleString('id-ID');
+      const gajiFormatted = 'Rp ' + gaji.toLocaleString('id-ID');
+      if (fieldGaji) fieldGaji.value = gajiFormatted;
       const terbilangStr = terbilangAngka(gaji) + ' Rupiah';
       if (fieldTerbilang) fieldTerbilang.value = terbilangStr;
 
       const gaji80 = Math.round(gaji * 0.8);
-      if (fieldGaji80) fieldGaji80.value = 'Rp ' + gaji80.toLocaleString('id-ID');
+      const gaji80Formatted = 'Rp ' + gaji80.toLocaleString('id-ID');
+      if (fieldGaji80) fieldGaji80.value = gaji80Formatted;
       const terbilang80Str = terbilangAngka(gaji80) + ' Rupiah';
       if (fieldTerbilang80) fieldTerbilang80.value = terbilang80Str;
+
+      if (fieldTotalGaji) {
+        fieldTotalGaji.value = (BUAT_SK.jenisSk === 'SK CPTU') ? gaji80Formatted : gajiFormatted;
+      }
     }
   }
 }
