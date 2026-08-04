@@ -10363,28 +10363,8 @@ async function buatSkInitForm() {
         (tmpls || []).map(t => `<option value="${t.id}">${escHtml(t.judul)} (${escHtml(t.layanan||'')} - ${escHtml(t.subMenu||t.sub_menu||'')})</option>`).join('');
     }
 
-    // 3. Selalu refresh badge ketersediaan template di jenis dropdown
-    const ALL_JENIS = [
-      'SK CPTU', 'SK PTU 100%',
-      'SK Tutam Kadep & Kaprodi', 'SK Tutam Sekprodi',
-      'Surat PLT', 'Surat PLH',
-      'SK Tutam Struktural', 'SK Tutam Dekan Wadek'
-    ];
-    const selJenis = document.getElementById('buatSk_jenisSk');
-    if (selJenis) {
-      const curVal = selJenis.value;
-      selJenis.innerHTML = '<option value="">-- Pilih Jenis SK / Surat --</option>' +
-        ALL_JENIS.map(jenis => {
-          const hasDocx  = !!findTemplateForJenis(jenis, 'docx');
-          const hasGdocs = !!findTemplateForJenis(jenis, 'gdocs');
-          let badge = ' ⚠️ (Belum Ada Template)';
-          if (hasDocx && hasGdocs) badge = ' ✅ (Word & GDocs)';
-          else if (hasDocx)        badge = ' ✅ (Word .docx)';
-          else if (hasGdocs)       badge = ' ✅ (Google Docs)';
-          return `<option value="${escHtml(jenis)}">${escHtml(jenis)}${badge}</option>`;
-        }).join('');
-      if (curVal) selJenis.value = curVal;
-    }
+    // 3. Selalu refresh badge ketersediaan template di jenis dropdown tanpa menghapus jenis dinamis
+    buatSkRefreshJenisDropdown();
   } catch(e) {
     console.warn('[buatSkInitForm] Gagal memuat template:', e);
   }
@@ -11654,6 +11634,36 @@ window.callRpc = callRpc;
 
 let GLOBAL_JENIS_SURAT_LIST = [];
 
+function buatSkRefreshJenisDropdown(selectedVal = null) {
+  const selJenis = document.getElementById('buatSk_jenisSk');
+  if (!selJenis) return;
+
+  const currentVal = selectedVal || selJenis.value;
+  const listJenis = (GLOBAL_JENIS_SURAT_LIST && GLOBAL_JENIS_SURAT_LIST.length > 0)
+    ? GLOBAL_JENIS_SURAT_LIST
+    : [
+      'SK CPTU', 'SK PTU 100%',
+      'SK Tutam Kadep & Kaprodi', 'SK Tutam Sekprodi',
+      'Surat PLT', 'Surat PLH',
+      'SK Tutam Struktural', 'SK Tutam Dekan Wadek'
+    ];
+
+  selJenis.innerHTML = '<option value="">-- Pilih Jenis SK / Surat --</option>' +
+    listJenis.map(jenis => {
+      const hasDocx  = (typeof findTemplateForJenis === 'function') && !!findTemplateForJenis(jenis, 'docx');
+      const hasGdocs = (typeof findTemplateForJenis === 'function') && !!findTemplateForJenis(jenis, 'gdocs');
+      let badge = ' ⚠️ (Belum Ada Template)';
+      if (hasDocx && hasGdocs) badge = ' ✅ (Word & GDocs)';
+      else if (hasDocx)        badge = ' ✅ (Word .docx)';
+      else if (hasGdocs)       badge = ' ✅ (Google Docs)';
+      return `<option value="${escHtml(jenis)}">${escHtml(jenis)}${badge}</option>`;
+    }).join('');
+
+  if (currentVal) {
+    selJenis.value = currentVal;
+  }
+}
+
 async function loadJenisSuratDinamis(selectedVal = null) {
   try {
     const res = await callRpc('getJenisSuratList', []);
@@ -11676,21 +11686,8 @@ async function loadJenisSuratDinamis(selectedVal = null) {
   }
 
   // 1. Update dropdown #buatSk_jenisSk (Buat SK dan Surat)
-  const selectBuatSk = document.getElementById('buatSk_jenisSk');
-  if (selectBuatSk) {
-    const currentVal = selectedVal || selectBuatSk.value;
-    selectBuatSk.innerHTML = '<option value="">-- Pilih Jenis --</option>';
-    GLOBAL_JENIS_SURAT_LIST.forEach(nama => {
-      const opt = document.createElement('option');
-      opt.value = nama;
-      opt.textContent = nama;
-      selectBuatSk.appendChild(opt);
-    });
-    if (currentVal) {
-      selectBuatSk.value = currentVal;
-      if (typeof buatSkJenisChange === 'function') buatSkJenisChange();
-    }
-  }
+  buatSkRefreshJenisDropdown(selectedVal);
+  if (selectedVal && typeof buatSkJenisChange === 'function') buatSkJenisChange();
 
   // 2. Synchronize ke CONFIG.LAYANAN_LIST['Buat SK dan Surat'] (Halaman Template)
   if (typeof CONFIG !== 'undefined' && CONFIG.LAYANAN_LIST) {
