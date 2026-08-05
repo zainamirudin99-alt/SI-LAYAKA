@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <base target="_top">
@@ -6046,7 +6046,7 @@ function renderGroupedTmtTables(list, container) {
     `;
 
     monthNames.forEach(mn => {
-      const items = grouped[mn];
+      const items = monthsObj[mn] || [];
       html += `
         <div class="tmt-month-card">
           <div class="tmt-month-title">
