@@ -6857,6 +6857,8 @@ function parseTmt(tmtStr) {
       const year = matchYear ? matchYear[1] : 'Lainnya';
       return { year, month: `${m} ${year}`, full: str };
     }
+  }
+
   const matchIso = str.match(/^(20\d{2})[-/](\d{1,2})/);
   if (matchIso) {
     const year = matchIso[1];
@@ -12951,3 +12953,5 @@ function buatSkReset() {
 // Helper HTML escape
 function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;'); }
 </script>
+</body>
+</html>
