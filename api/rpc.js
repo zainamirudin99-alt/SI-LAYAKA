@@ -3808,6 +3808,9 @@ const methods = {
       nama: String(payload.nama).trim(),
       nip: String(payload.nip || '').trim(),
       unit: String(payload.unit || '').trim(),
+      jabatan: String(payload.jabatan || '').trim(),
+      golongan_lama: String(payload.golongan_lama || payload.golLama || '').trim(),
+      golongan_baru: String(payload.golongan_baru || payload.golBaru || '').trim(),
       status: String(payload.status || 'Diterima DSDM').trim(),
       tmt: String(payload.tmt || '').trim(),
       diajukan_oleh_nip: decoded.nip,
@@ -3820,6 +3823,37 @@ const methods = {
       return { success: false, message: 'Gagal menyimpan usulan: ' + error.message };
     }
     return { success: true, message: 'Usulan berhasil ditambahkan.', data: data ? data[0] : null };
+  },
+
+  async bulkInsertUsulanMasuk(args) {
+    const [token, list] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    if (!Array.isArray(list) || !list.length) {
+      return { success: false, message: 'Data usulan kosong.' };
+    }
+    const db = getDb();
+    const rows = list.map(item => ({
+      nama: String(item.nama || item.namaLengkap || '').trim(),
+      nip: String(item.nip || '').trim(),
+      unit: String(item.unit || '').trim(),
+      jabatan: String(item.jabatan || '').trim(),
+      golongan_lama: String(item.golongan_lama || item.golLama || item.golLamaStr || '').trim(),
+      golongan_baru: String(item.golongan_baru || item.golBaru || item.golBaruStr || '').trim(),
+      status: String(item.status || 'Diterima DSDM').trim(),
+      tmt: String(item.tmt || item.keterangan || '').trim(),
+      diajukan_oleh_nip: decoded.nip,
+      nama_pengaju: decoded.nama || 'Admin Import',
+      tanggal_diajukan: new Date().toISOString()
+    })).filter(r => !!r.nama);
+
+    if (!rows.length) return { success: false, message: 'Tidak ada data valid untuk diimpor.' };
+
+    const { data, error } = await db.from('usulan_kp').insert(rows).select();
+    if (error) {
+      console.error('[bulkInsertUsulanMasuk] Error:', error.message);
+      return { success: false, message: 'Gagal mengimpor usulan massal: ' + error.message };
+    }
+    return { success: true, message: `Berhasil mengimpor ${rows.length} data usulan masuk.`, total: rows.length };
   },
 
   async getUsulanMasukTmtGrouped(args) {
@@ -3856,12 +3890,15 @@ const methods = {
   async updateUsulanMasukStatus(args) {
     const [token, payload] = extractArgs(args);
     const decoded = requireRole(token, ['admin', 'super_admin']);
-    const { id, status, tmt } = payload || {};
+    const { id, status, tmt, golongan_lama, golongan_baru, jabatan } = payload || {};
     if (!id) return { success: false, message: 'ID usulan tidak valid.' };
     const db = getDb();
     const updateObj = { diproses_oleh_nip: decoded.nip };
     if (status !== undefined) updateObj.status = String(status).trim();
     if (tmt !== undefined) updateObj.tmt = String(tmt).trim();
+    if (golongan_lama !== undefined) updateObj.golongan_lama = String(golongan_lama).trim();
+    if (golongan_baru !== undefined) updateObj.golongan_baru = String(golongan_baru).trim();
+    if (jabatan !== undefined) updateObj.jabatan = String(jabatan).trim();
 
     const { error } = await db.from('usulan_kp').update(updateObj).eq('id', id);
     if (error) return { success: false, message: 'Gagal memperbarui status: ' + error.message };

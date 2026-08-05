@@ -818,6 +818,28 @@
     border: 1px solid var(--border); background: var(--surface); cursor: pointer;
   }
 
+  /* Proyeksi Kenaikan Pangkat Banner */
+  .um-proyeksi-banner {
+    background: var(--surface); border: 2px solid #059669; border-radius: 12px;
+    padding: 14px 18px; margin-bottom: 8px; box-shadow: 0 4px 12px rgba(5,150,105,0.12);
+  }
+  .um-proyeksi-header {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px; font-weight: 700; color: #059669; margin-bottom: 10px;
+  }
+  .um-proyeksi-flow {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+  .um-proyeksi-box {
+    flex: 1; padding: 10px 14px; border-radius: 10px; background: var(--surface-alt);
+    border: 1px solid var(--border); min-width: 140px;
+  }
+  .um-proyeksi-box .label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
+  .um-proyeksi-box .val { font-size: 16px; font-weight: 800; color: var(--text-main); }
+  .um-proyeksi-box.highlight { background: rgba(16,185,129,0.12); border-color: #10b981; }
+  .um-proyeksi-box.highlight .val { color: #059669; }
+  .um-proyeksi-arrow { font-size: 20px; font-weight: 800; color: #059669; }
+
   /* Enforcement font: Seluruh UI antarmuka sistem secara 100% mutlak dan seragam menggunakan Times New Roman */
   *, *::before, *::after, body, button, input, select, textarea, table, th, td, h1, h2, h3, h4, h5, h6, p, span, div, a, label {
     font-family: 'Times New Roman', Times, serif !important;

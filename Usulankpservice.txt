@@ -235,9 +235,29 @@ function addUsulanMasukDirect(sessionToken, payload) {
   const now = new Date();
   sheet.appendRow([
     id, '', payload.nip || '', payload.nama, payload.unit || '',
-    admin.nip, admin.nama || 'Admin', now, '', payload.status || 'Diterima DSDM', '', '', admin.nip, payload.tmt || ''
+    admin.nip, admin.nama || 'Admin', now, '', payload.status || 'Diterima DSDM', '', '', admin.nip, payload.tmt || '',
+    payload.golongan_lama || payload.golLama || '', payload.golongan_baru || payload.golBaru || '', payload.jabatan || ''
   ]);
   return { success: true, message: 'Usulan berhasil ditambahkan.' };
+}
+
+function bulkInsertUsulanMasuk(sessionToken, list) {
+  const admin = requireRole_(sessionToken, ['admin', 'super_admin']);
+  if (!Array.isArray(list) || !list.length) return { success: false, message: 'Data usulan kosong.' };
+  const sheet = ensureUsulanKpSheet_();
+  const now = new Date();
+  let count = 0;
+  list.forEach(item => {
+    if (!item.nama && !item.namaLengkap) return;
+    const id = Utilities.getUuid();
+    sheet.appendRow([
+      id, '', item.nip || '', item.nama || item.namaLengkap, item.unit || '',
+      admin.nip, admin.nama || 'Admin Import', now, '', item.status || 'Diterima DSDM', '', '', admin.nip, item.tmt || item.keterangan || '',
+      item.golongan_lama || item.golLama || '', item.golongan_baru || item.golBaru || '', item.jabatan || ''
+    ]);
+    count++;
+  });
+  return { success: true, message: `Berhasil mengimpor ${count} data usulan masuk.`, total: count };
 }
 
 function getUsulanMasukTmtGrouped(sessionToken) {

@@ -9,10 +9,11 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Orbitron:wght@600;700;800&family=JetBrains+Mono:wght@500;600&display=swap">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docx-preview@0.1.15/dist/docx-preview.min.css">
   <?!= include('Stylesheet'); ?>
-  <!-- Libraries for Word template previewing & Charts -->
+  <!-- Libraries for Word template previewing, Charts, & Excel/Spreadsheet Parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.1.15/dist/docx-preview.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="theme-light">
 
@@ -392,9 +393,15 @@
 
               <!-- Form Input Usulan Masuk Baru -->
               <div class="card um-form-card" style="margin-bottom:24px; background:var(--surface-alt); border:1px solid var(--border);">
-                <h4 style="margin-top:0; margin-bottom:14px; font-size:15px; display:flex; align-items:center; gap:8px;">
-                  <span>➕ Form Input Usulan Masuk Baru</span>
-                </h4>
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+                  <h4 style="margin:0; font-size:15px; display:flex; align-items:center; gap:8px;">
+                    <span>➕ Form Input Usulan Masuk Baru</span>
+                  </h4>
+                  <button type="button" class="btn btn-outline kp-small-btn" onclick="openUmImportModal()" style="border-color:var(--primary); color:var(--primary); font-weight:700;">
+                    📥 Import Data dari Link Spreadsheet / Excel
+                  </button>
+                </div>
+
                 <form id="formInputUsulanMasuk" onsubmit="handleInputUsulanMasuk(event)">
                   <div class="grid-2 kp-grid">
                     <div class="stack-field autocomplete-wrap">
@@ -412,6 +419,35 @@
                         <option value="SK Berhasil">SK Berhasil</option>
                       </select>
                     </div>
+
+                    <!-- Projection Rank Indicator Banner -->
+                    <div id="umProyeksiRankWrap" class="um-proyeksi-banner" style="grid-column:1/-1; display:none;">
+                      <div class="um-proyeksi-header">
+                        <span>🎯 Proyeksi Kenaikan Pangkat / Golongan</span>
+                        <span id="umProyeksiBadge" class="cdli-badge" style="background:#059669;">Terdeteksi Otomatis</span>
+                      </div>
+                      <div class="um-proyeksi-flow">
+                        <div class="um-proyeksi-box">
+                          <div class="label">Golongan Saat Ini</div>
+                          <div class="val" id="umProyeksiGolLamaText">-</div>
+                        </div>
+                        <div class="um-proyeksi-arrow">➔</div>
+                        <div class="um-proyeksi-box highlight">
+                          <div class="label">Proyeksi Golongan Baru</div>
+                          <div class="val" id="umProyeksiGolBaruText">-</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="stack-field">
+                      <label class="kp-label" for="umInputGolLama">Golongan Saat Ini (Gol. Lama)</label>
+                      <input type="text" id="umInputGolLama" class="field-input" placeholder="Contoh: III/a..." onchange="recalculateGolBaruProjection()" />
+                    </div>
+                    <div class="stack-field">
+                      <label class="kp-label" for="umInputGolBaru">Proyeksi Golongan Baru (Gol. Baru)</label>
+                      <input type="text" id="umInputGolBaru" class="field-input" placeholder="Contoh: III/b..." />
+                    </div>
+
                     <div class="stack-field">
                       <label class="kp-label" for="umInputTmtBulan">TMT (Bulan &amp; Tahun) <span style="color:red;">*</span></label>
                       <div style="display:flex; gap:8px;">
@@ -436,11 +472,76 @@
                       <label class="kp-label" for="umInputUnit">Unit / Fakultas (Opsional)</label>
                       <input type="text" id="umInputUnit" class="field-input" placeholder="Contoh: Fakultas Ekonomi &amp; Bisnis..." />
                     </div>
+                    <div class="stack-field" style="grid-column:1/-1;">
+                      <label class="kp-label" for="umInputJabatan">Jabatan (Opsional)</label>
+                      <input type="text" id="umInputJabatan" class="field-input" placeholder="Contoh: Lektor / Dosen / Pengelola..." />
+                    </div>
                   </div>
                   <div class="actions-bar" style="margin-top:16px; justify-content:flex-end;">
                     <button type="submit" class="btn btn-primary" id="umSubmitBtn">➕ Simpan Usulan</button>
                   </div>
                 </form>
+              </div>
+
+              <!-- MODAL / SECTION IMPORT SPREADSHEET & EXCEL MULTI-SHEET -->
+              <div id="umImportModal" class="um-import-card" style="display:none; margin-bottom:24px; background:var(--surface-alt); border:2px solid var(--primary); border-radius:14px; padding:20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border);">
+                  <h4 style="margin:0; font-size:16px; font-weight:700; color:var(--primary);">📥 Scraper &amp; Import Data Usulan (Link Spreadsheet / Excel Multi-Sheet)</h4>
+                  <button type="button" class="btn btn-outline kp-small-btn" onclick="closeUmImportModal()">✕ Tutup</button>
+                </div>
+                
+                <div class="helper-text" style="margin-bottom:14px;">
+                  Sistem akan membaca data dengan kolom: <strong>Nama Lengkap / NIP, Unit, Jabatan, Gol lama, Status SIASN, Gol Baru, Keterangan (TMT)</strong>.<br/>
+                  <em>*Jika Unit, Jabatan, atau Gol lama kosong, sistem otomatis mencocokkan dari database SIMPEG. Jika Gol Baru kosong, sistem otomatis menghitung proyeksi pangkat berikutnya!</em>
+                </div>
+
+                <div class="grid-2 kp-grid" style="margin-bottom:16px;">
+                  <div class="stack-field">
+                    <label class="kp-label">Upload File Excel (.xlsx / .xls)</label>
+                    <input type="file" id="umImportFileInput" accept=".xlsx, .xls, .csv" class="field-input" onchange="handleExcelFileUpload(event)" />
+                  </div>
+                  <div class="stack-field">
+                    <label class="kp-label">Atau Link Google Spreadsheet (Public / Organisasi)</label>
+                    <div style="display:flex; gap:8px;">
+                      <input type="url" id="umImportSheetUrl" class="field-input" placeholder="https://docs.google.com/spreadsheets/d/..." />
+                      <button type="button" class="btn btn-primary kp-small-btn" onclick="handleGoogleSheetUrlFetch()" style="white-space:nowrap;">Ambil Data</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Multi-Sheet Selector Dropdown -->
+                <div id="umSheetSelectWrap" class="stack-field" style="display:none; margin-bottom:16px; background:var(--surface); padding:12px; border-radius:10px; border:1px solid var(--border);">
+                  <label class="kp-label" for="umSheetSelect">Pilih Sheet (Tab Spreadsheet)</label>
+                  <select id="umSheetSelect" class="field-input" onchange="onSelectImportSheetChange()">
+                    <option value="">Pilih Sheet...</option>
+                  </select>
+                </div>
+
+                <!-- Import Preview Table -->
+                <div id="umImportPreviewWrap" style="display:none; margin-top:16px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <h5 style="margin:0; font-size:14px; font-weight:700;">Pratinjau Data Hasil Parse Sheet (<span id="umImportRowCount">0</span> baris)</h5>
+                    <button type="button" class="btn btn-primary" id="umSubmitImportBtn" onclick="submitBulkImportData()">🚀 Import Semua Data Usulan</button>
+                  </div>
+                  <div style="overflow-x:auto; max-height:350px; border:1px solid var(--border); border-radius:8px;">
+                    <table class="tmt-table" id="umImportPreviewTable">
+                      <thead>
+                        <tr>
+                          <th>No</th>
+                          <th>Nama Lengkap</th>
+                          <th>NIP</th>
+                          <th>Unit</th>
+                          <th>Jabatan</th>
+                          <th>Gol Lama</th>
+                          <th>Gol Baru (Proyeksi)</th>
+                          <th>Status SIASN</th>
+                          <th>TMT (Keterangan)</th>
+                        </tr>
+                      </thead>
+                      <tbody id="umImportPreviewTbody"></tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
 
               <!-- Display Grouped Table by TMT (Tahun & Bulan) -->

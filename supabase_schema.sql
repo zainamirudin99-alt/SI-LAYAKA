@@ -100,6 +100,9 @@ CREATE TABLE IF NOT EXISTS usulan_kp (
   nip                   TEXT,
   nama                  TEXT,
   unit                  TEXT,
+  jabatan               TEXT,
+  golongan_lama         TEXT,
+  golongan_baru         TEXT,
   diajukan_oleh_nip     TEXT,
   nama_pengaju          TEXT,
   tanggal_diajukan      TIMESTAMPTZ DEFAULT NOW(),
@@ -112,6 +115,9 @@ CREATE TABLE IF NOT EXISTS usulan_kp (
 );
 
 ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS tmt TEXT;
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS golongan_lama TEXT;
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS golongan_baru TEXT;
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS jabatan TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_usulan_kp_nip    ON usulan_kp(nip);
 CREATE INDEX IF NOT EXISTS idx_usulan_kp_status ON usulan_kp(status);

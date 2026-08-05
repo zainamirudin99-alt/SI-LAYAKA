@@ -828,15 +828,38 @@
     border: 1px solid var(--border); background: var(--surface); cursor: pointer;
   }
 
+  /* Proyeksi Kenaikan Pangkat Banner */
+  .um-proyeksi-banner {
+    background: var(--surface); border: 2px solid #059669; border-radius: 12px;
+    padding: 14px 18px; margin-bottom: 8px; box-shadow: 0 4px 12px rgba(5,150,105,0.12);
+  }
+  .um-proyeksi-header {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px; font-weight: 700; color: #059669; margin-bottom: 10px;
+  }
+  .um-proyeksi-flow {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+  .um-proyeksi-box {
+    flex: 1; padding: 10px 14px; border-radius: 10px; background: var(--surface-alt);
+    border: 1px solid var(--border); min-width: 140px;
+  }
+  .um-proyeksi-box .label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
+  .um-proyeksi-box .val { font-size: 16px; font-weight: 800; color: var(--text-main); }
+  .um-proyeksi-box.highlight { background: rgba(16,185,129,0.12); border-color: #10b981; }
+  .um-proyeksi-box.highlight .val { color: #059669; }
+  .um-proyeksi-arrow { font-size: 20px; font-weight: 800; color: #059669; }
+
   /* Enforcement font: Seluruh UI antarmuka sistem secara 100% mutlak dan seragam menggunakan Times New Roman */
   *, *::before, *::after, body, button, input, select, textarea, table, th, td, h1, h2, h3, h4, h5, h6, p, span, div, a, label {
     font-family: 'Times New Roman', Times, serif !important;
   }
 </style>
-  <!-- Libraries for Word template previewing & Charts -->
+  <!-- Libraries for Word template previewing, Charts, & Excel/Spreadsheet Parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.1.15/dist/docx-preview.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="theme-light">
 
@@ -1225,9 +1248,15 @@
 
               <!-- Form Input Usulan Masuk Baru -->
               <div class="card um-form-card" style="margin-bottom:24px; background:var(--surface-alt); border:1px solid var(--border);">
-                <h4 style="margin-top:0; margin-bottom:14px; font-size:15px; display:flex; align-items:center; gap:8px;">
-                  <span>➕ Form Input Usulan Masuk Baru</span>
-                </h4>
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+                  <h4 style="margin:0; font-size:15px; display:flex; align-items:center; gap:8px;">
+                    <span>➕ Form Input Usulan Masuk Baru</span>
+                  </h4>
+                  <button type="button" class="btn btn-outline kp-small-btn" onclick="openUmImportModal()" style="border-color:var(--primary); color:var(--primary); font-weight:700;">
+                    📥 Import Data dari Link Spreadsheet / Excel
+                  </button>
+                </div>
+
                 <form id="formInputUsulanMasuk" onsubmit="handleInputUsulanMasuk(event)">
                   <div class="grid-2 kp-grid">
                     <div class="stack-field autocomplete-wrap">
@@ -1245,6 +1274,35 @@
                         <option value="SK Berhasil">SK Berhasil</option>
                       </select>
                     </div>
+
+                    <!-- Projection Rank Indicator Banner -->
+                    <div id="umProyeksiRankWrap" class="um-proyeksi-banner" style="grid-column:1/-1; display:none;">
+                      <div class="um-proyeksi-header">
+                        <span>🎯 Proyeksi Kenaikan Pangkat / Golongan</span>
+                        <span id="umProyeksiBadge" class="cdli-badge" style="background:#059669;">Terdeteksi Otomatis</span>
+                      </div>
+                      <div class="um-proyeksi-flow">
+                        <div class="um-proyeksi-box">
+                          <div class="label">Golongan Saat Ini</div>
+                          <div class="val" id="umProyeksiGolLamaText">-</div>
+                        </div>
+                        <div class="um-proyeksi-arrow">➔</div>
+                        <div class="um-proyeksi-box highlight">
+                          <div class="label">Proyeksi Golongan Baru</div>
+                          <div class="val" id="umProyeksiGolBaruText">-</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="stack-field">
+                      <label class="kp-label" for="umInputGolLama">Golongan Saat Ini (Gol. Lama)</label>
+                      <input type="text" id="umInputGolLama" class="field-input" placeholder="Contoh: III/a..." onchange="recalculateGolBaruProjection()" />
+                    </div>
+                    <div class="stack-field">
+                      <label class="kp-label" for="umInputGolBaru">Proyeksi Golongan Baru (Gol. Baru)</label>
+                      <input type="text" id="umInputGolBaru" class="field-input" placeholder="Contoh: III/b..." />
+                    </div>
+
                     <div class="stack-field">
                       <label class="kp-label" for="umInputTmtBulan">TMT (Bulan &amp; Tahun) <span style="color:red;">*</span></label>
                       <div style="display:flex; gap:8px;">
@@ -1269,11 +1327,76 @@
                       <label class="kp-label" for="umInputUnit">Unit / Fakultas (Opsional)</label>
                       <input type="text" id="umInputUnit" class="field-input" placeholder="Contoh: Fakultas Ekonomi &amp; Bisnis..." />
                     </div>
+                    <div class="stack-field" style="grid-column:1/-1;">
+                      <label class="kp-label" for="umInputJabatan">Jabatan (Opsional)</label>
+                      <input type="text" id="umInputJabatan" class="field-input" placeholder="Contoh: Lektor / Dosen / Pengelola..." />
+                    </div>
                   </div>
                   <div class="actions-bar" style="margin-top:16px; justify-content:flex-end;">
                     <button type="submit" class="btn btn-primary" id="umSubmitBtn">➕ Simpan Usulan</button>
                   </div>
                 </form>
+              </div>
+
+              <!-- MODAL / SECTION IMPORT SPREADSHEET & EXCEL MULTI-SHEET -->
+              <div id="umImportModal" class="um-import-card" style="display:none; margin-bottom:24px; background:var(--surface-alt); border:2px solid var(--primary); border-radius:14px; padding:20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border);">
+                  <h4 style="margin:0; font-size:16px; font-weight:700; color:var(--primary);">📥 Scraper &amp; Import Data Usulan (Link Spreadsheet / Excel Multi-Sheet)</h4>
+                  <button type="button" class="btn btn-outline kp-small-btn" onclick="closeUmImportModal()">✕ Tutup</button>
+                </div>
+                
+                <div class="helper-text" style="margin-bottom:14px;">
+                  Sistem akan membaca data dengan kolom: <strong>Nama Lengkap / NIP, Unit, Jabatan, Gol lama, Status SIASN, Gol Baru, Keterangan (TMT)</strong>.<br/>
+                  <em>*Jika Unit, Jabatan, atau Gol lama kosong, sistem otomatis mencocokkan dari database SIMPEG. Jika Gol Baru kosong, sistem otomatis menghitung proyeksi pangkat berikutnya!</em>
+                </div>
+
+                <div class="grid-2 kp-grid" style="margin-bottom:16px;">
+                  <div class="stack-field">
+                    <label class="kp-label">Upload File Excel (.xlsx / .xls)</label>
+                    <input type="file" id="umImportFileInput" accept=".xlsx, .xls, .csv" class="field-input" onchange="handleExcelFileUpload(event)" />
+                  </div>
+                  <div class="stack-field">
+                    <label class="kp-label">Atau Link Google Spreadsheet (Public / Organisasi)</label>
+                    <div style="display:flex; gap:8px;">
+                      <input type="url" id="umImportSheetUrl" class="field-input" placeholder="https://docs.google.com/spreadsheets/d/..." />
+                      <button type="button" class="btn btn-primary kp-small-btn" onclick="handleGoogleSheetUrlFetch()" style="white-space:nowrap;">Ambil Data</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Multi-Sheet Selector Dropdown -->
+                <div id="umSheetSelectWrap" class="stack-field" style="display:none; margin-bottom:16px; background:var(--surface); padding:12px; border-radius:10px; border:1px solid var(--border);">
+                  <label class="kp-label" for="umSheetSelect">Pilih Sheet (Tab Spreadsheet)</label>
+                  <select id="umSheetSelect" class="field-input" onchange="onSelectImportSheetChange()">
+                    <option value="">Pilih Sheet...</option>
+                  </select>
+                </div>
+
+                <!-- Import Preview Table -->
+                <div id="umImportPreviewWrap" style="display:none; margin-top:16px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <h5 style="margin:0; font-size:14px; font-weight:700;">Pratinjau Data Hasil Parse Sheet (<span id="umImportRowCount">0</span> baris)</h5>
+                    <button type="button" class="btn btn-primary" id="umSubmitImportBtn" onclick="submitBulkImportData()">🚀 Import Semua Data Usulan</button>
+                  </div>
+                  <div style="overflow-x:auto; max-height:350px; border:1px solid var(--border); border-radius:8px;">
+                    <table class="tmt-table" id="umImportPreviewTable">
+                      <thead>
+                        <tr>
+                          <th>No</th>
+                          <th>Nama Lengkap</th>
+                          <th>NIP</th>
+                          <th>Unit</th>
+                          <th>Jabatan</th>
+                          <th>Gol Lama</th>
+                          <th>Gol Baru (Proyeksi)</th>
+                          <th>Status SIASN</th>
+                          <th>TMT (Keterangan)</th>
+                        </tr>
+                      </thead>
+                      <tbody id="umImportPreviewTbody"></tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
 
               <!-- Display Grouped Table by TMT (Tahun & Bulan) -->
@@ -5524,9 +5647,33 @@ function loadUsulanMasukTmtDashboard() {
     inputNama.dataset.acBound = 'true';
     setupAutocompleteEl(inputNama, listNama, hiddenNip, (nip, nama, item) => {
       const inputUnit = document.getElementById('umInputUnit');
-      if (inputUnit && item) {
+      const inputJabatan = document.getElementById('umInputJabatan');
+      const inputGolLama = document.getElementById('umInputGolLama');
+      const inputGolBaru = document.getElementById('umInputGolBaru');
+
+      if (item) {
         const unitVal = item.unit_es_ii || item.unit || '';
-        if (unitVal) inputUnit.value = unitVal;
+        if (inputUnit && unitVal) inputUnit.value = unitVal;
+
+        const jabVal = item.jabatan || '';
+        if (inputJabatan && jabVal) inputJabatan.value = jabVal;
+
+        const golVal = item.golongan || '';
+        if (inputGolLama && golVal) inputGolLama.value = golVal;
+
+        if (golVal) {
+          const projected = hitungProyeksiGolonganBaru(golVal);
+          if (inputGolBaru) inputGolBaru.value = projected;
+
+          const wrap = document.getElementById('umProyeksiRankWrap');
+          const elLama = document.getElementById('umProyeksiGolLamaText');
+          const elBaru = document.getElementById('umProyeksiGolBaruText');
+          if (wrap && elLama && elBaru) {
+            wrap.style.display = 'block';
+            elLama.textContent = golVal;
+            elBaru.textContent = projected;
+          }
+        }
       }
     });
   }
@@ -5564,7 +5711,7 @@ function loadUsulanMasukTmtDashboard() {
 
       const list = res.list || [];
       if (!list.length) {
-        if (container) container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Belum ada usulan masuk. Silakan gunakan form di atas untuk menginput usulan baru.</div>';
+        if (container) container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Belum ada usulan masuk. Silakan gunakan form di atas untuk menginput usulan baru atau import dari Excel/Spreadsheet.</div>';
         return;
       }
 
@@ -5682,7 +5829,7 @@ function renderGroupedTmtTables(list, container) {
     `;
 
     monthNames.forEach(mn => {
-      const items = monthsObj[mn];
+      const items = grouped[mn];
       html += `
         <div class="tmt-month-card">
           <div class="tmt-month-title">
@@ -5695,7 +5842,8 @@ function renderGroupedTmtTables(list, container) {
                 <tr>
                   <th style="width:40px;">No</th>
                   <th>Nama Pegawai</th>
-                  <th>NIP / Unit</th>
+                  <th>NIP / Unit / Jabatan</th>
+                  <th>Proyeksi Pangkat/Golongan</th>
                   <th>TMT</th>
                   <th>Status Saat Ini</th>
                   <th>Ubah Status</th>
@@ -5712,6 +5860,9 @@ function renderGroupedTmtTables(list, container) {
         else if (currentStatus === 'TTD Pertek') badgeClass = 'pertek';
         else if (currentStatus === 'SK Berhasil') badgeClass = 'sk';
 
+        const golLamaStr = u.golongan_lama || u.golLama || '-';
+        const golBaruStr = u.golongan_baru || u.golBaru || (u.golongan_lama ? hitungProyeksiGolonganBaru(u.golongan_lama) : '-');
+
         html += `
           <tr>
             <td>${idx + 1}</td>
@@ -5722,6 +5873,14 @@ function renderGroupedTmtTables(list, container) {
             <td>
               <div>${u.nip ? `NIP ${escapeHtml(u.nip)}` : '<span style="color:var(--text-muted); font-style:italic;">-</span>'}</div>
               <div style="font-size:11.5px; color:var(--text-muted);">${escapeHtml(u.unit || '-')}</div>
+              ${u.jabatan ? `<div style="font-size:11px; color:var(--text-muted); font-style:italic;">${escapeHtml(u.jabatan)}</div>` : ''}
+            </td>
+            <td>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span class="cdli-badge" style="background:var(--surface-alt); color:var(--text-main); border:1px solid var(--border);">${escapeHtml(golLamaStr)}</span>
+                <span style="font-weight:800; color:#059669;">➔</span>
+                <span class="cdli-badge" style="background:rgba(16,185,129,0.15); color:#059669; border:1px solid #10b981;">${escapeHtml(golBaruStr)}</span>
+              </div>
             </td>
             <td>
               <strong>${escapeHtml(u.tmt || mn)}</strong>
@@ -5758,6 +5917,218 @@ function renderGroupedTmtTables(list, container) {
   container.innerHTML = html;
 }
 
+/* ---------- IMPORT SPREADSHEET & EXCEL MULTI-SHEET LOGIC ---------- */
+let umImportWorkbook = null;
+let umParsedImportRows = [];
+
+function openUmImportModal() {
+  const modal = document.getElementById('umImportModal');
+  if (modal) modal.style.display = 'block';
+}
+
+function closeUmImportModal() {
+  const modal = document.getElementById('umImportModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function handleExcelFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (typeof XLSX === 'undefined') {
+    showToast('error', 'Library XLSX belum siap. Silakan refresh halaman.');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      umImportWorkbook = XLSX.read(data, { type: 'array' });
+      populateImportSheetSelect(umImportWorkbook.SheetNames);
+      showToast('success', `File Excel berhasil dibaca! Ditemukan ${umImportWorkbook.SheetNames.length} sheet.`);
+    } catch (err) {
+      showToast('error', 'Gagal membaca file Excel: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function handleGoogleSheetUrlFetch() {
+  const url = val('umImportSheetUrl');
+  if (!url) {
+    showToast('error', 'Masukkan URL Google Spreadsheet.');
+    return;
+  }
+
+  const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  if (!match) {
+    showToast('error', 'URL Google Spreadsheet tidak valid.');
+    return;
+  }
+
+  const id = match[1];
+  const exportUrl = `https://docs.google.com/spreadsheets/d/${id}/export?format=xlsx`;
+  showToast('info', 'Mengambil data dari Google Spreadsheet...');
+
+  fetch(exportUrl)
+    .then(res => {
+      if (!res.ok) throw new Error('Gagal mengambil file Google Sheet. Pastikan spreadsheet dapat diakses (Anyone with link / Organisasi).');
+      return res.arrayBuffer();
+    })
+    .then(buf => {
+      const data = new Uint8Array(buf);
+      umImportWorkbook = XLSX.read(data, { type: 'array' });
+      populateImportSheetSelect(umImportWorkbook.SheetNames);
+      showToast('success', `Google Spreadsheet berhasil dibaca! Ditemukan ${umImportWorkbook.SheetNames.length} sheet.`);
+    })
+    .catch(err => {
+      showToast('error', 'Gagal membaca Google Sheet: ' + (err.message || err));
+    });
+}
+
+function populateImportSheetSelect(sheetNames) {
+  const wrap = document.getElementById('umSheetSelectWrap');
+  const select = document.getElementById('umSheetSelect');
+  if (!wrap || !select) return;
+
+  select.innerHTML = sheetNames.map((s, i) => `<option value="${escapeHtml(s)}" ${i === 0 ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('');
+  wrap.style.display = 'block';
+  onSelectImportSheetChange();
+}
+
+function onSelectImportSheetChange() {
+  if (!umImportWorkbook) return;
+  const select = document.getElementById('umSheetSelect');
+  const sheetName = select ? select.value : umImportWorkbook.SheetNames[0];
+  const worksheet = umImportWorkbook.Sheets[sheetName];
+  if (!worksheet) return;
+
+  const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+  if (!rawData || !rawData.length) {
+    showToast('warning', 'Sheet ' + sheetName + ' kosong.');
+    return;
+  }
+
+  // Header detection
+  let headerRowIndex = 0;
+  for (let i = 0; i < Math.min(rawData.length, 10); i++) {
+    const rowStr = (rawData[i] || []).join(' ').toLowerCase();
+    if (rowStr.includes('nama') || rowStr.includes('nip') || rowStr.includes('status')) {
+      headerRowIndex = i;
+      break;
+    }
+  }
+
+  const headers = (rawData[headerRowIndex] || []).map(h => String(h || '').trim().toLowerCase());
+  
+  // Find column indices
+  const idxNama = headers.findIndex(h => h.includes('nama lengkap') || h === 'nama');
+  const idxNip = headers.findIndex(h => h.includes('nip'));
+  const idxUnit = headers.findIndex(h => h.includes('unit') || h.includes('fakultas'));
+  const idxJabatan = headers.findIndex(h => h.includes('jabatan'));
+  const idxGolLama = headers.findIndex(h => h.includes('gol') && (h.includes('lama') || h.includes('saat ini')));
+  const idxStatus = headers.findIndex(h => h.includes('status') || h.includes('siasn'));
+  const idxGolBaru = headers.findIndex(h => h.includes('gol') && h.includes('baru'));
+  const idxKet = headers.findIndex(h => h.includes('keterangan') || h.includes('tmt') || h.includes('bulan'));
+
+  umParsedImportRows = [];
+
+  for (let i = headerRowIndex + 1; i < rawData.length; i++) {
+    const row = rawData[i];
+    if (!row || !row.length) continue;
+
+    const nama = idxNama >= 0 ? String(row[idxNama] || '').trim() : '';
+    const nip = idxNip >= 0 ? String(row[idxNip] || '').trim() : '';
+
+    if (!nama && !nip) continue; // Skip empty row
+
+    const unit = idxUnit >= 0 ? String(row[idxUnit] || '').trim() : '';
+    const jabatan = idxJabatan >= 0 ? String(row[idxJabatan] || '').trim() : '';
+    const golLama = idxGolLama >= 0 ? String(row[idxGolLama] || '').trim() : '';
+    let rawStatus = idxStatus >= 0 ? String(row[idxStatus] || '').trim() : 'Diterima DSDM';
+    
+    // Normalize status
+    let status = 'Diterima DSDM';
+    if (rawStatus.toLowerCase().includes('siasn')) status = 'Diajukan SIASN';
+    else if (rawStatus.toLowerCase().includes('pertek')) status = 'TTD Pertek';
+    else if (rawStatus.toLowerCase().includes('sk')) status = 'SK Berhasil';
+    else if (rawStatus) status = rawStatus;
+
+    let golBaru = idxGolBaru >= 0 ? String(row[idxGolBaru] || '').trim() : '';
+    if (!golBaru && golLama) {
+      golBaru = hitungProyeksiGolonganBaru(golLama);
+    }
+
+    const tmt = idxKet >= 0 ? String(row[idxKet] || '').trim() : 'Oktober 2026';
+
+    umParsedImportRows.push({
+      nama, nip, unit, jabatan, golLama, golBaru, status, tmt
+    });
+  }
+
+  renderImportPreviewTable(umParsedImportRows);
+}
+
+function renderImportPreviewTable(rows) {
+  const wrap = document.getElementById('umImportPreviewWrap');
+  const tbody = document.getElementById('umImportPreviewTbody');
+  const countEl = document.getElementById('umImportRowCount');
+
+  if (!wrap || !tbody) return;
+
+  if (countEl) countEl.textContent = rows.length;
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:16px;">Tidak ada data usulan ditemukan pada sheet ini.</td></tr>';
+    wrap.style.display = 'block';
+    return;
+  }
+
+  tbody.innerHTML = rows.map((r, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td><strong>${escapeHtml(r.nama || '-')}</strong></td>
+      <td>${escapeHtml(r.nip || '-')}</td>
+      <td>${escapeHtml(r.unit || '<span style="color:var(--text-muted); font-style:italic;">[Auto-SIMPEG]</span>')}</td>
+      <td>${escapeHtml(r.jabatan || '<span style="color:var(--text-muted); font-style:italic;">[Auto-SIMPEG]</span>')}</td>
+      <td>${escapeHtml(r.golLama || '<span style="color:var(--text-muted); font-style:italic;">[Auto-SIMPEG]</span>')}</td>
+      <td><strong style="color:#059669;">${escapeHtml(r.golBaru || hitungProyeksiGolonganBaru(r.golLama) || '-')}</strong></td>
+      <td><span class="cdli-badge" style="background:var(--surface-alt); border:1px solid var(--border);">${escapeHtml(r.status)}</span></td>
+      <td>${escapeHtml(r.tmt)}</td>
+    </tr>
+  `).join('');
+
+  wrap.style.display = 'block';
+}
+
+function submitBulkImportData() {
+  if (!umParsedImportRows || !umParsedImportRows.length) {
+    showToast('warning', 'Tidak ada data usulan yang siap diimpor.');
+    return;
+  }
+
+  const btn = document.getElementById('umSubmitImportBtn');
+  if (btn) btn.disabled = true;
+  showToast('info', `Mengimpor ${umParsedImportRows.length} data usulan masuk...`);
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (btn) btn.disabled = false;
+      if (!res || !res.success) {
+        showToast('error', (res && res.message) || 'Gagal mengimpor data.');
+        return;
+      }
+      showToast('success', res.message || `Berhasil mengimpor ${umParsedImportRows.length} usulan.`);
+      closeUmImportModal();
+      loadUsulanMasukTmtDashboard();
+    })
+    .withFailureHandler(err => {
+      if (btn) btn.disabled = false;
+      showToast('error', 'Gagal mengimpor massal: ' + (err.message || err));
+    })
+    .bulkInsertUsulanMasuk(SESSION.token, umParsedImportRows);
+}
+
 function handleInputUsulanMasuk(e) {
   e.preventDefault();
   const nama = val('umInputNama');
@@ -5766,17 +6137,24 @@ function handleInputUsulanMasuk(e) {
   const bulan = val('umInputTmtBulan');
   const tahun = val('umInputTmtTahun');
   const unit = val('umInputUnit');
+  const jabatan = val('umInputJabatan');
+  const golLama = val('umInputGolLama');
+  let golBaru = val('umInputGolBaru');
 
   if (!nama) {
     showToast('error', 'Nama pegawai wajib diisi.');
     return;
   }
 
+  if (!golBaru && golLama) {
+    golBaru = hitungProyeksiGolonganBaru(golLama);
+  }
+
   const tmt = `${bulan} ${tahun}`;
   const btn = document.getElementById('umSubmitBtn');
   if (btn) btn.disabled = true;
 
-  const payload = { nama, nip, status, tmt, unit };
+  const payload = { nama, nip, status, tmt, unit, jabatan, golLama, golBaru };
 
   google.script.run
     .withSuccessHandler(res => {
@@ -5788,6 +6166,8 @@ function handleInputUsulanMasuk(e) {
       showToast('success', `Usulan untuk ${nama} (${tmt}) berhasil ditambahkan dengan status "${status}".`);
       document.getElementById('formInputUsulanMasuk').reset();
       document.getElementById('umInputNip').value = '';
+      const wrap = document.getElementById('umProyeksiRankWrap');
+      if (wrap) wrap.style.display = 'none';
       loadUsulanMasukTmtDashboard();
     })
     .withFailureHandler(err => {
