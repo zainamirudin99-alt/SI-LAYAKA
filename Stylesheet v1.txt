@@ -752,8 +752,9 @@
   .um-stat-card {
     padding: 14px 16px; border-radius: 12px; background: var(--surface);
     border: 2px solid var(--border); transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
   }
-  .um-stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+  .um-stat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.12); }
   .um-stat-card .um-stat-value { font-size: 24px; font-weight: 800; margin-bottom: 4px; }
   .um-stat-card .um-stat-label { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
 
@@ -765,6 +766,12 @@
   .um-stat-card.stat-pertek .um-stat-value { color: #7c3aed; }
   .um-stat-card.stat-sk { border-color: #10b981; }
   .um-stat-card.stat-sk .um-stat-value { color: #059669; }
+  .um-stat-card.stat-perbaikan { border-color: #f97316; }
+  .um-stat-card.stat-perbaikan .um-stat-value { color: #ea580c; }
+  .um-stat-card.stat-belumbisa { border-color: #ef4444; }
+  .um-stat-card.stat-belumbisa .um-stat-value { color: #dc2626; }
+  .um-stat-card.stat-pensiun { border-color: #06b6d4; }
+  .um-stat-card.stat-pensiun .um-stat-value { color: #0891b2; }
   .um-stat-card.stat-total { border-color: var(--primary); }
   .um-stat-card.stat-total .um-stat-value { color: var(--primary); }
 
@@ -777,10 +784,17 @@
   .badge-status.siasn { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
   .badge-status.pertek { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
   .badge-status.sk { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+  .badge-status.perbaikan { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
+  .badge-status.belumbisa { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+  .badge-status.pensiun { background: #cffafe; color: #0e7490; border: 1px solid #a5f3fc; }
+
   body.theme-dark .badge-status.dsdm { background: rgba(59,130,246,0.2); color: #60a5fa; border-color: #3b82f6; }
   body.theme-dark .badge-status.siasn { background: rgba(245,158,11,0.2); color: #fbbf24; border-color: #f59e0b; }
   body.theme-dark .badge-status.pertek { background: rgba(139,92,246,0.2); color: #c084fc; border-color: #8b5cf6; }
   body.theme-dark .badge-status.sk { background: rgba(16,185,129,0.2); color: #34d399; border-color: #10b981; }
+  body.theme-dark .badge-status.perbaikan { background: rgba(249,115,22,0.2); color: #fb923c; border-color: #f97316; }
+  body.theme-dark .badge-status.belumbisa { background: rgba(239,68,68,0.2); color: #f87171; border-color: #ef4444; }
+  body.theme-dark .badge-status.pensiun { background: rgba(6,182,212,0.2); color: #22d3ee; border-color: #06b6d4; }
 
   /* TMT Section Grouping */
   .tmt-year-card {

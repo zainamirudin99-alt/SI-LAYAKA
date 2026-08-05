@@ -3280,23 +3280,34 @@ function loadUsulanMasukTmtDashboard() {
       const siasn = sc['Diajukan SIASN'] || 0;
       const pertek = sc['TTD Pertek'] || 0;
       const sk = sc['SK Berhasil'] || 0;
+      const perbaikan = sc['Perbaikan'] || 0;
+      const belumEligible = sc['Belum Eligible'] || 0;
+      const pensiun = sc['Pensiun'] || 0;
       const total = res.total || 0;
 
       const elDsdm = document.getElementById('statCountDSDM');
       const elSiasn = document.getElementById('statCountSIASN');
       const elPertek = document.getElementById('statCountPertek');
       const elSk = document.getElementById('statCountSK');
+      const elPerbaikan = document.getElementById('statCountPerbaikan');
+      const elBelum = document.getElementById('statCountBelumEligible');
+      const elPensiun = document.getElementById('statCountPensiun');
       const elTotal = document.getElementById('statCountTotal');
 
       if (elDsdm) elDsdm.textContent = dsdm;
       if (elSiasn) elSiasn.textContent = siasn;
       if (elPertek) elPertek.textContent = pertek;
       if (elSk) elSk.textContent = sk;
+      if (elPerbaikan) elPerbaikan.textContent = perbaikan;
+      if (elBelum) elBelum.textContent = belumEligible;
+      if (elPensiun) elPensiun.textContent = pensiun;
       if (elTotal) elTotal.textContent = total;
 
-      renderUsulanPieChart(dsdm, siasn, pertek, sk);
+      renderUsulanPieChart(dsdm, siasn, pertek, sk, perbaikan, belumEligible, pensiun);
 
       const list = res.list || [];
+      window.umGlobalList = list;
+
       if (!list.length) {
         if (container) container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Belum ada usulan masuk. Silakan gunakan form di atas untuk menginput usulan baru atau import dari Excel/Spreadsheet.</div>';
         return;
@@ -3311,7 +3322,7 @@ function loadUsulanMasukTmtDashboard() {
     .getUsulanMasukTmtGrouped(SESSION.token);
 }
 
-function renderUsulanPieChart(dsdm, siasn, pertek, sk) {
+function renderUsulanPieChart(dsdm, siasn, pertek, sk, perbaikan, belumEligible, pensiun) {
   const canvas = document.getElementById('usulanStatusPieChart');
   if (!canvas || typeof Chart === 'undefined') return;
 
@@ -3320,13 +3331,17 @@ function renderUsulanPieChart(dsdm, siasn, pertek, sk) {
     usulanPieChartInstance.destroy();
   }
 
+  const labels = ['Diterima DSDM', 'Diajukan SIASN', 'TTD Pertek', 'SK Berhasil', 'Perbaikan', 'Belum Eligible', 'Pensiun'];
+  const data = [dsdm || 0, siasn || 0, pertek || 0, sk || 0, perbaikan || 0, belumEligible || 0, pensiun || 0];
+  const colors = ['#3b82f6', '#f59e0b', '#8b5cf6', '#10b981', '#f97316', '#ef4444', '#06b6d4'];
+
   usulanPieChartInstance = new Chart(ctx, {
     type: 'pie',
     data: {
-      labels: ['Diterima DSDM', 'Diajukan SIASN', 'TTD Pertek', 'SK Berhasil'],
+      labels: labels,
       datasets: [{
-        data: [dsdm, siasn, pertek, sk],
-        backgroundColor: ['#3b82f6', '#f59e0b', '#8b5cf6', '#10b981'],
+        data: data,
+        backgroundColor: colors,
         borderWidth: 2,
         borderColor: '#ffffff'
       }]
@@ -3334,10 +3349,17 @@ function renderUsulanPieChart(dsdm, siasn, pertek, sk) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      onClick: (evt, activeElements) => {
+        if (activeElements && activeElements.length > 0) {
+          const index = activeElements[0].index;
+          const clickedLabel = labels[index];
+          openStatusDetailModal(clickedLabel);
+        }
+      },
       plugins: {
         legend: {
           position: 'bottom',
-          labels: { font: { size: 11, family: 'Times New Roman' }, boxWidth: 12 }
+          labels: { font: { size: 10, family: 'Times New Roman' }, boxWidth: 10 }
         },
         tooltip: {
           callbacks: {
@@ -3353,6 +3375,139 @@ function renderUsulanPieChart(dsdm, siasn, pertek, sk) {
       }
     }
   });
+}
+
+/* ---------- POP-UP MODAL STATUS DETAIL & DIRECT UPDATE LOGIC ---------- */
+window.umGlobalList = [];
+window.umCurrentModalStatus = 'ALL';
+
+function openStatusDetailModal(targetStatus) {
+  window.umCurrentModalStatus = targetStatus;
+  const modal = document.getElementById('umStatusDetailModal');
+  const title = document.getElementById('umModalTitle');
+  const searchInput = document.getElementById('umModalSearchInput');
+
+  if (searchInput) searchInput.value = '';
+
+  if (title) {
+    title.textContent = targetStatus === 'ALL' ? '📋 Seluruh Daftar Usulan Masuk' : `📋 Daftar Usulan Status: ${targetStatus}`;
+  }
+
+  if (modal) modal.style.display = 'block';
+  renderStatusDetailModalContent();
+}
+
+function closeStatusDetailModal() {
+  const modal = document.getElementById('umStatusDetailModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function filterStatusDetailModalRows() {
+  renderStatusDetailModalContent();
+}
+
+function renderStatusDetailModalContent() {
+  const tbody = document.getElementById('umModalTbody');
+  const countEl = document.getElementById('umModalCount');
+  const searchInput = document.getElementById('umModalSearchInput');
+  const q = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+  if (!tbody) return;
+
+  const targetStatus = window.umCurrentModalStatus;
+  let filtered = (window.umGlobalList || []).filter(u => {
+    const st = String(u.status || 'Diterima DSDM').trim();
+    if (targetStatus === 'ALL') return true;
+    if (targetStatus === 'Diajukan SIASN') return st === 'Diajukan SIASN' || st === 'Diajukan ke SIASN';
+    if (targetStatus === 'Belum Eligible') return st === 'Belum Eligible' || st === 'Tidak Eligible';
+    return st.toLowerCase() === targetStatus.toLowerCase();
+  });
+
+  if (q) {
+    filtered = filtered.filter(u => 
+      String(u.nama || '').toLowerCase().includes(q) ||
+      String(u.nip || '').toLowerCase().includes(q) ||
+      String(u.unit || '').toLowerCase().includes(q) ||
+      String(u.jabatan || '').toLowerCase().includes(q) ||
+      String(u.tmt || '').toLowerCase().includes(q)
+    );
+  }
+
+  if (countEl) countEl.textContent = filtered.length;
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:18px;">Tidak ada pegawai dengan status "${targetStatus}" ${q ? 'yang cocok dengan pencarian' : ''}.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map((u, idx) => {
+    const currentStatus = String(u.status || 'Diterima DSDM').trim();
+    let badgeClass = 'dsdm';
+    if (currentStatus === 'Diajukan SIASN' || currentStatus === 'Diajukan ke SIASN') badgeClass = 'siasn';
+    else if (currentStatus === 'TTD Pertek') badgeClass = 'pertek';
+    else if (currentStatus === 'SK Berhasil') badgeClass = 'sk';
+    else if (currentStatus === 'Perbaikan') badgeClass = 'perbaikan';
+    else if (currentStatus === 'Belum Eligible' || currentStatus === 'Tidak Eligible') badgeClass = 'belumbisa';
+    else if (currentStatus === 'Pensiun') badgeClass = 'pensiun';
+
+    const golLamaStr = u.golongan_lama || u.golLama || '-';
+    const golBaruStr = u.golongan_baru || u.golBaru || (u.golongan_lama ? hitungProyeksiGolonganBaru(u.golongan_lama) : '-');
+
+    return `
+      <tr>
+        <td>${idx + 1}</td>
+        <td>
+          <strong style="font-size:14px;">${escapeHtml(u.nama)}</strong>
+          ${u.nama_pengaju ? `<div style="font-size:11.5px; color:var(--text-muted);">Diajukan oleh: ${escapeHtml(u.nama_pengaju)}</div>` : ''}
+        </td>
+        <td>
+          <div>${u.nip ? `NIP ${escapeHtml(u.nip)}` : '<span style="color:var(--text-muted); font-style:italic;">-</span>'}</div>
+          <div style="font-size:11.5px; color:var(--text-muted);">${escapeHtml(u.unit || '-')}</div>
+          ${u.jabatan ? `<div style="font-size:11px; color:var(--text-muted); font-style:italic;">${escapeHtml(u.jabatan)}</div>` : ''}
+        </td>
+        <td>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="cdli-badge" style="background:var(--surface-alt); color:var(--text-main); border:1px solid var(--border);">${escapeHtml(golLamaStr)}</span>
+            <span style="font-weight:800; color:#059669;">➔</span>
+            <span class="cdli-badge" style="background:rgba(16,185,129,0.15); color:#059669; border:1px solid #10b981;">${escapeHtml(golBaruStr)}</span>
+          </div>
+        </td>
+        <td><strong>${escapeHtml(u.tmt || '-')}</strong></td>
+        <td><span class="badge-status ${badgeClass}">${escapeHtml(currentStatus)}</span></td>
+        <td>
+          <select class="status-select" onchange="updateStatusFromModal('${u.id}', this.value)">
+            <option value="Diterima DSDM" ${currentStatus === 'Diterima DSDM' ? 'selected' : ''}>Diterima DSDM</option>
+            <option value="Diajukan SIASN" ${currentStatus === 'Diajukan SIASN' || currentStatus === 'Diajukan ke SIASN' ? 'selected' : ''}>Diajukan SIASN</option>
+            <option value="TTD Pertek" ${currentStatus === 'TTD Pertek' ? 'selected' : ''}>TTD Pertek</option>
+            <option value="SK Berhasil" ${currentStatus === 'SK Berhasil' ? 'selected' : ''}>SK Berhasil</option>
+            <option value="Perbaikan" ${currentStatus === 'Perbaikan' ? 'selected' : ''}>Perbaikan</option>
+            <option value="Belum Eligible" ${currentStatus === 'Belum Eligible' || currentStatus === 'Tidak Eligible' ? 'selected' : ''}>Belum Eligible</option>
+            <option value="Pensiun" ${currentStatus === 'Pensiun' ? 'selected' : ''}>Pensiun</option>
+          </select>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function updateStatusFromModal(id, newStatus) {
+  showToast('info', 'Memperbarui status usulan...');
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res || !res.success) {
+        showToast('error', (res && res.message) || 'Gagal memperbarui status.');
+        return;
+      }
+      showToast('success', `Status usulan diperbarui menjadi "${newStatus}".`);
+      loadUsulanMasukTmtDashboard();
+      setTimeout(() => {
+        renderStatusDetailModalContent();
+      }, 350);
+    })
+    .withFailureHandler(err => {
+      showToast('error', 'Gagal memperbarui status: ' + (err.message || err));
+    })
+    .updateUsulanMasukStatus(SESSION.token, { id, status: newStatus });
 }
 
 function parseTmt(tmtStr) {
@@ -3446,6 +3601,9 @@ function renderGroupedTmtTables(list, container) {
         if (currentStatus === 'Diajukan SIASN' || currentStatus === 'Diajukan ke SIASN') badgeClass = 'siasn';
         else if (currentStatus === 'TTD Pertek') badgeClass = 'pertek';
         else if (currentStatus === 'SK Berhasil') badgeClass = 'sk';
+        else if (currentStatus === 'Perbaikan') badgeClass = 'perbaikan';
+        else if (currentStatus === 'Belum Eligible' || currentStatus === 'Tidak Eligible') badgeClass = 'belumbisa';
+        else if (currentStatus === 'Pensiun') badgeClass = 'pensiun';
 
         const golLamaStr = u.golongan_lama || u.golLama || '-';
         const golBaruStr = u.golongan_baru || u.golBaru || (u.golongan_lama ? hitungProyeksiGolonganBaru(u.golongan_lama) : '-');
@@ -3481,6 +3639,9 @@ function renderGroupedTmtTables(list, container) {
                 <option value="Diajukan SIASN" ${currentStatus === 'Diajukan SIASN' || currentStatus === 'Diajukan ke SIASN' ? 'selected' : ''}>Diajukan SIASN</option>
                 <option value="TTD Pertek" ${currentStatus === 'TTD Pertek' ? 'selected' : ''}>TTD Pertek</option>
                 <option value="SK Berhasil" ${currentStatus === 'SK Berhasil' ? 'selected' : ''}>SK Berhasil</option>
+                <option value="Perbaikan" ${currentStatus === 'Perbaikan' ? 'selected' : ''}>Perbaikan</option>
+                <option value="Belum Eligible" ${currentStatus === 'Belum Eligible' || currentStatus === 'Tidak Eligible' ? 'selected' : ''}>Belum Eligible</option>
+                <option value="Pensiun" ${currentStatus === 'Pensiun' ? 'selected' : ''}>Pensiun</option>
               </select>
             </td>
             <td style="text-align:center;">
@@ -3637,9 +3798,13 @@ function onSelectImportSheetChange() {
     
     // Normalize status
     let status = 'Diterima DSDM';
-    if (rawStatus.toLowerCase().includes('siasn')) status = 'Diajukan SIASN';
-    else if (rawStatus.toLowerCase().includes('pertek')) status = 'TTD Pertek';
-    else if (rawStatus.toLowerCase().includes('sk')) status = 'SK Berhasil';
+    const sLower = rawStatus.toLowerCase();
+    if (sLower.includes('siasn')) status = 'Diajukan SIASN';
+    else if (sLower.includes('pertek')) status = 'TTD Pertek';
+    else if (sLower.includes('sk')) status = 'SK Berhasil';
+    else if (sLower.includes('perbaikan')) status = 'Perbaikan';
+    else if (sLower.includes('eligible')) status = 'Belum Eligible';
+    else if (sLower.includes('pensiun')) status = 'Pensiun';
     else if (rawStatus) status = rawStatus;
 
     let golBaru = idxGolBaru >= 0 ? String(row[idxGolBaru] || '').trim() : '';

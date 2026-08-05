@@ -367,26 +367,75 @@
                     <canvas id="usulanStatusPieChart" width="220" height="220"></canvas>
                   </div>
                   <div class="um-stats-grid" id="usulanStatusStatsGrid">
-                    <div class="um-stat-card stat-dsdm">
+                    <div class="um-stat-card stat-dsdm" onclick="openStatusDetailModal('Diterima DSDM')" title="Klik untuk lihat daftar nama">
                       <div class="um-stat-value" id="statCountDSDM">0</div>
                       <div class="um-stat-label">Diterima DSDM</div>
                     </div>
-                    <div class="um-stat-card stat-siasn">
+                    <div class="um-stat-card stat-siasn" onclick="openStatusDetailModal('Diajukan SIASN')" title="Klik untuk lihat daftar nama">
                       <div class="um-stat-value" id="statCountSIASN">0</div>
                       <div class="um-stat-label">Diajukan SIASN</div>
                     </div>
-                    <div class="um-stat-card stat-pertek">
+                    <div class="um-stat-card stat-pertek" onclick="openStatusDetailModal('TTD Pertek')" title="Klik untuk lihat daftar nama">
                       <div class="um-stat-value" id="statCountPertek">0</div>
                       <div class="um-stat-label">TTD Pertek</div>
                     </div>
-                    <div class="um-stat-card stat-sk">
+                    <div class="um-stat-card stat-sk" onclick="openStatusDetailModal('SK Berhasil')" title="Klik untuk lihat daftar nama">
                       <div class="um-stat-value" id="statCountSK">0</div>
                       <div class="um-stat-label">SK Berhasil</div>
                     </div>
-                    <div class="um-stat-card stat-total">
+                    <div class="um-stat-card stat-perbaikan" onclick="openStatusDetailModal('Perbaikan')" title="Klik untuk lihat daftar nama">
+                      <div class="um-stat-value" id="statCountPerbaikan">0</div>
+                      <div class="um-stat-label">Perbaikan</div>
+                    </div>
+                    <div class="um-stat-card stat-belumbisa" onclick="openStatusDetailModal('Belum Eligible')" title="Klik untuk lihat daftar nama">
+                      <div class="um-stat-value" id="statCountBelumEligible">0</div>
+                      <div class="um-stat-label">Belum Eligible</div>
+                    </div>
+                    <div class="um-stat-card stat-pensiun" onclick="openStatusDetailModal('Pensiun')" title="Klik untuk lihat daftar nama">
+                      <div class="um-stat-value" id="statCountPensiun">0</div>
+                      <div class="um-stat-label">Pensiun</div>
+                    </div>
+                    <div class="um-stat-card stat-total" onclick="openStatusDetailModal('ALL')" title="Klik untuk lihat seluruh usulan">
                       <div class="um-stat-value" id="statCountTotal">0</div>
                       <div class="um-stat-label">Total Usulan</div>
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- POP-UP MODAL DAFTAR PEGAWAI & UBAH STATUS BY DASHBOARD CLICK -->
+              <div id="umStatusDetailModal" class="um-import-card" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; z-index:99999; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); padding:20px; overflow-y:auto;">
+                <div style="max-width:960px; margin:30px auto; background:var(--surface); border-radius:16px; border:2px solid var(--primary); padding:24px; box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border);">
+                    <div>
+                      <h3 style="margin:0; font-size:18px; font-weight:700; color:var(--primary);" id="umModalTitle">📋 Daftar Usulan Status: Diterima DSDM</h3>
+                      <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Anda dapat mencari pegawai dan langsung mengubah statusnya di bawah ini.</div>
+                    </div>
+                    <button type="button" class="btn btn-outline kp-small-btn" onclick="closeStatusDetailModal()">✕ Tutup</button>
+                  </div>
+
+                  <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+                    <input type="text" id="umModalSearchInput" class="field-input" placeholder="🔍 Cari Nama, NIP, atau Unit pegawai..." onkeyup="filterStatusDetailModalRows()" style="max-width:360px;" />
+                    <div style="font-size:13px; font-weight:600; color:var(--text-muted);">
+                      Menampilkan <span id="umModalCount" style="color:var(--primary); font-weight:800;">0</span> pegawai
+                    </div>
+                  </div>
+
+                  <div style="overflow-x:auto; max-height:450px; border:1px solid var(--border); border-radius:10px;">
+                    <table class="tmt-table" id="umModalTable">
+                      <thead>
+                        <tr>
+                          <th style="width:40px;">No</th>
+                          <th>Nama Pegawai</th>
+                          <th>NIP / Unit / Jabatan</th>
+                          <th>Proyeksi Pangkat/Golongan</th>
+                          <th>TMT</th>
+                          <th>Status Saat Ini</th>
+                          <th>Ubah Status</th>
+                        </tr>
+                      </thead>
+                      <tbody id="umModalTbody"></tbody>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -417,6 +466,9 @@
                         <option value="Diajukan SIASN">Diajukan SIASN</option>
                         <option value="TTD Pertek">TTD Pertek</option>
                         <option value="SK Berhasil">SK Berhasil</option>
+                        <option value="Perbaikan">Perbaikan</option>
+                        <option value="Belum Eligible">Belum Eligible</option>
+                        <option value="Pensiun">Pensiun</option>
                       </select>
                     </div>
 

@@ -3872,6 +3872,9 @@ const methods = {
       'Diajukan SIASN': 0,
       'TTD Pertek': 0,
       'SK Berhasil': 0,
+      'Perbaikan': 0,
+      'Belum Eligible': 0,
+      'Pensiun': 0,
       'Lainnya': 0
     };
 
@@ -3881,6 +3884,9 @@ const methods = {
       else if (st === 'Diajukan SIASN' || st === 'Diajukan ke SIASN') statusCounts['Diajukan SIASN']++;
       else if (st === 'TTD Pertek') statusCounts['TTD Pertek']++;
       else if (st === 'SK Berhasil') statusCounts['SK Berhasil']++;
+      else if (st === 'Perbaikan') statusCounts['Perbaikan']++;
+      else if (st === 'Belum Eligible' || st === 'Tidak Eligible') statusCounts['Belum Eligible']++;
+      else if (st === 'Pensiun') statusCounts['Pensiun']++;
       else statusCounts['Lainnya']++;
     });
 
