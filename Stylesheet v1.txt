@@ -854,16 +854,4 @@
   .um-proyeksi-box.highlight .val { color: #059669; }
   .um-proyeksi-arrow { font-size: 20px; font-weight: 800; color: #059669; }
 
-  /* Enforcement font: UI antarmuka sistem di dalam appShell menggunakan Times New Roman */
-  #appShell, #appShell *, #appShell button, #appShell input, #appShell select, #appShell textarea, #appShell table, #appShell th, #appShell td, #appShell h1, #appShell h2, #appShell h3, #appShell h4, #appShell h5, #appShell h6, #appShell p, #appShell span, #appShell div, #appShell a, #appShell label {
-    font-family: 'Times New Roman', Times, serif !important;
-  }
-
-  /* Restore Login Screen to original modern font design */
-  #loginScreen, #loginScreen * {
-    font-family: var(--font-body) !important;
-  }
-  #loginScreen h1, #loginScreen .subtitle, #loginScreen .auth-switch-btn, #loginScreen label, #loginScreen button, #loginScreen input {
-    font-family: var(--font-display) !important;
-  }
 </style>

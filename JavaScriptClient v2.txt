@@ -3359,7 +3359,7 @@ function renderUsulanPieChart(dsdm, siasn, pertek, sk, perbaikan, belumEligible,
       plugins: {
         legend: {
           position: 'bottom',
-          labels: { font: { size: 10, family: 'Times New Roman' }, boxWidth: 10 }
+          labels: { font: { size: 11 }, boxWidth: 12 }
         },
         tooltip: {
           callbacks: {
