@@ -719,6 +719,105 @@
     animation: neonFlicker 5s infinite;
   }
 
+  /* -------------------------------------------------------------------
+     USULAN MASUK DASHBOARD & TMT GROUPING STYLES
+     ------------------------------------------------------------------- */
+  .um-dashboard-card {
+    background: var(--surface-alt); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px; box-shadow: var(--shadow);
+  }
+  body.theme-dark .um-dashboard-card { border-color: rgba(0,229,255,0.25); box-shadow: 0 0 16px rgba(0,229,255,0.1); }
+
+  .um-dashboard-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+  }
+
+  .um-dashboard-body {
+    display: grid; grid-template-columns: 240px 1fr; gap: 24px; align-items: center;
+  }
+  @media (max-width: 850px) {
+    .um-dashboard-body { grid-template-columns: 1fr; }
+  }
+
+  .um-chart-container {
+    display: flex; justify-content: center; align-items: center; position: relative;
+    max-width: 240px; margin: 0 auto;
+  }
+
+  .um-stats-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px;
+  }
+
+  .um-stat-card {
+    padding: 14px 16px; border-radius: 12px; background: var(--surface);
+    border: 2px solid var(--border); transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .um-stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+  .um-stat-card .um-stat-value { font-size: 24px; font-weight: 800; margin-bottom: 4px; }
+  .um-stat-card .um-stat-label { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+
+  .um-stat-card.stat-dsdm { border-color: #3b82f6; }
+  .um-stat-card.stat-dsdm .um-stat-value { color: #2563eb; }
+  .um-stat-card.stat-siasn { border-color: #f59e0b; }
+  .um-stat-card.stat-siasn .um-stat-value { color: #d97706; }
+  .um-stat-card.stat-pertek { border-color: #8b5cf6; }
+  .um-stat-card.stat-pertek .um-stat-value { color: #7c3aed; }
+  .um-stat-card.stat-sk { border-color: #10b981; }
+  .um-stat-card.stat-sk .um-stat-value { color: #059669; }
+  .um-stat-card.stat-total { border-color: var(--primary); }
+  .um-stat-card.stat-total .um-stat-value { color: var(--primary); }
+
+  /* Status Badges */
+  .badge-status {
+    display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .badge-status.dsdm { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+  .badge-status.siasn { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+  .badge-status.pertek { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+  .badge-status.sk { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+  body.theme-dark .badge-status.dsdm { background: rgba(59,130,246,0.2); color: #60a5fa; border-color: #3b82f6; }
+  body.theme-dark .badge-status.siasn { background: rgba(245,158,11,0.2); color: #fbbf24; border-color: #f59e0b; }
+  body.theme-dark .badge-status.pertek { background: rgba(139,92,246,0.2); color: #c084fc; border-color: #8b5cf6; }
+  body.theme-dark .badge-status.sk { background: rgba(16,185,129,0.2); color: #34d399; border-color: #10b981; }
+
+  /* TMT Section Grouping */
+  .tmt-year-card {
+    margin-bottom: 20px; border-radius: 14px; border: 1px solid var(--border);
+    background: var(--surface); overflow: hidden; box-shadow: var(--shadow);
+  }
+  .tmt-year-header {
+    padding: 14px 20px; background: var(--surface-alt); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 15px;
+  }
+  .tmt-month-card {
+    margin: 14px 16px 16px; padding: 16px; border-radius: 12px; border: 1px solid var(--border);
+    background: var(--surface-alt);
+  }
+  .tmt-month-title {
+    font-size: 14px; font-weight: 700; color: var(--primary); margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  body.theme-dark .tmt-month-title { color: var(--accent); }
+
+  .tmt-table {
+    width: 100%; border-collapse: collapse; font-size: 13.5px;
+  }
+  .tmt-table th {
+    background: var(--surface); padding: 10px 12px; text-align: left;
+    font-weight: 700; font-size: 12px; text-transform: uppercase; color: var(--text-muted);
+    border-bottom: 2px solid var(--border);
+  }
+  .tmt-table td {
+    padding: 12px; border-bottom: 1px solid var(--border); vertical-align: middle;
+  }
+  .tmt-table tr:last-child td { border-bottom: none; }
+  .tmt-table select.status-select {
+    padding: 6px 10px; border-radius: 8px; font-weight: 600; font-size: 12.5px;
+    border: 1px solid var(--border); background: var(--surface); cursor: pointer;
+  }
+
   /* Enforcement font: Seluruh UI antarmuka sistem secara 100% mutlak dan seragam menggunakan Times New Roman */
   *, *::before, *::after, body, button, input, select, textarea, table, th, td, h1, h2, h3, h4, h5, h6, p, span, div, a, label {
     font-family: 'Times New Roman', Times, serif !important;

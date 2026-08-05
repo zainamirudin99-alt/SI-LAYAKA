@@ -104,15 +104,19 @@ CREATE TABLE IF NOT EXISTS usulan_kp (
   nama_pengaju          TEXT,
   tanggal_diajukan      TIMESTAMPTZ DEFAULT NOW(),
   file_url              TEXT,
-  status                TEXT DEFAULT 'Diajukan',
+  status                TEXT DEFAULT 'Diterima DSDM',
+  tmt                   TEXT,
   opsi_a_selesai_pada   TIMESTAMPTZ,
   opsi_b_selesai_pada   TIMESTAMPTZ,
   diproses_oleh_nip     TEXT
 );
 
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS tmt TEXT;
+
 CREATE INDEX IF NOT EXISTS idx_usulan_kp_nip    ON usulan_kp(nip);
 CREATE INDEX IF NOT EXISTS idx_usulan_kp_status ON usulan_kp(status);
 CREATE INDEX IF NOT EXISTS idx_usulan_kp_unit   ON usulan_kp(unit);
+CREATE INDEX IF NOT EXISTS idx_usulan_kp_tmt    ON usulan_kp(tmt);
 
 -- ============================================================
 -- 5. TABEL: usulan_pensiun

@@ -226,3 +226,47 @@ function tandaiOpsiUsulanKpSelesai_(nip, subLayanan, diprosesOlehNip) {
     Logger.log('Gagal menandai Opsi usulan KP selesai: ' + err.message);
   }
 }
+
+function addUsulanMasukDirect(sessionToken, payload) {
+  const admin = requireRole_(sessionToken, ['admin', 'super_admin']);
+  if (!payload || !payload.nama) return { success: false, message: 'Nama pegawai wajib diisi.' };
+  const sheet = ensureUsulanKpSheet_();
+  const id = Utilities.getUuid();
+  const now = new Date();
+  sheet.appendRow([
+    id, '', payload.nip || '', payload.nama, payload.unit || '',
+    admin.nip, admin.nama || 'Admin', now, '', payload.status || 'Diterima DSDM', '', '', admin.nip, payload.tmt || ''
+  ]);
+  return { success: true, message: 'Usulan berhasil ditambahkan.' };
+}
+
+function getUsulanMasukTmtGrouped(sessionToken) {
+  requireRole_(sessionToken, ['admin', 'super_admin']);
+  const rows = getAllUsulanKp_();
+  const statusCounts = { 'Diterima DSDM': 0, 'Diajukan SIASN': 0, 'TTD Pertek': 0, 'SK Berhasil': 0, 'Lainnya': 0 };
+  rows.forEach(u => {
+    const st = String(u.status || '').trim();
+    if (st === 'Diterima DSDM') statusCounts['Diterima DSDM']++;
+    else if (st === 'Diajukan SIASN' || st === 'Diajukan ke SIASN') statusCounts['Diajukan SIASN']++;
+    else if (st === 'TTD Pertek') statusCounts['TTD Pertek']++;
+    else if (st === 'SK Berhasil') statusCounts['SK Berhasil']++;
+    else statusCounts['Lainnya']++;
+  });
+  return { success: true, total: rows.length, statusCounts, list: rows };
+}
+
+function updateUsulanMasukStatus(sessionToken, payload) {
+  const admin = requireRole_(sessionToken, ['admin', 'super_admin']);
+  if (!payload || !payload.id) return { success: false, message: 'ID tidak valid.' };
+  const sheet = ensureUsulanKpSheet_();
+  const values = sheet.getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0]) === String(payload.id)) {
+      if (payload.status !== undefined) sheet.getRange(i + 1, 10).setValue(payload.status);
+      if (payload.tmt !== undefined) sheet.getRange(i + 1, 14).setValue(payload.tmt);
+      sheet.getRange(i + 1, 13).setValue(admin.nip);
+      return { success: true, message: 'Status berhasil diperbarui.' };
+    }
+  }
+  return { success: false, message: 'Data tidak ditemukan.' };
+}

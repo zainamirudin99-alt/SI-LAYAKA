@@ -3198,6 +3198,9 @@ function loadStatusUsulanSaya() {
 }
 
 /* ---------- USULAN MASUK (peran admin/super_admin) ---------- */
+/* ---------- USULAN MASUK (peran admin/super_admin) ---------- */
+let usulanPieChartInstance = null;
+
 function loadUsulanMasukBadge() {
   google.script.run
     .withSuccessHandler(res => {
@@ -3215,17 +3218,345 @@ function loadUsulanMasukBadge() {
 }
 
 function loadUsulanMasukDashboard() {
+  loadUsulanMasukTmtDashboard();
+}
+
+function loadUsulanMasukTmtDashboard() {
+  const container = document.getElementById('usulanMasukTmtContainer');
+  if (container) {
+    container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat dashboard dan data usulan TMT...</div>';
+  }
+
+  const inputNama = document.getElementById('umInputNama');
+  const listNama = document.getElementById('umInputNama_list');
+  const hiddenNip = document.getElementById('umInputNip');
+  if (inputNama && listNama && hiddenNip && !inputNama.dataset.acBound) {
+    inputNama.dataset.acBound = 'true';
+    setupAutocompleteEl(inputNama, listNama, hiddenNip);
+  }
+
+  loadUsulanMasukBadge();
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res || !res.success) {
+        showToast('error', (res && res.message) || 'Gagal memuat usulan masuk.');
+        if (container) container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Gagal memuat data.</div>';
+        return;
+      }
+
+      const sc = res.statusCounts || {};
+      const dsdm = sc['Diterima DSDM'] || 0;
+      const siasn = sc['Diajukan SIASN'] || 0;
+      const pertek = sc['TTD Pertek'] || 0;
+      const sk = sc['SK Berhasil'] || 0;
+      const total = res.total || 0;
+
+      const elDsdm = document.getElementById('statCountDSDM');
+      const elSiasn = document.getElementById('statCountSIASN');
+      const elPertek = document.getElementById('statCountPertek');
+      const elSk = document.getElementById('statCountSK');
+      const elTotal = document.getElementById('statCountTotal');
+
+      if (elDsdm) elDsdm.textContent = dsdm;
+      if (elSiasn) elSiasn.textContent = siasn;
+      if (elPertek) elPertek.textContent = pertek;
+      if (elSk) elSk.textContent = sk;
+      if (elTotal) elTotal.textContent = total;
+
+      renderUsulanPieChart(dsdm, siasn, pertek, sk);
+
+      const list = res.list || [];
+      if (!list.length) {
+        if (container) container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Belum ada usulan masuk. Silakan gunakan form di atas untuk menginput usulan baru.</div>';
+        return;
+      }
+
+      renderGroupedTmtTables(list, container);
+    })
+    .withFailureHandler(err => {
+      showToast('error', 'Gagal memuat dashboard usulan: ' + (err.message || err));
+      if (container) container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Gagal memuat data dari server.</div>';
+    })
+    .getUsulanMasukTmtGrouped(SESSION.token);
+}
+
+function renderUsulanPieChart(dsdm, siasn, pertek, sk) {
+  const canvas = document.getElementById('usulanStatusPieChart');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  const ctx = canvas.getContext('2d');
+  if (usulanPieChartInstance) {
+    usulanPieChartInstance.destroy();
+  }
+
+  usulanPieChartInstance = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: ['Diterima DSDM', 'Diajukan SIASN', 'TTD Pertek', 'SK Berhasil'],
+      datasets: [{
+        data: [dsdm, siasn, pertek, sk],
+        backgroundColor: ['#3b82f6', '#f59e0b', '#8b5cf6', '#10b981'],
+        borderWidth: 2,
+        borderColor: '#ffffff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { font: { size: 11, family: 'Times New Roman' }, boxWidth: 12 }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const label = context.label || '';
+              const value = context.parsed || 0;
+              const total = context.dataset.data.reduce((a, b) => a + b, 0);
+              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) + '%' : '0%';
+              return `${label}: ${value} usulan (${percentage})`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function parseTmt(tmtStr) {
+  if (!tmtStr) return { year: 'Tanpa TMT', month: 'Lainnya', full: 'Tanpa TMT' };
+  const str = String(tmtStr).trim();
+  
+  const monthsIndo = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  for (let m of monthsIndo) {
+    if (str.toLowerCase().includes(m.toLowerCase())) {
+      const matchYear = str.match(/\b(20\d{2})\b/);
+      const year = matchYear ? matchYear[1] : 'Lainnya';
+      return { year, month: `${m} ${year}`, full: str };
+    }
+  }
+
+  const matchIso = str.match(/^(20\d{2})[-/](\d{1,2})/);
+  if (matchIso) {
+    const year = matchIso[1];
+    const mIdx = parseInt(matchIso[2], 10) - 1;
+    const monthName = (mIdx >= 0 && mIdx < 12) ? monthsIndo[mIdx] : 'Bulan ' + matchIso[2];
+    return { year, month: `${monthName} ${year}`, full: `${monthName} ${year}` };
+  }
+
+  const matchAnyYear = str.match(/\b(20\d{2})\b/);
+  if (matchAnyYear) {
+    return { year: matchAnyYear[1], month: str, full: str };
+  }
+
+  return { year: 'Lainnya', month: str, full: str };
+}
+
+function renderGroupedTmtTables(list, container) {
+  const grouped = {};
+
+  list.forEach(item => {
+    const parsed = parseTmt(item.tmt);
+    const yr = parsed.year;
+    const mn = parsed.month;
+    if (!grouped[yr]) grouped[yr] = {};
+    if (!grouped[yr][mn]) grouped[yr][mn] = [];
+    grouped[yr][mn].push(item);
+  });
+
+  const years = Object.keys(grouped).sort((a, b) => {
+    if (a === 'Tanpa TMT' || a === 'Lainnya') return 1;
+    if (b === 'Tanpa TMT' || b === 'Lainnya') return -1;
+    return b.localeCompare(a);
+  });
+
+  let html = '';
+  years.forEach(yr => {
+    const monthsObj = grouped[yr];
+    const monthNames = Object.keys(monthsObj);
+    
+    html += `
+      <div class="tmt-year-card">
+        <div class="tmt-year-header">
+          <span>🗓️ TMT Tahun ${escapeHtml(yr)}</span>
+          <span class="cdli-badge" style="background:var(--primary);">${monthNames.length} Periode TMT</span>
+        </div>
+    `;
+
+    monthNames.forEach(mn => {
+      const items = monthsObj[mn];
+      html += `
+        <div class="tmt-month-card">
+          <div class="tmt-month-title">
+            <span>📌 TMT ${escapeHtml(mn)}</span>
+            <span style="font-size:12px; font-weight:600; color:var(--text-muted);">(${items.length} usulan)</span>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="tmt-table">
+              <thead>
+                <tr>
+                  <th style="width:40px;">No</th>
+                  <th>Nama Pegawai</th>
+                  <th>NIP / Unit</th>
+                  <th>TMT</th>
+                  <th>Status Saat Ini</th>
+                  <th>Ubah Status</th>
+                  <th style="width:70px; text-align:center;">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+      `;
+
+      items.forEach((u, idx) => {
+        const currentStatus = String(u.status || 'Diterima DSDM').trim();
+        let badgeClass = 'dsdm';
+        if (currentStatus === 'Diajukan SIASN' || currentStatus === 'Diajukan ke SIASN') badgeClass = 'siasn';
+        else if (currentStatus === 'TTD Pertek') badgeClass = 'pertek';
+        else if (currentStatus === 'SK Berhasil') badgeClass = 'sk';
+
+        html += `
+          <tr>
+            <td>${idx + 1}</td>
+            <td>
+              <strong style="font-size:14px;">${escapeHtml(u.nama)}</strong>
+              ${u.nama_pengaju ? `<div style="font-size:11.5px; color:var(--text-muted);">Diajukan oleh: ${escapeHtml(u.nama_pengaju)}</div>` : ''}
+            </td>
+            <td>
+              <div>${u.nip ? `NIP ${escapeHtml(u.nip)}` : '<span style="color:var(--text-muted); font-style:italic;">-</span>'}</div>
+              <div style="font-size:11.5px; color:var(--text-muted);">${escapeHtml(u.unit || '-')}</div>
+            </td>
+            <td>
+              <strong>${escapeHtml(u.tmt || mn)}</strong>
+            </td>
+            <td>
+              <span class="badge-status ${badgeClass}">${escapeHtml(currentStatus)}</span>
+            </td>
+            <td>
+              <select class="status-select" onchange="updateUsulanStatusInline('${u.id}', this.value)">
+                <option value="Diterima DSDM" ${currentStatus === 'Diterima DSDM' ? 'selected' : ''}>Diterima DSDM</option>
+                <option value="Diajukan SIASN" ${currentStatus === 'Diajukan SIASN' || currentStatus === 'Diajukan ke SIASN' ? 'selected' : ''}>Diajukan SIASN</option>
+                <option value="TTD Pertek" ${currentStatus === 'TTD Pertek' ? 'selected' : ''}>TTD Pertek</option>
+                <option value="SK Berhasil" ${currentStatus === 'SK Berhasil' ? 'selected' : ''}>SK Berhasil</option>
+              </select>
+            </td>
+            <td style="text-align:center;">
+              <button type="button" class="btn btn-outline kp-small-btn" onclick="deleteUsulanMasukInline('${u.id}')" style="color:var(--danger); border-color:var(--danger); padding:3px 8px;" title="Hapus Usulan">🗑️</button>
+            </td>
+          </tr>
+        `;
+      });
+
+      html += `
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `</div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function handleInputUsulanMasuk(e) {
+  e.preventDefault();
+  const nama = val('umInputNama');
+  const nip = val('umInputNip');
+  const status = val('umInputStatus');
+  const bulan = val('umInputTmtBulan');
+  const tahun = val('umInputTmtTahun');
+  const unit = val('umInputUnit');
+
+  if (!nama) {
+    showToast('error', 'Nama pegawai wajib diisi.');
+    return;
+  }
+
+  const tmt = `${bulan} ${tahun}`;
+  const btn = document.getElementById('umSubmitBtn');
+  if (btn) btn.disabled = true;
+
+  const payload = { nama, nip, status, tmt, unit };
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (btn) btn.disabled = false;
+      if (!res.success) {
+        showToast('error', res.message || 'Gagal menyimpan usulan.');
+        return;
+      }
+      showToast('success', `Usulan untuk ${nama} (${tmt}) berhasil ditambahkan dengan status "${status}".`);
+      document.getElementById('formInputUsulanMasuk').reset();
+      document.getElementById('umInputNip').value = '';
+      loadUsulanMasukTmtDashboard();
+    })
+    .withFailureHandler(err => {
+      if (btn) btn.disabled = false;
+      showToast('error', 'Gagal menyimpan usulan: ' + (err.message || err));
+    })
+    .addUsulanMasukDirect(SESSION.token, payload);
+}
+
+function updateUsulanStatusInline(id, newStatus) {
+  showToast('info', 'Memperbarui status usulan...');
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) {
+        showToast('error', res.message || 'Gagal memperbarui status.');
+        return;
+      }
+      showToast('success', `Status usulan diperbarui menjadi "${newStatus}".`);
+      loadUsulanMasukTmtDashboard();
+    })
+    .withFailureHandler(err => {
+      showToast('error', 'Gagal memperbarui status: ' + (err.message || err));
+    })
+    .updateUsulanMasukStatus(SESSION.token, { id, status: newStatus });
+}
+
+function deleteUsulanMasukInline(id) {
+  if (!confirm('Apakah Anda yakin ingin menghapus entri usulan ini?')) return;
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) {
+        showToast('error', res.message || 'Gagal menghapus usulan.');
+        return;
+      }
+      showToast('success', 'Usulan berhasil dihapus.');
+      loadUsulanMasukTmtDashboard();
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal menghapus: ' + (err.message || err)))
+    .deleteUsulanMasuk(SESSION.token, id);
+}
+
+function toggleUsulanUnitView() {
+  const wrap = document.getElementById('usulanMasukUnitWrap');
+  if (wrap) {
+    if (wrap.style.display === 'none') {
+      wrap.style.display = 'block';
+      loadUsulanMasukLegacyUnitDashboard();
+    } else {
+      wrap.style.display = 'none';
+    }
+  }
+}
+
+function loadUsulanMasukLegacyUnitDashboard() {
   const el = document.getElementById('usulanMasukLevel1');
-  el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat...</div>';
+  if (!el) return;
+  el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat usulan per unit...</div>';
   document.getElementById('usulanMasukLevel1').style.display = 'grid';
   document.getElementById('usulanMasukLevel2').style.display = 'none';
 
   google.script.run
     .withSuccessHandler(res => {
       if (!res.success) { showToast('error', res.message); return; }
-      loadUsulanMasukBadge();
       if (!res.daftarUnit.length) {
-        el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada usulan baru saat ini.</div>';
+        el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada usulan unit saat ini.</div>';
         return;
       }
       el.innerHTML = res.daftarUnit.map(u => `
@@ -3274,7 +3605,7 @@ function showUsulanMasukLevel2(unit) {
     .withFailureHandler(err => showToast('error', 'Gagal memuat daftar usulan: ' + (err.message || err)))
     .getUsulanListByUnit(SESSION.token, unit);
 
-  document.getElementById('usulanMasukBackBtn').onclick = loadUsulanMasukDashboard;
+  document.getElementById('usulanMasukBackBtn').onclick = loadUsulanMasukLegacyUnitDashboard;
 }
 
 /**

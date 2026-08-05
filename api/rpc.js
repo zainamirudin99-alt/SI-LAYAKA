@@ -3797,6 +3797,87 @@ const methods = {
     return {success:true,daftar};
   },
 
+  async addUsulanMasukDirect(args) {
+    const [token, payload] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    if (!payload || !payload.nama) {
+      return { success: false, message: 'Nama pegawai wajib diisi.' };
+    }
+    const db = getDb();
+    const row = {
+      nama: String(payload.nama).trim(),
+      nip: String(payload.nip || '').trim(),
+      unit: String(payload.unit || '').trim(),
+      status: String(payload.status || 'Diterima DSDM').trim(),
+      tmt: String(payload.tmt || '').trim(),
+      diajukan_oleh_nip: decoded.nip,
+      nama_pengaju: decoded.nama || 'Admin',
+      tanggal_diajukan: new Date().toISOString()
+    };
+    const { data, error } = await db.from('usulan_kp').insert([row]).select();
+    if (error) {
+      console.error('[addUsulanMasukDirect] Error:', error.message);
+      return { success: false, message: 'Gagal menyimpan usulan: ' + error.message };
+    }
+    return { success: true, message: 'Usulan berhasil ditambahkan.', data: data ? data[0] : null };
+  },
+
+  async getUsulanMasukTmtGrouped(args) {
+    const [token] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+    const { data, error } = await db.from('usulan_kp').select('*').order('tanggal_diajukan', { ascending: false });
+    if (error) {
+      console.error('[getUsulanMasukTmtGrouped] Error:', error.message);
+      return { success: false, message: error.message };
+    }
+    const list = data || [];
+    
+    const statusCounts = {
+      'Diterima DSDM': 0,
+      'Diajukan SIASN': 0,
+      'TTD Pertek': 0,
+      'SK Berhasil': 0,
+      'Lainnya': 0
+    };
+
+    list.forEach(u => {
+      const st = String(u.status || '').trim();
+      if (st === 'Diterima DSDM') statusCounts['Diterima DSDM']++;
+      else if (st === 'Diajukan SIASN' || st === 'Diajukan ke SIASN') statusCounts['Diajukan SIASN']++;
+      else if (st === 'TTD Pertek') statusCounts['TTD Pertek']++;
+      else if (st === 'SK Berhasil') statusCounts['SK Berhasil']++;
+      else statusCounts['Lainnya']++;
+    });
+
+    return { success: true, total: list.length, statusCounts, list };
+  },
+
+  async updateUsulanMasukStatus(args) {
+    const [token, payload] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    const { id, status, tmt } = payload || {};
+    if (!id) return { success: false, message: 'ID usulan tidak valid.' };
+    const db = getDb();
+    const updateObj = { diproses_oleh_nip: decoded.nip };
+    if (status !== undefined) updateObj.status = String(status).trim();
+    if (tmt !== undefined) updateObj.tmt = String(tmt).trim();
+
+    const { error } = await db.from('usulan_kp').update(updateObj).eq('id', id);
+    if (error) return { success: false, message: 'Gagal memperbarui status: ' + error.message };
+    return { success: true, message: 'Status usulan berhasil diperbarui.' };
+  },
+
+  async deleteUsulanMasuk(args) {
+    const [token, id] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+    if (!id) return { success: false, message: 'ID tidak valid.' };
+    const db = getDb();
+    const { error } = await db.from('usulan_kp').delete().eq('id', id);
+    if (error) return { success: false, message: 'Gagal menghapus usulan: ' + error.message };
+    return { success: true, message: 'Usulan berhasil dihapus.' };
+  },
+
   async getUsulanSayaForUser(args) {
     const [token] = extractArgs(args);
     const decoded=requireRole(token,['user','admin','super_admin']);

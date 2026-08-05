@@ -9,9 +9,10 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Orbitron:wght@600;700;800&family=JetBrains+Mono:wght@500;600&display=swap">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docx-preview@0.1.15/dist/docx-preview.min.css">
   <?!= include('Stylesheet'); ?>
-  <!-- Libraries for Word template previewing -->
+  <!-- Libraries for Word template previewing & Charts -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.1.15/dist/docx-preview.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="theme-light">
 
@@ -349,11 +350,119 @@
 
             <!-- ---------- USULAN MASUK (peran admin/super_admin) ---------- -->
             <div class="tab-panel" data-tab-group-panel="kp" id="tab-usulanMasuk">
-              <div class="helper-text" style="margin-bottom:14px;">Usulan Kenaikan Pangkat yang diajukan User, dikelompokkan per Unit/Fakultas. Pilih nama untuk memprosesnya lewat Opsi A/B.</div>
-              <div id="usulanMasukLevel1" class="ce-dashboard-grid"></div>
-              <div id="usulanMasukLevel2" style="display:none;">
-                <button type="button" class="ce-dashboard-back" id="usulanMasukBackBtn">&larr; Kembali ke daftar unit</button>
-                <div id="usulanMasukLevel2List" class="ce-dashboard-list"></div>
+              <div class="helper-text" style="margin-bottom:16px;">
+                Dashboard Usulan Masuk Kenaikan Pangkat. Admin & Super Admin dapat menginput usulan, memantau pie chart statistik usulan berdasarkan status, serta melihat tabel usulan yang dikelompokkan secara otomatis berdasarkan TMT (Tahun &amp; Bulan).
+              </div>
+
+              <!-- Layout Bagian Atas: Pie Chart Dashboard & Statistic Cards -->
+              <div class="um-dashboard-card" style="margin-bottom:24px;">
+                <div class="um-dashboard-header">
+                  <h3 style="margin:0; font-size:16px; font-weight:700; color:var(--text-main);">📊 Dashboard Pie Chart Status Usulan Masuk</h3>
+                  <button type="button" class="btn btn-outline kp-small-btn" onclick="loadUsulanMasukTmtDashboard()">🔄 Refresh Data</button>
+                </div>
+                
+                <div class="um-dashboard-body">
+                  <div class="um-chart-container">
+                    <canvas id="usulanStatusPieChart" width="220" height="220"></canvas>
+                  </div>
+                  <div class="um-stats-grid" id="usulanStatusStatsGrid">
+                    <div class="um-stat-card stat-dsdm">
+                      <div class="um-stat-value" id="statCountDSDM">0</div>
+                      <div class="um-stat-label">Diterima DSDM</div>
+                    </div>
+                    <div class="um-stat-card stat-siasn">
+                      <div class="um-stat-value" id="statCountSIASN">0</div>
+                      <div class="um-stat-label">Diajukan SIASN</div>
+                    </div>
+                    <div class="um-stat-card stat-pertek">
+                      <div class="um-stat-value" id="statCountPertek">0</div>
+                      <div class="um-stat-label">TTD Pertek</div>
+                    </div>
+                    <div class="um-stat-card stat-sk">
+                      <div class="um-stat-value" id="statCountSK">0</div>
+                      <div class="um-stat-label">SK Berhasil</div>
+                    </div>
+                    <div class="um-stat-card stat-total">
+                      <div class="um-stat-value" id="statCountTotal">0</div>
+                      <div class="um-stat-label">Total Usulan</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Form Input Usulan Masuk Baru -->
+              <div class="card um-form-card" style="margin-bottom:24px; background:var(--surface-alt); border:1px solid var(--border);">
+                <h4 style="margin-top:0; margin-bottom:14px; font-size:15px; display:flex; align-items:center; gap:8px;">
+                  <span>➕ Form Input Usulan Masuk Baru</span>
+                </h4>
+                <form id="formInputUsulanMasuk" onsubmit="handleInputUsulanMasuk(event)">
+                  <div class="grid-2 kp-grid">
+                    <div class="stack-field autocomplete-wrap">
+                      <label class="kp-label" for="umInputNama">Nama Pegawai <span style="color:red;">*</span></label>
+                      <input type="text" id="umInputNama" class="field-input" placeholder="Contoh: Prof. Suharnomo..." required autocomplete="off" />
+                      <input type="hidden" id="umInputNip" />
+                      <div class="autocomplete-list" id="umInputNama_list"></div>
+                    </div>
+                    <div class="stack-field">
+                      <label class="kp-label" for="umInputStatus">Status Awal <span style="color:red;">*</span></label>
+                      <select id="umInputStatus" class="field-input" required>
+                        <option value="Diterima DSDM" selected>Diterima DSDM</option>
+                        <option value="Diajukan SIASN">Diajukan SIASN</option>
+                        <option value="TTD Pertek">TTD Pertek</option>
+                        <option value="SK Berhasil">SK Berhasil</option>
+                      </select>
+                    </div>
+                    <div class="stack-field">
+                      <label class="kp-label" for="umInputTmtBulan">TMT (Bulan &amp; Tahun) <span style="color:red;">*</span></label>
+                      <div style="display:flex; gap:8px;">
+                        <select id="umInputTmtBulan" class="field-input" style="flex:1;" required>
+                          <option value="Januari">Januari</option>
+                          <option value="Februari">Februari</option>
+                          <option value="Maret">Maret</option>
+                          <option value="April">April</option>
+                          <option value="Mei">Mei</option>
+                          <option value="Juni">Juni</option>
+                          <option value="Juli">Juli</option>
+                          <option value="Agustus">Agustus</option>
+                          <option value="September">September</option>
+                          <option value="Oktober" selected>Oktober</option>
+                          <option value="November">November</option>
+                          <option value="Desember">Desember</option>
+                        </select>
+                        <input type="number" id="umInputTmtTahun" class="field-input" style="width:110px;" min="2020" max="2035" value="2026" required />
+                      </div>
+                    </div>
+                    <div class="stack-field">
+                      <label class="kp-label" for="umInputUnit">Unit / Fakultas (Opsional)</label>
+                      <input type="text" id="umInputUnit" class="field-input" placeholder="Contoh: Fakultas Ekonomi &amp; Bisnis..." />
+                    </div>
+                  </div>
+                  <div class="actions-bar" style="margin-top:16px; justify-content:flex-end;">
+                    <button type="submit" class="btn btn-primary" id="umSubmitBtn">➕ Simpan Usulan</button>
+                  </div>
+                </form>
+              </div>
+
+              <!-- Display Grouped Table by TMT (Tahun & Bulan) -->
+              <div style="margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0; font-size:16px; font-weight:700; color:var(--text-main);">📅 Daftar Usulan Masuk (Dikelompokkan Berdasarkan TMT)</h3>
+                <div style="display:flex; gap:8px;">
+                  <button type="button" class="btn btn-outline kp-small-btn" onclick="toggleUsulanUnitView()">Toggle View per Unit</button>
+                </div>
+              </div>
+
+              <div id="usulanMasukTmtContainer">
+                <div class="ce-dashboard-card cdc-empty">Memuat daftar usulan TMT...</div>
+              </div>
+
+              <!-- Modal / View tambahan usulan per unit (Legacy Support) -->
+              <div id="usulanMasukUnitWrap" style="display:none; margin-top:24px; border-top:2px dashed var(--border); padding-top:20px;">
+                <h4>Usulan Masuk Berdasarkan Unit (Pengajuan Surat User)</h4>
+                <div id="usulanMasukLevel1" class="ce-dashboard-grid"></div>
+                <div id="usulanMasukLevel2" style="display:none;">
+                  <button type="button" class="ce-dashboard-back" id="usulanMasukBackBtn">&larr; Kembali ke daftar unit</button>
+                  <div id="usulanMasukLevel2List" class="ce-dashboard-list"></div>
+                </div>
               </div>
             </div>
 
