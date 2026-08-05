@@ -1987,13 +1987,24 @@
                   <em>*Jika Unit, Jabatan, atau Gol lama kosong, sistem otomatis mencocokkan dari database SIMPEG. Jika Gol Baru kosong, sistem otomatis menghitung proyeksi pangkat berikutnya!</em>
                 </div>
 
-                <div class="grid-2 kp-grid" style="margin-bottom:16px;">
+                <div class="grid-3 kp-grid" style="margin-bottom:16px;">
+                  <div class="stack-field">
+                    <label class="kp-label" for="umImportYearTarget">Target Tahun TMT <span style="color:var(--danger);">*</span></label>
+                    <select id="umImportYearTarget" class="field-input" onchange="onSelectImportSheetChange()" style="font-weight:700; border-color:var(--primary); min-height:38px;">
+                      <option value="2026" selected>Tahun 2026</option>
+                      <option value="2027">Tahun 2027</option>
+                      <option value="2028">Tahun 2028</option>
+                      <option value="2025">Tahun 2025</option>
+                      <option value="2024">Tahun 2024</option>
+                      <option value="KEEP_EXACT">Sesuai Isi File (Tanpa Ubah)</option>
+                    </select>
+                  </div>
                   <div class="stack-field">
                     <label class="kp-label">Upload File Excel (.xlsx / .xls)</label>
                     <input type="file" id="umImportFileInput" accept=".xlsx, .xls, .csv" class="field-input" onchange="handleExcelFileUpload(event)" />
                   </div>
                   <div class="stack-field">
-                    <label class="kp-label">Atau Link Google Spreadsheet (Public / Organisasi)</label>
+                    <label class="kp-label">Atau Link Google Spreadsheet</label>
                     <div style="display:flex; gap:8px;">
                       <input type="url" id="umImportSheetUrl" class="field-input" placeholder="https://docs.google.com/spreadsheets/d/..." />
                       <button type="button" class="btn btn-primary kp-small-btn" onclick="handleGoogleSheetUrlFetch()" style="white-space:nowrap;">Ambil Data</button>
@@ -7330,7 +7341,24 @@ function onSelectImportSheetChange() {
       golBaru = hitungProyeksiGolonganBaru(golLama);
     }
 
-    const tmt = idxKet >= 0 ? String(row[idxKet] || '').trim() : 'Oktober 2026';
+    const targetYearInput = document.getElementById('umImportYearTarget') ? document.getElementById('umImportYearTarget').value : '2026';
+    let rawTmt = idxKet >= 0 ? String(row[idxKet] || '').trim() : '';
+    let tmt = rawTmt;
+
+    if (targetYearInput !== 'KEEP_EXACT') {
+      if (rawTmt) {
+        const matchYear = rawTmt.match(/\b(20\d{2})\b/);
+        if (!matchYear) {
+          tmt = `${rawTmt} ${targetYearInput}`;
+        } else {
+          tmt = rawTmt.replace(/\b(20\d{2})\b/, targetYearInput);
+        }
+      } else {
+        tmt = `Oktober ${targetYearInput}`;
+      }
+    } else if (!rawTmt) {
+      tmt = 'Oktober 2026';
+    }
 
     umParsedImportRows.push({
       nama, nip, unit, jabatan, golLama, golBaru, status, tmt
