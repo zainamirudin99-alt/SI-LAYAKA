@@ -1791,8 +1791,8 @@
                   <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                     <label class="kp-label" for="umYearFilterSelect" style="margin:0; font-weight:700;">Filter Tahun TMT:</label>
                     <select id="umYearFilterSelect" class="field-input" onchange="onUmYearFilterChange()" style="width:150px; padding:6px 12px; font-weight:700; border-color:var(--primary); min-height:38px;">
-                      <option value="ALL">Semua Tahun</option>
-                      <option value="2026" selected>Tahun 2026</option>
+                      <option value="ALL" selected>Semua Tahun</option>
+                      <option value="2026">Tahun 2026</option>
                       <option value="2027">Tahun 2027</option>
                       <option value="2028">Tahun 2028</option>
                       <option value="2025">Tahun 2025</option>
@@ -6962,14 +6962,12 @@ function loadUsulanMasukTmtDashboard() {
         });
         const sortedAvailableYears = Array.from(availableYearsSet).sort((a,b) => b.localeCompare(a));
         
-        const currentSelectedVal = yearSelect.value || '2026';
-        let newHtml = '<option value="ALL">Semua Tahun</option>';
+        const currentSelectedVal = yearSelect.value || 'ALL';
+        let newHtml = `<option value="ALL" ${currentSelectedVal === 'ALL' ? 'selected' : ''}>Semua Tahun</option>`;
         if (sortedAvailableYears.length) {
           sortedAvailableYears.forEach(yr => {
             newHtml += `<option value="${yr}" ${yr === currentSelectedVal ? 'selected' : ''}>Tahun ${yr}</option>`;
           });
-        } else {
-          newHtml += '<option value="2026" selected>Tahun 2026</option>';
         }
         yearSelect.innerHTML = newHtml;
       }
