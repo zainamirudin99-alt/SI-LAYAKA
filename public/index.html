@@ -1362,9 +1362,10 @@
   }
   .tmt-table tr:hover { background: rgba(0,0,0,0.02); }
 </style>
-  <!-- Libraries for Word template previewing -->
+  <!-- Libraries for Word template previewing & Excel/Spreadsheet parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.1.15/dist/docx-preview.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="theme-light">
 
@@ -7211,27 +7212,41 @@ function closeUmImportModal() {
   if (modal) modal.style.display = 'none';
 }
 
+function ensureXlsxLoaded(callback) {
+  if (typeof XLSX !== 'undefined') {
+    callback();
+    return;
+  }
+  showToast('info', 'Memuat modul pembaca Spreadsheet (XLSX)...');
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+  script.onload = () => {
+    callback();
+  };
+  script.onerror = () => {
+    showToast('error', 'Gagal memuat pustaka XLSX. Silakan periksa koneksi internet Anda.');
+  };
+  document.head.appendChild(script);
+}
+
 function handleExcelFileUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
 
-  if (typeof XLSX === 'undefined') {
-    showToast('error', 'Library XLSX belum siap. Silakan refresh halaman.');
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = function(evt) {
-    try {
-      const data = new Uint8Array(evt.target.result);
-      umImportWorkbook = XLSX.read(data, { type: 'array' });
-      populateImportSheetSelect(umImportWorkbook.SheetNames);
-      showToast('success', `File Excel berhasil dibaca! Ditemukan ${umImportWorkbook.SheetNames.length} sheet.`);
-    } catch (err) {
-      showToast('error', 'Gagal membaca file Excel: ' + err.message);
-    }
-  };
-  reader.readAsArrayBuffer(file);
+  ensureXlsxLoaded(() => {
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      try {
+        const data = new Uint8Array(evt.target.result);
+        umImportWorkbook = XLSX.read(data, { type: 'array' });
+        populateImportSheetSelect(umImportWorkbook.SheetNames);
+        showToast('success', `File Excel berhasil dibaca! Ditemukan ${umImportWorkbook.SheetNames.length} sheet.`);
+      } catch (err) {
+        showToast('error', 'Gagal membaca file Excel: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
 }
 
 function handleGoogleSheetUrlFetch() {
@@ -7247,24 +7262,26 @@ function handleGoogleSheetUrlFetch() {
     return;
   }
 
-  const id = match[1];
-  const exportUrl = `https://docs.google.com/spreadsheets/d/${id}/export?format=xlsx`;
-  showToast('info', 'Mengambil data dari Google Spreadsheet...');
+  ensureXlsxLoaded(() => {
+    const id = match[1];
+    const exportUrl = `https://docs.google.com/spreadsheets/d/${id}/export?format=xlsx`;
+    showToast('info', 'Mengambil data dari Google Spreadsheet...');
 
-  fetch(exportUrl)
-    .then(res => {
-      if (!res.ok) throw new Error('Gagal mengambil file Google Sheet. Pastikan spreadsheet dapat diakses (Anyone with link / Organisasi).');
-      return res.arrayBuffer();
-    })
-    .then(buf => {
-      const data = new Uint8Array(buf);
-      umImportWorkbook = XLSX.read(data, { type: 'array' });
-      populateImportSheetSelect(umImportWorkbook.SheetNames);
-      showToast('success', `Google Spreadsheet berhasil dibaca! Ditemukan ${umImportWorkbook.SheetNames.length} sheet.`);
-    })
-    .catch(err => {
-      showToast('error', 'Gagal membaca Google Sheet: ' + (err.message || err));
-    });
+    fetch(exportUrl)
+      .then(res => {
+        if (!res.ok) throw new Error('Gagal mengambil file Google Sheet. Pastikan spreadsheet dapat diakses (Anyone with link / Organisasi).');
+        return res.arrayBuffer();
+      })
+      .then(buf => {
+        const data = new Uint8Array(buf);
+        umImportWorkbook = XLSX.read(data, { type: 'array' });
+        populateImportSheetSelect(umImportWorkbook.SheetNames);
+        showToast('success', `Google Spreadsheet berhasil dibaca! Ditemukan ${umImportWorkbook.SheetNames.length} sheet.`);
+      })
+      .catch(err => {
+        showToast('error', 'Gagal membaca Google Sheet: ' + (err.message || err));
+      });
+  });
 }
 
 function populateImportSheetSelect(sheetNames) {
