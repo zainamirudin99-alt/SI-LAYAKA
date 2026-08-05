@@ -2965,7 +2965,6 @@
               <button class="btn btn-outline" id="tabBuatSkUsulSk" onclick="buatSkSwitchTab('usul-sk')" style="font-size:13px;padding:0 20px;font-weight:600;min-width:180px;height:42px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;">📤 Usul SK</button>
               <button class="btn btn-outline" id="tabBuatSkUsulanMasuk" onclick="buatSkSwitchTab('usulan-masuk')" style="font-size:13px;padding:0 20px;font-weight:600;display:none;min-width:180px;height:42px;align-items:center;justify-content:center;box-sizing:border-box;">📥 Usulan Masuk</button>
               <button class="btn btn-primary" id="tabBuatSkBuatSk" onclick="buatSkSwitchTab('buat-sk')" style="font-size:13px;padding:0 20px;font-weight:600;display:none;min-width:180px;height:42px;align-items:center;justify-content:center;box-sizing:border-box;">⚡ Buat SK dan Surat</button>
-              <button class="btn btn-outline" id="tabBuatSkKelolaJenis" onclick="buatSkSwitchTab('kelola-jenis')" style="font-size:13px;padding:0 20px;font-weight:600;display:none;min-width:180px;height:42px;align-items:center;justify-content:center;box-sizing:border-box;">⚙️ Kelola Jenis SK</button>
             </div>
 
             <!-- TAB: USUL SK (user + admin) -->
@@ -3043,12 +3042,18 @@
               <h4 style="margin:0 0 16px 0;color:var(--text-muted);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Buat SK dan Surat</h4>
               <div class="kp-grid">
                 <!-- Step 1: Jenis SK -->
-                <div class="stack-field">
+                <div class="stack-field grid-full">
                   <label class="kp-label">Jenis SK / Surat <span style="color:#ef4444;">*</span></label>
-                  <select id="buatSk_jenisSk" class="field-input" onchange="buatSkJenisChange()">
-                    <option value="">⏳ Memuat jenis surat...</option>
-                  </select>
+                  <div style="display:flex; gap:10px; align-items:center;">
+                    <select id="buatSk_jenisSk" class="field-input" style="flex:1; margin:0;" onchange="buatSkJenisChange()">
+                      <option value="">⏳ Memuat jenis surat...</option>
+                    </select>
+                    <button type="button" class="btn btn-primary" id="btnTambahJenisSk" onclick="bukaModalTambahJenisSurat()" style="white-space:nowrap; padding:0 16px; height:42px; font-weight:600; flex-shrink:0; display:none; align-items:center; gap:6px;">
+                      ➕ Tambah Jenis
+                    </button>
+                  </div>
                 </div>
+
                 <!-- Step 1a: Pilihan Tipe Template (Word vs GDocs) -->
                 <div class="stack-field" id="buatSk_tipeWrap" style="display:none;">
                   <label class="kp-label">Tipe Template <span style="color:#ef4444;">*</span></label>
@@ -11844,15 +11849,14 @@ function buatSkStartTemplatePreload() {
 }
 
 function buatSkSwitchTab(tab) {
-  ['usul-sk','usulan-masuk','buat-sk','kelola-jenis'].forEach(t => {
+  ['usul-sk','usulan-masuk','buat-sk'].forEach(t => {
     const el = document.getElementById('buatSkTab-' + t);
     if (el) el.style.display = t === tab ? '' : 'none';
   });
   const btnMap = {
     'usul-sk':      'tabBuatSkUsulSk',
     'usulan-masuk': 'tabBuatSkUsulanMasuk',
-    'buat-sk':      'tabBuatSkBuatSk',
-    'kelola-jenis': 'tabBuatSkKelolaJenis'
+    'buat-sk':      'tabBuatSkBuatSk'
   };
   Object.entries(btnMap).forEach(([t, id]) => {
     const b = document.getElementById(id);
@@ -11863,7 +11867,6 @@ function buatSkSwitchTab(tab) {
   if (tab === 'usul-sk')      loadUsulanSkSaya();
   if (tab === 'usulan-masuk') loadUsulanSkMasuk();
   if (tab === 'buat-sk')      buatSkStartTemplatePreload();
-  if (tab === 'kelola-jenis') kelolaJenisLoad();
 }
 
 // Panggil saat masuk ke view buat-sk
@@ -11873,11 +11876,11 @@ function onEnterBuatSkView() {
   const tabUS = document.getElementById('tabBuatSkUsulSk');
   const tabUM = document.getElementById('tabBuatSkUsulanMasuk');
   const tabBS = document.getElementById('tabBuatSkBuatSk');
-  const tabKJ = document.getElementById('tabBuatSkKelolaJenis');
   if (tabUS) tabUS.style.display = 'inline-flex';
   if (tabUM) tabUM.style.display = isAdmin ? 'inline-flex' : 'none';
   if (tabBS) tabBS.style.display = isAdmin ? 'inline-flex' : 'none';
-  if (tabKJ) tabKJ.style.display = isAdmin ? 'inline-flex' : 'none';
+  const btnTambah = document.getElementById('btnTambahJenisSk');
+  if (btnTambah) btnTambah.style.display = isAdmin ? 'inline-flex' : 'none';
   _buatSkInitPromise = null; // reset agar fresh load setiap masuk view
   // Load jenis surat untuk user dropdown
   loadJenisSuratUntukUser();
@@ -12072,9 +12075,16 @@ async function simpanJenisSuratModal() {
     if (res.success) {
       showToast('success', res.message || 'Jenis surat berhasil ditambahkan.');
       tutupModalTambahJenisSurat();
-      kelolaJenisLoad();
+      
+      // Reload admin SK dropdown & otomatis pilih jenis yang baru ditambahkan
+      await buatSkLoadJenisSuratAdmin();
+      const selAdmin = document.getElementById('buatSk_jenisSk');
+      if (selAdmin) {
+        selAdmin.value = nama;
+        if (typeof buatSkJenisChange === 'function') buatSkJenisChange();
+      }
+
       loadJenisSuratUntukUser();
-      buatSkLoadJenisSuratAdmin();
       loadTemplateLayananOptions(); // Otomatis mengupdate pilihan Sub-menu di Template Manager!
     } else {
       if (errEl) { errEl.style.display = 'block'; errEl.textContent = '❌ ' + (res.message || 'Gagal menambah.'); }
