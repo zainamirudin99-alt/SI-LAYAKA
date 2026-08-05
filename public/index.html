@@ -7101,12 +7101,12 @@ function renderGroupedTmtTables(list, container) {
       <div class="tmt-year-card">
         <div class="tmt-year-header" onclick="toggleTmtAccordion('${yrBodyId}')" style="cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center;">
           <div style="display:flex; align-items:center; gap:10px;">
-            <span id="${yrBodyId}_icon" style="font-size:14px; color:var(--primary); font-weight:bold;">▲</span>
+            <span id="${yrBodyId}_icon" style="font-size:14px; color:var(--primary); font-weight:bold;">▼</span>
             <span style="font-size:15px; font-weight:700;">🗓️ TMT Tahun ${escapeHtml(yr)}</span>
           </div>
           <span class="cdli-badge" style="background:var(--primary); font-size:12px;">${monthNames.length} Periode TMT</span>
         </div>
-        <div id="${yrBodyId}" class="tmt-year-body" style="display:block;">
+        <div id="${yrBodyId}" class="tmt-year-body" style="display:none;">
     `;
 
     monthNames.forEach((mn, mnIdx) => {
@@ -7117,12 +7117,12 @@ function renderGroupedTmtTables(list, container) {
         <div class="tmt-month-card">
           <div class="tmt-month-title" onclick="toggleTmtAccordion('${mnBodyId}')" style="cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center; padding:4px 0;">
             <div style="display:flex; align-items:center; gap:8px;">
-              <span id="${mnBodyId}_icon" style="font-size:12px; color:var(--primary); font-weight:bold;">▲</span>
+              <span id="${mnBodyId}_icon" style="font-size:12px; color:var(--primary); font-weight:bold;">▼</span>
               <span style="font-size:14px; font-weight:700; color:var(--primary);">📌 TMT ${escapeHtml(mn)}</span>
             </div>
             <span style="font-size:12.5px; font-weight:600; color:var(--text-muted);">(${items.length} usulan)</span>
           </div>
-          <div id="${mnBodyId}" class="tmt-month-body" style="display:block; overflow-x:auto; margin-top:8px;">
+          <div id="${mnBodyId}" class="tmt-month-body" style="display:none; overflow-x:auto; margin-top:8px;">
             <table class="tmt-table">
               <thead>
                 <tr>
