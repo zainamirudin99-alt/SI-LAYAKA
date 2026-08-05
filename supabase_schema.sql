@@ -595,10 +595,16 @@ INSERT INTO jenis_surat (nama, layanan) VALUES
   ('SK Tutam Dekan Wadek', 'Buat SK dan Surat')
 ON CONFLICT (nama) DO NOTHING;
 
+-- Add tampil_di_usulan_user column: admin can toggle jenis surat to appear in user's Usul SK dropdown
+ALTER TABLE jenis_surat ADD COLUMN IF NOT EXISTS tampil_di_usulan_user BOOLEAN DEFAULT FALSE;
+ALTER TABLE jenis_surat ADD COLUMN IF NOT EXISTS urutan INTEGER DEFAULT 0;
+
+-- Set default user-visible items (common proposal types)
+UPDATE jenis_surat SET tampil_di_usulan_user = TRUE WHERE nama IN ('SK Tutam Kadep & Kaprodi', 'SK Tutam Sekprodi', 'Surat PLT', 'Surat PLH');
+
 ALTER TABLE jenis_surat ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='jenis_surat' AND policyname='deny_public_jenis_surat') THEN
     CREATE POLICY "deny_public_jenis_surat" ON jenis_surat FOR ALL TO public USING (false);
   END IF;
 END $$;
-

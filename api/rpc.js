@@ -2638,8 +2638,85 @@ const methods = {
   },
 
   // ================================================================
+  // KELOLA JENIS SURAT (ADMIN)
+  // ================================================================
+
+  /** Ambil semua jenis surat — untuk dropdown admin di Buat SK dan Surat */
+  async getJenisSuratList(args) {
+    const [token] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+    const { data, error } = await db
+      .from('jenis_surat')
+      .select('*')
+      .order('urutan', { ascending: true })
+      .order('dibuat_pada', { ascending: true });
+    if (error) throw error;
+    return { success: true, data: data || [] };
+  },
+
+  /** Ambil jenis surat yang ditampilkan ke user (tampil_di_usulan_user = true) */
+  async getJenisSuratUntukUser(args) {
+    const [token] = extractArgs(args);
+    verifyToken(token); // any logged-in user
+    const db = getDb();
+    const { data, error } = await db
+      .from('jenis_surat')
+      .select('id, nama, layanan')
+      .eq('tampil_di_usulan_user', true)
+      .order('urutan', { ascending: true })
+      .order('dibuat_pada', { ascending: true });
+    if (error) throw error;
+    return { success: true, data: data || [] };
+  },
+
+  /** Admin menambah jenis surat baru */
+  async addJenisSurat(args) {
+    const [token, payload] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+    const { nama, tampil_di_usulan_user } = payload || {};
+    if (!nama || !String(nama).trim()) throw new Error('Nama jenis surat wajib diisi.');
+    const db = getDb();
+    const { data: existing } = await db.from('jenis_surat').select('id').eq('nama', String(nama).trim()).maybeSingle();
+    if (existing) throw new Error(`Jenis surat "${nama}" sudah ada.`);
+    const { error } = await db.from('jenis_surat').insert({
+      nama: String(nama).trim(),
+      layanan: 'Buat SK dan Surat',
+      tampil_di_usulan_user: tampil_di_usulan_user === true || tampil_di_usulan_user === 'true'
+    });
+    if (error) throw error;
+    return { success: true, message: `Jenis surat "${nama}" berhasil ditambahkan.` };
+  },
+
+  /** Admin mengubah toggle tampil_di_usulan_user */
+  async updateJenisSuratToggle(args) {
+    const [token, id, tampil] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+    if (!id) throw new Error('ID jenis surat wajib diisi.');
+    const db = getDb();
+    const { error } = await db
+      .from('jenis_surat')
+      .update({ tampil_di_usulan_user: tampil === true || tampil === 'true' })
+      .eq('id', id);
+    if (error) throw error;
+    return { success: true, message: 'Toggle berhasil diperbarui.' };
+  },
+
+  /** Admin menghapus jenis surat */
+  async deleteJenisSurat(args) {
+    const [token, id] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+    if (!id) throw new Error('ID jenis surat wajib diisi.');
+    const db = getDb();
+    const { error } = await db.from('jenis_surat').delete().eq('id', id);
+    if (error) throw error;
+    return { success: true, message: 'Jenis surat berhasil dihapus.' };
+  },
+
+  // ================================================================
   // BUAT SK — USULAN (USER ROLE)
   // ================================================================
+
 
   /** User mengajukan usulan SK/Surat */
   async ajukanUsulanSk(args) {
@@ -2654,8 +2731,16 @@ const methods = {
     } = payload || {};
 
     if (!nip_target || !String(nip_target).trim()) throw new Error('Target pegawai wajib dipilih.');
-    if (!jenis_proposal || !CONFIG.JENIS_PROPOSAL_SK_LIST.includes(jenis_proposal)) {
-      throw new Error('Jenis proposal tidak valid. Pilih salah satu: ' + CONFIG.JENIS_PROPOSAL_SK_LIST.join(', '));
+    if (!jenis_proposal || !String(jenis_proposal).trim()) throw new Error('Jenis proposal wajib dipilih.');
+
+    // Validasi jenis_proposal terhadap DB (jenis_surat yg tampil_di_usulan_user=true)
+    const db2 = getDb();
+    const { data: validJenis } = await db2.from('jenis_surat').select('nama').eq('tampil_di_usulan_user', true);
+    const validNama = (validJenis || []).map(j => j.nama);
+    // fallback ke CONFIG jika tabel kosong / belum diisi
+    const allValid = validNama.length > 0 ? validNama : CONFIG.JENIS_PROPOSAL_SK_LIST;
+    if (!allValid.includes(jenis_proposal)) {
+      throw new Error('Jenis proposal tidak valid: ' + jenis_proposal + '. Pilih salah satu: ' + allValid.join(', '));
     }
 
     // Validasi Sekprodi: jumlah_mahasiswa harus > 100 (bukan hanya < / <=)
@@ -2665,6 +2750,7 @@ const methods = {
         return { success: false, message: 'Jumlah mahasiswa harus lebih dari 100 untuk dapat mengusulkan Sekprodi.' };
       }
     }
+
 
     const db = getDb();
 
