@@ -1253,10 +1253,114 @@
     }
   }
 
-  /* Enforcement font: Seluruh UI antarmuka sistem secara 100% mutlak dan seragam menggunakan Times New Roman */
-  *, *::before, *::after, body, button, input, select, textarea, table, th, td, h1, h2, h3, h4, h5, h6, p, span, div, a, label {
-    font-family: 'Times New Roman', Times, serif !important;
+  /* -------------------------------------------------------------------
+     USULAN MASUK DASHBOARD & TMT GROUPING STYLES
+     ------------------------------------------------------------------- */
+  .um-dashboard-card {
+    background: var(--surface-alt); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px; box-shadow: var(--shadow);
   }
+  body.theme-dark .um-dashboard-card { border-color: rgba(0,229,255,0.25); box-shadow: 0 0 16px rgba(0,229,255,0.1); }
+
+  .um-dashboard-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .um-dashboard-body {
+    display: grid; grid-template-columns: 240px 1fr; gap: 24px; align-items: center;
+  }
+  @media (max-width: 850px) {
+    .um-dashboard-body { grid-template-columns: 1fr; }
+  }
+
+  .um-chart-container {
+    display: flex; justify-content: center; align-items: center; position: relative;
+    max-width: 240px; margin: 0 auto;
+  }
+
+  .um-stats-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px;
+  }
+
+  .um-stat-card {
+    padding: 14px 16px; border-radius: 12px; background: var(--surface);
+    border: 2px solid var(--border); transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+  }
+  .um-stat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.12); }
+  .um-stat-card .um-stat-value { font-size: 24px; font-weight: 800; margin-bottom: 4px; }
+  .um-stat-card .um-stat-label { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+
+  .um-stat-card.stat-dsdm { border-color: #3b82f6; }
+  .um-stat-card.stat-dsdm .um-stat-value { color: #2563eb; }
+  .um-stat-card.stat-siasn { border-color: #f59e0b; }
+  .um-stat-card.stat-siasn .um-stat-value { color: #d97706; }
+  .um-stat-card.stat-pertek { border-color: #8b5cf6; }
+  .um-stat-card.stat-pertek .um-stat-value { color: #7c3aed; }
+  .um-stat-card.stat-sk { border-color: #10b981; }
+  .um-stat-card.stat-sk .um-stat-value { color: #059669; }
+  .um-stat-card.stat-perbaikan { border-color: #f97316; }
+  .um-stat-card.stat-perbaikan .um-stat-value { color: #ea580c; }
+  .um-stat-card.stat-belumbisa { border-color: #ef4444; }
+  .um-stat-card.stat-belumbisa .um-stat-value { color: #dc2626; }
+  .um-stat-card.stat-pensiun { border-color: #06b6d4; }
+  .um-stat-card.stat-pensiun .um-stat-value { color: #0891b2; }
+  .um-stat-card.stat-total { border-color: var(--primary); }
+  .um-stat-card.stat-total .um-stat-value { color: var(--primary); }
+
+  /* Status Badges */
+  .badge-status {
+    display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .badge-status.dsdm { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+  .badge-status.siasn { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+  .badge-status.pertek { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+  .badge-status.sk { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+  .badge-status.perbaikan { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
+  .badge-status.belumbisa { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+  .badge-status.pensiun { background: #cffafe; color: #0e7490; border: 1px solid #a5f3fc; }
+
+  body.theme-dark .badge-status.dsdm { background: rgba(59,130,246,0.2); color: #60a5fa; border-color: #3b82f6; }
+  body.theme-dark .badge-status.siasn { background: rgba(245,158,11,0.2); color: #fbbf24; border-color: #f59e0b; }
+  body.theme-dark .badge-status.pertek { background: rgba(139,92,246,0.2); color: #c084fc; border-color: #8b5cf6; }
+  body.theme-dark .badge-status.sk { background: rgba(16,185,129,0.2); color: #34d399; border-color: #10b981; }
+  body.theme-dark .badge-status.perbaikan { background: rgba(249,115,22,0.2); color: #fb923c; border-color: #f97316; }
+  body.theme-dark .badge-status.belumbisa { background: rgba(239,68,68,0.2); color: #f87171; border-color: #ef4444; }
+  body.theme-dark .badge-status.pensiun { background: rgba(6,182,212,0.2); color: #22d3ee; border-color: #06b6d4; }
+
+  /* TMT Section Grouping & Accordion */
+  .tmt-year-card {
+    margin-bottom: 20px; border-radius: 14px; border: 1px solid var(--border);
+    background: var(--surface); overflow: hidden; box-shadow: var(--shadow);
+  }
+  .tmt-year-header {
+    padding: 14px 20px; background: var(--surface-alt); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 15px;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .tmt-year-header:hover { background: var(--primary-soft, rgba(0,55,176,0.06)); }
+  .tmt-month-card {
+    margin: 14px 16px 16px; padding: 16px; border-radius: 12px; border: 1px solid var(--border);
+    background: var(--surface-alt);
+  }
+  .tmt-month-title {
+    font-weight: 700; font-size: 14px; color: var(--primary); margin-bottom: 10px;
+    display: flex; align-items: center; justify-content: space-between; cursor: pointer;
+  }
+  .tmt-table {
+    width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px;
+  }
+  .tmt-table th {
+    background: var(--surface); padding: 10px 12px; text-align: left;
+    border-bottom: 2px solid var(--border); font-weight: 700; color: var(--text-muted);
+  }
+  .tmt-table td {
+    padding: 12px; border-bottom: 1px solid var(--border); vertical-align: middle;
+  }
+  .tmt-table tr:hover { background: rgba(0,0,0,0.02); }
 </style>
   <!-- Libraries for Word template previewing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -1683,8 +1787,19 @@
               <!-- Layout Bagian Atas: Pie Chart Dashboard & Statistic Cards -->
               <div class="um-dashboard-card" style="margin-bottom:24px;">
                 <div class="um-dashboard-header">
-                  <h3 style="margin:0; font-size:16px; font-weight:700; color:var(--text-main);">📊 Dashboard Pie Chart Status Usulan Masuk</h3>
-                  <button type="button" class="btn btn-outline kp-small-btn" onclick="loadUsulanMasukTmtDashboard()">🔄 Refresh Data</button>
+                  <h3 style="margin:0; font-size:16px; font-weight:700; color:var(--text-main);">📊 Dashboard Status Usulan Masuk</h3>
+                  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <label class="kp-label" for="umYearFilterSelect" style="margin:0; font-weight:700;">Filter Tahun TMT:</label>
+                    <select id="umYearFilterSelect" class="field-input" onchange="onUmYearFilterChange()" style="width:150px; padding:6px 12px; font-weight:700; border-color:var(--primary); min-height:38px;">
+                      <option value="ALL">Semua Tahun</option>
+                      <option value="2026" selected>Tahun 2026</option>
+                      <option value="2027">Tahun 2027</option>
+                      <option value="2028">Tahun 2028</option>
+                      <option value="2025">Tahun 2025</option>
+                      <option value="2024">Tahun 2024</option>
+                    </select>
+                    <button type="button" class="btn btn-outline kp-small-btn" onclick="loadUsulanMasukTmtDashboard()">🔄 Refresh</button>
+                  </div>
                 </div>
                 
                 <div class="um-dashboard-body">
@@ -6742,8 +6857,6 @@ function parseTmt(tmtStr) {
       const year = matchYear ? matchYear[1] : 'Lainnya';
       return { year, month: `${m} ${year}`, full: str };
     }
-  }
-
   const matchIso = str.match(/^(20\d{2})[-/](\d{1,2})/);
   if (matchIso) {
     const year = matchIso[1];
@@ -6758,6 +6871,180 @@ function parseTmt(tmtStr) {
   }
 
   return { year: 'Lainnya', month: str, full: str };
+}
+
+/* ---------- ACCORDION TOGGLE & YEAR FILTER LOGIC ---------- */
+function toggleTmtAccordion(elementId) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  const isHidden = el.style.display === 'none';
+  el.style.display = isHidden ? 'block' : 'none';
+  
+  const iconEl = document.getElementById(elementId + '_icon');
+  if (iconEl) {
+    iconEl.textContent = isHidden ? '▲' : '▼';
+  }
+}
+
+function onUmYearFilterChange() {
+  loadUsulanMasukTmtDashboard();
+}
+
+let umMasterRawList = [];
+
+function loadUsulanMasukTmtDashboard() {
+  const container = document.getElementById('usulanMasukTmtContainer');
+  if (container) {
+    container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat dashboard dan data usulan TMT...</div>';
+  }
+
+  const inputNama = document.getElementById('umInputNama');
+  const listNama = document.getElementById('umInputNama_list');
+  const hiddenNip = document.getElementById('umInputNip');
+  if (inputNama && listNama && hiddenNip && !inputNama.dataset.acBound) {
+    inputNama.dataset.acBound = 'true';
+    setupAutocompleteEl(inputNama, listNama, hiddenNip, (nip, nama, item) => {
+      const inputUnit = document.getElementById('umInputUnit');
+      const inputJabatan = document.getElementById('umInputJabatan');
+      const inputGolLama = document.getElementById('umInputGolLama');
+      const inputGolBaru = document.getElementById('umInputGolBaru');
+
+      if (item) {
+        const unitVal = item.unit_es_ii || item.unit || '';
+        if (inputUnit && unitVal) inputUnit.value = unitVal;
+
+        const jabVal = item.jabatan || '';
+        if (inputJabatan && jabVal) inputJabatan.value = jabVal;
+
+        const golVal = item.golongan || '';
+        if (inputGolLama && golVal) inputGolLama.value = golVal;
+
+        if (golVal) {
+          const projected = hitungProyeksiGolonganBaru(golVal);
+          if (inputGolBaru) inputGolBaru.value = projected;
+
+          const wrap = document.getElementById('umProyeksiRankWrap');
+          const elLama = document.getElementById('umProyeksiGolLamaText');
+          const elBaru = document.getElementById('umProyeksiGolBaruText');
+          if (wrap && elLama && elBaru) {
+            wrap.style.display = 'block';
+            elLama.textContent = golVal;
+            elBaru.textContent = projected;
+          }
+        }
+      }
+    });
+  }
+
+  loadUsulanMasukBadge();
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res || !res.success) {
+        showToast('error', (res && res.message) || 'Gagal memuat usulan masuk.');
+        if (container) container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Gagal memuat data.</div>';
+        return;
+      }
+
+      const fullList = res.list || [];
+      umMasterRawList = fullList;
+
+      const yearSelect = document.getElementById('umYearFilterSelect');
+      if (yearSelect) {
+        const availableYearsSet = new Set();
+        fullList.forEach(item => {
+          const parsed = parseTmt(item.tmt);
+          if (parsed && parsed.year && parsed.year !== 'Tanpa TMT' && parsed.year !== 'Lainnya') {
+            availableYearsSet.add(parsed.year);
+          }
+        });
+        const sortedAvailableYears = Array.from(availableYearsSet).sort((a,b) => b.localeCompare(a));
+        
+        const currentSelectedVal = yearSelect.value || '2026';
+        let newHtml = '<option value="ALL">Semua Tahun</option>';
+        if (sortedAvailableYears.length) {
+          sortedAvailableYears.forEach(yr => {
+            newHtml += `<option value="${yr}" ${yr === currentSelectedVal ? 'selected' : ''}>Tahun ${yr}</option>`;
+          });
+        } else {
+          newHtml += '<option value="2026" selected>Tahun 2026</option>';
+        }
+        yearSelect.innerHTML = newHtml;
+      }
+
+      const selectedYear = yearSelect ? yearSelect.value : 'ALL';
+      let filteredList = fullList;
+      if (selectedYear !== 'ALL') {
+        filteredList = fullList.filter(item => {
+          const parsed = parseTmt(item.tmt);
+          return String(parsed.year) === String(selectedYear);
+        });
+      }
+
+      window.umGlobalList = filteredList;
+
+      const sc = {
+        'Diterima DSDM': 0,
+        'Diajukan SIASN': 0,
+        'TTD Pertek': 0,
+        'SK Berhasil': 0,
+        'Perbaikan': 0,
+        'Belum Eligible': 0,
+        'Pensiun': 0
+      };
+
+      filteredList.forEach(u => {
+        const st = String(u.status || '').trim();
+        if (st === 'Diterima DSDM') sc['Diterima DSDM']++;
+        else if (st === 'Diajukan SIASN' || st === 'Diajukan ke SIASN') sc['Diajukan SIASN']++;
+        else if (st === 'TTD Pertek') sc['TTD Pertek']++;
+        else if (st === 'SK Berhasil') sc['SK Berhasil']++;
+        else if (st === 'Perbaikan') sc['Perbaikan']++;
+        else if (st === 'Belum Eligible' || st === 'Tidak Eligible') sc['Belum Eligible']++;
+        else if (st === 'Pensiun') sc['Pensiun']++;
+      });
+
+      const dsdm = sc['Diterima DSDM'];
+      const siasn = sc['Diajukan SIASN'];
+      const pertek = sc['TTD Pertek'];
+      const sk = sc['SK Berhasil'];
+      const perbaikan = sc['Perbaikan'];
+      const belumEligible = sc['Belum Eligible'];
+      const pensiun = sc['Pensiun'];
+      const total = filteredList.length;
+
+      const elDsdm = document.getElementById('statCountDSDM');
+      const elSiasn = document.getElementById('statCountSIASN');
+      const elPertek = document.getElementById('statCountPertek');
+      const elSk = document.getElementById('statCountSK');
+      const elPerbaikan = document.getElementById('statCountPerbaikan');
+      const elBelum = document.getElementById('statCountBelumEligible');
+      const elPensiun = document.getElementById('statCountPensiun');
+      const elTotal = document.getElementById('statCountTotal');
+
+      if (elDsdm) elDsdm.textContent = dsdm;
+      if (elSiasn) elSiasn.textContent = siasn;
+      if (elPertek) elPertek.textContent = pertek;
+      if (elSk) elSk.textContent = sk;
+      if (elPerbaikan) elPerbaikan.textContent = perbaikan;
+      if (elBelum) elBelum.textContent = belumEligible;
+      if (elPensiun) elPensiun.textContent = pensiun;
+      if (elTotal) elTotal.textContent = total;
+
+      renderUsulanPieChart(dsdm, siasn, pertek, sk, perbaikan, belumEligible, pensiun);
+
+      if (!filteredList.length) {
+        if (container) container.innerHTML = `<div class="ce-dashboard-card cdc-empty">Belum ada usulan masuk untuk ${selectedYear === 'ALL' ? 'semua periode' : 'Tahun ' + selectedYear}. Silakan gunakan form di atas atau import data.</div>`;
+        return;
+      }
+
+      renderGroupedTmtTables(filteredList, container);
+    })
+    .withFailureHandler(err => {
+      showToast('error', 'Gagal memuat dashboard usulan: ' + (err.message || err));
+      if (container) container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Gagal memuat data dari server.</div>';
+    })
+    .getUsulanMasukTmtGrouped(SESSION.token);
 }
 
 function renderGroupedTmtTables(list, container) {
@@ -6779,27 +7066,37 @@ function renderGroupedTmtTables(list, container) {
   });
 
   let html = '';
-  years.forEach(yr => {
+  years.forEach((yr, yrIdx) => {
     const monthsObj = grouped[yr];
     const monthNames = Object.keys(monthsObj);
+    const yrBodyId = `tmt_yr_body_${yrIdx}`;
     
     html += `
       <div class="tmt-year-card">
-        <div class="tmt-year-header">
-          <span>🗓️ TMT Tahun ${escapeHtml(yr)}</span>
-          <span class="cdli-badge" style="background:var(--primary);">${monthNames.length} Periode TMT</span>
+        <div class="tmt-year-header" onclick="toggleTmtAccordion('${yrBodyId}')" style="cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span id="${yrBodyId}_icon" style="font-size:14px; color:var(--primary); font-weight:bold;">▲</span>
+            <span style="font-size:15px; font-weight:700;">🗓️ TMT Tahun ${escapeHtml(yr)}</span>
+          </div>
+          <span class="cdli-badge" style="background:var(--primary); font-size:12px;">${monthNames.length} Periode TMT</span>
         </div>
+        <div id="${yrBodyId}" class="tmt-year-body" style="display:block;">
     `;
 
-    monthNames.forEach(mn => {
+    monthNames.forEach((mn, mnIdx) => {
       const items = monthsObj[mn] || [];
+      const mnBodyId = `tmt_mn_body_${yrIdx}_${mnIdx}`;
+      
       html += `
         <div class="tmt-month-card">
-          <div class="tmt-month-title">
-            <span>📌 TMT ${escapeHtml(mn)}</span>
-            <span style="font-size:12px; font-weight:600; color:var(--text-muted);">(${items.length} usulan)</span>
+          <div class="tmt-month-title" onclick="toggleTmtAccordion('${mnBodyId}')" style="cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center; padding:4px 0;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span id="${mnBodyId}_icon" style="font-size:12px; color:var(--primary); font-weight:bold;">▲</span>
+              <span style="font-size:14px; font-weight:700; color:var(--primary);">📌 TMT ${escapeHtml(mn)}</span>
+            </div>
+            <span style="font-size:12.5px; font-weight:600; color:var(--text-muted);">(${items.length} usulan)</span>
           </div>
-          <div style="overflow-x:auto;">
+          <div id="${mnBodyId}" class="tmt-month-body" style="display:block; overflow-x:auto; margin-top:8px;">
             <table class="tmt-table">
               <thead>
                 <tr>
@@ -6880,7 +7177,10 @@ function renderGroupedTmtTables(list, container) {
       `;
     });
 
-    html += `</div>`;
+    html += `
+        </div>
+      </div>
+    `;
   });
 
   container.innerHTML = html;
