@@ -3036,7 +3036,7 @@ function setupAutocompleteEl(inputEl, listEl, hiddenNipInput, onSelect) {
               inputEl.value = `${r.nama} (${r.nip})`;
               hiddenNipInput.value = r.nip;
               listEl.style.display = 'none';
-              if (onSelect) onSelect(r.nip, r.nama);
+              if (onSelect) onSelect(r.nip, r.nama, r);
             });
             listEl.appendChild(item);
           });
@@ -3080,7 +3080,7 @@ function setupAutocompleteElCustom(inputEl, listEl, hiddenNipInput, onSelect, se
               inputEl.value = `${r.nama} (${r.nip})`;
               hiddenNipInput.value = r.nip;
               listEl.style.display = 'none';
-              if (onSelect) onSelect(r.nip, r.nama);
+              if (onSelect) onSelect(r.nip, r.nama, r);
             });
             listEl.appendChild(item);
           });
@@ -5522,7 +5522,13 @@ function loadUsulanMasukTmtDashboard() {
   const hiddenNip = document.getElementById('umInputNip');
   if (inputNama && listNama && hiddenNip && !inputNama.dataset.acBound) {
     inputNama.dataset.acBound = 'true';
-    setupAutocompleteEl(inputNama, listNama, hiddenNip);
+    setupAutocompleteEl(inputNama, listNama, hiddenNip, (nip, nama, item) => {
+      const inputUnit = document.getElementById('umInputUnit');
+      if (inputUnit && item) {
+        const unitVal = item.unit_es_ii || item.unit || '';
+        if (unitVal) inputUnit.value = unitVal;
+      }
+    });
   }
 
   loadUsulanMasukBadge();
