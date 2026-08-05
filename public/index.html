@@ -1800,6 +1800,7 @@
                       <option value="2024">Tahun 2024</option>
                     </select>
                     <button type="button" class="btn btn-outline kp-small-btn" onclick="loadUsulanMasukTmtDashboard()">🔄 Refresh</button>
+                    <button type="button" class="btn btn-outline kp-small-btn" style="color:var(--danger); border-color:var(--danger);" onclick="deleteAllUsulanMasukBulk()" title="Hapus seluruh data usulan dari database">🗑️ Hapus Seluruh Data</button>
                   </div>
                 </div>
                 
@@ -2023,9 +2024,12 @@
 
                 <!-- Import Preview Table -->
                 <div id="umImportPreviewWrap" style="display:none; margin-top:16px;">
-                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
                     <h5 style="margin:0; font-size:14px; font-weight:700;">Pratinjau Data Hasil Parse Sheet (<span id="umImportRowCount">0</span> baris)</h5>
-                    <button type="button" class="btn btn-primary" id="umSubmitImportBtn" onclick="submitBulkImportData()">🚀 Import Semua Data Usulan</button>
+                    <div style="display:flex; gap:8px;">
+                      <button type="button" class="btn btn-outline" style="color:var(--danger); border-color:var(--danger);" onclick="clearImportPreviewData()">🗑️ Hapus Hasil Scrape</button>
+                      <button type="button" class="btn btn-primary" id="umSubmitImportBtn" onclick="submitBulkImportData()">🚀 Import Semua Data Usulan</button>
+                    </div>
                   </div>
                   <div style="overflow-x:auto; max-height:350px; border:1px solid var(--border); border-radius:8px;">
                     <table class="tmt-table" id="umImportPreviewTable">
@@ -7442,6 +7446,47 @@ function submitBulkImportData() {
       showToast('error', 'Gagal mengimpor massal: ' + (err.message || err));
     })
     .bulkInsertUsulanMasuk(SESSION.token, umParsedImportRows);
+}
+
+function clearImportPreviewData() {
+  umImportWorkbook = null;
+  umParsedImportRows = [];
+  
+  const fileInput = document.getElementById('umImportFileInput');
+  if (fileInput) fileInput.value = '';
+  
+  const urlInput = document.getElementById('umImportSheetUrl');
+  if (urlInput) urlInput.value = '';
+
+  const sheetWrap = document.getElementById('umSheetSelectWrap');
+  if (sheetWrap) sheetWrap.style.display = 'none';
+
+  const previewWrap = document.getElementById('umImportPreviewWrap');
+  if (previewWrap) previewWrap.style.display = 'none';
+
+  const tbody = document.getElementById('umImportPreviewTbody');
+  if (tbody) tbody.innerHTML = '';
+
+  showToast('info', '🗑️ Data pratinjau import spreadsheet berhasil dibersihkan.');
+}
+
+function deleteAllUsulanMasukBulk() {
+  if (!confirm('Apakah Anda yakin ingin menghapus SELURUH data usulan masuk yang ada pada database? Tindakan ini tidak dapat dibatalkan.')) return;
+
+  showToast('info', 'Menghapus seluruh data usulan...');
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res || !res.success) {
+        showToast('error', (res && res.message) || 'Gagal menghapus data.');
+        return;
+      }
+      showToast('success', 'Seluruh data usulan berhasil dihapus dari database.');
+      loadUsulanMasukTmtDashboard();
+    })
+    .withFailureHandler(err => {
+      showToast('error', 'Gagal menghapus massal: ' + (err.message || err));
+    })
+    .deleteAllUsulanMasuk(SESSION.token);
 }
 
 function handleInputUsulanMasuk(e) {

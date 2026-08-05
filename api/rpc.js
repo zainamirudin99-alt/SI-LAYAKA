@@ -3952,6 +3952,15 @@ const methods = {
     return { success: true, message: 'Usulan berhasil dihapus.' };
   },
 
+  async deleteAllUsulanMasuk(args) {
+    const [token] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+    const { error } = await db.from('usulan_kp').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    if (error) return { success: false, message: 'Gagal menghapus seluruh data usulan: ' + error.message };
+    return { success: true, message: 'Seluruh data usulan berhasil dihapus.' };
+  },
+
   async getUsulanSayaForUser(args) {
     const [token] = extractArgs(args);
     const decoded=requireRole(token,['user','admin','super_admin']);
