@@ -2015,17 +2015,27 @@
                 </div>
 
                 <!-- Multi-Sheet Selector Dropdown -->
-                <div id="umSheetSelectWrap" class="stack-field" style="display:none; margin-bottom:16px; background:var(--surface); padding:12px; border-radius:10px; border:1px solid var(--border);">
-                  <label class="kp-label" for="umSheetSelect">Pilih Sheet (Tab Spreadsheet)</label>
-                  <select id="umSheetSelect" class="field-input" onchange="onSelectImportSheetChange()">
+                <div id="umSheetSelectWrap" class="stack-field" style="display:none; margin-bottom:16px; background:var(--surface); padding:16px; border-radius:12px; border:2px solid var(--primary); box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <label class="kp-label" for="umSheetSelect" style="margin:0; font-weight:800; color:var(--primary); font-size:14px;">
+                      📄 Pilih Sheet (Tab Spreadsheet) Yang Ingin Diimport:
+                    </label>
+                    <span id="umSheetCountBadge" class="cdli-badge" style="background:var(--primary); color:#fff; font-size:12px; font-weight:700;"></span>
+                  </div>
+                  <select id="umSheetSelect" class="field-input" onchange="onSelectImportSheetChange()" style="font-weight:700; font-size:14px; padding:10px 14px; border-color:var(--primary);">
                     <option value="">Pilih Sheet...</option>
                   </select>
+                  <div style="font-size:12px; color:var(--text-muted); margin-top:6px; font-style:italic;">
+                    💡 *Semua sheet (tab) dalam link Google Spreadsheet / Excel terdeteksi otomatis di atas. Klik dropdown untuk beralih sheet yang ingin diimport.
+                  </div>
                 </div>
 
                 <!-- Import Preview Table -->
                 <div id="umImportPreviewWrap" style="display:none; margin-top:16px;">
                   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
-                    <h5 style="margin:0; font-size:14px; font-weight:700;">Pratinjau Data Hasil Parse Sheet (<span id="umImportRowCount">0</span> baris)</h5>
+                    <h5 style="margin:0; font-size:14px; font-weight:700;">
+                      Pratinjau Data Sheet: <span id="umSelectedSheetName" style="color:var(--primary); font-weight:800;">-</span> (<span id="umImportRowCount">0</span> baris)
+                    </h5>
                     <div style="display:flex; gap:8px;">
                       <button type="button" class="btn btn-outline" style="color:var(--danger); border-color:var(--danger);" onclick="clearImportPreviewData()">🗑️ Hapus Hasil Scrape</button>
                       <button type="button" class="btn btn-primary" id="umSubmitImportBtn" onclick="submitBulkImportData()">🚀 Import Semua Data Usulan</button>
@@ -7291,10 +7301,17 @@ function handleGoogleSheetUrlFetch() {
 function populateImportSheetSelect(sheetNames) {
   const wrap = document.getElementById('umSheetSelectWrap');
   const select = document.getElementById('umSheetSelect');
+  const badge = document.getElementById('umSheetCountBadge');
   if (!wrap || !select) return;
 
-  select.innerHTML = sheetNames.map((s, i) => `<option value="${escapeHtml(s)}" ${i === 0 ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('');
+  select.innerHTML = sheetNames.map((s, i) => `<option value="${escapeHtml(s)}" ${i === 0 ? 'selected' : ''}>📌 Sheet: ${escapeHtml(s)}</option>`).join('');
+  if (badge) badge.textContent = `${sheetNames.length} Sheet Ditemukan`;
+
   wrap.style.display = 'block';
+  setTimeout(() => {
+    wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 100);
+
   onSelectImportSheetChange();
 }
 
@@ -7302,6 +7319,12 @@ function onSelectImportSheetChange() {
   if (!umImportWorkbook) return;
   const select = document.getElementById('umSheetSelect');
   const sheetName = select ? select.value : umImportWorkbook.SheetNames[0];
+  
+  const selectedSheetTitleEl = document.getElementById('umSelectedSheetName');
+  if (selectedSheetTitleEl) {
+    selectedSheetTitleEl.textContent = sheetName ? `"${sheetName}"` : '-';
+  }
+
   const worksheet = umImportWorkbook.Sheets[sheetName];
   if (!worksheet) return;
 
