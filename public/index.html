@@ -1789,18 +1789,48 @@
               <div class="um-dashboard-card" style="margin-bottom:24px;">
                 <div class="um-dashboard-header">
                   <h3 style="margin:0; font-size:16px; font-weight:700; color:var(--text-main);">📊 Dashboard Status Usulan Masuk</h3>
-                  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                    <label class="kp-label" for="umYearFilterSelect" style="margin:0; font-weight:700;">Filter Tahun TMT:</label>
-                    <select id="umYearFilterSelect" class="field-input" onchange="onUmYearFilterChange()" style="width:150px; padding:6px 12px; font-weight:700; border-color:var(--primary); min-height:38px;">
-                      <option value="ALL" selected>Semua Tahun</option>
-                      <option value="2026">Tahun 2026</option>
-                      <option value="2027">Tahun 2027</option>
-                      <option value="2028">Tahun 2028</option>
-                      <option value="2025">Tahun 2025</option>
-                      <option value="2024">Tahun 2024</option>
-                    </select>
+                  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:4px;">
+                      <label class="kp-label" for="umYearFilterSelect" style="margin:0; font-weight:700; font-size:12px;">Tahun:</label>
+                      <select id="umYearFilterSelect" class="field-input" onchange="onUmYearFilterChange()" style="padding:4px 8px; font-weight:700; border-color:var(--primary); min-height:34px;">
+                        <option value="ALL" selected>Semua Tahun</option>
+                        <option value="2026">Tahun 2026</option>
+                        <option value="2027">Tahun 2027</option>
+                        <option value="2028">Tahun 2028</option>
+                        <option value="2025">Tahun 2025</option>
+                        <option value="2024">Tahun 2024</option>
+                      </select>
+                    </div>
+
+                    <div style="display:flex; align-items:center; gap:4px;">
+                      <label class="kp-label" for="umJenisFilterSelect" style="margin:0; font-weight:700; font-size:12px;">Jenis:</label>
+                      <select id="umJenisFilterSelect" class="field-input" onchange="onUmYearFilterChange()" style="padding:4px 8px; font-weight:700; border-color:var(--primary); min-height:34px;">
+                        <option value="ALL" selected>Semua Jenis</option>
+                        <option value="Dosen">Dosen</option>
+                        <option value="Tendik">Tendik</option>
+                      </select>
+                    </div>
+
+                    <div style="display:flex; align-items:center; gap:4px;">
+                      <label class="kp-label" for="umStatusKepFilterSelect" style="margin:0; font-weight:700; font-size:12px;">Status Pegawai:</label>
+                      <select id="umStatusKepFilterSelect" class="field-input" onchange="onUmYearFilterChange()" style="padding:4px 8px; font-weight:700; border-color:var(--primary); min-height:34px;">
+                        <option value="ALL" selected>Semua Status</option>
+                        <option value="PNS">PNS</option>
+                        <option value="PPPK">PPPK</option>
+                        <option value="Tetap Non-PNS">Tetap Non-PNS</option>
+                        <option value="Kontrak">Kontrak</option>
+                      </select>
+                    </div>
+
+                    <div style="display:flex; align-items:center; gap:4px;">
+                      <label class="kp-label" for="umUnitFilterSelect" style="margin:0; font-weight:700; font-size:12px;">Unit:</label>
+                      <select id="umUnitFilterSelect" class="field-input" onchange="onUmYearFilterChange()" style="padding:4px 8px; font-weight:700; border-color:var(--primary); min-height:34px; max-width:180px;">
+                        <option value="ALL" selected>Semua Unit</option>
+                      </select>
+                    </div>
+
                     <button type="button" class="btn btn-outline kp-small-btn" onclick="loadUsulanMasukTmtDashboard()">🔄 Refresh</button>
-                    <button type="button" class="btn btn-outline kp-small-btn" style="color:var(--danger); border-color:var(--danger);" onclick="deleteAllUsulanMasukBulk()" title="Hapus seluruh data usulan dari database">🗑️ Hapus Seluruh Data</button>
+                    <button type="button" class="btn btn-outline kp-small-btn" style="color:var(--danger); border-color:var(--danger);" onclick="deleteAllUsulanMasukBulk()" title="Hapus seluruh data usulan dari database">🗑️ Hapus Data</button>
                   </div>
                 </div>
                 
@@ -1963,10 +1993,26 @@
                       </div>
                     </div>
                     <div class="stack-field">
+                      <label class="kp-label" for="umInputJenisPegawai">Jenis Pegawai <span style="color:red;">*</span></label>
+                      <select id="umInputJenisPegawai" class="field-input" required>
+                        <option value="Dosen">Dosen</option>
+                        <option value="Tendik" selected>Tendik (Tenaga Kependidikan)</option>
+                      </select>
+                    </div>
+                    <div class="stack-field">
+                      <label class="kp-label" for="umInputStatusKepegawaian">Status Kepegawaian <span style="color:red;">*</span></label>
+                      <select id="umInputStatusKepegawaian" class="field-input" required>
+                        <option value="PNS" selected>PNS</option>
+                        <option value="PPPK">PPPK</option>
+                        <option value="Tetap Non-PNS">Tetap Non-PNS</option>
+                        <option value="Kontrak">Kontrak</option>
+                      </select>
+                    </div>
+                    <div class="stack-field">
                       <label class="kp-label" for="umInputUnit">Unit / Fakultas (Opsional)</label>
                       <input type="text" id="umInputUnit" class="field-input" placeholder="Contoh: Fakultas Ekonomi &amp; Bisnis..." />
                     </div>
-                    <div class="stack-field" style="grid-column:1/-1;">
+                    <div class="stack-field">
                       <label class="kp-label" for="umInputJabatan">Jabatan (Opsional)</label>
                       <input type="text" id="umInputJabatan" class="field-input" placeholder="Contoh: Lektor / Dosen / Pengelola..." />
                     </div>
@@ -2001,6 +2047,27 @@
                       <option value="KEEP_EXACT">Sesuai Isi File (Tanpa Ubah)</option>
                     </select>
                   </div>
+                  <div class="stack-field">
+                    <label class="kp-label" for="umImportJenisTarget">Jenis Pegawai Import</label>
+                    <select id="umImportJenisTarget" class="field-input" onchange="onSelectImportSheetChange()" style="font-weight:600; min-height:38px;">
+                      <option value="AUTO" selected>Auto-Detect / Sesuai File</option>
+                      <option value="Dosen">Dosen</option>
+                      <option value="Tendik">Tendik</option>
+                    </select>
+                  </div>
+                  <div class="stack-field">
+                    <label class="kp-label" for="umImportStatusKepTarget">Status Kepegawaian Import</label>
+                    <select id="umImportStatusKepTarget" class="field-input" onchange="onSelectImportSheetChange()" style="font-weight:600; min-height:38px;">
+                      <option value="AUTO" selected>Auto-Detect / Sesuai File</option>
+                      <option value="PNS">PNS</option>
+                      <option value="PPPK">PPPK</option>
+                      <option value="Tetap Non-PNS">Tetap Non-PNS</option>
+                      <option value="Kontrak">Kontrak</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="grid-2 kp-grid" style="margin-bottom:16px;">
                   <div class="stack-field">
                     <label class="kp-label">Upload File Excel (.xlsx / .xls)</label>
                     <input type="file" id="umImportFileInput" accept=".xlsx, .xls, .csv" class="field-input" onchange="handleExcelFileUpload(event)" />
@@ -2062,11 +2129,13 @@
                 </div>
               </div>
 
-              <!-- Display Grouped Table by TMT (Tahun & Bulan) -->
-              <div style="margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
-                <h3 style="margin:0; font-size:16px; font-weight:700; color:var(--text-main);">📅 Daftar Usulan Masuk (Dikelompokkan Berdasarkan TMT)</h3>
-                <div style="display:flex; gap:8px;">
-                  <button type="button" class="btn btn-outline kp-small-btn" onclick="toggleUsulanUnitView()">Toggle View per Unit</button>
+              <!-- Display Grouped Table by TMT, Unit, or Jenis/Status -->
+              <div style="margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <h3 style="margin:0; font-size:16px; font-weight:700; color:var(--text-main);" id="umGroupHeadingText">📅 Daftar Usulan Masuk (Dikelompokkan Berdasarkan TMT)</h3>
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                  <button type="button" id="umGroupBtnTmt" class="btn btn-primary kp-small-btn" onclick="setUsulanGroupMode('by_tmt')">📅 Per TMT</button>
+                  <button type="button" id="umGroupBtnUnit" class="btn btn-outline kp-small-btn" onclick="setUsulanGroupMode('by_unit')">🏢 Per Unit / Fakultas</button>
+                  <button type="button" id="umGroupBtnJenis" class="btn btn-outline kp-small-btn" onclick="setUsulanGroupMode('by_jenis_status')">👥 Per Jenis &amp; Status</button>
                 </div>
               </div>
 
@@ -6919,6 +6988,129 @@ function onUmYearFilterChange() {
 }
 
 let umMasterRawList = [];
+let umCurrentGroupMode = 'by_tmt';
+
+function setUsulanGroupMode(mode) {
+  umCurrentGroupMode = mode;
+  const btnTmt = document.getElementById('umGroupBtnTmt');
+  const btnUnit = document.getElementById('umGroupBtnUnit');
+  const btnJenis = document.getElementById('umGroupBtnJenis');
+  const headingText = document.getElementById('umGroupHeadingText');
+
+  if (btnTmt) btnTmt.className = mode === 'by_tmt' ? 'btn btn-primary kp-small-btn' : 'btn btn-outline kp-small-btn';
+  if (btnUnit) btnUnit.className = mode === 'by_unit' ? 'btn btn-primary kp-small-btn' : 'btn btn-outline kp-small-btn';
+  if (btnJenis) btnJenis.className = mode === 'by_jenis_status' ? 'btn btn-primary kp-small-btn' : 'btn btn-outline kp-small-btn';
+
+  if (headingText) {
+    if (mode === 'by_unit') headingText.textContent = '🏢 Daftar Usulan Masuk (Dikelompokkan Berdasarkan Unit / Fakultas)';
+    else if (mode === 'by_jenis_status') headingText.textContent = '👥 Daftar Usulan Masuk (Dikelompokkan Berdasarkan Jenis & Status Pegawai)';
+    else headingText.textContent = '📅 Daftar Usulan Masuk (Dikelompokkan Berdasarkan TMT)';
+  }
+
+  const container = document.getElementById('usulanMasukTmtContainer');
+  if (container && window.umGlobalList) {
+    renderGroupedTmtTables(window.umGlobalList, container, umCurrentGroupMode);
+  }
+}
+
+function onUmYearFilterChange() {
+  if (!umMasterRawList) return;
+
+  const yearSelect = document.getElementById('umYearFilterSelect');
+  const jenisSelect = document.getElementById('umJenisFilterSelect');
+  const statusKepSelect = document.getElementById('umStatusKepFilterSelect');
+  const unitSelect = document.getElementById('umUnitFilterSelect');
+
+  const selYear = yearSelect ? yearSelect.value : 'ALL';
+  const selJenis = jenisSelect ? jenisSelect.value : 'ALL';
+  const selStatusKep = statusKepSelect ? statusKepSelect.value : 'ALL';
+  const selUnit = unitSelect ? unitSelect.value : 'ALL';
+
+  let filteredList = umMasterRawList;
+
+  if (selYear !== 'ALL') {
+    filteredList = filteredList.filter(item => {
+      const parsed = parseTmt(item.tmt);
+      return String(parsed.year) === String(selYear);
+    });
+  }
+
+  if (selJenis !== 'ALL') {
+    filteredList = filteredList.filter(item => {
+      const j = String(item.jenis_pegawai || item.jenisPegawai || 'Tendik').trim().toLowerCase();
+      return j === selJenis.toLowerCase();
+    });
+  }
+
+  if (selStatusKep !== 'ALL') {
+    filteredList = filteredList.filter(item => {
+      const sk = String(item.status_kepegawaian || item.statusKepegawaian || 'PNS').trim().toLowerCase();
+      return sk === selStatusKep.toLowerCase();
+    });
+  }
+
+  if (selUnit !== 'ALL') {
+    filteredList = filteredList.filter(item => {
+      const u = String(item.unit || '').trim().toLowerCase();
+      return u === selUnit.toLowerCase();
+    });
+  }
+
+  window.umGlobalList = filteredList;
+
+  const sc = {
+    'Diterima DSDM': 0, 'Diajukan SIASN': 0, 'TTD Pertek': 0,
+    'SK Berhasil': 0, 'Perbaikan': 0, 'Belum Eligible': 0, 'Pensiun': 0
+  };
+
+  filteredList.forEach(u => {
+    const st = String(u.status || '').trim();
+    if (st === 'Diterima DSDM') sc['Diterima DSDM']++;
+    else if (st === 'Diajukan SIASN' || st === 'Diajukan ke SIASN') sc['Diajukan SIASN']++;
+    else if (st === 'TTD Pertek') sc['TTD Pertek']++;
+    else if (st === 'SK Berhasil') sc['SK Berhasil']++;
+    else if (st === 'Perbaikan') sc['Perbaikan']++;
+    else if (st === 'Belum Eligible' || st === 'Tidak Eligible') sc['Belum Eligible']++;
+    else if (st === 'Pensiun') sc['Pensiun']++;
+  });
+
+  const dsdm = sc['Diterima DSDM'];
+  const siasn = sc['Diajukan SIASN'];
+  const pertek = sc['TTD Pertek'];
+  const sk = sc['SK Berhasil'];
+  const perbaikan = sc['Perbaikan'];
+  const belumEligible = sc['Belum Eligible'];
+  const pensiun = sc['Pensiun'];
+  const total = filteredList.length;
+
+  const elDsdm = document.getElementById('statCountDSDM');
+  const elSiasn = document.getElementById('statCountSIASN');
+  const elPertek = document.getElementById('statCountPertek');
+  const elSk = document.getElementById('statCountSK');
+  const elPerbaikan = document.getElementById('statCountPerbaikan');
+  const elBelum = document.getElementById('statCountBelumEligible');
+  const elPensiun = document.getElementById('statCountPensiun');
+  const elTotal = document.getElementById('statCountTotal');
+
+  if (elDsdm) elDsdm.textContent = dsdm;
+  if (elSiasn) elSiasn.textContent = siasn;
+  if (elPertek) elPertek.textContent = pertek;
+  if (elSk) elSk.textContent = sk;
+  if (elPerbaikan) elPerbaikan.textContent = perbaikan;
+  if (elBelum) elBelum.textContent = belumEligible;
+  if (elPensiun) elPensiun.textContent = pensiun;
+  if (elTotal) elTotal.textContent = total;
+
+  renderUsulanPieChart(dsdm, siasn, pertek, sk, perbaikan, belumEligible, pensiun);
+
+  const container = document.getElementById('usulanMasukTmtContainer');
+  if (!filteredList.length) {
+    if (container) container.innerHTML = `<div class="ce-dashboard-card cdc-empty">Belum ada usulan masuk untuk kriteria filter yang dipilih. Silakan sesuaikan filter di atas.</div>`;
+    return;
+  }
+
+  if (container) renderGroupedTmtTables(filteredList, container, umCurrentGroupMode);
+}
 
 function loadUsulanMasukTmtDashboard() {
   const container = document.getElementById('usulanMasukTmtContainer');
@@ -6977,6 +7169,7 @@ function loadUsulanMasukTmtDashboard() {
       const fullList = res.list || [];
       umMasterRawList = fullList;
 
+      // Populate Year Select Options
       const yearSelect = document.getElementById('umYearFilterSelect');
       if (yearSelect) {
         const availableYearsSet = new Set();
@@ -6998,73 +7191,25 @@ function loadUsulanMasukTmtDashboard() {
         yearSelect.innerHTML = newHtml;
       }
 
-      const selectedYear = yearSelect ? yearSelect.value : 'ALL';
-      let filteredList = fullList;
-      if (selectedYear !== 'ALL') {
-        filteredList = fullList.filter(item => {
-          const parsed = parseTmt(item.tmt);
-          return String(parsed.year) === String(selectedYear);
+      // Populate Unit Select Options
+      const unitSelect = document.getElementById('umUnitFilterSelect');
+      if (unitSelect) {
+        const unitsSet = new Set();
+        fullList.forEach(item => {
+          if (item.unit && item.unit.trim()) {
+            unitsSet.add(item.unit.trim());
+          }
         });
+        const sortedUnits = Array.from(unitsSet).sort();
+        const currentUnitVal = unitSelect.value || 'ALL';
+        let unitHtml = `<option value="ALL" ${currentUnitVal === 'ALL' ? 'selected' : ''}>Semua Unit</option>`;
+        sortedUnits.forEach(u => {
+          unitHtml += `<option value="${escapeHtml(u)}" ${u === currentUnitVal ? 'selected' : ''}>${escapeHtml(u)}</option>`;
+        });
+        unitSelect.innerHTML = unitHtml;
       }
 
-      window.umGlobalList = filteredList;
-
-      const sc = {
-        'Diterima DSDM': 0,
-        'Diajukan SIASN': 0,
-        'TTD Pertek': 0,
-        'SK Berhasil': 0,
-        'Perbaikan': 0,
-        'Belum Eligible': 0,
-        'Pensiun': 0
-      };
-
-      filteredList.forEach(u => {
-        const st = String(u.status || '').trim();
-        if (st === 'Diterima DSDM') sc['Diterima DSDM']++;
-        else if (st === 'Diajukan SIASN' || st === 'Diajukan ke SIASN') sc['Diajukan SIASN']++;
-        else if (st === 'TTD Pertek') sc['TTD Pertek']++;
-        else if (st === 'SK Berhasil') sc['SK Berhasil']++;
-        else if (st === 'Perbaikan') sc['Perbaikan']++;
-        else if (st === 'Belum Eligible' || st === 'Tidak Eligible') sc['Belum Eligible']++;
-        else if (st === 'Pensiun') sc['Pensiun']++;
-      });
-
-      const dsdm = sc['Diterima DSDM'];
-      const siasn = sc['Diajukan SIASN'];
-      const pertek = sc['TTD Pertek'];
-      const sk = sc['SK Berhasil'];
-      const perbaikan = sc['Perbaikan'];
-      const belumEligible = sc['Belum Eligible'];
-      const pensiun = sc['Pensiun'];
-      const total = filteredList.length;
-
-      const elDsdm = document.getElementById('statCountDSDM');
-      const elSiasn = document.getElementById('statCountSIASN');
-      const elPertek = document.getElementById('statCountPertek');
-      const elSk = document.getElementById('statCountSK');
-      const elPerbaikan = document.getElementById('statCountPerbaikan');
-      const elBelum = document.getElementById('statCountBelumEligible');
-      const elPensiun = document.getElementById('statCountPensiun');
-      const elTotal = document.getElementById('statCountTotal');
-
-      if (elDsdm) elDsdm.textContent = dsdm;
-      if (elSiasn) elSiasn.textContent = siasn;
-      if (elPertek) elPertek.textContent = pertek;
-      if (elSk) elSk.textContent = sk;
-      if (elPerbaikan) elPerbaikan.textContent = perbaikan;
-      if (elBelum) elBelum.textContent = belumEligible;
-      if (elPensiun) elPensiun.textContent = pensiun;
-      if (elTotal) elTotal.textContent = total;
-
-      renderUsulanPieChart(dsdm, siasn, pertek, sk, perbaikan, belumEligible, pensiun);
-
-      if (!filteredList.length) {
-        if (container) container.innerHTML = `<div class="ce-dashboard-card cdc-empty">Belum ada usulan masuk untuk ${selectedYear === 'ALL' ? 'semua periode' : 'Tahun ' + selectedYear}. Silakan gunakan form di atas atau import data.</div>`;
-        return;
-      }
-
-      renderGroupedTmtTables(filteredList, container);
+      onUmYearFilterChange();
     })
     .withFailureHandler(err => {
       showToast('error', 'Gagal memuat dashboard usulan: ' + (err.message || err));
@@ -7073,143 +7218,225 @@ function loadUsulanMasukTmtDashboard() {
     .getUsulanMasukTmtGrouped(SESSION.token);
 }
 
-function renderGroupedTmtTables(list, container) {
-  const grouped = {};
-
-  list.forEach(item => {
-    const parsed = parseTmt(item.tmt);
-    const yr = parsed.year;
-    const mn = parsed.month;
-    if (!grouped[yr]) grouped[yr] = {};
-    if (!grouped[yr][mn]) grouped[yr][mn] = [];
-    grouped[yr][mn].push(item);
-  });
-
-  const years = Object.keys(grouped).sort((a, b) => {
-    if (a === 'Tanpa TMT' || a === 'Lainnya') return 1;
-    if (b === 'Tanpa TMT' || b === 'Lainnya') return -1;
-    return b.localeCompare(a);
-  });
+function renderGroupedTmtTables(list, container, mode = 'by_tmt') {
+  if (!list || !list.length) {
+    container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada data usulan untuk ditampilkan.</div>';
+    return;
+  }
 
   let html = '';
-  years.forEach((yr, yrIdx) => {
-    const monthsObj = grouped[yr];
-    const monthNames = Object.keys(monthsObj);
-    const yrBodyId = `tmt_yr_body_${yrIdx}`;
-    
-    html += `
-      <div class="tmt-year-card">
-        <div class="tmt-year-header" onclick="toggleTmtAccordion('${yrBodyId}')" style="cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center;">
-          <div style="display:flex; align-items:center; gap:10px;">
-            <span id="${yrBodyId}_icon" style="font-size:14px; color:var(--primary); font-weight:bold;">▼</span>
-            <span style="font-size:15px; font-weight:700;">🗓️ TMT Tahun ${escapeHtml(yr)}</span>
-          </div>
-          <span class="cdli-badge" style="background:var(--primary); font-size:12px;">${monthNames.length} Periode TMT</span>
-        </div>
-        <div id="${yrBodyId}" class="tmt-year-body" style="display:none;">
-    `;
 
-    monthNames.forEach((mn, mnIdx) => {
-      const items = monthsObj[mn] || [];
-      const mnBodyId = `tmt_mn_body_${yrIdx}_${mnIdx}`;
-      
+  if (mode === 'by_unit') {
+    const groupedByUnit = {};
+    list.forEach(item => {
+      const u = item.unit || 'Lainnya / Tanpa Unit';
+      if (!groupedByUnit[u]) groupedByUnit[u] = [];
+      groupedByUnit[u].push(item);
+    });
+
+    const units = Object.keys(groupedByUnit).sort();
+
+    units.forEach((uName, uIdx) => {
+      const items = groupedByUnit[uName];
+      const uBodyId = `tmt_unit_body_${uIdx}`;
+
       html += `
-        <div class="tmt-month-card">
-          <div class="tmt-month-title" onclick="toggleTmtAccordion('${mnBodyId}')" style="cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center; padding:4px 0;">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <span id="${mnBodyId}_icon" style="font-size:12px; color:var(--primary); font-weight:bold;">▼</span>
-              <span style="font-size:14px; font-weight:700; color:var(--primary);">📌 TMT ${escapeHtml(mn)}</span>
+        <div class="tmt-year-card">
+          <div class="tmt-year-header" onclick="toggleTmtAccordion('${uBodyId}')" style="cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span id="${uBodyId}_icon" style="font-size:14px; color:var(--primary); font-weight:bold;">▼</span>
+              <span style="font-size:15px; font-weight:700;">🏢 ${escapeHtml(uName)}</span>
             </div>
-            <span style="font-size:12.5px; font-weight:600; color:var(--text-muted);">(${items.length} usulan)</span>
+            <span class="cdli-badge" style="background:var(--primary); font-size:12px;">${items.length} Usulan</span>
           </div>
-          <div id="${mnBodyId}" class="tmt-month-body" style="display:none; overflow-x:auto; margin-top:8px;">
-            <table class="tmt-table">
-              <thead>
-                <tr>
-                  <th style="width:40px;">No</th>
-                  <th>Nama Pegawai</th>
-                  <th>NIP / Unit / Jabatan</th>
-                  <th>Proyeksi Pangkat/Golongan</th>
-                  <th>TMT</th>
-                  <th>Status Saat Ini</th>
-                  <th>Ubah Status</th>
-                  <th style="width:70px; text-align:center;">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-      `;
-
-      items.forEach((u, idx) => {
-        const currentStatus = String(u.status || 'Diterima DSDM').trim();
-        let badgeClass = 'dsdm';
-        if (currentStatus === 'Diajukan SIASN' || currentStatus === 'Diajukan ke SIASN') badgeClass = 'siasn';
-        else if (currentStatus === 'TTD Pertek') badgeClass = 'pertek';
-        else if (currentStatus === 'SK Berhasil') badgeClass = 'sk';
-        else if (currentStatus === 'Perbaikan') badgeClass = 'perbaikan';
-        else if (currentStatus === 'Belum Eligible' || currentStatus === 'Tidak Eligible') badgeClass = 'belumbisa';
-        else if (currentStatus === 'Pensiun') badgeClass = 'pensiun';
-
-        const golLamaStr = u.golongan_lama || u.golLama || '-';
-        const golBaruStr = u.golongan_baru || u.golBaru || (u.golongan_lama ? hitungProyeksiGolonganBaru(u.golongan_lama) : '-');
-
-        html += `
-          <tr>
-            <td>${idx + 1}</td>
-            <td>
-              <strong style="font-size:14px;">${escapeHtml(u.nama)}</strong>
-              ${u.nama_pengaju ? `<div style="font-size:11.5px; color:var(--text-muted);">Diajukan oleh: ${escapeHtml(u.nama_pengaju)}</div>` : ''}
-            </td>
-            <td>
-              <div>${u.nip ? `NIP ${escapeHtml(u.nip)}` : '<span style="color:var(--text-muted); font-style:italic;">-</span>'}</div>
-              <div style="font-size:11.5px; color:var(--text-muted);">${escapeHtml(u.unit || '-')}</div>
-              ${u.jabatan ? `<div style="font-size:11px; color:var(--text-muted); font-style:italic;">${escapeHtml(u.jabatan)}</div>` : ''}
-            </td>
-            <td>
-              <div style="display:flex; align-items:center; gap:6px;">
-                <span class="cdli-badge" style="background:var(--surface-alt); color:var(--text-main); border:1px solid var(--border);">${escapeHtml(golLamaStr)}</span>
-                <span style="font-weight:800; color:#059669;">➔</span>
-                <span class="cdli-badge" style="background:rgba(16,185,129,0.15); color:#059669; border:1px solid #10b981;">${escapeHtml(golBaruStr)}</span>
-              </div>
-            </td>
-            <td>
-              <strong>${escapeHtml(u.tmt || mn)}</strong>
-            </td>
-            <td>
-              <span class="badge-status ${badgeClass}">${escapeHtml(currentStatus)}</span>
-            </td>
-            <td>
-              <select class="status-select" onchange="updateUsulanStatusInline('${u.id}', this.value)">
-                <option value="Diterima DSDM" ${currentStatus === 'Diterima DSDM' ? 'selected' : ''}>Diterima DSDM</option>
-                <option value="Diajukan SIASN" ${currentStatus === 'Diajukan SIASN' || currentStatus === 'Diajukan ke SIASN' ? 'selected' : ''}>Diajukan SIASN</option>
-                <option value="TTD Pertek" ${currentStatus === 'TTD Pertek' ? 'selected' : ''}>TTD Pertek</option>
-                <option value="SK Berhasil" ${currentStatus === 'SK Berhasil' ? 'selected' : ''}>SK Berhasil</option>
-                <option value="Perbaikan" ${currentStatus === 'Perbaikan' ? 'selected' : ''}>Perbaikan</option>
-                <option value="Belum Eligible" ${currentStatus === 'Belum Eligible' || currentStatus === 'Tidak Eligible' ? 'selected' : ''}>Belum Eligible</option>
-                <option value="Pensiun" ${currentStatus === 'Pensiun' ? 'selected' : ''}>Pensiun</option>
-              </select>
-            </td>
-            <td style="text-align:center;">
-              <button type="button" class="btn btn-outline kp-small-btn" onclick="deleteUsulanMasukInline('${u.id}')" style="color:var(--danger); border-color:var(--danger); padding:3px 8px;" title="Hapus Usulan">🗑️</button>
-            </td>
-          </tr>
-        `;
-      });
-
-      html += `
-              </tbody>
-            </table>
+          <div id="${uBodyId}" class="tmt-year-body" style="display:none; overflow-x:auto; margin-top:8px;">
+            ${buildUsulanTableHtml(items)}
           </div>
         </div>
       `;
     });
+  } else if (mode === 'by_jenis_status') {
+    const groupedByJenis = {};
+    list.forEach(item => {
+      const j = item.jenis_pegawai || item.jenisPegawai || 'Tendik';
+      const sk = item.status_kepegawaian || item.statusKepegawaian || 'PNS';
+      const key = `${j} - ${sk}`;
+      if (!groupedByJenis[key]) groupedByJenis[key] = [];
+      groupedByJenis[key].push(item);
+    });
 
-    html += `
+    const keys = Object.keys(groupedByJenis).sort();
+
+    keys.forEach((keyName, kIdx) => {
+      const items = groupedByJenis[keyName];
+      const kBodyId = `tmt_jenis_body_${kIdx}`;
+
+      html += `
+        <div class="tmt-year-card">
+          <div class="tmt-year-header" onclick="toggleTmtAccordion('${kBodyId}')" style="cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span id="${kBodyId}_icon" style="font-size:14px; color:var(--primary); font-weight:bold;">▼</span>
+              <span style="font-size:15px; font-weight:700;">👥 Kelompok Pegawai: ${escapeHtml(keyName)}</span>
+            </div>
+            <span class="cdli-badge" style="background:var(--primary); font-size:12px;">${items.length} Usulan</span>
+          </div>
+          <div id="${kBodyId}" class="tmt-year-body" style="display:none; overflow-x:auto; margin-top:8px;">
+            ${buildUsulanTableHtml(items)}
+          </div>
         </div>
-      </div>
-    `;
-  });
+      `;
+    });
+  } else {
+    // Mode by_tmt (Default: Year -> Month)
+    const grouped = {};
+
+    list.forEach(item => {
+      const parsed = parseTmt(item.tmt);
+      const yr = parsed.year;
+      const mn = parsed.month;
+      if (!grouped[yr]) grouped[yr] = {};
+      if (!grouped[yr][mn]) grouped[yr][mn] = [];
+      grouped[yr][mn].push(item);
+    });
+
+    const years = Object.keys(grouped).sort((a, b) => {
+      if (a === 'Tanpa TMT' || a === 'Lainnya') return 1;
+      if (b === 'Tanpa TMT' || b === 'Lainnya') return -1;
+      return b.localeCompare(a);
+    });
+
+    years.forEach((yr, yrIdx) => {
+      const monthsObj = grouped[yr];
+      const monthNames = Object.keys(monthsObj);
+      const yrBodyId = `tmt_yr_body_${yrIdx}`;
+      
+      html += `
+        <div class="tmt-year-card">
+          <div class="tmt-year-header" onclick="toggleTmtAccordion('${yrBodyId}')" style="cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span id="${yrBodyId}_icon" style="font-size:14px; color:var(--primary); font-weight:bold;">▼</span>
+              <span style="font-size:15px; font-weight:700;">🗓️ TMT Tahun ${escapeHtml(yr)}</span>
+            </div>
+            <span class="cdli-badge" style="background:var(--primary); font-size:12px;">${monthNames.length} Periode TMT</span>
+          </div>
+          <div id="${yrBodyId}" class="tmt-year-body" style="display:none;">
+      `;
+
+      monthNames.forEach((mn, mnIdx) => {
+        const items = monthsObj[mn] || [];
+        const mnBodyId = `tmt_mn_body_${yrIdx}_${mnIdx}`;
+        
+        html += `
+          <div class="tmt-month-card">
+            <div class="tmt-month-title" onclick="toggleTmtAccordion('${mnBodyId}')" style="cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center; padding:4px 0;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span id="${mnBodyId}_icon" style="font-size:12px; color:var(--primary); font-weight:bold;">▼</span>
+                <span style="font-size:14px; font-weight:700; color:var(--primary);">📌 TMT ${escapeHtml(mn)}</span>
+              </div>
+              <span style="font-size:12.5px; font-weight:600; color:var(--text-muted);">(${items.length} usulan)</span>
+            </div>
+            <div id="${mnBodyId}" class="tmt-month-body" style="display:none; overflow-x:auto; margin-top:8px;">
+              ${buildUsulanTableHtml(items)}
+            </div>
+          </div>
+        `;
+      });
+
+      html += `
+          </div>
+        </div>
+      `;
+    });
+  }
 
   container.innerHTML = html;
+}
+
+function buildUsulanTableHtml(items) {
+  if (!items || !items.length) return '<div style="padding:12px; font-style:italic;">Tidak ada data usulan.</div>';
+
+  let rowsHtml = items.map((u, idx) => {
+    const currentStatus = String(u.status || 'Diterima DSDM').trim();
+    let badgeClass = 'dsdm';
+    if (currentStatus === 'Diajukan SIASN' || currentStatus === 'Diajukan ke SIASN') badgeClass = 'siasn';
+    else if (currentStatus === 'TTD Pertek') badgeClass = 'pertek';
+    else if (currentStatus === 'SK Berhasil') badgeClass = 'sk';
+    else if (currentStatus === 'Perbaikan') badgeClass = 'perbaikan';
+    else if (currentStatus === 'Belum Eligible' || currentStatus === 'Tidak Eligible') badgeClass = 'belumbisa';
+    else if (currentStatus === 'Pensiun') badgeClass = 'pensiun';
+
+    const golLamaStr = u.golongan_lama || u.golLama || '-';
+    const golBaruStr = u.golongan_baru || u.golBaru || (u.golongan_lama ? hitungProyeksiGolonganBaru(u.golongan_lama) : '-');
+    const jenisPeg = u.jenis_pegawai || u.jenisPegawai || 'Tendik';
+    const statusKep = u.status_kepegawaian || u.statusKepegawaian || 'PNS';
+
+    return `
+      <tr>
+        <td>${idx + 1}</td>
+        <td>
+          <strong style="font-size:14px;">${escapeHtml(u.nama)}</strong>
+          ${u.nama_pengaju ? `<div style="font-size:11.5px; color:var(--text-muted);">Diajukan oleh: ${escapeHtml(u.nama_pengaju)}</div>` : ''}
+        </td>
+        <td>
+          <div>${u.nip ? `NIP ${escapeHtml(u.nip)}` : '<span style="color:var(--text-muted); font-style:italic;">-</span>'}</div>
+          <div style="font-size:11.5px; color:var(--primary); font-weight:600;">🏢 ${escapeHtml(u.unit || '-')}</div>
+          ${u.jabatan ? `<div style="font-size:11px; color:var(--text-muted); font-style:italic;">${escapeHtml(u.jabatan)}</div>` : ''}
+        </td>
+        <td>
+          <span class="cdli-badge" style="background:var(--primary); color:#fff; font-size:11px;">${escapeHtml(jenisPeg)}</span>
+          <span class="cdli-badge" style="background:var(--surface-alt); border:1px solid var(--border); font-size:11px; margin-top:2px; display:inline-block;">${escapeHtml(statusKep)}</span>
+        </td>
+        <td>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="cdli-badge" style="background:var(--surface-alt); color:var(--text-main); border:1px solid var(--border);">${escapeHtml(golLamaStr)}</span>
+            <span style="font-weight:800; color:#059669;">➔</span>
+            <span class="cdli-badge" style="background:rgba(16,185,129,0.15); color:#059669; border:1px solid #10b981;">${escapeHtml(golBaruStr)}</span>
+          </div>
+        </td>
+        <td>
+          <strong>${escapeHtml(u.tmt || '-')}</strong>
+        </td>
+        <td>
+          <span class="badge-status ${badgeClass}">${escapeHtml(currentStatus)}</span>
+        </td>
+        <td>
+          <select class="status-select" onchange="updateUsulanStatusInline('${u.id}', this.value)">
+            <option value="Diterima DSDM" ${currentStatus === 'Diterima DSDM' ? 'selected' : ''}>Diterima DSDM</option>
+            <option value="Diajukan SIASN" ${currentStatus === 'Diajukan SIASN' || currentStatus === 'Diajukan ke SIASN' ? 'selected' : ''}>Diajukan SIASN</option>
+            <option value="TTD Pertek" ${currentStatus === 'TTD Pertek' ? 'selected' : ''}>TTD Pertek</option>
+            <option value="SK Berhasil" ${currentStatus === 'SK Berhasil' ? 'selected' : ''}>SK Berhasil</option>
+            <option value="Perbaikan" ${currentStatus === 'Perbaikan' ? 'selected' : ''}>Perbaikan</option>
+            <option value="Belum Eligible" ${currentStatus === 'Belum Eligible' || currentStatus === 'Tidak Eligible' ? 'selected' : ''}>Belum Eligible</option>
+            <option value="Pensiun" ${currentStatus === 'Pensiun' ? 'selected' : ''}>Pensiun</option>
+          </select>
+        </td>
+        <td style="text-align:center;">
+          <button type="button" class="btn btn-outline kp-small-btn" onclick="deleteUsulanMasukInline('${u.id}')" style="color:var(--danger); border-color:var(--danger); padding:3px 8px;" title="Hapus Usulan">🗑️</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <table class="tmt-table">
+      <thead>
+        <tr>
+          <th style="width:40px;">No</th>
+          <th>Nama Pegawai</th>
+          <th>NIP / Unit / Jabatan</th>
+          <th>Jenis &amp; Status</th>
+          <th>Proyeksi Pangkat/Golongan</th>
+          <th>TMT</th>
+          <th>Status Saat Ini</th>
+          <th>Ubah Status</th>
+          <th style="width:70px; text-align:center;">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
+  `;
 }
 
 /* ---------- IMPORT SPREADSHEET & EXCEL MULTI-SHEET LOGIC ---------- */
@@ -7349,10 +7576,15 @@ function onSelectImportSheetChange() {
   const idxNip = headers.findIndex(h => h.includes('nip'));
   const idxUnit = headers.findIndex(h => h.includes('unit') || h.includes('fakultas'));
   const idxJabatan = headers.findIndex(h => h.includes('jabatan'));
+  const idxJenis = headers.findIndex(h => h.includes('jenis') || h.includes('kelompok'));
+  const idxStatusKep = headers.findIndex(h => (h.includes('status') && (h.includes('pegawai') || h.includes('kepegawaian'))) || h.includes('kepegawaian'));
   const idxGolLama = headers.findIndex(h => h.includes('gol') && (h.includes('lama') || h.includes('saat ini')));
   const idxStatus = headers.findIndex(h => h.includes('status') || h.includes('siasn'));
   const idxGolBaru = headers.findIndex(h => h.includes('gol') && h.includes('baru'));
   const idxKet = headers.findIndex(h => h.includes('keterangan') || h.includes('tmt') || h.includes('bulan'));
+
+  const targetJenisInput = document.getElementById('umImportJenisTarget') ? document.getElementById('umImportJenisTarget').value : 'AUTO';
+  const targetStatusKepInput = document.getElementById('umImportStatusKepTarget') ? document.getElementById('umImportStatusKepTarget').value : 'AUTO';
 
   umParsedImportRows = [];
 
@@ -7367,6 +7599,22 @@ function onSelectImportSheetChange() {
 
     const unit = idxUnit >= 0 ? String(row[idxUnit] || '').trim() : '';
     const jabatan = idxJabatan >= 0 ? String(row[idxJabatan] || '').trim() : '';
+    
+    let jenis_pegawai = targetJenisInput !== 'AUTO' ? targetJenisInput : (idxJenis >= 0 ? String(row[idxJenis] || '').trim() : '');
+    if (!jenis_pegawai) {
+      const jLower = jabatan.toLowerCase();
+      if (jLower.includes('dosen') || jLower.includes('lektor') || jLower.includes('guru besar') || jLower.includes('asisten ahli')) {
+        jenis_pegawai = 'Dosen';
+      } else {
+        jenis_pegawai = 'Tendik';
+      }
+    }
+
+    let status_kepegawaian = targetStatusKepInput !== 'AUTO' ? targetStatusKepInput : (idxStatusKep >= 0 ? String(row[idxStatusKep] || '').trim() : '');
+    if (!status_kepegawaian) {
+      status_kepegawaian = 'PNS';
+    }
+
     const golLama = idxGolLama >= 0 ? String(row[idxGolLama] || '').trim() : '';
     let rawStatus = idxStatus >= 0 ? String(row[idxStatus] || '').trim() : 'Diterima DSDM';
     
@@ -7405,7 +7653,7 @@ function onSelectImportSheetChange() {
     }
 
     umParsedImportRows.push({
-      nama, nip, unit, jabatan, golLama, golBaru, status, tmt
+      nama, nip, unit, jabatan, jenis_pegawai, status_kepegawaian, golLama, golBaru, status, tmt
     });
   }
 
@@ -7421,7 +7669,7 @@ function renderImportPreviewTable(rows) {
 
   if (countEl) countEl.textContent = rows.length;
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:16px;">Tidak ada data usulan ditemukan pada sheet ini.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:16px;">Tidak ada data usulan ditemukan pada sheet ini.</td></tr>';
     wrap.style.display = 'block';
     return;
   }
@@ -7433,6 +7681,10 @@ function renderImportPreviewTable(rows) {
       <td>${escapeHtml(r.nip || '-')}</td>
       <td>${escapeHtml(r.unit || '<span style="color:var(--text-muted); font-style:italic;">[Auto-SIMPEG]</span>')}</td>
       <td>${escapeHtml(r.jabatan || '<span style="color:var(--text-muted); font-style:italic;">[Auto-SIMPEG]</span>')}</td>
+      <td>
+        <span class="cdli-badge" style="background:var(--primary); color:#fff; font-size:11px;">${escapeHtml(r.jenis_pegawai || 'Tendik')}</span>
+        <span class="cdli-badge" style="background:var(--surface-alt); border:1px solid var(--border); font-size:11px; margin-top:2px; display:inline-block;">${escapeHtml(r.status_kepegawaian || 'PNS')}</span>
+      </td>
       <td>${escapeHtml(r.golLama || '<span style="color:var(--text-muted); font-style:italic;">[Auto-SIMPEG]</span>')}</td>
       <td><strong style="color:#059669;">${escapeHtml(r.golBaru || hitungProyeksiGolonganBaru(r.golLama) || '-')}</strong></td>
       <td><span class="cdli-badge" style="background:var(--surface-alt); border:1px solid var(--border);">${escapeHtml(r.status)}</span></td>
@@ -7523,6 +7775,8 @@ function handleInputUsulanMasuk(e) {
   const tmtTahun = val('umInputTmtTahun');
   const unit = val('umInputUnit');
   const jabatan = val('umInputJabatan');
+  const jenis_pegawai = val('umInputJenisPegawai') || 'Tendik';
+  const status_kepegawaian = val('umInputStatusKepegawaian') || 'PNS';
 
   if (!nama) { showToast('error', 'Nama pegawai wajib diisi.'); return; }
 
@@ -7530,7 +7784,7 @@ function handleInputUsulanMasuk(e) {
   if (btn) btn.disabled = true;
 
   const tmt = `${tmtBulan} ${tmtTahun}`;
-  const payload = { nama, nip, status, golLama, golBaru, tmt, unit, jabatan };
+  const payload = { nama, nip, status, golLama, golBaru, tmt, unit, jabatan, jenis_pegawai, status_kepegawaian };
 
   google.script.run
     .withSuccessHandler(res => {

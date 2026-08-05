@@ -118,6 +118,8 @@ ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS tmt TEXT;
 ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS golongan_lama TEXT;
 ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS golongan_baru TEXT;
 ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS jabatan TEXT;
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS jenis_pegawai TEXT DEFAULT 'Tendik';
+ALTER TABLE usulan_kp ADD COLUMN IF NOT EXISTS status_kepegawaian TEXT DEFAULT 'PNS';
 
 CREATE INDEX IF NOT EXISTS idx_usulan_kp_nip    ON usulan_kp(nip);
 CREATE INDEX IF NOT EXISTS idx_usulan_kp_status ON usulan_kp(status);
