@@ -576,8 +576,26 @@ function cleanWordXmlParagraphBraces(xml) {
 
     return pMatch.replace(pBody, cleanedBody);
   });
-}
+function cleanDocxTableCellLeadingEmptyParagraphs(xml) {
+  if (!xml || typeof xml !== 'string') return xml;
+  return xml.replace(/(<w:tc\b[^>]*>)([\s\S]*?)(<\/w:tc>)/gi, (tcMatch, tcStart, tcContent, tcEnd) => {
+    let currentContent = tcContent;
+    while (true) {
+      const pMatches = currentContent.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/gi);
+      if (!pMatches || pMatches.length <= 1) break;
 
+      const firstP = pMatches[0];
+      const textOnly = firstP.replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, '').trim();
+
+      if (textOnly === '') {
+        currentContent = currentContent.replace(firstP, '');
+      } else {
+        break;
+      }
+    }
+    return tcStart + currentContent + tcEnd;
+  });
+}
 
 function createDefaultSkDocxBuffer(jenis_sk, dataCtx) {
   const PizZip = require('pizzip');
@@ -681,6 +699,7 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
         let content = f.asText();
         content = docxCleanMassalLoops(content);
         content = cleanWordXmlParagraphBraces(content);
+        content = cleanDocxTableCellLeadingEmptyParagraphs(content);
         zip.file(fileName, content);
       }
     }
@@ -1076,6 +1095,7 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = n
       });
     });
 
+    xml = cleanDocxTableCellLeadingEmptyParagraphs(xml);
     zip.file(fileName, xml);
   }
 

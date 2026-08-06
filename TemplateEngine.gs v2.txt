@@ -954,8 +954,7 @@ function fillRowPlaceholders_(row, mergedContext, openInfo, closeInfo, item) {
     newText = newText.split(openInfo.full).join('').split(closeInfo.full).join('');
 
     if (newText !== cellText) {
-      cell.clear();
-      cell.appendParagraph(newText || ' ');
+      cell.setText(newText || '');
     }
   }
 }
