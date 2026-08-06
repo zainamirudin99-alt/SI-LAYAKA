@@ -6247,6 +6247,29 @@ const methods = {
     return { success: true, message: disetujui ? 'Lampiran disetujui.' : 'Persetujuan lampiran dibatalkan.' };
   },
 
+  async approveAllUsulanKontrakAttachments(args) {
+    const [token, usulanId] = extractArgs(args);
+    const decoded = requireRole(token, ['admin','super_admin']);
+    if (!usulanId) return { success: false, message: 'ID usulan wajib diisi.' };
+    const db = getDb();
+    const updateObj = {
+      status: 'Disetujui',
+      diproses_oleh_nip: decoded.nip,
+      ktp_approved: true,
+      kk_approved: true,
+      pas_foto_approved: true,
+      ijazah_transkrip_approved: true,
+      surat_pengantar_approved: true,
+      surat_lamaran_approved: true,
+      sim_ab_approved: true,
+      str_aktif_approved: true,
+      keterangan_sehat_approved: true
+    };
+    const { error } = await db.from('usulan_kontrak').update(updateObj).eq('id', usulanId);
+    if (error) throw error;
+    return { success: true, message: 'Semua lampiran dan usulan berhasil disetujui.' };
+  },
+
   async rejectUsulanKontrak(args) {
     const [token, usulanId, alasan] = extractArgs(args);
     const decoded = requireRole(token, ['admin','super_admin']);

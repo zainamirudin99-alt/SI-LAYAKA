@@ -10799,7 +10799,8 @@ function loadKontrakReviewUnits() {
 }
 
 let kontrakReviewSelectedUnit = '';
-function viewKontrakReviewList(unit) {
+let kontrakReviewSelectedUnit = '';
+async function viewKontrakReviewList(unit) {
   kontrakReviewSelectedUnit = unit;
   document.getElementById('kontrakReviewUnitListState').style.display = 'none';
   document.getElementById('kontrakReviewListState').style.display = 'block';
@@ -10808,28 +10809,45 @@ function viewKontrakReviewList(unit) {
   const el = document.getElementById('kontrakReviewDaftarPegawai');
   el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat...</div>';
   
-  google.script.run
-    .withSuccessHandler(res => {
-      if (!res.success) { showToast('error', res.message); return; }
-      if (!res.daftar.length) {
-        el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada usulan di unit ini.</div>';
-        return;
-      }
-      el.innerHTML = res.daftar.map(u => `
-        <div class="ce-dashboard-list-item" onclick="viewKontrakReviewDetail('${u.id}')">
-          <div>
-            <div class="cdli-name">${escapeHtml(u.nama)}</div>
-            <div class="cdli-sub" style="font-size:12px; color:#666;">NIP: ${escapeHtml(u.nip)} | Kategori: ${escapeHtml(u.layanan)}</div>
-          </div>
-          <div class="cdli-meta" style="font-size:12px; text-align:right;">
-            <div>${escapeHtml(u.jenis_usulan)} (${escapeHtml(u.tahun)})</div>
-            <div style="color:${u.semua_lampiran_disetujui ? '#4caf50' : '#ff9800'}; font-weight:bold;">
-              ${u.semua_lampiran_disetujui ? 'Lampiran Lengkap' : 'Review Tertunda'}
-            </div>
-          </div>
-        </div>`).join('');
-    })
-    .getUsulanKontrakListByUnit(SESSION.token, unit);
+  try {
+    const res = await rpc('getUsulanKontrakListByUnit', [SESSION.token, unit]);
+    if (res && res.success) {
+      renderKontrakReviewListItems_(res.daftar || []);
+      return;
+    }
+  } catch (err) {}
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(res => {
+        if (!res.success) { showToast('error', res.message); return; }
+        renderKontrakReviewListItems_(res.daftar || []);
+      })
+      .withFailureHandler(err => showToast('error', err.message || err))
+      .getUsulanKontrakListByUnit(SESSION.token, unit);
+  }
+}
+
+function renderKontrakReviewListItems_(daftar) {
+  const el = document.getElementById('kontrakReviewDaftarPegawai');
+  if (!el) return;
+  if (!daftar || !daftar.length) {
+    el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada usulan di unit ini.</div>';
+    return;
+  }
+  el.innerHTML = daftar.map(u => `
+    <div class="ce-dashboard-list-item" onclick="viewKontrakReviewDetail('${u.id}')">
+      <div>
+        <div class="cdli-name">${escapeHtml(u.nama)}</div>
+        <div class="cdli-sub" style="font-size:12px; color:#666;">NIP: ${escapeHtml(u.nip)} | Kategori: ${escapeHtml(u.layanan)}</div>
+      </div>
+      <div class="cdli-meta" style="font-size:12px; text-align:right;">
+        <div>${escapeHtml(u.jenis_usulan)} (${escapeHtml(u.tahun)})</div>
+        <div style="color:${u.semua_lampiran_disetujui || u.status === 'Disetujui' ? '#4caf50' : '#ff9800'}; font-weight:bold;">
+          ${u.status === 'Disetujui' ? '✅ Disetujui (Siap Generate)' : (u.semua_lampiran_disetujui ? 'Lampiran Lengkap' : 'Review Tertunda')}
+        </div>
+      </div>
+    </div>`).join('');
 }
 
 function backToKontrakReviewUnits() {
@@ -10840,78 +10858,151 @@ function backToKontrakReviewUnits() {
 }
 
 let kontrakReviewActiveUsulanId = '';
-function viewKontrakReviewDetail(usulanId) {
+async function viewKontrakReviewDetail(usulanId) {
   kontrakReviewActiveUsulanId = usulanId;
   document.getElementById('kontrakReviewListState').style.display = 'none';
   document.getElementById('kontrakReviewDetailState').style.display = 'block';
   
   const el = document.getElementById('kontrakReviewDetailContent');
-  el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat...</div>';
+  el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat detail usulan...</div>';
   
-  google.script.run
-    .withSuccessHandler(res => {
-      if (!res.success) { showToast('error', res.message); return; }
-      const u = res.usulan;
-      
-      const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat'];
-      const lampiranList = LAMP_KEYS.map(k => {
-        const url = u[k+'_url'];
-        if (!url) return null;
-        const label = k.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
-        const approved = !!u[k+'_approved'];
-        return { key: k, label, url, approved };
-      }).filter(l => l !== null);
-      
-      const allApproved = lampiranList.every(l => l.approved);
-      let generateBtnHtml = '';
-      if (allApproved && u.status !== 'Selesai') {
-        generateBtnHtml = `
-          <div id="kontrakReview_tplSelectorWrap" style="margin-top:20px; text-align:center; border-top:1px solid #eee; padding-top:16px;"></div>`;
-      }
-      
-      el.innerHTML = `
-        <div class="grid-2" style="font-size:14px; gap:10px; margin-bottom:20px; border:1px solid #ddd; padding:16px; border-radius:8px;">
-          <div><strong>NIP:</strong> ${escapeHtml(u.nip)}</div>
-          <div><strong>Nama:</strong> ${escapeHtml(u.nama)}</div>
-          <div><strong>Unit Kerja:</strong> ${escapeHtml(u.unit)}</div>
-          <div><strong>Email:</strong> ${escapeHtml(u.email)}</div>
-          <div><strong>Jenis Usulan:</strong> ${escapeHtml(u.jenis_usulan)}</div>
-          <div><strong>Tahun Kontrak:</strong> ${escapeHtml(u.tahun)}</div>
-          <div><strong>Evaluasi Kinerja:</strong> ${escapeHtml(u.evaluasi_kinerja || '-')}</div>
-          <div><strong>Kategori:</strong> ${escapeHtml(u.layanan)}</div>
-          <div><strong>Jenis Kontrak:</strong> ${escapeHtml(u.sub_menu)}</div>
-          <div><strong>Status Usulan:</strong> <strong style="color:${u.status === 'Selesai' ? '#2196f3' : (u.status === 'Disetujui' ? '#4caf50' : '#ff9800')}">${escapeHtml(u.status)}</strong></div>
-        </div>
-        
-        <h4>Persetujuan File Lampiran Pegawai</h4>
-        <div class="ce-dashboard-list" style="margin-top:10px; gap:10px;">
-          ${lampiranList.map(l => `
-            <div class="ce-dashboard-list-item" style="cursor:default; display:flex; justify-content:space-between; align-items:center; padding:12px 16px;">
-              <div>
-                <a href="${l.url}" target="_blank" style="text-decoration:none; color:#1957b3; font-weight:500; font-size:14px;">📄 ${l.label}</a>
-              </div>
-              <div style="display:flex; align-items:center; gap:8px;">
-                <input type="checkbox" onchange="toggleAttachmentApproval('${u.id}', '${l.key}', this.checked)" ${l.approved ? 'checked' : ''} style="width:18px; height:18px; cursor:pointer;" />
-                <span style="font-size:13px; font-weight:500;">Setujui</span>
-              </div>
-            </div>`).join('')}
-        </div>
-        <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px; border-top:1px solid #eee; padding-top:16px; flex-wrap:wrap;">
-          <button type="button" class="btn btn-outline" style="color:var(--danger); border-color:var(--danger); font-weight:600;" onclick="adminRejectUsulanKontrak('${u.id}')">
-            🚫 Tolak Usulan
-          </button>
-          <button type="button" class="btn btn-outline" style="color:#b91c1c; border-color:#b91c1c; background:#fee2e2; font-weight:700;" onclick="adminDeleteUsulanKontrak('${u.id}')">
-            🗑️ Hapus Usulan
-          </button>
-        </div>
-        ${generateBtnHtml}
-      `;
+  try {
+    const res = await rpc('getUsulanKontrakById', [SESSION.token, usulanId]);
+    if (res && res.success) {
+      renderKontrakReviewDetailContent_(res.usulan);
+      return;
+    }
+  } catch (err) {}
 
-      if (allApproved && u.status !== 'Selesai') {
-        renderTemplateSelectorForUsulan(u.layanan, u.sub_menu, 'kontrakReview_tplSelectorWrap', 'kontrakReview_genBtn', 'generateKontrakFromUsulanAdmin', u.id);
-      }
-    })
-    .getUsulanKontrakById(SESSION.token, usulanId);
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(res => {
+        if (!res.success) { showToast('error', res.message); return; }
+        renderKontrakReviewDetailContent_(res.usulan);
+      })
+      .withFailureHandler(err => showToast('error', 'Gagal memuat detail usulan: ' + (err.message || err)))
+      .getUsulanKontrakById(SESSION.token, usulanId);
+  }
+}
+
+function renderKontrakReviewDetailContent_(u) {
+  const el = document.getElementById('kontrakReviewDetailContent');
+  if (!el || !u) return;
+
+  const LAMP_DEFINITIONS = [
+    { key: 'ktp', label: 'KTP' },
+    { key: 'kk', label: 'Kartu Keluarga' },
+    { key: 'pas_foto', label: 'Pas Foto Terbaru' },
+    { key: 'ijazah_transkrip', label: 'Ijazah & Transkrip Terakhir' },
+    { key: 'surat_pengantar', label: 'Surat Pengantar Unit' },
+    { key: 'surat_lamaran', label: 'Surat Lamaran' },
+    { key: 'sim_ab', label: 'SIM A/B (Pengemudi)' },
+    { key: 'str_aktif', label: 'STR Aktif (Medis)' },
+    { key: 'keterangan_sehat', label: 'Surat Keterangan Sehat' }
+  ];
+
+  const CORE_KEYS = ['ktp', 'kk', 'pas_foto', 'ijazah_transkrip'];
+  const lampiranList = LAMP_DEFINITIONS.map(item => {
+    const url = u[item.key + '_url'] || '';
+    const approved = !!u[item.key + '_approved'];
+    const exists = !!url || CORE_KEYS.includes(item.key);
+    if (!exists) return null;
+    return { key: item.key, label: item.label, url, approved };
+  }).filter(Boolean);
+
+  const allApproved = lampiranList.every(l => l.approved) || u.status === 'Disetujui';
+
+  let generateBtnHtml = '';
+  if (allApproved && u.status !== 'Selesai') {
+    generateBtnHtml = `
+      <div id="kontrakReview_tplSelectorWrap" style="margin-top:20px; text-align:center; border-top:1px solid #eee; padding-top:16px;"></div>`;
+  }
+
+  const approveAllBtnHtml = u.status !== 'Disetujui' && !allApproved ? `
+    <button type="button" class="btn btn-primary" style="background:#4caf50; border-color:#4caf50; font-weight:700; font-size:14px; padding:10px 18px;" onclick="approveAllUsulanKontrakAttachments('${u.id}')">
+      ✅ Setujui Semua Lampiran & Usulan
+    </button>` : `<span class="badge" style="background:#4caf50; color:#fff; padding:6px 14px; font-size:13px; border-radius:6px; font-weight:bold;">✅ Usulan & Lampiran Disetujui</span>`;
+
+  el.innerHTML = `
+    <div class="grid-2" style="font-size:14px; gap:10px; margin-bottom:20px; border:1px solid #ddd; padding:16px; border-radius:8px; background:var(--surface);">
+      <div><strong>NIP:</strong> ${escapeHtml(u.nip || '-')}</div>
+      <div><strong>Nama:</strong> ${escapeHtml(u.nama || '-')}</div>
+      <div><strong>Unit Kerja:</strong> ${escapeHtml(u.unit || '-')}</div>
+      <div><strong>Email:</strong> ${escapeHtml(u.email || '-')}</div>
+      <div><strong>Jenis Usulan:</strong> ${escapeHtml(u.jenis_usulan || '-')}</div>
+      <div><strong>Tahun Kontrak:</strong> ${escapeHtml(u.tahun || '-')}</div>
+      <div><strong>Evaluasi Kinerja:</strong> ${escapeHtml(u.evaluasi_kinerja || '-')}</div>
+      <div><strong>Kategori:</strong> ${escapeHtml(u.layanan || '-')}</div>
+      <div><strong>Jenis Kontrak:</strong> ${escapeHtml(u.sub_menu || '-')}</div>
+      <div><strong>Status Usulan:</strong> <strong style="color:${u.status === 'Selesai' ? '#2196f3' : (u.status === 'Disetujui' ? '#4caf50' : (u.status === 'Ditolak' ? '#f44336' : '#ff9800'))}">${escapeHtml(u.status || 'Diajukan')}</strong></div>
+    </div>
+    
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+      <h4 style="margin:0;">Persetujuan File Lampiran Pegawai</h4>
+      <div>${approveAllBtnHtml}</div>
+    </div>
+
+    <div class="ce-dashboard-list" style="margin-top:10px; gap:10px;">
+      ${lampiranList.map(l => {
+        const linkHtml = l.url 
+          ? `<a href="${l.url}" target="_blank" style="text-decoration:none; color:#1957b3; font-weight:600; font-size:14px;">📄 ${l.label} (Buka File)</a>`
+          : `<span style="color:#64748b; font-size:14px; font-weight:500;">📄 ${l.label} (File Terlampir)</span>`;
+        
+        return `
+          <div class="ce-dashboard-list-item" style="cursor:default; display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:var(--surface); border:1px solid #e2e8f0; border-radius:8px;">
+            <div>${linkHtml}</div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" onchange="toggleAttachmentApproval('${u.id}', '${l.key}', this.checked)" ${l.approved ? 'checked' : ''} style="width:20px; height:20px; cursor:pointer;" />
+              <span style="font-size:14px; font-weight:600; color:${l.approved ? '#4caf50' : '#64748b'};">${l.approved ? '✅ Disetujui' : 'Setujui'}</span>
+            </div>
+          </div>`;
+      }).join('')}
+    </div>
+
+    <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px; border-top:1px solid #eee; padding-top:16px; flex-wrap:wrap;">
+      <button type="button" class="btn btn-outline" style="color:var(--danger); border-color:var(--danger); font-weight:600;" onclick="adminRejectUsulanKontrak('${u.id}')">
+        🚫 Tolak Usulan
+      </button>
+      <button type="button" class="btn btn-outline" style="color:#b91c1c; border-color:#b91c1c; background:#fee2e2; font-weight:700;" onclick="adminDeleteUsulanKontrak('${u.id}')">
+        🗑️ Hapus Usulan
+      </button>
+    </div>
+
+    ${generateBtnHtml}
+  `;
+
+  if (allApproved && u.status !== 'Selesai') {
+    renderTemplateSelectorForUsulan(u.layanan, u.sub_menu, 'kontrakReview_tplSelectorWrap', 'kontrakReview_genBtn', 'generateKontrakFromUsulanAdmin', u.id);
+  }
+}
+
+async function approveAllUsulanKontrakAttachments(usulanId) {
+  showToast('info', 'Menyetujui semua lampiran...');
+  try {
+    const res = await rpc('approveAllUsulanKontrakAttachments', [SESSION.token, usulanId]);
+    if (res && res.success) {
+      showToast('success', res.message || 'Semua lampiran dan usulan disetujui.');
+      viewKontrakReviewDetail(usulanId);
+    } else {
+      showToast('error', res?.message || 'Gagal menyetujui usulan.');
+    }
+  } catch (err) {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(res => {
+          if (res.success) {
+            showToast('success', res.message);
+            viewKontrakReviewDetail(usulanId);
+          } else {
+            showToast('error', res.message);
+          }
+        })
+        .withFailureHandler(e => showToast('error', 'Gagal menyetujui: ' + (e.message || e)))
+        .approveAllUsulanKontrakAttachments(SESSION.token, usulanId);
+    } else {
+      showToast('error', 'Gagal menyetujui usulan: ' + (err.message || err));
+    }
+  }
 }
 
 async function adminRejectUsulanKontrak(usulanId) {
