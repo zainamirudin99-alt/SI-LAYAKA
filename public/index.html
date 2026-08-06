@@ -2024,108 +2024,110 @@
                 </form>
               </div>
 
-              <!-- MODAL / SECTION IMPORT SPREADSHEET & EXCEL MULTI-SHEET -->
-              <div id="umImportModal" class="um-import-card" style="display:none; margin-bottom:24px; background:var(--surface-alt); border:2px solid var(--primary); border-radius:14px; padding:20px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border);">
-                  <h4 style="margin:0; font-size:16px; font-weight:700; color:var(--primary);">📥 Scraper &amp; Import Data Usulan (Link Spreadsheet / Excel Multi-Sheet)</h4>
-                  <button type="button" class="btn btn-outline kp-small-btn" onclick="closeUmImportModal()">✕ Tutup</button>
-                </div>
-                
-                <div class="helper-text" style="margin-bottom:14px;">
-                  Sistem akan membaca data dengan kolom: <strong>Nama Lengkap / NIP, Unit, Jabatan, Gol lama, Status SIASN, Gol Baru, Keterangan (TMT)</strong>.<br/>
-                  <em>*Jika Unit, Jabatan, atau Gol lama kosong, sistem otomatis mencocokkan dari database SIMPEG. Jika Gol Baru kosong, sistem otomatis menghitung proyeksi pangkat berikutnya!</em>
-                </div>
+              <!-- MODAL / POPUP IMPORT SPREADSHEET & EXCEL MULTI-SHEET -->
+              <div id="umImportModal" class="modal-overlay" onclick="if(event.target===this) closeUmImportModal()" style="display:none; z-index:9999; align-items:center; justify-content:center; padding:20px; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px);">
+                <div class="modal-box" style="max-width:960px; width:100%; max-height:90vh; overflow-y:auto; padding:24px; background:var(--surface); border-radius:16px; border:1px solid var(--border); box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid var(--border);">
+                    <h4 style="margin:0; font-size:16px; font-weight:700; color:var(--primary);">📥 Scraper &amp; Import Data Usulan (Link Spreadsheet / Excel Multi-Sheet)</h4>
+                    <button type="button" class="btn btn-outline kp-small-btn" onclick="closeUmImportModal()" style="font-weight:700;">✕ Tutup</button>
+                  </div>
+                  
+                  <div class="helper-text" style="margin-bottom:14px; background:var(--surface-alt); padding:12px 16px; border-radius:10px; border-left:4px solid var(--primary);">
+                    Sistem akan membaca data dengan kolom: <strong>Nama Lengkap / NIP, Unit, Jabatan, Gol lama, Status SIASN, Gol Baru, Keterangan (TMT)</strong>.<br/>
+                    <em>*Jika Unit, Jabatan, atau Gol lama kosong, sistem otomatis mencocokkan dari database SIMPEG. Jika Gol Baru kosong, sistem otomatis menghitung proyeksi pangkat berikutnya!</em>
+                  </div>
 
-                <div class="grid-3 kp-grid" style="margin-bottom:16px;">
-                  <div class="stack-field">
-                    <label class="kp-label" for="umImportYearTarget">Target Tahun TMT <span style="color:var(--danger);">*</span></label>
-                    <select id="umImportYearTarget" class="field-input" onchange="onSelectImportSheetChange()" style="font-weight:700; border-color:var(--primary); min-height:38px;">
-                      <option value="2026" selected>Tahun 2026</option>
-                      <option value="2027">Tahun 2027</option>
-                      <option value="2028">Tahun 2028</option>
-                      <option value="2025">Tahun 2025</option>
-                      <option value="2024">Tahun 2024</option>
-                      <option value="KEEP_EXACT">Sesuai Isi File (Tanpa Ubah)</option>
-                    </select>
-                  </div>
-                  <div class="stack-field">
-                    <label class="kp-label" for="umImportJenisTarget">Jenis Pegawai Import</label>
-                    <select id="umImportJenisTarget" class="field-input" onchange="onSelectImportSheetChange()" style="font-weight:600; min-height:38px;">
-                      <option value="AUTO" selected>Auto-Detect / Sesuai File</option>
-                      <option value="Dosen">Dosen</option>
-                      <option value="Tendik">Tendik</option>
-                    </select>
-                  </div>
-                  <div class="stack-field">
-                    <label class="kp-label" for="umImportStatusKepTarget">Status Kepegawaian Import</label>
-                    <select id="umImportStatusKepTarget" class="field-input" onchange="onSelectImportSheetChange()" style="font-weight:600; min-height:38px;">
-                      <option value="AUTO" selected>Auto-Detect / Sesuai File</option>
-                      <option value="PNS">PNS</option>
-                      <option value="PPPK">PPPK</option>
-                      <option value="Tetap Non-PNS">Tetap Non-PNS</option>
-                      <option value="Kontrak">Kontrak</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div class="grid-2 kp-grid" style="margin-bottom:16px;">
-                  <div class="stack-field">
-                    <label class="kp-label">Upload File Excel (.xlsx / .xls)</label>
-                    <input type="file" id="umImportFileInput" accept=".xlsx, .xls, .csv" class="field-input" onchange="handleExcelFileUpload(event)" />
-                  </div>
-                  <div class="stack-field">
-                    <label class="kp-label">Atau Link Google Spreadsheet</label>
-                    <div style="display:flex; gap:8px;">
-                      <input type="url" id="umImportSheetUrl" class="field-input" placeholder="https://docs.google.com/spreadsheets/d/..." />
-                      <button type="button" class="btn btn-primary kp-small-btn" onclick="handleGoogleSheetUrlFetch()" style="white-space:nowrap;">Ambil Data</button>
+                  <div class="grid-3 kp-grid" style="margin-bottom:16px;">
+                    <div class="stack-field">
+                      <label class="kp-label" for="umImportYearTarget">Target Tahun TMT <span style="color:var(--danger);">*</span></label>
+                      <select id="umImportYearTarget" class="field-input" onchange="onSelectImportSheetChange()" style="font-weight:700; border-color:var(--primary); min-height:38px;">
+                        <option value="2026" selected>Tahun 2026</option>
+                        <option value="2027">Tahun 2027</option>
+                        <option value="2028">Tahun 2028</option>
+                        <option value="2025">Tahun 2025</option>
+                        <option value="2024">Tahun 2024</option>
+                        <option value="KEEP_EXACT">Sesuai Isi File (Tanpa Ubah)</option>
+                      </select>
+                    </div>
+                    <div class="stack-field">
+                      <label class="kp-label" for="umImportJenisTarget">Jenis Pegawai Import</label>
+                      <select id="umImportJenisTarget" class="field-input" onchange="onSelectImportSheetChange()" style="font-weight:600; min-height:38px;">
+                        <option value="AUTO" selected>Auto-Detect / Sesuai File</option>
+                        <option value="Dosen">Dosen</option>
+                        <option value="Tendik">Tendik</option>
+                      </select>
+                    </div>
+                    <div class="stack-field">
+                      <label class="kp-label" for="umImportStatusKepTarget">Status Kepegawaian Import</label>
+                      <select id="umImportStatusKepTarget" class="field-input" onchange="onSelectImportSheetChange()" style="font-weight:600; min-height:38px;">
+                        <option value="AUTO" selected>Auto-Detect / Sesuai File</option>
+                        <option value="PNS">PNS</option>
+                        <option value="PPPK">PPPK</option>
+                        <option value="Tetap Non-PNS">Tetap Non-PNS</option>
+                        <option value="Kontrak">Kontrak</option>
+                      </select>
                     </div>
                   </div>
-                </div>
 
-                <!-- Multi-Sheet Selector Dropdown -->
-                <div id="umSheetSelectWrap" class="stack-field" style="display:none; margin-bottom:16px; background:var(--surface); padding:16px; border-radius:12px; border:2px solid var(--primary); box-shadow:0 2px 8px rgba(0,0,0,0.05);">
-                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <label class="kp-label" for="umSheetSelect" style="margin:0; font-weight:800; color:var(--primary); font-size:14px;">
-                      📄 Pilih Sheet (Tab Spreadsheet) Yang Ingin Diimport:
-                    </label>
-                    <span id="umSheetCountBadge" class="cdli-badge" style="background:var(--primary); color:#fff; font-size:12px; font-weight:700;"></span>
-                  </div>
-                  <select id="umSheetSelect" class="field-input" onchange="onSelectImportSheetChange()" style="font-weight:700; font-size:14px; padding:10px 14px; border-color:var(--primary);">
-                    <option value="">Pilih Sheet...</option>
-                  </select>
-                  <div style="font-size:12px; color:var(--text-muted); margin-top:6px; font-style:italic;">
-                    💡 *Semua sheet (tab) dalam link Google Spreadsheet / Excel terdeteksi otomatis di atas. Klik dropdown untuk beralih sheet yang ingin diimport.
-                  </div>
-                </div>
-
-                <!-- Import Preview Table -->
-                <div id="umImportPreviewWrap" style="display:none; margin-top:16px;">
-                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
-                    <h5 style="margin:0; font-size:14px; font-weight:700;">
-                      Pratinjau Data Sheet: <span id="umSelectedSheetName" style="color:var(--primary); font-weight:800;">-</span> (<span id="umImportRowCount">0</span> baris)
-                    </h5>
-                    <div style="display:flex; gap:8px;">
-                      <button type="button" class="btn btn-outline" style="color:var(--danger); border-color:var(--danger);" onclick="clearImportPreviewData()">🗑️ Hapus Hasil Scrape</button>
-                      <button type="button" class="btn btn-primary" id="umSubmitImportBtn" onclick="submitBulkImportData()">🚀 Import Semua Data Usulan</button>
+                  <div class="grid-2 kp-grid" style="margin-bottom:16px;">
+                    <div class="stack-field">
+                      <label class="kp-label">Upload File Excel (.xlsx / .xls)</label>
+                      <input type="file" id="umImportFileInput" accept=".xlsx, .xls, .csv" class="field-input" onchange="handleExcelFileUpload(event)" />
+                    </div>
+                    <div class="stack-field">
+                      <label class="kp-label">Atau Link Google Spreadsheet</label>
+                      <div style="display:flex; gap:8px;">
+                        <input type="url" id="umImportSheetUrl" class="field-input" placeholder="https://docs.google.com/spreadsheets/d/..." />
+                        <button type="button" class="btn btn-primary kp-small-btn" onclick="handleGoogleSheetUrlFetch()" style="white-space:nowrap;">Ambil Data</button>
+                      </div>
                     </div>
                   </div>
-                  <div style="overflow-x:auto; max-height:350px; border:1px solid var(--border); border-radius:8px;">
-                    <table class="tmt-table" id="umImportPreviewTable">
-                      <thead>
-                        <tr>
-                          <th>No</th>
-                          <th>Nama Lengkap</th>
-                          <th>NIP</th>
-                          <th>Unit</th>
-                          <th>Jabatan</th>
-                          <th>Gol Lama</th>
-                          <th>Gol Baru (Proyeksi)</th>
-                          <th>Status SIASN</th>
-                          <th>TMT (Keterangan)</th>
-                        </tr>
-                      </thead>
-                      <tbody id="umImportPreviewTbody"></tbody>
-                    </table>
+
+                  <!-- Multi-Sheet Selector Dropdown -->
+                  <div id="umSheetSelectWrap" class="stack-field" style="display:none; margin-bottom:16px; background:var(--surface-alt); padding:16px; border-radius:12px; border:2px solid var(--primary); box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                      <label class="kp-label" for="umSheetSelect" style="margin:0; font-weight:800; color:var(--primary); font-size:14px;">
+                        📄 Pilih Sheet (Tab Spreadsheet) Yang Ingin Diimport:
+                      </label>
+                      <span id="umSheetCountBadge" class="cdli-badge" style="background:var(--primary); color:#fff; font-size:12px; font-weight:700;"></span>
+                    </div>
+                    <select id="umSheetSelect" class="field-input" onchange="onSelectImportSheetChange()" style="font-weight:700; font-size:14px; padding:10px 14px; border-color:var(--primary);">
+                      <option value="">Pilih Sheet...</option>
+                    </select>
+                    <div style="font-size:12px; color:var(--text-muted); margin-top:6px; font-style:italic;">
+                      💡 *Semua sheet (tab) dalam link Google Spreadsheet / Excel terdeteksi otomatis di atas. Klik dropdown untuk beralih sheet yang ingin diimport.
+                    </div>
+                  </div>
+
+                  <!-- Import Preview Table -->
+                  <div id="umImportPreviewWrap" style="display:none; margin-top:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+                      <h5 style="margin:0; font-size:14px; font-weight:700;">
+                        Pratinjau Data Sheet: <span id="umSelectedSheetName" style="color:var(--primary); font-weight:800;">-</span> (<span id="umImportRowCount">0</span> baris)
+                      </h5>
+                      <div style="display:flex; gap:8px;">
+                        <button type="button" class="btn btn-outline" style="color:var(--danger); border-color:var(--danger);" onclick="clearImportPreviewData()">🗑️ Hapus Hasil Scrape</button>
+                        <button type="button" class="btn btn-primary" id="umSubmitImportBtn" onclick="submitBulkImportData()">🚀 Import Semua Data Usulan</button>
+                      </div>
+                    </div>
+                    <div style="overflow-x:auto; max-height:350px; border:1px solid var(--border); border-radius:8px;">
+                      <table class="tmt-table" id="umImportPreviewTable">
+                        <thead>
+                          <tr>
+                            <th>No</th>
+                            <th>Nama Lengkap</th>
+                            <th>NIP</th>
+                            <th>Unit</th>
+                            <th>Jabatan</th>
+                            <th>Gol Lama</th>
+                            <th>Gol Baru (Proyeksi)</th>
+                            <th>Status SIASN</th>
+                            <th>TMT (Keterangan)</th>
+                          </tr>
+                        </thead>
+                        <tbody id="umImportPreviewTbody"></tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -7702,7 +7704,7 @@ let umParsedImportRows = [];
 
 function openUmImportModal() {
   const modal = document.getElementById('umImportModal');
-  if (modal) modal.style.display = 'block';
+  if (modal) modal.style.display = 'flex';
 }
 
 function closeUmImportModal() {
