@@ -772,6 +772,18 @@
   table.dyn-table select, table.dyn-table input { padding: 6px 8px; font-size: 13px; }
   .row-remove-btn { background: none; border: none; color: var(--danger); font-size: 16px; }
 
+  /* High contrast readable style for locked/read-only input fields */
+  .field-input:read-only,
+  .field-input:disabled,
+  .field-input[readonly],
+  select.field-input:disabled {
+    opacity: 1 !important;
+    color: var(--text) !important;
+    -webkit-text-fill-color: var(--text) !important;
+    font-weight: 700 !important;
+    border: 1px solid var(--border) !important;
+  }
+
   .actions-bar { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
 
   .modal-overlay {
@@ -10473,7 +10485,7 @@ async function populateKontrakUserFormProfile() {
   }
 
   let profile = SESSION.user || {};
-  const userNip = SESSION.nip || profile.nip || '';
+  const userNip = profile.nip || SESSION.nip || '';
 
   if (userNip) {
     try {
@@ -10491,75 +10503,102 @@ async function populateKontrakUserFormProfile() {
   const jabEl = document.getElementById('kontrakUser_jabatan');
   const emailEl = document.getElementById('kontrakUser_email');
   const tahunEl = document.getElementById('kontrakUser_tahun');
+  const layEl = document.getElementById('kontrakUser_layanan');
+  const subMenuEl = document.getElementById('kontrakUser_subMenu');
 
   const nipVal = profile.nip || profile.username || '';
   const namaVal = profile.nama || profile.nama_lengkap || '';
-  const unitVal = profile.unit_es_ii || profile.unit || '';
+  const unitVal = profile.unit_es_ii || profile.unit || profile.unit_kerja || '';
   const jabVal = profile.jabatan || '';
   const emailVal = profile.email || profile.email_kontak || '';
 
-  if (nipEl) {
-    nipEl.value = nipVal;
-    if (isNormalUser && nipVal) {
-      nipEl.readOnly = true;
-      nipEl.style.backgroundColor = 'var(--surface-alt)';
+  function setFieldLock(el, val, shouldLock) {
+    if (!el) return;
+    el.value = val || '';
+    if (shouldLock && val) {
+      el.readOnly = true;
+      el.style.backgroundColor = 'var(--surface-alt)';
+      el.style.color = 'var(--text)';
+      el.style.webkitTextFillColor = 'var(--text)';
+      el.style.opacity = '1';
+      el.style.fontWeight = '700';
+      el.style.cursor = 'not-allowed';
     } else {
-      nipEl.readOnly = false;
-      nipEl.style.backgroundColor = '';
+      el.readOnly = false;
+      el.style.backgroundColor = '';
+      el.style.color = '';
+      el.style.webkitTextFillColor = '';
+      el.style.opacity = '';
+      el.style.fontWeight = '';
+      el.style.cursor = '';
     }
   }
-  if (namaEl) {
-    namaEl.value = namaVal;
-    if (isNormalUser && namaVal) {
-      namaEl.readOnly = true;
-      namaEl.style.backgroundColor = 'var(--surface-alt)';
-    } else {
-      namaEl.readOnly = false;
-      namaEl.style.backgroundColor = '';
-    }
-  }
-  if (unitEl) {
-    unitEl.value = unitVal;
-    if (isNormalUser && unitVal) {
-      unitEl.readOnly = true;
-      unitEl.style.backgroundColor = 'var(--surface-alt)';
-    } else {
-      unitEl.readOnly = false;
-      unitEl.style.backgroundColor = '';
-    }
-  }
-  if (jabEl) {
-    jabEl.value = jabVal;
-    if (isNormalUser && jabVal) {
-      jabEl.readOnly = true;
-      jabEl.style.backgroundColor = 'var(--surface-alt)';
-    } else {
-      jabEl.readOnly = false;
-      jabEl.style.backgroundColor = '';
-    }
-  }
-  if (emailEl) {
-    emailEl.value = emailVal;
-    if (isNormalUser && emailVal) {
-      emailEl.readOnly = true;
-      emailEl.style.backgroundColor = 'var(--surface-alt)';
-    } else {
-      emailEl.readOnly = false;
-      emailEl.style.backgroundColor = '';
-    }
-  }
+
+  setFieldLock(nipEl, nipVal, isNormalUser);
+  setFieldLock(namaEl, namaVal, isNormalUser);
+  setFieldLock(unitEl, unitVal, isNormalUser);
+  setFieldLock(jabEl, jabVal, isNormalUser);
+  setFieldLock(emailEl, emailVal, isNormalUser);
+
   if (tahunEl) {
     tahunEl.value = new Date().getFullYear();
   }
 
-  // Auto detect Layanan (Kategori) & SubMenu (Jenis Perjanjian) based on jenis_peg if available
-  if (profile.jenis_peg) {
-    const j = String(profile.jenis_peg).toLowerCase();
-    const layEl = document.getElementById('kontrakUser_layanan');
-    if (layEl) {
-      if (j.includes('dosen')) layEl.value = 'Kontrak Dosen';
-      else if (j.includes('tendik')) layEl.value = 'Kontrak Tendik';
-      onKontrakUserLayananChange();
+  // Auto-detect & Lock Kategori Pegawai (Layanan = jenis_peg) & Jenis Perjanjian Kerja (SubMenu = status_kepegawaian)
+  const jenisPeg = String(profile.jenis_peg || profile.jenis_pegawai || jabVal || '').toLowerCase();
+  const statusKep = String(profile.status_kepegawaian || profile.status_pegawai || profile.status_bekerja || '').toLowerCase();
+
+  if (layEl) {
+    if (jenisPeg.includes('dosen')) {
+      layEl.value = 'Kontrak Dosen';
+    } else {
+      layEl.value = 'Kontrak Tendik';
+    }
+    onKontrakUserLayananChange();
+
+    if (isNormalUser && (profile.jenis_peg || profile.jenis_pegawai || jabVal)) {
+      layEl.style.pointerEvents = 'none';
+      layEl.style.backgroundColor = 'var(--surface-alt)';
+      layEl.style.color = 'var(--text)';
+      layEl.style.webkitTextFillColor = 'var(--text)';
+      layEl.style.opacity = '1';
+      layEl.style.fontWeight = '700';
+    } else {
+      layEl.style.pointerEvents = '';
+      layEl.style.backgroundColor = '';
+      layEl.style.color = '';
+      layEl.style.webkitTextFillColor = '';
+      layEl.style.opacity = '';
+      layEl.style.fontWeight = '';
+    }
+  }
+
+  if (subMenuEl && subMenuEl.options.length > 0) {
+    if (statusKep) {
+      for (let i = 0; i < subMenuEl.options.length; i++) {
+        const optText = subMenuEl.options[i].text.toLowerCase();
+        const optVal = subMenuEl.options[i].value.toLowerCase();
+        if (optText.includes(statusKep) || optVal.includes(statusKep) || statusKep.includes(optVal)) {
+          subMenuEl.selectedIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (isNormalUser && (profile.status_kepegawaian || profile.status_pegawai || profile.status_bekerja)) {
+      subMenuEl.style.pointerEvents = 'none';
+      subMenuEl.style.backgroundColor = 'var(--surface-alt)';
+      subMenuEl.style.color = 'var(--text)';
+      subMenuEl.style.webkitTextFillColor = 'var(--text)';
+      subMenuEl.style.opacity = '1';
+      subMenuEl.style.fontWeight = '700';
+    } else {
+      subMenuEl.style.pointerEvents = '';
+      subMenuEl.style.backgroundColor = '';
+      subMenuEl.style.color = '';
+      subMenuEl.style.webkitTextFillColor = '';
+      subMenuEl.style.opacity = '';
+      subMenuEl.style.fontWeight = '';
     }
   }
 
