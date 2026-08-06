@@ -6969,22 +6969,31 @@ async function loadUsulanMasukTmtDashboard(forceRefresh = false) {
 
   try {
     const res = await rpc('getUsulanMasukTmtGrouped', [SESSION.token]);
-    if (res && res.success) {
+    if (res && res.success && res.list && res.list.length > 0) {
       umGlobalCache = res;
       applyUsulanMasukDashboardData(res, container);
+    } else if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(gasRes => {
+          if (gasRes && gasRes.success && gasRes.list && gasRes.list.length > 0) {
+            umGlobalCache = gasRes;
+            applyUsulanMasukDashboardData(gasRes, container);
+          } else {
+            umGlobalCache = res || gasRes;
+            applyUsulanMasukDashboardData(res || gasRes || { success: true, total: 0, list: [] }, container);
+          }
+        })
+        .withFailureHandler(() => {
+          applyUsulanMasukDashboardData(res || { success: true, total: 0, list: [] }, container);
+        })
+        .getUsulanMasukTmtGrouped(SESSION.token);
     } else {
-      if (!umGlobalCache && container) {
-        container.innerHTML = '<div class="ce-dashboard-card cdc-empty">' + (res?.message || 'Gagal memuat data.') + '</div>';
-      }
+      applyUsulanMasukDashboardData(res || { success: true, total: 0, list: [] }, container);
     }
   } catch (err) {
     if (typeof google !== 'undefined' && google.script && google.script.run) {
       google.script.run
         .withSuccessHandler(res => {
-          if (!res || !res.success) {
-            if (container) container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Gagal memuat data.</div>';
-            return;
-          }
           umGlobalCache = res;
           applyUsulanMasukDashboardData(res, container);
         })
@@ -7990,7 +7999,7 @@ function deleteAllUsulanMasukBulk() {
     .deleteAllUsulanMasuk(SESSION.token);
 }
 
-function handleInputUsulanMasuk(e) {
+async function handleInputUsulanMasuk(e) {
   e.preventDefault();
   const nama = val('umInputNama');
   const nip = val('umInputNip');
@@ -8012,60 +8021,103 @@ function handleInputUsulanMasuk(e) {
   const tmt = `${tmtBulan} ${tmtTahun}`;
   const payload = { nama, nip, status, golLama, golBaru, tmt, unit, jabatan, jenis_pegawai, status_kepegawaian };
 
-  google.script.run
-    .withSuccessHandler(res => {
-      if (btn) btn.disabled = false;
-      if (!res || !res.success) {
-        showToast('error', (res && res.message) || 'Gagal menyimpan usulan.');
-        return;
-      }
+  try {
+    const res = await rpc('insertUsulanMasukSingle', [SESSION.token, payload]);
+    if (btn) btn.disabled = false;
+    if (res && res.success) {
       showToast('success', 'Usulan baru berhasil disimpan.');
       document.getElementById('formInputUsulanMasuk').reset();
       const wrap = document.getElementById('umProyeksiRankWrap');
       if (wrap) wrap.style.display = 'none';
-      loadUsulanMasukTmtDashboard();
-    })
-    .withFailureHandler(err => {
+      loadUsulanMasukTmtDashboard(true);
+    } else {
+      showToast('error', res?.message || 'Gagal menyimpan usulan.');
+    }
+  } catch (err) {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(res => {
+          if (btn) btn.disabled = false;
+          if (!res || !res.success) {
+            showToast('error', (res && res.message) || 'Gagal menyimpan usulan.');
+            return;
+          }
+          showToast('success', 'Usulan baru berhasil disimpan.');
+          document.getElementById('formInputUsulanMasuk').reset();
+          const wrap = document.getElementById('umProyeksiRankWrap');
+          if (wrap) wrap.style.display = 'none';
+          loadUsulanMasukTmtDashboard(true);
+        })
+        .withFailureHandler(e => {
+          if (btn) btn.disabled = false;
+          showToast('error', 'Gagal menyimpan usulan: ' + (e.message || e));
+        })
+        .insertUsulanMasukSingle(SESSION.token, payload);
+    } else {
       if (btn) btn.disabled = false;
       showToast('error', 'Gagal menyimpan usulan: ' + (err.message || err));
-    })
-    .insertUsulanMasukSingle(SESSION.token, payload);
+    }
+  }
 }
 
-function updateUsulanStatusInline(id, newStatus) {
+async function updateUsulanStatusInline(id, newStatus) {
   showToast('info', 'Memperbarui status...');
-  google.script.run
-    .withSuccessHandler(res => {
-      if (!res || !res.success) {
-        showToast('error', (res && res.message) || 'Gagal memperbarui status.');
-        return;
-      }
+  try {
+    const res = await rpc('updateUsulanMasukStatus', [SESSION.token, { id, status: newStatus }]);
+    if (res && res.success) {
       showToast('success', 'Status usulan berhasil diperbarui.');
-      loadUsulanMasukTmtDashboard();
-    })
-    .withFailureHandler(err => {
+      loadUsulanMasukTmtDashboard(true);
+    } else {
+      showToast('error', res?.message || 'Gagal memperbarui status.');
+    }
+  } catch (err) {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(res => {
+          if (!res || !res.success) {
+            showToast('error', (res && res.message) || 'Gagal memperbarui status.');
+            return;
+          }
+          showToast('success', 'Status usulan berhasil diperbarui.');
+          loadUsulanMasukTmtDashboard(true);
+        })
+        .withFailureHandler(e => showToast('error', 'Gagal memperbarui status: ' + (e.message || e)))
+        .updateUsulanMasukStatus(SESSION.token, { id, status: newStatus });
+    } else {
       showToast('error', 'Gagal memperbarui status: ' + (err.message || err));
-    })
-    .updateUsulanMasukStatus(SESSION.token, { id, status: newStatus });
+    }
+  }
 }
 
-function deleteUsulanMasukInline(id) {
+async function deleteUsulanMasukInline(id) {
   if (!confirm('Apakah Anda yakin ingin menghapus usulan ini?')) return;
 
   showToast('info', 'Menghapus usulan...');
-  google.script.run
-    .withSuccessHandler(res => {
-      if (!res || !res.success) {
-        showToast('error', (res && res.message) || 'Gagal menghapus usulan.');
-        return;
-      }
+  try {
+    const res = await rpc('deleteUsulanMasukSingle', [SESSION.token, id]);
+    if (res && res.success) {
       showToast('success', 'Usulan berhasil dihapus.');
-      loadUsulanMasukTmtDashboard();
-    })
-    .withFailureHandler(err => {
+      loadUsulanMasukTmtDashboard(true);
+    } else {
+      showToast('error', res?.message || 'Gagal menghapus usulan.');
+    }
+  } catch (err) {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(res => {
+          if (!res || !res.success) {
+            showToast('error', (res && res.message) || 'Gagal menghapus usulan.');
+            return;
+          }
+          showToast('success', 'Usulan berhasil dihapus.');
+          loadUsulanMasukTmtDashboard(true);
+        })
+        .withFailureHandler(e => showToast('error', 'Gagal menghapus usulan: ' + (e.message || e)))
+        .deleteUsulanMasukSingle(SESSION.token, id);
+    } else {
       showToast('error', 'Gagal menghapus usulan: ' + (err.message || err));
-    })
-    .deleteUsulanMasukSingle(SESSION.token, id);
+    }
+  }
 }
 
 function toggleUsulanUnitView() {

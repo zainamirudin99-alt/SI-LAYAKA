@@ -4005,6 +4005,31 @@ const methods = {
     return { success: true, message: `Berhasil mengimpor ${rows.length} data usulan masuk.`, total: rows.length };
   },
 
+  async insertUsulanMasukSingle(args) {
+    const [token, payload] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+    const now = new Date().toISOString();
+    const row = {
+      nama: payload.nama || '',
+      nip: payload.nip || '',
+      golongan_lama: payload.golLama || payload.golongan_lama || '',
+      golongan_baru: payload.golBaru || payload.golongan_baru || '',
+      jabatan: payload.jabatan || '',
+      unit: payload.unit || '',
+      status: payload.status || 'Diterima DSDM',
+      tmt: payload.tmt || '',
+      jenis_pegawai: payload.jenis_pegawai || 'Tendik',
+      status_kepegawaian: payload.status_kepegawaian || 'PNS',
+      diajukan_oleh_nip: decoded.nip || '',
+      nama_pengaju: decoded.nama || decoded.username || '',
+      tanggal_diajukan: now
+    };
+    const { data, error } = await db.from('usulan_kp').insert([row]).select();
+    if (error) throw error;
+    return { success: true, message: 'Usulan baru berhasil disimpan.', id: data?.[0]?.id };
+  },
+
   async getUsulanMasukTmtGrouped(args) {
     const [token] = extractArgs(args);
     try {
@@ -4067,14 +4092,14 @@ const methods = {
     if (jabatan !== undefined) updateObj.jabatan = String(jabatan).trim();
 
     const { error } = await db.from('usulan_kp').update(updateObj).eq('id', id);
-    if (error) return { success: false, message: 'Gagal memperbarui status: ' + error.message };
+    if (error) throw error;
     return { success: true, message: 'Status usulan berhasil diperbarui.' };
   },
 
-  async deleteUsulanMasuk(args) {
+  async deleteUsulanMasukSingle(args) {
     const [token, id] = extractArgs(args);
     requireRole(token, ['admin', 'super_admin']);
-    if (!id) return { success: false, message: 'ID tidak valid.' };
+    if (!id) return { success: false, message: 'ID usulan tidak valid.' };
     const db = getDb();
     const { error } = await db.from('usulan_kp').delete().eq('id', id);
     if (error) return { success: false, message: 'Gagal menghapus usulan: ' + error.message };
