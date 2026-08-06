@@ -4358,27 +4358,40 @@ function setupAutocompleteEl(inputEl, listEl, hiddenNipInput, onSelect) {
     clearTimeout(debounceTimer);
     if (q.length < 2) { listEl.style.display = 'none'; return; }
 
-    debounceTimer = setTimeout(() => {
-      google.script.run
-        .withSuccessHandler(results => {
-          listEl.innerHTML = '';
-          if (!results.length) { listEl.style.display = 'none'; return; }
-          results.forEach(r => {
-            const item = document.createElement('div');
-            item.className = 'autocomplete-item';
-            item.innerHTML = `${escapeHtml(r.nama)}<small>NIP: ${escapeHtml(r.nip)}</small>`;
-            item.addEventListener('click', () => {
-              inputEl.value = `${r.nama} (${r.nip})`;
-              hiddenNipInput.value = r.nip;
-              listEl.style.display = 'none';
-              if (onSelect) onSelect(r.nip, r.nama);
-            });
-            listEl.appendChild(item);
+    debounceTimer = setTimeout(async () => {
+      const showResults = (results) => {
+        listEl.innerHTML = '';
+        if (!results || !results.length) { listEl.style.display = 'none'; return; }
+        results.forEach(r => {
+          const item = document.createElement('div');
+          item.className = 'autocomplete-item';
+          item.innerHTML = `${escapeHtml(r.nama || r.nama_lengkap || '')}<small>NIP: ${escapeHtml(r.nip || '')}${r.unit_es_ii ? ' - ' + escapeHtml(r.unit_es_ii) : ''}</small>`;
+          item.addEventListener('click', () => {
+            const displayName = r.nama || r.nama_lengkap || '';
+            inputEl.value = `${displayName} (${r.nip})`;
+            hiddenNipInput.value = r.nip;
+            listEl.style.display = 'none';
+            if (onSelect) onSelect(r.nip, displayName, r);
           });
-          listEl.style.display = 'block';
-        })
-        .withFailureHandler(err => showToast('error', 'Pencarian gagal: ' + (err.message || err)))
-        .searchEmployees(SESSION.token, q);
+          listEl.appendChild(item);
+        });
+        listEl.style.display = 'block';
+      };
+
+      try {
+        const res = await rpc('searchEmployees', [SESSION.token, q]);
+        const results = Array.isArray(res) ? res : (res?.data || []);
+        showResults(results);
+      } catch (err) {
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run
+            .withSuccessHandler(showResults)
+            .withFailureHandler(e => showToast('error', 'Pencarian gagal: ' + (e.message || e)))
+            .searchEmployees(SESSION.token, q);
+        } else {
+          showToast('error', 'Pencarian gagal: ' + (err.message || err));
+        }
+      }
     }, 300);
   });
 
@@ -4387,12 +4400,6 @@ function setupAutocompleteEl(inputEl, listEl, hiddenNipInput, onSelect) {
   });
 }
 
-/**
- * Sama seperti setupAutocompleteEl, tapi bisa memanggil fungsi pencarian
- * backend BERBEDA (bukan selalu searchEmployees) -- dipakai Menu Kontrak
- * supaya peran 'user' bisa diarahkan ke pencarian yang SUDAH dibatasi di
- * server (searchEmployeesForKontrak), bukan cuma difilter di klien.
- */
 function setupAutocompleteElCustom(inputEl, listEl, hiddenNipInput, onSelect, searchFnName) {
   let debounceTimer = null;
 
@@ -4402,27 +4409,41 @@ function setupAutocompleteElCustom(inputEl, listEl, hiddenNipInput, onSelect, se
     clearTimeout(debounceTimer);
     if (q.length < 2) { listEl.style.display = 'none'; return; }
 
-    debounceTimer = setTimeout(() => {
-      google.script.run
-        .withSuccessHandler(results => {
-          listEl.innerHTML = '';
-          if (!results.length) { listEl.style.display = 'none'; return; }
-          results.forEach(r => {
-            const item = document.createElement('div');
-            item.className = 'autocomplete-item';
-            item.innerHTML = `${escapeHtml(r.nama)}<small>NIP: ${escapeHtml(r.nip)}</small>`;
-            item.addEventListener('click', () => {
-              inputEl.value = `${r.nama} (${r.nip})`;
-              hiddenNipInput.value = r.nip;
-              listEl.style.display = 'none';
-              if (onSelect) onSelect(r.nip, r.nama);
-            });
-            listEl.appendChild(item);
+    debounceTimer = setTimeout(async () => {
+      const showResults = (results) => {
+        listEl.innerHTML = '';
+        if (!results || !results.length) { listEl.style.display = 'none'; return; }
+        results.forEach(r => {
+          const item = document.createElement('div');
+          item.className = 'autocomplete-item';
+          item.innerHTML = `${escapeHtml(r.nama || r.nama_lengkap || '')}<small>NIP: ${escapeHtml(r.nip || '')}</small>`;
+          item.addEventListener('click', () => {
+            const displayName = r.nama || r.nama_lengkap || '';
+            inputEl.value = `${displayName} (${r.nip})`;
+            hiddenNipInput.value = r.nip;
+            listEl.style.display = 'none';
+            if (onSelect) onSelect(r.nip, displayName, r);
           });
-          listEl.style.display = 'block';
-        })
-        .withFailureHandler(err => showToast('error', 'Pencarian gagal: ' + (err.message || err)))
-        [searchFnName](SESSION.token, q);
+          listEl.appendChild(item);
+        });
+        listEl.style.display = 'block';
+      };
+
+      try {
+        const fnName = searchFnName || 'searchEmployees';
+        const res = await rpc(fnName, [SESSION.token, q]);
+        const results = Array.isArray(res) ? res : (res?.data || []);
+        showResults(results);
+      } catch (err) {
+        if (typeof google !== 'undefined' && google.script && google.script.run && searchFnName && google.script.run[searchFnName]) {
+          google.script.run
+            .withSuccessHandler(showResults)
+            .withFailureHandler(e => showToast('error', 'Pencarian gagal: ' + (e.message || e)))
+            [searchFnName](SESSION.token, q);
+        } else {
+          showToast('error', 'Pencarian gagal: ' + (err.message || err));
+        }
+      }
     }, 300);
   });
 
@@ -6733,6 +6754,54 @@ function loadUsulanMasukBadge() {
     .getUsulanNotifikasiSummary(SESSION.token);
 }
 
+function hitungProyeksiGolonganBaru(gol) {
+  if (!gol) return '';
+  const str = String(gol).trim();
+
+  // Standar hirarki pangkat/golongan PNS & Non-ASN:
+  const ranks = [
+    'I/a', 'I/b', 'I/c', 'I/d',
+    'II/a', 'II/b', 'II/c', 'II/d',
+    'III/a', 'III/b', 'III/c', 'III/d',
+    'IV/a', 'IV/b', 'IV/c', 'IV/d', 'IV/e'
+  ];
+
+  const match = str.match(/(I|II|III|IV)\/([a-e])/i);
+  if (match) {
+    const cleanRank = match[1].toUpperCase() + '/' + match[2].toLowerCase();
+    const idx = ranks.indexOf(cleanRank);
+    if (idx !== -1 && idx < ranks.length - 1) {
+      const nextRank = ranks[idx + 1];
+      if (str.length > 8) {
+        return str.replace(match[0], nextRank);
+      }
+      return nextRank;
+    }
+    if (idx === ranks.length - 1) return cleanRank;
+  }
+  return str;
+}
+
+function recalculateGolBaruProjection() {
+  const inputGolLama = document.getElementById('umInputGolLama');
+  const inputGolBaru = document.getElementById('umInputGolBaru');
+  if (!inputGolLama || !inputGolBaru) return;
+  const golVal = inputGolLama.value.trim();
+  if (golVal) {
+    const projected = hitungProyeksiGolonganBaru(golVal);
+    inputGolBaru.value = projected;
+
+    const wrap = document.getElementById('umProyeksiRankWrap');
+    const elLama = document.getElementById('umProyeksiGolLamaText');
+    const elBaru = document.getElementById('umProyeksiGolBaruText');
+    if (wrap && elLama && elBaru) {
+      wrap.style.display = 'block';
+      elLama.textContent = golVal;
+      elBaru.textContent = projected;
+    }
+  }
+}
+
 function loadUsulanMasukDashboard() {
   loadUsulanMasukTmtDashboard();
 }
@@ -6748,34 +6817,58 @@ function loadUsulanMasukTmtDashboard() {
   const hiddenNip = document.getElementById('umInputNip');
   if (inputNama && listNama && hiddenNip && !inputNama.dataset.acBound) {
     inputNama.dataset.acBound = 'true';
-    setupAutocompleteEl(inputNama, listNama, hiddenNip, (nip, nama, item) => {
+    setupAutocompleteEl(inputNama, listNama, hiddenNip, async (nip, nama, item) => {
       const inputUnit = document.getElementById('umInputUnit');
       const inputJabatan = document.getElementById('umInputJabatan');
       const inputGolLama = document.getElementById('umInputGolLama');
       const inputGolBaru = document.getElementById('umInputGolBaru');
+      const inputJenis = document.getElementById('umInputJenisPegawai');
+      const inputStatus = document.getElementById('umInputStatusKepegawaian');
 
-      if (item) {
-        const unitVal = item.unit_es_ii || item.unit || '';
-        if (inputUnit && unitVal) inputUnit.value = unitVal;
+      let emp = item || {};
+      if (nip && (!emp.unit_es_ii || !emp.golongan)) {
+        try {
+          const res = await rpc('getEmployeeFullData', [SESSION.token, nip]);
+          if (res && res.nip) emp = Object.assign({}, emp, res);
+        } catch (e) {
+          // ignore error
+        }
+      }
 
-        const jabVal = item.jabatan || '';
-        if (inputJabatan && jabVal) inputJabatan.value = jabVal;
+      const unitVal = emp.unit_es_ii || emp.unit_kerja || emp.unit || '';
+      if (inputUnit && unitVal) inputUnit.value = unitVal;
 
-        const golVal = item.golongan || '';
-        if (inputGolLama && golVal) inputGolLama.value = golVal;
+      const jabVal = emp.jabatan || emp.jabatan_struktural || emp.jabatan_fungsional || '';
+      if (inputJabatan && jabVal) inputJabatan.value = jabVal;
 
-        if (golVal) {
-          const projected = hitungProyeksiGolonganBaru(golVal);
-          if (inputGolBaru) inputGolBaru.value = projected;
+      const golVal = emp.golongan || emp.gol || '';
+      if (inputGolLama && golVal) inputGolLama.value = golVal;
 
-          const wrap = document.getElementById('umProyeksiRankWrap');
-          const elLama = document.getElementById('umProyeksiGolLamaText');
-          const elBaru = document.getElementById('umProyeksiGolBaruText');
-          if (wrap && elLama && elBaru) {
-            wrap.style.display = 'block';
-            elLama.textContent = golVal;
-            elBaru.textContent = projected;
-          }
+      if (inputJenis && emp.jenis_peg) {
+        const j = String(emp.jenis_peg).toLowerCase();
+        if (j.includes('dosen')) inputJenis.value = 'Dosen';
+        else if (j.includes('tendik')) inputJenis.value = 'Tendik';
+      }
+
+      if (inputStatus && (emp.status_pegawai || emp.status_kepegawaian)) {
+        const st = String(emp.status_pegawai || emp.status_kepegawaian).toUpperCase();
+        if (st.includes('PNS')) inputStatus.value = 'PNS';
+        else if (st.includes('PPPK')) inputStatus.value = 'PPPK';
+        else if (st.includes('NON-PNS') || st.includes('NON PNS')) inputStatus.value = 'Tetap Non-PNS';
+        else if (st.includes('KONTRAK')) inputStatus.value = 'Kontrak';
+      }
+
+      if (golVal) {
+        const projected = hitungProyeksiGolonganBaru(golVal);
+        if (inputGolBaru) inputGolBaru.value = projected;
+
+        const wrap = document.getElementById('umProyeksiRankWrap');
+        const elLama = document.getElementById('umProyeksiGolLamaText');
+        const elBaru = document.getElementById('umProyeksiGolBaruText');
+        if (wrap && elLama && elBaru) {
+          wrap.style.display = 'block';
+          elLama.textContent = golVal;
+          elBaru.textContent = projected;
         }
       }
     });
