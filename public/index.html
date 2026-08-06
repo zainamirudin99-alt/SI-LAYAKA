@@ -10463,7 +10463,8 @@ async function submitUsulanKontrak(e) {
 }
 
 async function populateKontrakUserFormProfile() {
-  const isNormalUser = SESSION.userRole === 'user';
+  const role = (SESSION.user && SESSION.user.role) ? SESSION.user.role : 'normal';
+  const isNormalUser = role === 'normal' || role === 'user' || !['admin', 'super_admin'].includes(role);
   
   // Hide search box for normal user
   const searchWrap = document.querySelector('#kontrakUserForm .autocomplete-wrap');
