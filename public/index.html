@@ -7030,15 +7030,57 @@ function applyUsulanMasukDashboardData(res, container) {
 
   renderUsulanPieChart(dsdm, siasn, pertek, sk, perbaikan, belumEligible, pensiun);
 
-  const list = res.list || [];
-  window.umGlobalList = list;
+  const fullList = res.list || [];
+  window.umGlobalList = fullList;
+  window.umMasterRawList = fullList;
 
-  if (!list.length) {
+  // Populate Year Select Options
+  const yearSelect = document.getElementById('umYearFilterSelect');
+  if (yearSelect) {
+    const availableYearsSet = new Set();
+    fullList.forEach(item => {
+      const parsed = parseTmt(item.tmt);
+      if (parsed && parsed.year && parsed.year !== 'Tanpa TMT' && parsed.year !== 'Lainnya') {
+        availableYearsSet.add(parsed.year);
+      }
+    });
+    const sortedAvailableYears = Array.from(availableYearsSet).sort((a,b) => b.localeCompare(a));
+    const currentSelectedVal = yearSelect.value || 'ALL';
+    let newHtml = `<option value="ALL" ${currentSelectedVal === 'ALL' ? 'selected' : ''}>Semua Tahun</option>`;
+    sortedAvailableYears.forEach(yr => {
+      newHtml += `<option value="${yr}" ${yr === currentSelectedVal ? 'selected' : ''}>Tahun ${yr}</option>`;
+    });
+    yearSelect.innerHTML = newHtml;
+  }
+
+  // Populate Unit Select Options
+  const unitSelect = document.getElementById('umUnitFilterSelect');
+  if (unitSelect) {
+    const unitsSet = new Set();
+    fullList.forEach(item => {
+      if (item.unit && item.unit.trim()) {
+        unitsSet.add(item.unit.trim());
+      }
+    });
+    const sortedUnits = Array.from(unitsSet).sort();
+    const currentUnitVal = unitSelect.value || 'ALL';
+    let unitHtml = `<option value="ALL" ${currentUnitVal === 'ALL' ? 'selected' : ''}>Semua Unit</option>`;
+    sortedUnits.forEach(u => {
+      unitHtml += `<option value="${escapeHtml(u)}" ${u === currentUnitVal ? 'selected' : ''}>${escapeHtml(u)}</option>`;
+    });
+    unitSelect.innerHTML = unitHtml;
+  }
+
+  if (!fullList.length) {
     if (container) container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Belum ada usulan masuk. Silakan gunakan form di atas untuk menginput usulan baru atau import dari Excel/Spreadsheet.</div>';
     return;
   }
 
-  renderGroupedTmtTables(list, container);
+  if (typeof onUmYearFilterChange === 'function') {
+    onUmYearFilterChange();
+  } else {
+    renderGroupedTmtTables(fullList, container);
+  }
 }
 
 function renderUsulanPieChart(dsdm, siasn, pertek, sk, perbaikan, belumEligible, pensiun) {
@@ -7400,111 +7442,7 @@ function onUmYearFilterChange() {
   if (container) renderGroupedTmtTables(filteredList, container, umCurrentGroupMode);
 }
 
-function loadUsulanMasukTmtDashboard() {
-  const container = document.getElementById('usulanMasukTmtContainer');
-  if (container) {
-    container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat dashboard dan data usulan TMT...</div>';
-  }
 
-  const inputNama = document.getElementById('umInputNama');
-  const listNama = document.getElementById('umInputNama_list');
-  const hiddenNip = document.getElementById('umInputNip');
-  if (inputNama && listNama && hiddenNip && !inputNama.dataset.acBound) {
-    inputNama.dataset.acBound = 'true';
-    setupAutocompleteEl(inputNama, listNama, hiddenNip, (nip, nama, item) => {
-      const inputUnit = document.getElementById('umInputUnit');
-      const inputJabatan = document.getElementById('umInputJabatan');
-      const inputGolLama = document.getElementById('umInputGolLama');
-      const inputGolBaru = document.getElementById('umInputGolBaru');
-
-      if (item) {
-        const unitVal = item.unit_es_ii || item.unit || '';
-        if (inputUnit && unitVal) inputUnit.value = unitVal;
-
-        const jabVal = item.jabatan || '';
-        if (inputJabatan && jabVal) inputJabatan.value = jabVal;
-
-        const golVal = item.golongan || '';
-        if (inputGolLama && golVal) inputGolLama.value = golVal;
-
-        if (golVal) {
-          const projected = hitungProyeksiGolonganBaru(golVal);
-          if (inputGolBaru) inputGolBaru.value = projected;
-
-          const wrap = document.getElementById('umProyeksiRankWrap');
-          const elLama = document.getElementById('umProyeksiGolLamaText');
-          const elBaru = document.getElementById('umProyeksiGolBaruText');
-          if (wrap && elLama && elBaru) {
-            wrap.style.display = 'block';
-            elLama.textContent = golVal;
-            elBaru.textContent = projected;
-          }
-        }
-      }
-    });
-  }
-
-  loadUsulanMasukBadge();
-
-  google.script.run
-    .withSuccessHandler(res => {
-      if (!res || !res.success) {
-        showToast('error', (res && res.message) || 'Gagal memuat usulan masuk.');
-        if (container) container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Gagal memuat data.</div>';
-        return;
-      }
-
-      const fullList = res.list || [];
-      umMasterRawList = fullList;
-
-      // Populate Year Select Options
-      const yearSelect = document.getElementById('umYearFilterSelect');
-      if (yearSelect) {
-        const availableYearsSet = new Set();
-        fullList.forEach(item => {
-          const parsed = parseTmt(item.tmt);
-          if (parsed && parsed.year && parsed.year !== 'Tanpa TMT' && parsed.year !== 'Lainnya') {
-            availableYearsSet.add(parsed.year);
-          }
-        });
-        const sortedAvailableYears = Array.from(availableYearsSet).sort((a,b) => b.localeCompare(a));
-        
-        const currentSelectedVal = yearSelect.value || 'ALL';
-        let newHtml = `<option value="ALL" ${currentSelectedVal === 'ALL' ? 'selected' : ''}>Semua Tahun</option>`;
-        if (sortedAvailableYears.length) {
-          sortedAvailableYears.forEach(yr => {
-            newHtml += `<option value="${yr}" ${yr === currentSelectedVal ? 'selected' : ''}>Tahun ${yr}</option>`;
-          });
-        }
-        yearSelect.innerHTML = newHtml;
-      }
-
-      // Populate Unit Select Options
-      const unitSelect = document.getElementById('umUnitFilterSelect');
-      if (unitSelect) {
-        const unitsSet = new Set();
-        fullList.forEach(item => {
-          if (item.unit && item.unit.trim()) {
-            unitsSet.add(item.unit.trim());
-          }
-        });
-        const sortedUnits = Array.from(unitsSet).sort();
-        const currentUnitVal = unitSelect.value || 'ALL';
-        let unitHtml = `<option value="ALL" ${currentUnitVal === 'ALL' ? 'selected' : ''}>Semua Unit</option>`;
-        sortedUnits.forEach(u => {
-          unitHtml += `<option value="${escapeHtml(u)}" ${u === currentUnitVal ? 'selected' : ''}>${escapeHtml(u)}</option>`;
-        });
-        unitSelect.innerHTML = unitHtml;
-      }
-
-      onUmYearFilterChange();
-    })
-    .withFailureHandler(err => {
-      showToast('error', 'Gagal memuat dashboard usulan: ' + (err.message || err));
-      if (container) container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Gagal memuat data dari server.</div>';
-    })
-    .getUsulanMasukTmtGrouped(SESSION.token);
-}
 
 function renderGroupedTmtTables(list, container, mode = 'by_tmt') {
   if (!list || !list.length) {
