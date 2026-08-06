@@ -7042,6 +7042,7 @@ function applyUsulanMasukDashboardData(res, container) {
   const fullList = res.list || [];
   window.umGlobalList = fullList;
   window.umMasterRawList = fullList;
+  umMasterRawList = fullList;
 
   // Populate Year Select Options
   const yearSelect = document.getElementById('umYearFilterSelect');
@@ -7322,10 +7323,6 @@ function toggleTmtAccordion(elementId) {
   }
 }
 
-function onUmYearFilterChange() {
-  loadUsulanMasukTmtDashboard();
-}
-
 let umMasterRawList = [];
 let umCurrentGroupMode = 'by_tmt';
 
@@ -7353,7 +7350,8 @@ function setUsulanGroupMode(mode) {
 }
 
 function onUmYearFilterChange() {
-  if (!umMasterRawList) return;
+  const masterList = (umMasterRawList && umMasterRawList.length) ? umMasterRawList : (window.umMasterRawList || []);
+  if (!masterList) return;
 
   const yearSelect = document.getElementById('umYearFilterSelect');
   const jenisSelect = document.getElementById('umJenisFilterSelect');
@@ -7365,7 +7363,7 @@ function onUmYearFilterChange() {
   const selStatusKep = statusKepSelect ? statusKepSelect.value : 'ALL';
   const selUnit = unitSelect ? unitSelect.value : 'ALL';
 
-  let filteredList = umMasterRawList;
+  let filteredList = masterList;
 
   if (selYear !== 'ALL') {
     filteredList = filteredList.filter(item => {
