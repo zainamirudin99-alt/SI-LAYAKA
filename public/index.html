@@ -24,6 +24,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.3/dist/docx-preview.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Orbitron:wght@600;700;800&family=JetBrains+Mono:wght@500;600&display=swap');
 
@@ -7093,9 +7094,32 @@ function applyUsulanMasukDashboardData(res, container) {
   }
 }
 
-function renderUsulanPieChart(dsdm, siasn, pertek, sk, perbaikan, belumEligible, pensiun) {
+async function ensureChartJsLoaded() {
+  if (typeof Chart !== 'undefined') return true;
+  return new Promise(resolve => {
+    const existing = document.querySelector('script[src*="chart.js"]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(typeof Chart !== 'undefined'));
+      existing.addEventListener('error', () => resolve(false));
+      setTimeout(() => resolve(typeof Chart !== 'undefined'), 1500);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+    script.onload = () => resolve(typeof Chart !== 'undefined');
+    script.onerror = () => resolve(false);
+    document.head.appendChild(script);
+  });
+}
+
+async function renderUsulanPieChart(dsdm, siasn, pertek, sk, perbaikan, belumEligible, pensiun) {
   const canvas = document.getElementById('usulanStatusPieChart');
-  if (!canvas || typeof Chart === 'undefined') return;
+  if (!canvas) return;
+
+  if (typeof Chart === 'undefined') {
+    const isLoaded = await ensureChartJsLoaded();
+    if (!isLoaded || typeof Chart === 'undefined') return;
+  }
 
   const ctx = canvas.getContext('2d');
   if (usulanPieChartInstance) {
