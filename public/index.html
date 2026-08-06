@@ -3401,6 +3401,29 @@
     </div>
   </div>
 
+  <!-- ======================= MODAL LINK SPREADSHEET (BUAT SK TUTAM) ======================= -->
+  <div class="modal-overlay" id="modalSpreadsheetSk" style="display:none;">
+    <div class="modal-box" style="max-width:550px; width:92%;">
+      <div class="modal-header">
+        <strong style="font-size:15.5px; color:var(--text);">🔗 Import Data dari Link Spreadsheet</strong>
+        <button class="btn btn-secondary" onclick="document.getElementById('modalSpreadsheetSk').style.display='none'" style="padding:4px 10px; font-size:13px;">✕</button>
+      </div>
+      <div class="modal-body" style="padding:20px 24px;">
+        <div class="stack-field" style="margin-bottom:18px;">
+          <label class="kp-label" style="font-weight:600; margin-bottom:6px; display:block;">URL / Link Google Spreadsheet <span style="color:#ef4444;">*</span></label>
+          <input type="text" id="spreadsheetSkUrl" class="field-input" placeholder="https://docs.google.com/spreadsheets/d/..." style="width:100%; box-sizing:border-box; padding:10px 14px;" />
+          <span style="font-size:12px; color:var(--text-muted); margin-top:6px; display:block;">
+            Pastikan Google Spreadsheet Anda telah dibagikan (Akses: <em>"Siapa saja yang memiliki link dapat melihat" / "Anyone with the link can view"</em>).
+          </span>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('modalSpreadsheetSk').style.display='none'" style="padding:8px 18px;">Batal</button>
+          <button type="button" class="btn btn-primary" onclick="buatSkImportFromSpreadsheet()" style="padding:8px 20px; font-weight:600;">📥 Import Spreadsheet</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ======================= TOAST ======================= -->
 
   <div class="toast-container" id="toastContainer"></div>
