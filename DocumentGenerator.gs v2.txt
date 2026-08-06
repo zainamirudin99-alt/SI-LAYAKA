@@ -199,8 +199,37 @@ function renderMultiEntryDocument_(templateFileId, entries, tempName) {
  */
 function appendBodyContent_(targetBody, sourceBody) {
   const total = sourceBody.getNumChildren();
+  let contentStarted = false;
+
   for (let i = 0; i < total; i++) {
-    appendElementByType_(targetBody, sourceBody.getChild(i));
+    const child = sourceBody.getChild(i);
+    const type = child.getType();
+
+    // Abaikan paragraf kosong & page break gantung di bagian awal sourceBody (cegah halaman kosong & jarak berlebih di data salinan)
+    if (!contentStarted) {
+      if (type === DocumentApp.ElementType.PARAGRAPH) {
+        const text = child.asParagraph().getText().trim();
+        const childCount = child.asParagraph().getNumChildren();
+        let hasContent = text !== '';
+        if (!hasContent) {
+          for (let c = 0; c < childCount; c++) {
+            const childType = child.asParagraph().getChild(c).getType();
+            if (childType === DocumentApp.ElementType.INLINE_IMAGE || childType === DocumentApp.ElementType.PAGE_BREAK) {
+              hasContent = true;
+              break;
+            }
+          }
+        }
+        if (!hasContent) {
+          continue; // lewati paragraf kosong di awal sel/dokumen
+        }
+      } else if (type === DocumentApp.ElementType.PAGE_BREAK) {
+        continue; // lewati page break gantung di awal karena targetBody sudah diberi appendPageBreak()
+      }
+      contentStarted = true;
+    }
+
+    appendElementByType_(targetBody, child);
   }
 }
 
