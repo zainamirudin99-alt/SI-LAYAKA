@@ -5295,22 +5295,43 @@ function filterServiceTemplates(selectId, tipe) {
   if (selectId === 'skKp_templateSelect') onSkKpFormChange();
 }
 
-function loadServiceTemplates(layanan, subMenu, selectId) {
+async function loadServiceTemplates(layanan, subMenu, selectId) {
   const selectEl = document.getElementById(selectId);
   if (!selectEl) return;
-  selectEl.innerHTML = '<option value="">Memuat template...</option>';
-  google.script.run
-    .withSuccessHandler(res => {
-      const templates = res.templates || res || [];
-      TEMPLATE_CACHE[selectId] = templates;
-      const checkedRadio = document.querySelector(`input[name="${selectId}Type"]:checked`);
-      const defaultType = checkedRadio ? checkedRadio.value : 'gdocs';
-      filterServiceTemplates(selectId, defaultType);
-    })
-    .withFailureHandler(() => {
+
+  if (TEMPLATE_CACHE[selectId] && TEMPLATE_CACHE[selectId].length) {
+    const checkedRadio = document.querySelector(`input[name="${selectId}Type"]:checked`);
+    const defaultType = checkedRadio ? checkedRadio.value : 'gdocs';
+    filterServiceTemplates(selectId, defaultType);
+  } else {
+    selectEl.innerHTML = '<option value="">Memuat template...</option>';
+  }
+
+  try {
+    const res = await rpc('getTemplates', [SESSION.token, layanan, subMenu]);
+    const templates = (res && res.templates) ? res.templates : (Array.isArray(res) ? res : []);
+    TEMPLATE_CACHE[selectId] = templates;
+    const checkedRadio = document.querySelector(`input[name="${selectId}Type"]:checked`);
+    const defaultType = checkedRadio ? checkedRadio.value : 'gdocs';
+    filterServiceTemplates(selectId, defaultType);
+  } catch (err) {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(res => {
+          const templates = res.templates || res || [];
+          TEMPLATE_CACHE[selectId] = templates;
+          const checkedRadio = document.querySelector(`input[name="${selectId}Type"]:checked`);
+          const defaultType = checkedRadio ? checkedRadio.value : 'gdocs';
+          filterServiceTemplates(selectId, defaultType);
+        })
+        .withFailureHandler(() => {
+          if (!TEMPLATE_CACHE[selectId]) selectEl.innerHTML = '<option value="">Gagal memuat template</option>';
+        })
+        .getTemplates(SESSION.token, layanan, subMenu);
+    } else if (!TEMPLATE_CACHE[selectId]) {
       selectEl.innerHTML = '<option value="">Gagal memuat template</option>';
-    })
-    .getTemplates(SESSION.token, layanan, subMenu);
+    }
+  }
 }
 
 function reloadAllServiceTemplates() {
@@ -6024,21 +6045,46 @@ function escapeHtml(str) {
  * ===================================================================== */
 let promosiDashboardData = null; // cache respons getPromosiDashboardSummary
 
-function loadPromosiDashboard() {
+async function loadPromosiDashboard(forceRefresh = false) {
   if (!SESSION.token) return;
-  google.script.run
-    .withSuccessHandler(res => {
-      if (!res.success) { showToast('error', res.message); return; }
+  if (promosiDashboardData && !forceRefresh) {
+    document.getElementById('ceDashboardTarget').textContent = 'TMT diproses: ' + (promosiDashboardData.targetTmt || '-');
+    renderSummaryWidgets(promosiDashboardData.widgets);
+    renderPromosiDashboardLevel1(promosiDashboardData.daftarUnit);
+    const dashboardAjukanBtn = document.getElementById('ceDashboardAjukanUsulanBtn');
+    if (dashboardAjukanBtn) dashboardAjukanBtn.style.display = (SESSION.user && SESSION.user.role !== 'normal') ? 'inline-flex' : 'none';
+  }
+
+  try {
+    const res = await rpc('getPromosiDashboardSummary', [SESSION.token]);
+    if (res && res.success) {
       promosiDashboardData = res;
-      document.getElementById('ceDashboardTarget').textContent = 'TMT diproses: ' + res.targetTmt;
+      document.getElementById('ceDashboardTarget').textContent = 'TMT diproses: ' + (res.targetTmt || '-');
       renderSummaryWidgets(res.widgets);
       renderPromosiDashboardLevel1(res.daftarUnit);
-
       const dashboardAjukanBtn = document.getElementById('ceDashboardAjukanUsulanBtn');
       if (dashboardAjukanBtn) dashboardAjukanBtn.style.display = (SESSION.user && SESSION.user.role !== 'normal') ? 'inline-flex' : 'none';
-    })
-    .withFailureHandler(err => showToast('error', 'Gagal memuat dashboard eligible: ' + (err.message || err)))
-    .getPromosiDashboardSummary(SESSION.token);
+    } else {
+      if (!promosiDashboardData) showToast('error', res?.message || 'Gagal memuat dashboard eligible.');
+    }
+  } catch (err) {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(res => {
+          if (!res.success) { showToast('error', res.message); return; }
+          promosiDashboardData = res;
+          document.getElementById('ceDashboardTarget').textContent = 'TMT diproses: ' + res.targetTmt;
+          renderSummaryWidgets(res.widgets);
+          renderPromosiDashboardLevel1(res.daftarUnit);
+          const dashboardAjukanBtn = document.getElementById('ceDashboardAjukanUsulanBtn');
+          if (dashboardAjukanBtn) dashboardAjukanBtn.style.display = (SESSION.user && SESSION.user.role !== 'normal') ? 'inline-flex' : 'none';
+        })
+        .withFailureHandler(e => showToast('error', 'Gagal memuat dashboard eligible: ' + (e.message || e)))
+        .getPromosiDashboardSummary(SESSION.token);
+    } else if (!promosiDashboardData) {
+      showToast('error', 'Gagal memuat dashboard eligible: ' + (err.message || err));
+    }
+  }
 }
 
 function renderSummaryWidgets(widgets) {
@@ -6759,22 +6805,38 @@ function bindPensiunForm() {
 /* ---------- USULAN MASUK (peran admin/super_admin) ---------- */
 let usulanPieChartInstance = null;
 
-function loadUsulanMasukBadge() {
-  google.script.run
-    .withSuccessHandler(res => {
-      if (!res || !res.success) return;
-      const badge = document.getElementById('usulanMasukBadge');
-      if (badge) {
-        if (res.totalUsulanBaru > 0) {
-          badge.textContent = res.totalUsulanBaru;
-          badge.style.display = 'inline-block';
-        } else {
-          badge.style.display = 'none';
-        }
+async function loadUsulanMasukBadge() {
+  try {
+    const res = await rpc('getUsulanNotifikasiSummary', [SESSION.token]);
+    if (!res || !res.success) return;
+    const badge = document.getElementById('usulanMasukBadge');
+    if (badge) {
+      if (res.totalUsulanBaru > 0) {
+        badge.textContent = res.totalUsulanBaru;
+        badge.style.display = 'inline-block';
+      } else {
+        badge.style.display = 'none';
       }
-    })
-    .withFailureHandler(() => {})
-    .getUsulanNotifikasiSummary(SESSION.token);
+    }
+  } catch (e) {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(res => {
+          if (!res || !res.success) return;
+          const badge = document.getElementById('usulanMasukBadge');
+          if (badge) {
+            if (res.totalUsulanBaru > 0) {
+              badge.textContent = res.totalUsulanBaru;
+              badge.style.display = 'inline-block';
+            } else {
+              badge.style.display = 'none';
+            }
+          }
+        })
+        .withFailureHandler(() => {})
+        .getUsulanNotifikasiSummary(SESSION.token);
+    }
+  }
 }
 
 function hitungProyeksiGolonganBaru(gol) {
@@ -6829,9 +6891,11 @@ function loadUsulanMasukDashboard() {
   loadUsulanMasukTmtDashboard();
 }
 
-function loadUsulanMasukTmtDashboard() {
+let umGlobalCache = null;
+
+async function loadUsulanMasukTmtDashboard(forceRefresh = false) {
   const container = document.getElementById('usulanMasukTmtContainer');
-  if (container) {
+  if (container && (!umGlobalCache || forceRefresh)) {
     container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat dashboard dan data usulan TMT...</div>';
   }
 
@@ -6899,59 +6963,82 @@ function loadUsulanMasukTmtDashboard() {
 
   loadUsulanMasukBadge();
 
-  google.script.run
-    .withSuccessHandler(res => {
-      if (!res || !res.success) {
-        showToast('error', (res && res.message) || 'Gagal memuat usulan masuk.');
-        if (container) container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Gagal memuat data.</div>';
-        return;
+  if (umGlobalCache && !forceRefresh) {
+    applyUsulanMasukDashboardData(umGlobalCache, container);
+  }
+
+  try {
+    const res = await rpc('getUsulanMasukTmtGrouped', [SESSION.token]);
+    if (res && res.success) {
+      umGlobalCache = res;
+      applyUsulanMasukDashboardData(res, container);
+    } else {
+      if (!umGlobalCache && container) {
+        container.innerHTML = '<div class="ce-dashboard-card cdc-empty">' + (res?.message || 'Gagal memuat data.') + '</div>';
       }
+    }
+  } catch (err) {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(res => {
+          if (!res || !res.success) {
+            if (container) container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Gagal memuat data.</div>';
+            return;
+          }
+          umGlobalCache = res;
+          applyUsulanMasukDashboardData(res, container);
+        })
+        .withFailureHandler(e => {
+          showToast('error', 'Gagal memuat dashboard usulan: ' + (e.message || e));
+          if (container) container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Gagal memuat data dari server.</div>';
+        })
+        .getUsulanMasukTmtGrouped(SESSION.token);
+    } else if (!umGlobalCache && container) {
+      container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Gagal memuat data dari server.</div>';
+    }
+  }
+}
 
-      const sc = res.statusCounts || {};
-      const dsdm = sc['Diterima DSDM'] || 0;
-      const siasn = sc['Diajukan SIASN'] || 0;
-      const pertek = sc['TTD Pertek'] || 0;
-      const sk = sc['SK Berhasil'] || 0;
-      const perbaikan = sc['Perbaikan'] || 0;
-      const belumEligible = sc['Belum Eligible'] || 0;
-      const pensiun = sc['Pensiun'] || 0;
-      const total = res.total || 0;
+function applyUsulanMasukDashboardData(res, container) {
+  const sc = res.statusCounts || {};
+  const dsdm = sc['Diterima DSDM'] || 0;
+  const siasn = sc['Diajukan SIASN'] || 0;
+  const pertek = sc['TTD Pertek'] || 0;
+  const sk = sc['SK Berhasil'] || 0;
+  const perbaikan = sc['Perbaikan'] || 0;
+  const belumEligible = sc['Belum Eligible'] || 0;
+  const pensiun = sc['Pensiun'] || 0;
+  const total = res.total || 0;
 
-      const elDsdm = document.getElementById('statCountDSDM');
-      const elSiasn = document.getElementById('statCountSIASN');
-      const elPertek = document.getElementById('statCountPertek');
-      const elSk = document.getElementById('statCountSK');
-      const elPerbaikan = document.getElementById('statCountPerbaikan');
-      const elBelum = document.getElementById('statCountBelumEligible');
-      const elPensiun = document.getElementById('statCountPensiun');
-      const elTotal = document.getElementById('statCountTotal');
+  const elDsdm = document.getElementById('statCountDSDM');
+  const elSiasn = document.getElementById('statCountSIASN');
+  const elPertek = document.getElementById('statCountPertek');
+  const elSk = document.getElementById('statCountSK');
+  const elPerbaikan = document.getElementById('statCountPerbaikan');
+  const elBelum = document.getElementById('statCountBelumEligible');
+  const elPensiun = document.getElementById('statCountPensiun');
+  const elTotal = document.getElementById('statCountTotal');
 
-      if (elDsdm) elDsdm.textContent = dsdm;
-      if (elSiasn) elSiasn.textContent = siasn;
-      if (elPertek) elPertek.textContent = pertek;
-      if (elSk) elSk.textContent = sk;
-      if (elPerbaikan) elPerbaikan.textContent = perbaikan;
-      if (elBelum) elBelum.textContent = belumEligible;
-      if (elPensiun) elPensiun.textContent = pensiun;
-      if (elTotal) elTotal.textContent = total;
+  if (elDsdm) elDsdm.textContent = dsdm;
+  if (elSiasn) elSiasn.textContent = siasn;
+  if (elPertek) elPertek.textContent = pertek;
+  if (elSk) elSk.textContent = sk;
+  if (elPerbaikan) elPerbaikan.textContent = perbaikan;
+  if (elBelum) elBelum.textContent = belumEligible;
+  if (elPensiun) elPensiun.textContent = pensiun;
+  if (elTotal) elTotal.textContent = total;
 
-      renderUsulanPieChart(dsdm, siasn, pertek, sk, perbaikan, belumEligible, pensiun);
+  renderUsulanPieChart(dsdm, siasn, pertek, sk, perbaikan, belumEligible, pensiun);
 
-      const list = res.list || [];
-      window.umGlobalList = list;
+  const list = res.list || [];
+  window.umGlobalList = list;
 
-      if (!list.length) {
-        if (container) container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Belum ada usulan masuk. Silakan gunakan form di atas untuk menginput usulan baru atau import dari Excel/Spreadsheet.</div>';
-        return;
-      }
+  if (!list.length) {
+    if (container) container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Belum ada usulan masuk. Silakan gunakan form di atas untuk menginput usulan baru atau import dari Excel/Spreadsheet.</div>';
+    return;
+  }
 
-      renderGroupedTmtTables(list, container);
-    })
-    .withFailureHandler(err => {
-      showToast('error', 'Gagal memuat dashboard usulan: ' + (err.message || err));
-      if (container) container.innerHTML = '<div class="ce-dashboard-card cdc-empty">Gagal memuat data dari server.</div>';
-    })
-    .getUsulanMasukTmtGrouped(SESSION.token);
+  renderGroupedTmtTables(list, container);
 }
 
 function renderUsulanPieChart(dsdm, siasn, pertek, sk, perbaikan, belumEligible, pensiun) {
