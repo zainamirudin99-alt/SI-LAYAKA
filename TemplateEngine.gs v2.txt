@@ -287,9 +287,8 @@ function renderCellTextInPlace_(cell, dataContext) {
     if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
     const paragraph = child.asParagraph();
     const paraText = paragraph.getText();
-    if (paraText.indexOf('{{') === -1) continue; // paragraf tanpa tag (mis. "Nama :") -- JANGAN disentuh
+    if (paraText.indexOf('{{') === -1) continue; // paragraf tanpa tag -- JANGAN disentuh
 
-    let newParaText = paraText;
     let m2;
     TAG_REGEX.lastIndex = 0;
     while ((m2 = TAG_REGEX.exec(paraText)) !== null) {
@@ -300,11 +299,13 @@ function renderCellTextInPlace_(cell, dataContext) {
       } catch (e) {
         value = `[ERROR:${rawExpr}]`;
       }
-      newParaText = newParaText.split(m2[0]).join(value);
-    }
-    if (newParaText !== paraText) {
-      paragraph.setText(newParaText || ' ');
-      enforceMinFontSizeInParagraph_(paragraph, 9);
+      const pattern = '\\{\\{\\s*' + escapeRegex_(rawExpr) + '\\s*\\}\\}';
+      const repVal = escapeReplacement_(value);
+      try {
+        paragraph.replaceText(pattern, repVal);
+      } catch (e) {
+        paragraph.replaceText(pattern, repVal === '' ? ' ' : repVal);
+      }
     }
   }
 }
@@ -925,36 +926,42 @@ function fillRowPlaceholders_(row, mergedContext, openInfo, closeInfo, item) {
 
   for (let c = 0; c < numCells; c++) {
     const cell = row.getCell(c);
-    const cellText = cell.getText();
-    let newText = cellText;
+    const numAnak = cell.getNumChildren();
+    for (let i = 0; i < numAnak; i++) {
+      const child = cell.getChild(i);
+      if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+      const paragraph = child.asParagraph();
+      const paraText = paragraph.getText();
+      if (!paraText) continue;
 
-    // 1) Isi semua tag {{ekspresi}} bergaya kurung-ganda di sel ini.
-    let m;
-    TAG_REGEX.lastIndex = 0;
-    while ((m = TAG_REGEX.exec(cellText)) !== null) {
-      const rawExpr = m[1];
-      let value;
-      if (rawExpr === openMarkerExpr || rawExpr === closeMarkerExpr) {
-        value = ''; // marker loop itu sendiri -> tidak dicetak, bukan ekspresi
-      } else {
-        try { value = evaluateAndFormat_(rawExpr, mergedContext); } catch (e) { value = ''; }
-        // "set nama = ekspresi" -> tulis balik ke item ASLI (bukan cuma
-        // mergedContext) supaya sum(nama_loop, 'field') di luar loop bisa
-        // membacanya dari dataContext[loopName][i].
-        const setInfo = parseSetExpr_(normalizeSmartQuotes_(rawExpr).trim());
-        if (setInfo && item) {
-          item[setInfo.varName] = mergedContext[setInfo.varName];
+      let m;
+      TAG_REGEX.lastIndex = 0;
+      while ((m = TAG_REGEX.exec(paraText)) !== null) {
+        const rawExpr = m[1];
+        let value;
+        if (rawExpr === openMarkerExpr || rawExpr === closeMarkerExpr) {
+          value = ''; // marker loop itu sendiri -> tidak dicetak, bukan ekspresi
+        } else {
+          try { value = evaluateAndFormat_(rawExpr, mergedContext); } catch (e) { value = ''; }
+          const setInfo = parseSetExpr_(normalizeSmartQuotes_(rawExpr).trim());
+          if (setInfo && item) {
+            item[setInfo.varName] = mergedContext[setInfo.varName];
+          }
+        }
+        const pattern = '\\{\\{\\s*' + escapeRegex_(rawExpr) + '\\s*\\}\\}';
+        const repVal = escapeReplacement_(value);
+        try {
+          paragraph.replaceText(pattern, repVal);
+        } catch (e) {
+          paragraph.replaceText(pattern, repVal === '' ? ' ' : repVal);
         }
       }
-      newText = newText.split(m[0]).join(value);
-    }
 
-    // 2) Bersihkan juga marker gaya kurung-tunggal lama {#nama}/{/nama},
-    //    yang tidak tertangkap TAG_REGEX (butuh kurung ganda).
-    newText = newText.split(openInfo.full).join('').split(closeInfo.full).join('');
-
-    if (newText !== cellText) {
-      cell.setText(newText || '');
+      // Bersihkan marker gaya kurung-tunggal {#nama}/{/nama}
+      const rawOpen = openInfo.full.replace(/^\{|\}$/g, '');
+      const rawClose = closeInfo.full.replace(/^\{|\}$/g, '');
+      if (rawOpen) { try { paragraph.replaceText('\\{\\s*' + escapeRegex_(rawOpen) + '\\s*\\}', ''); } catch (e) {} }
+      if (rawClose) { try { paragraph.replaceText('\\{\\s*' + escapeRegex_(rawClose) + '\\s*\\}', ''); } catch (e) {} }
     }
   }
 }

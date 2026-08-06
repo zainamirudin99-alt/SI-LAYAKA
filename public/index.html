@@ -5495,23 +5495,43 @@ function handlePreviewGenerate(opt, mode) {
   }
 }
 
-function runPreview(payload) {
+async function runPreview(payload) {
   showToast('info', 'Membuat preview dokumen...');
-  google.script.run
-    .withSuccessHandler(res => {
-      if (res.success) {
-        if (res.base64) {
-          const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
-          openPreviewModal(blobUrl);
-        } else {
-          openPreviewModal(res.previewUrl);
-        }
+  try {
+    const res = await rpc('previewDocument', [SESSION.token, payload]);
+    if (res && res.success) {
+      if (res.base64) {
+        const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
+        openPreviewModal(blobUrl);
+      } else if (res.previewUrl) {
+        openPreviewModal(res.previewUrl);
       } else {
-        showToast('error', res.message);
+        showToast('error', res.message || 'Preview tidak dapat dimuat.');
       }
-    })
-    .withFailureHandler(err => showToast('error', 'Gagal preview: ' + (err.message || err)))
-    .previewDocument(SESSION.token, payload);
+    } else {
+      showToast('error', res?.message || 'Gagal preview.');
+    }
+  } catch (err) {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(res => {
+          if (res.success) {
+            if (res.base64) {
+              const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
+              openPreviewModal(blobUrl);
+            } else {
+              openPreviewModal(res.previewUrl);
+            }
+          } else {
+            showToast('error', res.message);
+          }
+        })
+        .withFailureHandler(e => showToast('error', 'Gagal preview: ' + (e.message || e)))
+        .previewDocument(SESSION.token, payload);
+    } else {
+      showToast('error', 'Gagal preview: ' + (err.message || err));
+    }
+  }
 }
 
 function convertBase64ToBlobUrl_(base64, mimeType) {
@@ -5525,19 +5545,33 @@ function convertBase64ToBlobUrl_(base64, mimeType) {
   return URL.createObjectURL(blob);
 }
 
-function runGenerate(payload) {
+async function runGenerate(payload) {
   showToast('info', 'Memproses dokumen, mohon tunggu...');
-  google.script.run
-    .withSuccessHandler(res => {
-      if (res.success) {
-        showToast('success', `${res.fileName} berhasil dibuat.`);
-        openDownloadModal(res);
-      } else {
-        showToast('error', res.message);
-      }
-    })
-    .withFailureHandler(err => showToast('error', 'Gagal generate: ' + (err.message || err)))
-    .generateDocument(SESSION.token, payload);
+  try {
+    const res = await rpc('generateDocument', [SESSION.token, payload]);
+    if (res && res.success) {
+      showToast('success', `${res.fileName || 'Dokumen'} berhasil dibuat.`);
+      openDownloadModal(res);
+    } else {
+      showToast('error', res?.message || 'Gagal generate.');
+    }
+  } catch (err) {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(res => {
+          if (res.success) {
+            showToast('success', `${res.fileName} berhasil dibuat.`);
+            openDownloadModal(res);
+          } else {
+            showToast('error', res.message);
+          }
+        })
+        .withFailureHandler(e => showToast('error', 'Gagal generate: ' + (e.message || e)))
+        .generateDocument(SESSION.token, payload);
+    } else {
+      showToast('error', 'Gagal generate: ' + (err.message || err));
+    }
+  }
 }
 
 /* ------------------------- MODAL PREVIEW / DOWNLOAD ------------------------- */
