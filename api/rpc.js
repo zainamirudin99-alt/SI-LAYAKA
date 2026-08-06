@@ -6247,6 +6247,30 @@ const methods = {
     return { success: true, message: disetujui ? 'Lampiran disetujui.' : 'Persetujuan lampiran dibatalkan.' };
   },
 
+  async rejectUsulanKontrak(args) {
+    const [token, usulanId, alasan] = extractArgs(args);
+    const decoded = requireRole(token, ['admin','super_admin']);
+    if (!usulanId) return { success: false, message: 'ID usulan wajib diisi.' };
+    const db = getDb();
+    const { error } = await db.from('usulan_kontrak').update({
+      status: 'Ditolak',
+      catatan_admin: String(alasan || '').trim(),
+      diproses_oleh_nip: decoded.nip
+    }).eq('id', usulanId);
+    if (error) throw error;
+    return { success: true, message: 'Usulan kontrak berhasil ditolak.' };
+  },
+
+  async deleteUsulanKontrakSingle(args) {
+    const [token, usulanId] = extractArgs(args);
+    requireRole(token, ['admin','super_admin']);
+    if (!usulanId) return { success: false, message: 'ID usulan wajib diisi.' };
+    const db = getDb();
+    const { error } = await db.from('usulan_kontrak').delete().eq('id', usulanId);
+    if (error) throw error;
+    return { success: true, message: 'Usulan kontrak berhasil dihapus permanen.' };
+  },
+
   async tandaiPerjanjianKontrakDibuat(args) {
     const [token, usulanId] = extractArgs(args);
     const decoded = requireRole(token, ['admin','super_admin']);

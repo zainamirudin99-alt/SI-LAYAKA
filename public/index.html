@@ -10853,6 +10853,14 @@ function viewKontrakReviewDetail(usulanId) {
               </div>
             </div>`).join('')}
         </div>
+        <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px; border-top:1px solid #eee; padding-top:16px; flex-wrap:wrap;">
+          <button type="button" class="btn btn-outline" style="color:var(--danger); border-color:var(--danger); font-weight:600;" onclick="adminRejectUsulanKontrak('${u.id}')">
+            🚫 Tolak Usulan
+          </button>
+          <button type="button" class="btn btn-outline" style="color:#b91c1c; border-color:#b91c1c; background:#fee2e2; font-weight:700;" onclick="adminDeleteUsulanKontrak('${u.id}')">
+            🗑️ Hapus Usulan
+          </button>
+        </div>
         ${generateBtnHtml}
       `;
 
@@ -10861,6 +10869,69 @@ function viewKontrakReviewDetail(usulanId) {
       }
     })
     .getUsulanKontrakById(SESSION.token, usulanId);
+}
+
+async function adminRejectUsulanKontrak(usulanId) {
+  const alasan = prompt('Masukkan alasan penolakan usulan (opsional):');
+  if (alasan === null) return;
+
+  showToast('info', 'Memproses penolakan...');
+  try {
+    const res = await rpc('rejectUsulanKontrak', [SESSION.token, usulanId, alasan]);
+    if (res && res.success) {
+      showToast('success', res.message || 'Usulan berhasil ditolak.');
+      viewKontrakReviewDetail(usulanId);
+    } else {
+      showToast('error', res?.message || 'Gagal menolak usulan.');
+    }
+  } catch (err) {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(res => {
+          if (res.success) {
+            showToast('success', res.message);
+            viewKontrakReviewDetail(usulanId);
+          } else {
+            showToast('error', res.message);
+          }
+        })
+        .withFailureHandler(e => showToast('error', 'Gagal menolak usulan: ' + (e.message || e)))
+        .updateStatusUsulanKontrak(SESSION.token, usulanId, 'Ditolak', alasan);
+    } else {
+      showToast('error', 'Gagal menolak usulan: ' + (err.message || err));
+    }
+  }
+}
+
+async function adminDeleteUsulanKontrak(usulanId) {
+  if (!confirm('Apakah Anda yakin ingin menghapus usulan kontrak ini secara permanen?')) return;
+
+  showToast('info', 'Menghapus usulan...');
+  try {
+    const res = await rpc('deleteUsulanKontrakSingle', [SESSION.token, usulanId]);
+    if (res && res.success) {
+      showToast('success', res.message || 'Usulan berhasil dihapus.');
+      backToKontrakReviewList();
+    } else {
+      showToast('error', res?.message || 'Gagal menghapus usulan.');
+    }
+  } catch (err) {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(res => {
+          if (res.success) {
+            showToast('success', res.message);
+            backToKontrakReviewList();
+          } else {
+            showToast('error', res.message);
+          }
+        })
+        .withFailureHandler(e => showToast('error', 'Gagal menghapus usulan: ' + (e.message || e)))
+        .deleteUsulanKontrakSingle(SESSION.token, usulanId);
+    } else {
+      showToast('error', 'Gagal menghapus usulan: ' + (err.message || err));
+    }
+  }
 }
 
 function backToKontrakReviewList() {
