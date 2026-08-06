@@ -576,6 +576,8 @@ function cleanWordXmlParagraphBraces(xml) {
 
     return pMatch.replace(pBody, cleanedBody);
   });
+}
+
 function cleanDocxTableCellLeadingEmptyParagraphs(xml) {
   if (!xml || typeof xml !== 'string') return xml;
   return xml.replace(/(<w:tc\b[^>]*>)([\s\S]*?)(<\/w:tc>)/gi, (tcMatch, tcStart, tcContent, tcEnd) => {
