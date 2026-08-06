@@ -4163,7 +4163,7 @@ function bindSidebarNav() {
       document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
       document.getElementById('view-' + view).style.display = 'block';
       document.getElementById('topbarTitle').textContent = item.getAttribute('data-title');
-      if (view === 'template') { loadGlosariumTag(); loadTemplateLayananOptions(); }
+      if (view === 'template') { loadGlosariumTag(); loadTemplateLayananOptions(); loadTemplateList(); }
       if (view === 'pensiun') loadPensiunDashboardOnce();
       if (view === 'peran-akun') loadPeranAkunList();
       if (view === 'kontrak') initKontrakViewForUser();
@@ -4177,12 +4177,17 @@ function bindSidebarNav() {
 
 /* ------------------------- GLOSARIUM TAG (Menu Lainnya) ------------------------- */
 let glosariumLoaded = false;
-function loadGlosariumTag() {
+async function loadGlosariumTag() {
   if (glosariumLoaded) return; // cache: sheet header & daftar tag jarang berubah dalam satu sesi
-  google.script.run
-    .withSuccessHandler(data => { glosariumLoaded = true; renderGlosariumTag(data); })
-    .withFailureHandler(err => showToast('error', 'Gagal memuat glosarium tag: ' + (err.message || err)))
-    .getGlosariumTag(SESSION.token);
+  try {
+    const data = await rpc('getGlosariumTag', [SESSION.token]);
+    if (data) {
+      glosariumLoaded = true;
+      renderGlosariumTag(data);
+    }
+  } catch(err) {
+    showToast('error', 'Gagal memuat glosarium tag: ' + (err.message || err));
+  }
 }
 
 function renderGlosariumTag(data) {
@@ -5672,42 +5677,45 @@ function bindTemplateManagerForm() {
 
 let allLoadedTemplatesMap = {};
 
-function loadTemplateList() {
-  google.script.run
-    .withSuccessHandler(res => {
-      const tbody = document.getElementById('templateListBody');
-      tbody.innerHTML = '';
-      const templates = res.templates || res || [];
-      allLoadedTemplatesMap = {};
-      if (!templates.length) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Belum ada template terdaftar.</td></tr>';
-        return;
-      }
-      templates.forEach(t => {
-        allLoadedTemplatesMap[t.id] = t;
-        const tipeBadge = t.tipe === 'docx'
-          ? '<span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">Word</span>'
-          : '<span style="background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">GDocs</span>';
-        const previewBtn = `<button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="previewDocxTemplate('${t.id}')">Preview</button>`;
-        const ubahBtn = t.tipe === 'docx'
-          ? `<button class="btn btn-outline" style="padding:4px 10px;font-size:12px;margin-left:4px;" onclick="bukaModalUbahTemplateDocx('${t.id}')">Ubah</button>`
-          : '';
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${escapeHtml(t.judul)}</td>
-          <td>${tipeBadge}</td>
-          <td>${escapeHtml(t.layanan)}</td>
-          <td>${escapeHtml(t.sub_menu || t.subMenu || '')}</td>
-          <td style="white-space:nowrap;">
-            ${previewBtn}
-            ${ubahBtn}
-            <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;margin-left:4px;" onclick="deleteTemplateHandler('${t.id}')">Hapus</button>
-          </td>`;
-        tbody.appendChild(tr);
-      });
-    })
-    .withFailureHandler(err => showToast('error', 'Gagal memuat daftar template: ' + (err.message || err)))
-    .getTemplates(SESSION.token, null, null);
+async function loadTemplateList() {
+  const tbody = document.getElementById('templateListBody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">⏳ Memuat template...</td></tr>';
+  try {
+    const res = await rpc('getTemplates', [SESSION.token, null, null]);
+    tbody.innerHTML = '';
+    const templates = (res && res.templates) ? res.templates : (Array.isArray(res) ? res : []);
+    allLoadedTemplatesMap = {};
+    if (!templates.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Belum ada template terdaftar.</td></tr>';
+      return;
+    }
+    templates.forEach(t => {
+      allLoadedTemplatesMap[t.id] = t;
+      const tipeBadge = t.tipe === 'docx'
+        ? '<span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">Word</span>'
+        : '<span style="background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">GDocs</span>';
+      const previewBtn = `<button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="previewDocxTemplate('${t.id}')">Preview</button>`;
+      const ubahBtn = t.tipe === 'docx'
+        ? `<button class="btn btn-outline" style="padding:4px 10px;font-size:12px;margin-left:4px;" onclick="bukaModalUbahTemplateDocx('${t.id}')">Ubah</button>`
+        : '';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escapeHtml(t.judul)}</td>
+        <td>${tipeBadge}</td>
+        <td>${escapeHtml(t.layanan)}</td>
+        <td>${escapeHtml(t.sub_menu || t.subMenu || '')}</td>
+        <td style="white-space:nowrap;">
+          ${previewBtn}
+          ${ubahBtn}
+          <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;margin-left:4px;" onclick="deleteTemplateHandler('${t.id}')">Hapus</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  } catch(err) {
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--danger);">Gagal memuat template.</td></tr>';
+    showToast('error', 'Gagal memuat daftar template: ' + (err.message || err));
+  }
 }
 
 function bukaModalUbahTemplateDocx(id) {
