@@ -580,23 +580,38 @@ function cleanWordXmlParagraphBraces(xml) {
 
 function cleanDocxTableCellLeadingEmptyParagraphs(xml) {
   if (!xml || typeof xml !== 'string') return xml;
-  return xml.replace(/(<w:tc\b[^>]*>)([\s\S]*?)(<\/w:tc>)/gi, (tcMatch, tcStart, tcContent, tcEnd) => {
-    let currentContent = tcContent;
-    while (true) {
-      const pMatches = currentContent.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/gi);
-      if (!pMatches || pMatches.length <= 1) break;
+  try {
+    return xml.replace(/(<w:tc\b[^>]*>)([\s\S]*?)(<\/w:tc>)/gi, (tcMatch, tcStart, tcContent, tcEnd) => {
+      const pMatches = tcContent.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/gi);
+      if (!pMatches || pMatches.length <= 1) return tcMatch;
 
-      const firstP = pMatches[0];
-      const textOnly = firstP.replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, '').trim();
-
-      if (textOnly === '') {
-        currentContent = currentContent.replace(firstP, '');
-      } else {
-        break;
+      let removeCount = 0;
+      for (let i = 0; i < pMatches.length - 1; i++) {
+        const textOnly = pMatches[i].replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, '').trim();
+        if (textOnly === '') {
+          removeCount++;
+        } else {
+          break;
+        }
       }
-    }
-    return tcStart + currentContent + tcEnd;
-  });
+
+      if (removeCount > 0) {
+        let newContent = tcContent;
+        for (let i = 0; i < removeCount; i++) {
+          const targetP = pMatches[i];
+          const idx = newContent.indexOf(targetP);
+          if (idx !== -1) {
+            newContent = newContent.slice(0, idx) + newContent.slice(idx + targetP.length);
+          }
+        }
+        return tcStart + newContent + tcEnd;
+      }
+      return tcMatch;
+    });
+  } catch (e) {
+    console.warn('[cleanDocxTableCellLeadingEmptyParagraphs] Warning:', e.message);
+    return xml;
+  }
 }
 
 function createDefaultSkDocxBuffer(jenis_sk, dataCtx) {
