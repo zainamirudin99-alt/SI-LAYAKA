@@ -772,16 +772,18 @@
   table.dyn-table select, table.dyn-table input { padding: 6px 8px; font-size: 13px; }
   .row-remove-btn { background: none; border: none; color: var(--danger); font-size: 16px; }
 
-  /* High contrast readable style for locked/read-only input fields */
-  .field-input:read-only,
-  .field-input:disabled,
-  .field-input[readonly],
-  select.field-input:disabled {
+  /* High contrast readable style for locked/read-only & select input fields in kp-panel */
+  .kp-panel .field-input,
+  .kp-panel .field-input:read-only,
+  .kp-panel .field-input:disabled,
+  .kp-panel .field-input[readonly],
+  .kp-panel select.field-input,
+  .kp-panel select.field-input:disabled,
+  .kp-panel select.field-input option {
     opacity: 1 !important;
-    color: var(--text) !important;
-    -webkit-text-fill-color: var(--text) !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
     font-weight: 700 !important;
-    border: 1px solid var(--border) !important;
   }
 
   .actions-bar { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
@@ -10518,16 +10520,16 @@ async function populateKontrakUserFormProfile() {
     if (shouldLock && val) {
       el.readOnly = true;
       el.style.backgroundColor = 'var(--surface-alt)';
-      el.style.color = 'var(--text)';
-      el.style.webkitTextFillColor = 'var(--text)';
+      el.style.color = '#ffffff';
+      el.style.webkitTextFillColor = '#ffffff';
       el.style.opacity = '1';
       el.style.fontWeight = '700';
       el.style.cursor = 'not-allowed';
     } else {
       el.readOnly = false;
       el.style.backgroundColor = '';
-      el.style.color = '';
-      el.style.webkitTextFillColor = '';
+      el.style.color = '#ffffff';
+      el.style.webkitTextFillColor = '#ffffff';
       el.style.opacity = '';
       el.style.fontWeight = '';
       el.style.cursor = '';
@@ -10559,15 +10561,15 @@ async function populateKontrakUserFormProfile() {
     if (isNormalUser && (profile.jenis_peg || profile.jenis_pegawai || jabVal)) {
       layEl.style.pointerEvents = 'none';
       layEl.style.backgroundColor = 'var(--surface-alt)';
-      layEl.style.color = 'var(--text)';
-      layEl.style.webkitTextFillColor = 'var(--text)';
+      layEl.style.color = '#ffffff';
+      layEl.style.webkitTextFillColor = '#ffffff';
       layEl.style.opacity = '1';
       layEl.style.fontWeight = '700';
     } else {
       layEl.style.pointerEvents = '';
       layEl.style.backgroundColor = '';
-      layEl.style.color = '';
-      layEl.style.webkitTextFillColor = '';
+      layEl.style.color = '#ffffff';
+      layEl.style.webkitTextFillColor = '#ffffff';
       layEl.style.opacity = '';
       layEl.style.fontWeight = '';
     }
@@ -10588,15 +10590,15 @@ async function populateKontrakUserFormProfile() {
     if (isNormalUser && (profile.status_kepegawaian || profile.status_pegawai || profile.status_bekerja)) {
       subMenuEl.style.pointerEvents = 'none';
       subMenuEl.style.backgroundColor = 'var(--surface-alt)';
-      subMenuEl.style.color = 'var(--text)';
-      subMenuEl.style.webkitTextFillColor = 'var(--text)';
+      subMenuEl.style.color = '#ffffff';
+      subMenuEl.style.webkitTextFillColor = '#ffffff';
       subMenuEl.style.opacity = '1';
       subMenuEl.style.fontWeight = '700';
     } else {
       subMenuEl.style.pointerEvents = '';
       subMenuEl.style.backgroundColor = '';
-      subMenuEl.style.color = '';
-      subMenuEl.style.webkitTextFillColor = '';
+      subMenuEl.style.color = '#ffffff';
+      subMenuEl.style.webkitTextFillColor = '#ffffff';
       subMenuEl.style.opacity = '';
       subMenuEl.style.fontWeight = '';
     }
