@@ -782,6 +782,17 @@
     font-weight: 700 !important;
   }
 
+  /* Locked / Read-Only input text color: BLACK (#000000) */
+  #kontrakUserForm input:read-only,
+  #kontrakUserForm input:disabled,
+  #kontrakUserForm input[readonly],
+  #kontrakUserForm select:disabled,
+  #kontrakUserForm select[readonly] {
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    font-weight: 700 !important;
+  }
+
   .actions-bar { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
 
   .modal-overlay {
@@ -10516,10 +10527,16 @@ async function populateKontrakUserFormProfile() {
     if (shouldLock && val) {
       el.readOnly = true;
       el.style.backgroundColor = 'var(--surface-alt)';
+      el.style.color = '#000000';
+      el.style.webkitTextFillColor = '#000000';
+      el.style.fontWeight = '700';
       el.style.cursor = 'not-allowed';
     } else {
       el.readOnly = false;
       el.style.backgroundColor = '';
+      el.style.color = '';
+      el.style.webkitTextFillColor = '';
+      el.style.fontWeight = '';
       el.style.cursor = '';
     }
   }
@@ -10549,9 +10566,15 @@ async function populateKontrakUserFormProfile() {
     if (isNormalUser && (profile.jenis_peg || profile.jenis_pegawai || jabVal)) {
       layEl.style.pointerEvents = 'none';
       layEl.style.backgroundColor = 'var(--surface-alt)';
+      layEl.style.color = '#000000';
+      layEl.style.webkitTextFillColor = '#000000';
+      layEl.style.fontWeight = '700';
     } else {
       layEl.style.pointerEvents = '';
       layEl.style.backgroundColor = '';
+      layEl.style.color = '';
+      layEl.style.webkitTextFillColor = '';
+      layEl.style.fontWeight = '';
     }
   }
 
@@ -10570,9 +10593,15 @@ async function populateKontrakUserFormProfile() {
     if (isNormalUser && (profile.status_kepegawaian || profile.status_pegawai || profile.status_bekerja)) {
       subMenuEl.style.pointerEvents = 'none';
       subMenuEl.style.backgroundColor = 'var(--surface-alt)';
+      subMenuEl.style.color = '#000000';
+      subMenuEl.style.webkitTextFillColor = '#000000';
+      subMenuEl.style.fontWeight = '700';
     } else {
       subMenuEl.style.pointerEvents = '';
       subMenuEl.style.backgroundColor = '';
+      subMenuEl.style.color = '';
+      subMenuEl.style.webkitTextFillColor = '';
+      subMenuEl.style.fontWeight = '';
     }
   }
 
