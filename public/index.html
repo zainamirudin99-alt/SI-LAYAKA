@@ -12476,7 +12476,7 @@ async function buatSkJenisChange() {
       if (el) el.style.display = '';
       return; // lanjut di buatSkUnitChange setelah unit dipilih
     }
-    if (NEED_SEARCH.includes(jenis)) {
+    if (!KAT1.includes(jenis) || NEED_SEARCH.includes(jenis)) {
       const el = document.getElementById('buatSk_searchEmpWrap');
       if (el) el.style.display = '';
     }
@@ -12772,6 +12772,17 @@ async function buatSkLoadPlaceholders() {
   // Jika ada field unit_es_ii di form (untuk SK non-tutam), isi otomatis dari pilihan unit di atas
   const fieldUnit = document.getElementById('bsk_field_unit_es_ii');
   if (fieldUnit && BUAT_SK.unitEsIi) fieldUnit.value = BUAT_SK.unitEsIi;
+
+  // Tampilkan pencarian pegawai untuk auto-fill jika form mempunyai placeholder pegawai / nama_lengkap / nip
+  const searchWrap = document.getElementById('buatSk_searchEmpWrap');
+  if (searchWrap) {
+    const empKeys = ['nama_lengkap', 'nama', 'nip', 'nama_pegawai', 'nip_pegawai', 'pegawai', 'pangkat', 'jabatan'];
+    const hasEmpField = placeholders.some(p => empKeys.includes(String(p).toLowerCase().trim()));
+    const KAT1 = ['SK Tutam Kadep & Kaprodi','SK Tutam Struktural','SK Tutam Dekan Wadek'];
+    if (hasEmpField || !KAT1.includes(BUAT_SK.jenisSk)) {
+      searchWrap.style.display = '';
+    }
+  }
 
   const wrapForm = document.getElementById('buatSk_dynamicFormWrap');
   if (wrapForm) wrapForm.style.display = '';
