@@ -1895,12 +1895,54 @@ function runGenerate(payload) {
 
 /* ------------------------- MODAL PREVIEW / DOWNLOAD ------------------------- */
 function openPreviewModal(url) {
-  document.getElementById('modalTitle').textContent = 'Preview Dokumen';
-  let embedUrl = url || '';
-  if (embedUrl.includes('drive.google.com') && embedUrl.includes('/view')) {
-    embedUrl = embedUrl.replace(/\/view.*/, '/preview');
+  if (!url) {
+    showToast('error', 'URL file lampiran tidak valid atau kosong.');
+    return;
   }
-  document.getElementById('modalBody').innerHTML = `<iframe src="${embedUrl}"></iframe>`;
+
+  document.getElementById('modalTitle').textContent = 'Preview Dokumen';
+  
+  let cleanUrl = String(url).trim();
+  let embedUrl = cleanUrl;
+
+  // Transformasi Google Drive URL agar dapat di-embed dalam iframe
+  if (cleanUrl.includes('drive.google.com')) {
+    if (cleanUrl.includes('/view')) {
+      embedUrl = cleanUrl.replace(/\/view.*/, '/preview');
+    } else if (cleanUrl.includes('/open?id=')) {
+      const fileId = cleanUrl.split('id=')[1]?.split('&')[0];
+      if (fileId) embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+    } else if (cleanUrl.includes('/file/d/')) {
+      const parts = cleanUrl.split('/file/d/')[1]?.split('/');
+      if (parts && parts[0]) embedUrl = `https://drive.google.com/file/d/${parts[0]}/preview`;
+    }
+  }
+
+  const isImage = /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(cleanUrl) || cleanUrl.startsWith('data:image/');
+
+  let contentHtml = '';
+  if (isImage) {
+    contentHtml = `
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px; min-height:300px; max-height:80vh; overflow:auto;">
+        <img src="${cleanUrl}" alt="Preview Dokumen" style="max-width:100%; max-height:68vh; object-fit:contain; border-radius:8px; box-shadow:0 4px 14px rgba(0,0,0,0.15); margin-bottom:14px;" />
+        <div>
+          <a class="btn btn-outline" href="${cleanUrl}" target="_blank" rel="noopener" style="font-size:13px; text-decoration:none;">↗️ Buka Gambar di Tab Baru</a>
+        </div>
+      </div>`;
+  } else {
+    contentHtml = `
+      <div style="display:flex; flex-direction:column; height:75vh; width:100%;">
+        <div style="padding:8px 12px; background:var(--surface-alt, #f1f5f9); border-bottom:1px solid var(--border, #cbd5e1); display:flex; justify-content:space-between; align-items:center; font-size:13px;">
+          <span style="color:var(--text-muted, #475569); font-weight:500;">📄 Tampilan Dokumen Lampiran</span>
+          <a class="btn btn-outline" href="${cleanUrl}" target="_blank" rel="noopener" style="padding:4px 10px; font-size:12px; text-decoration:none;">
+            ↗️ Buka di Tab Baru / Download
+          </a>
+        </div>
+        <iframe src="${embedUrl}" style="flex:1; width:100%; border:none; background:#fff;" allow="autoplay"></iframe>
+      </div>`;
+  }
+
+  document.getElementById('modalBody').innerHTML = contentHtml;
   document.getElementById('modalOverlay').style.display = 'flex';
 }
 function openDownloadModal(res) {
