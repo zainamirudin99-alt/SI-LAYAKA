@@ -10949,14 +10949,11 @@ function renderKontrakReviewDetailContent_(u) {
     const url = u[item.key + '_url'] || '';
     const approved = !!u[item.key + '_approved'];
     const exists = !!url || CORE_KEYS.includes(item.key);
-    if (!exists) return null;
     return { key: item.key, label: item.label, url, approved };
   }).filter(Boolean);
 
   const allApproved = lampiranList.every(l => l.approved) || u.status === 'Disetujui';
 
-  let generateBtnHtml = '';
-  if (allApproved && u.status !== 'Selesai') {
   const approveAllBtnHtml = u.status !== 'Disetujui' && !allApproved ? `
     <button type="button" class="btn btn-primary" style="background:#4caf50; border-color:#4caf50; font-weight:700; font-size:14px; padding:10px 18px;" onclick="approveAllUsulanKontrakAttachments('${u.id}')">
       ✅ Setujui Semua Lampiran & Usulan
