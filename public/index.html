@@ -10990,15 +10990,24 @@ function renderKontrakReviewDetailContent_(u) {
     { key: 'keterangan_sehat', label: 'Surat Keterangan Sehat' }
   ];
 
-  const CORE_KEYS = ['ktp', 'kk', 'pas_foto', 'ijazah_transkrip'];
   const lampiranList = LAMP_DEFINITIONS.map(item => {
-    const url = u[item.key + '_url'] || '';
+    let url = u[item.key + '_url'] || u.form_data?.[item.key + '_url'] || u.form_data?.[item.key] || u[item.key] || '';
+    if (!url && item.key === 'ijazah_transkrip') {
+      url = u.ijazah_transkrip_url || u.ijazah_url || u.form_data?.ijazah_transkrip_url || u.form_data?.ijazah_url || u.form_data?.ijazah || u.ijazah || '';
+    }
+    if (!url && item.key === 'keterangan_sehat') {
+      url = u.keterangan_sehat_url || u.ket_sehat_url || u.form_data?.keterangan_sehat_url || u.form_data?.ket_sehat || u.form_data?.keterangan_sehat || '';
+    }
+    if (!url && item.key === 'pas_foto') {
+      url = u.pas_foto_url || u.pasfoto_url || u.form_data?.pas_foto_url || u.form_data?.pasfoto || '';
+    }
+    url = String(url || '').trim();
     const approved = !!u[item.key + '_approved'];
-    const exists = !!url || CORE_KEYS.includes(item.key);
     return { key: item.key, label: item.label, url, approved };
-  }).filter(Boolean);
+  });
 
-  const allApproved = lampiranList.every(l => l.approved) || u.status === 'Disetujui';
+  const presentList = lampiranList.filter(l => l.url !== '');
+  const allApproved = presentList.length > 0 ? presentList.every(l => l.approved) : u.status === 'Disetujui';
 
   const approveAllBtnHtml = u.status !== 'Disetujui' && !allApproved ? `
     <button type="button" class="btn btn-primary" style="background:#4caf50; border-color:#4caf50; font-weight:700; font-size:14px; padding:10px 18px;" onclick="approveAllUsulanKontrakAttachments('${u.id}')">
@@ -11043,13 +11052,25 @@ function renderKontrakReviewDetailContent_(u) {
       ${lampiranList.map(l => {
         const linkHtml = l.url 
           ? `<a href="${l.url}" target="_blank" style="text-decoration:none; color:#1957b3; font-weight:600; font-size:14px;">📄 ${l.label} (Buka File)</a>`
-          : `<span style="color:#64748b; font-size:14px; font-weight:500;">📄 ${l.label} (File Terlampir)</span>`;
+          : `<span style="color:#64748b; font-size:14px; font-weight:500;">📄 ${l.label}</span>`;
         
+        const previewBtnHtml = l.url
+          ? `<button type="button" class="btn btn-outline" style="padding:3px 10px; font-size:12px;" onclick="openPreviewModal('${escapeHtml(l.url)}')">👁️ Preview</button>`
+          : `<span style="font-size:12px; color:#94a3b8; font-style:italic;">(Tidak diunggah)</span>`;
+
         return `
           <div class="ce-dashboard-list-item" style="cursor:default; display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:var(--surface); border:1px solid #e2e8f0; border-radius:8px;">
             <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
               ${linkHtml}
-              <button type="button" class="btn btn-outline" style="padding:3px 10px; font-size:12px;" onclick="openPreviewModal('${escapeHtml(l.url)}')">👁️ Preview</button>
+              ${previewBtnHtml}
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" onchange="toggleAttachmentApproval('${u.id}', '${l.key}', this.checked)" ${l.approved ? 'checked' : ''} style="width:20px; height:20px; cursor:pointer;" />
+              <span style="font-size:14px; font-weight:600; color:${l.approved ? '#4caf50' : '#64748b'};">${l.approved ? '✅ Disetujui' : 'Setujui'}</span>
+            </div>
+          </div>`;
+      }).join('')}
+    </div>`padding:3px 10px; font-size:12px;" onclick="openPreviewModal('${escapeHtml(l.url)}')">👁️ Preview</button>
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
               <input type="checkbox" onchange="toggleAttachmentApproval('${u.id}', '${l.key}', this.checked)" ${l.approved ? 'checked' : ''} style="width:20px; height:20px; cursor:pointer;" />

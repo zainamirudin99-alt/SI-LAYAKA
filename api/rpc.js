@@ -71,6 +71,22 @@ function extractArgs(args) {
   return args;
 }
 
+function getLampiranUrl(data, k) {
+  if (!data) return '';
+  const fd = data.form_data || {};
+  let url = data[k + '_url'] || fd[k + '_url'] || fd[k] || data[k] || '';
+  if (!url && k === 'ijazah_transkrip') {
+    url = data.ijazah_transkrip_url || data.ijazah_url || fd.ijazah_transkrip_url || fd.ijazah_url || fd.ijazah || data.ijazah || '';
+  }
+  if (!url && k === 'keterangan_sehat') {
+    url = data.keterangan_sehat_url || data.ket_sehat_url || fd.keterangan_sehat_url || fd.ket_sehat_url || fd.ket_sehat || fd.keterangan_sehat || '';
+  }
+  if (!url && k === 'pas_foto') {
+    url = data.pas_foto_url || data.pasfoto_url || fd.pas_foto_url || fd.pasfoto_url || fd.pasfoto || '';
+  }
+  return String(url || '').trim();
+}
+
 // Global in-memory cache for akses_kontrak_mandiri
 const MEMORY_AKSES_KONTRAK_MANDIRI = {};
 
@@ -6124,13 +6140,13 @@ const methods = {
         form_data: form_data || {},
         ktp_url: gasResult.urls?.ktp || '',
         kk_url: gasResult.urls?.kk || '',
-        pas_foto_url: gasResult.urls?.pas_foto || '',
-        ijazah_transkrip_url: gasResult.urls?.ijazah || '',
+        pas_foto_url: gasResult.urls?.pas_foto || gasResult.urls?.pasfoto || '',
+        ijazah_transkrip_url: gasResult.urls?.ijazah_transkrip || gasResult.urls?.ijazah || '',
         surat_pengantar_url: gasResult.urls?.surat_pengantar || '',
         surat_lamaran_url: gasResult.urls?.surat_lamaran || '',
         sim_ab_url: gasResult.urls?.sim_ab || '',
         str_aktif_url: gasResult.urls?.str_aktif || '',
-        keterangan_sehat_url: gasResult.urls?.keterangan_sehat || '',
+        keterangan_sehat_url: gasResult.urls?.keterangan_sehat || gasResult.urls?.ket_sehat || '',
         diajukan_oleh_nip: decoded.nip,
         nama_pengaju: decoded.nama,
         status: 'Diajukan'
@@ -6163,7 +6179,7 @@ const methods = {
       const ttl = (data.form_data?.tempat_tanggal_lahir || data.form_data?.ttl || (emp ? ((emp.tempat_lahir || '') + (emp.tanggal_lahir ? (', ' + formatTanggalIndonesia(emp.tanggal_lahir)) : '')) : '')) || '-';
 
       const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat'];
-      const semuaYangAda = LAMP_KEYS.filter(k => data[k+'_url']);
+      const semuaYangAda = LAMP_KEYS.filter(k => getLampiranUrl(data, k));
       const semuaApproved = semuaYangAda.every(k => data[k+'_approved']);
       return {
         success: true,
@@ -6186,7 +6202,7 @@ const methods = {
           form_data: data.form_data || {},
           lampiran: LAMP_KEYS.map(k => ({
             key: k,
-            url: data[k+'_url'] || '',
+            url: getLampiranUrl(data, k),
             approved: !!data[k+'_approved']
           })).filter(l => l.url)
         }
