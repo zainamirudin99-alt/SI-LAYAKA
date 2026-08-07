@@ -6088,9 +6088,50 @@ function loadUsulanKontrakSaya() {
         }
         
         let generateBtnHtml = '';
-        if (res.usulan.status === 'Disetujui' && !res.usulan.perjanjian_dibuat) {
-          generateBtnHtml = `
-            <div id="kontrakUser_tplSelectorWrap" style="margin-top:20px; text-align:center;"></div>`;
+        let readOnlyCardHtml = '';
+
+        if (res.usulan.status === 'Disetujui') {
+          readOnlyCardHtml = `
+            <div style="margin-top:20px; padding:16px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px;">
+              <h4 style="margin-top:0; margin-bottom:12px; font-size:15px; color:#1e293b; border-bottom:1px solid #e2e8f0; padding-bottom:8px;">
+                📋 Data Inputan Dokumen Perjanjian Kerja (Read-Only)
+              </h4>
+              <div class="grid-2" style="gap:12px;">
+                <div>
+                  <label style="font-size:12px; font-weight:600; color:#475569;">Nama Pegawai</label>
+                  <input type="text" value="${escapeHtml(res.usulan.nama || SESSION.user.nama || SESSION.user.nama_lengkap || '')}" readonly disabled class="field-input" style="background:#e2e8f0; cursor:not-allowed; color:#1e293b; font-weight:600;" />
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; color:#475569;">NIP / NIPPPK / NPU</label>
+                  <input type="text" value="${escapeHtml(res.usulan.nip || SESSION.user.nip || '')}" readonly disabled class="field-input" style="background:#e2e8f0; cursor:not-allowed; color:#1e293b; font-weight:600;" />
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; color:#475569;">Tempat, Tanggal Lahir</label>
+                  <input type="text" value="${escapeHtml(res.usulan.tempat_tanggal_lahir || '-')}" readonly disabled class="field-input" style="background:#e2e8f0; cursor:not-allowed; color:#1e293b; font-weight:600;" />
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; color:#475569;">Unit Kerja</label>
+                  <input type="text" value="${escapeHtml(res.usulan.unit || SESSION.user.unit_es_ii || '')}" readonly disabled class="field-input" style="background:#e2e8f0; cursor:not-allowed; color:#1e293b; font-weight:600;" />
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; color:#475569;">Nomor Surat / Perjanjian</label>
+                  <input type="text" value="${escapeHtml(res.usulan.nomor_surat || '(Otomatis / Ditentukan Sistem)')}" readonly disabled class="field-input" style="background:#e2e8f0; cursor:not-allowed; color:#1e293b; font-weight:600;" />
+                </div>
+                <div>
+                  <label style="font-size:12px; font-weight:600; color:#475569;">Periode Kontrak <span style="color:#ef4444;">*</span></label>
+                  <input type="text" value="${escapeHtml(res.usulan.periode_kontrak || '(Belum diisi admin waktu verifikasi berkas usulannya)')}" readonly disabled class="field-input" style="background:#e2e8f0; cursor:not-allowed; color:#0284c7; font-weight:700;" />
+                </div>
+              </div>
+              <p style="font-size:12px; color:#64748b; margin-top:10px; margin-bottom:0; font-style:italic;">
+                *(Periode kontrak diisi oleh admin waktu verifikasi berkas usulannya. Seluruh data di atas tidak bisa diedit).
+              </p>
+            </div>
+          `;
+
+          if (!res.usulan.perjanjian_dibuat) {
+            generateBtnHtml = `
+              <div id="kontrakUser_tplSelectorWrap" style="margin-top:20px; text-align:center;"></div>`;
+          }
         }
         
         card.innerHTML = `
@@ -6122,6 +6163,8 @@ function loadUsulanKontrakSaya() {
                 </div>`;
             }).join('')}
           </div>
+
+          ${readOnlyCardHtml}
           ${generateBtnHtml}
         `;
 
@@ -6268,16 +6311,26 @@ function viewKontrakReviewDetail(usulanId) {
       }).filter(l => l !== null);
       
       const allApproved = lampiranList.every(l => l.approved);
-      let generateBtnHtml = '';
-      if (allApproved && u.status !== 'Selesai') {
-        generateBtnHtml = `
-          <div id="kontrakReview_tplSelectorWrap" style="margin-top:20px; text-align:center; border-top:1px solid #eee; padding-top:16px;"></div>`;
-      }
-      
+
       const approveAllBtnHtml = !allApproved ? `
         <button type="button" class="btn btn-primary" style="padding:6px 14px; font-size:13px;" onclick="approveAllUsulanKontrakAttachments('${u.id}')">
           ✅ Setujui Semua Lampiran
         </button>` : '';
+
+      const periodeInputHtml = `
+        <div style="margin-top:20px; padding:16px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px;">
+          <label style="font-weight:700; font-size:14px; color:#1e293b; display:block; margin-bottom:8px;">
+            📅 Periode Kontrak (Diisi oleh Admin saat verifikasi berkas usulan):
+          </label>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <input type="text" id="kontrakReview_periodeInput_${u.id}" class="field-input" value="${escapeHtml(u.periode_kontrak || u.form_data?.periode_kontrak || '')}" placeholder="Contoh: 1 Januari 2026 s.d 31 Desember 2026" style="flex:1; min-width:250px;" />
+            <button type="button" class="btn btn-primary" onclick="saveKontrakPeriodeAdmin('${u.id}')">💾 Simpan Periode</button>
+          </div>
+          <p style="font-size:12px; color:#64748b; margin-top:6px; margin-bottom:0;">
+            Periode ini akan dikunci dan ditampilkan pada akun pegawai yang diajukan untuk proses generate dokumen perjanjian kerja.
+          </p>
+        </div>
+      `;
 
       el.innerHTML = `
         <div class="grid-2" style="font-size:14px; gap:10px; margin-bottom:20px; border:1px solid #ddd; padding:16px; border-radius:8px;">
@@ -6312,6 +6365,8 @@ function viewKontrakReviewDetail(usulanId) {
             </div>`).join('')}
         </div>
 
+        ${periodeInputHtml}
+
         <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px; border-top:1px solid #eee; padding-top:16px; flex-wrap:wrap;">
           <button type="button" class="btn btn-outline" style="color:var(--danger); border-color:var(--danger); font-weight:600;" onclick="adminRejectUsulanKontrak('${u.id}')">
             🚫 Tolak Usulan
@@ -6320,15 +6375,27 @@ function viewKontrakReviewDetail(usulanId) {
             🗑️ Hapus Usulan
           </button>
         </div>
-
-        ${generateBtnHtml}
       `;
-
-      if (allApproved && u.status !== 'Selesai') {
-        renderTemplateSelectorForUsulan(u.layanan, u.sub_menu, 'kontrakReview_tplSelectorWrap', 'kontrakReview_genBtn', 'generateKontrakFromUsulanAdmin', u.id);
-      }
     })
     .getUsulanKontrakById(SESSION.token, usulanId);
+}
+
+function saveKontrakPeriodeAdmin(usulanId) {
+  const input = document.getElementById(`kontrakReview_periodeInput_${usulanId}`);
+  const val = input ? input.value.trim() : '';
+  if (!val) { showToast('error', 'Masukkan periode kontrak terlebih dahulu.'); return; }
+  showToast('info', 'Menyimpan periode...');
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) {
+        showToast('success', res.message || 'Periode kontrak berhasil disimpan.');
+        viewKontrakReviewDetail(usulanId);
+      } else {
+        showToast('error', res.message);
+      }
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal menyimpan periode: ' + (err.message || err)))
+    .updateUsulanKontrakPeriode(SESSION.token, usulanId, val);
 }
 
 function backToKontrakReviewList() {

@@ -6159,6 +6159,9 @@ const methods = {
       }
       if (!data) return { success: true, usulan: null };
 
+      const emp = await findEmployeeByNip(decoded.nip);
+      const ttl = (data.form_data?.tempat_tanggal_lahir || data.form_data?.ttl || (emp ? ((emp.tempat_lahir || '') + (emp.tanggal_lahir ? (', ' + formatTanggalIndonesia(emp.tanggal_lahir)) : '')) : '')) || '-';
+
       const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat'];
       const semuaYangAda = LAMP_KEYS.filter(k => data[k+'_url']);
       const semuaApproved = semuaYangAda.every(k => data[k+'_approved']);
@@ -6166,6 +6169,9 @@ const methods = {
         success: true,
         usulan: {
           id: data.id,
+          nip: data.nip,
+          nama: data.nama,
+          unit: data.unit,
           status: data.status,
           jenis_usulan: data.jenis_usulan,
           tahun: data.tahun,
@@ -6174,6 +6180,9 @@ const methods = {
           tanggal_diajukan: formatTanggalIndonesia(data.tanggal_diajukan),
           semua_lampiran_disetujui: semuaApproved,
           perjanjian_dibuat: data.perjanjian_dibuat,
+          periode_kontrak: data.periode_kontrak || data.form_data?.periode_kontrak || '',
+          nomor_surat: data.nomor_surat || data.form_data?.nomor_surat || data.form_data?.nomor_perjanjian || '',
+          tempat_tanggal_lahir: ttl,
           form_data: data.form_data || {},
           lampiran: LAMP_KEYS.map(k => ({
             key: k,
@@ -6313,7 +6322,39 @@ const methods = {
     const { data, error } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
     if (error) throw error;
     if (!data) return { success: false, message: 'Usulan tidak ditemukan.' };
-    return { success: true, usulan: data };
+    const emp = await findEmployeeByNip(data.nip);
+    const ttl = (data.form_data?.tempat_tanggal_lahir || data.form_data?.ttl || (emp ? ((emp.tempat_lahir || '') + (emp.tanggal_lahir ? (', ' + formatTanggalIndonesia(emp.tanggal_lahir)) : '')) : '')) || '-';
+    return {
+      success: true,
+      usulan: Object.assign({}, data, {
+        tempat_tanggal_lahir: ttl,
+        periode_kontrak: data.periode_kontrak || data.form_data?.periode_kontrak || '',
+        nomor_surat: data.nomor_surat || data.form_data?.nomor_surat || data.form_data?.nomor_perjanjian || ''
+      })
+    };
+  },
+
+  async updateUsulanKontrakPeriode(args) {
+    const [token, usulanId, periodeKontrak] = extractArgs(args);
+    requireRole(token, ['admin','super_admin']);
+    if (!usulanId) return { success: false, message: 'ID usulan wajib diisi.' };
+    const db = getDb();
+    const val = String(periodeKontrak || '').trim();
+    const { data: row } = await db.from('usulan_kontrak').select('form_data').eq('id', usulanId).maybeSingle();
+    const updatedFormData = Object.assign({}, (row && row.form_data) || {}, { periode_kontrak: val });
+    
+    try {
+      const { error } = await db.from('usulan_kontrak').update({
+        periode_kontrak: val,
+        form_data: updatedFormData
+      }).eq('id', usulanId);
+      if (error) {
+        await db.from('usulan_kontrak').update({ form_data: updatedFormData }).eq('id', usulanId);
+      }
+    } catch (e) {
+      await db.from('usulan_kontrak').update({ form_data: updatedFormData }).eq('id', usulanId);
+    }
+    return { success: true, message: 'Periode kontrak berhasil disimpan.' };
   },
 
   async generateKontrakFromUsulanVercel(args) {
