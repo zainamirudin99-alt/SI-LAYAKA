@@ -1896,7 +1896,11 @@ function runGenerate(payload) {
 /* ------------------------- MODAL PREVIEW / DOWNLOAD ------------------------- */
 function openPreviewModal(url) {
   document.getElementById('modalTitle').textContent = 'Preview Dokumen';
-  document.getElementById('modalBody').innerHTML = `<iframe src="${url}"></iframe>`;
+  let embedUrl = url || '';
+  if (embedUrl.includes('drive.google.com') && embedUrl.includes('/view')) {
+    embedUrl = embedUrl.replace(/\/view.*/, '/preview');
+  }
+  document.getElementById('modalBody').innerHTML = `<iframe src="${embedUrl}"></iframe>`;
   document.getElementById('modalOverlay').style.display = 'flex';
 }
 function openDownloadModal(res) {
@@ -6110,8 +6114,9 @@ function loadUsulanKontrakSaya() {
               const icon = l.approved ? `<span style="color:#4caf50; font-weight:bold;">✅ Disetujui</span>` : `<span style="color:#ff9800; font-weight:bold;">⏳ Menunggu Review</span>`;
               return `
                 <div class="ce-dashboard-list-item" style="cursor:default; display:flex; justify-content:space-between; align-items:center; padding:10px 14px;">
-                  <div>
+                  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                     <a href="${l.url}" target="_blank" style="text-decoration:none; color:#1957b3; font-weight:500;">📄 ${label}</a>
+                    <button type="button" class="btn btn-outline" style="padding:2px 8px; font-size:12px;" onclick="openPreviewModal('${escapeHtml(l.url)}')">👁️ Preview</button>
                   </div>
                   <div>${icon}</div>
                 </div>`;
@@ -6185,14 +6190,14 @@ function loadKontrakReviewUnits() {
   google.script.run
     .withSuccessHandler(res => {
       if (!res.success) { showToast('error', res.message); return; }
-      if (!res.daftarUnit.length) {
-        el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada usulan baru masuk.</div>';
+      if (!res.daftarUnit || !res.daftarUnit.length) {
+        el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada usulan masuk.</div>';
         return;
       }
       el.innerHTML = res.daftarUnit.map(item => `
         <div class="ce-dashboard-list-item" onclick="viewKontrakReviewList('${escapeHtml(item.unit)}')">
           <div class="cdli-name">${escapeHtml(item.unit)}</div>
-          <div class="cdli-meta">${item.jumlah} usulan baru</div>
+          <div class="cdli-meta">${item.jumlah} usulan</div>
         </div>`).join('');
     })
     .getUsulanKontrakNotifikasiSummary(SESSION.token);
@@ -6211,7 +6216,7 @@ function viewKontrakReviewList(unit) {
   google.script.run
     .withSuccessHandler(res => {
       if (!res.success) { showToast('error', res.message); return; }
-      if (!res.daftar.length) {
+      if (!res.daftar || !res.daftar.length) {
         el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada usulan di unit ini.</div>';
         return;
       }
@@ -6223,8 +6228,8 @@ function viewKontrakReviewList(unit) {
           </div>
           <div class="cdli-meta" style="font-size:12px; text-align:right;">
             <div>${escapeHtml(u.jenis_usulan)} (${escapeHtml(u.tahun)})</div>
-            <div style="color:${u.semua_lampiran_disetujui ? '#4caf50' : '#ff9800'}; font-weight:bold;">
-              ${u.semua_lampiran_disetujui ? 'Lampiran Lengkap' : 'Review Tertunda'}
+            <div style="color:${u.status === 'Selesai' ? '#2196f3' : (u.status === 'Disetujui' ? '#4caf50' : (u.status === 'Ditolak' ? '#f44336' : '#ff9800'))}; font-weight:bold;">
+              ${u.status === 'Selesai' ? 'Perjanjian Dibuat' : (u.status === 'Disetujui' ? 'Disetujui' : (u.semua_lampiran_disetujui ? 'Lampiran Lengkap' : 'Review Tertunda'))}
             </div>
           </div>
         </div>`).join('');
@@ -6269,33 +6274,53 @@ function viewKontrakReviewDetail(usulanId) {
           <div id="kontrakReview_tplSelectorWrap" style="margin-top:20px; text-align:center; border-top:1px solid #eee; padding-top:16px;"></div>`;
       }
       
+      const approveAllBtnHtml = !allApproved ? `
+        <button type="button" class="btn btn-primary" style="padding:6px 14px; font-size:13px;" onclick="approveAllUsulanKontrakAttachments('${u.id}')">
+          ✅ Setujui Semua Lampiran
+        </button>` : '';
+
       el.innerHTML = `
         <div class="grid-2" style="font-size:14px; gap:10px; margin-bottom:20px; border:1px solid #ddd; padding:16px; border-radius:8px;">
           <div><strong>NIP:</strong> ${escapeHtml(u.nip)}</div>
           <div><strong>Nama:</strong> ${escapeHtml(u.nama)}</div>
           <div><strong>Unit Kerja:</strong> ${escapeHtml(u.unit)}</div>
-          <div><strong>Email:</strong> ${escapeHtml(u.email)}</div>
+          <div><strong>Email:</strong> ${escapeHtml(u.email || '-')}</div>
           <div><strong>Jenis Usulan:</strong> ${escapeHtml(u.jenis_usulan)}</div>
           <div><strong>Tahun Kontrak:</strong> ${escapeHtml(u.tahun)}</div>
           <div><strong>Evaluasi Kinerja:</strong> ${escapeHtml(u.evaluasi_kinerja || '-')}</div>
           <div><strong>Kategori:</strong> ${escapeHtml(u.layanan)}</div>
           <div><strong>Jenis Kontrak:</strong> ${escapeHtml(u.sub_menu)}</div>
-          <div><strong>Status Usulan:</strong> <strong style="color:${u.status === 'Selesai' ? '#2196f3' : (u.status === 'Disetujui' ? '#4caf50' : '#ff9800')}">${escapeHtml(u.status)}</strong></div>
+          <div><strong>Status Usulan:</strong> <strong style="color:${u.status === 'Selesai' ? '#2196f3' : (u.status === 'Disetujui' ? '#4caf50' : (u.status === 'Ditolak' ? '#f44336' : '#ff9800'))}">${escapeHtml(u.status || 'Diajukan')}</strong></div>
         </div>
         
-        <h4>Persetujuan File Lampiran Pegawai</h4>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+          <h4 style="margin:0;">Persetujuan File Lampiran Pegawai</h4>
+          <div>${approveAllBtnHtml}</div>
+        </div>
+
         <div class="ce-dashboard-list" style="margin-top:10px; gap:10px;">
           ${lampiranList.map(l => `
             <div class="ce-dashboard-list-item" style="cursor:default; display:flex; justify-content:space-between; align-items:center; padding:12px 16px;">
-              <div>
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                 <a href="${l.url}" target="_blank" style="text-decoration:none; color:#1957b3; font-weight:500; font-size:14px;">📄 ${l.label}</a>
+                <button type="button" class="btn btn-outline" style="padding:3px 10px; font-size:12px;" onclick="openPreviewModal('${escapeHtml(l.url)}')">👁️ Preview</button>
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
                 <input type="checkbox" onchange="toggleAttachmentApproval('${u.id}', '${l.key}', this.checked)" ${l.approved ? 'checked' : ''} style="width:18px; height:18px; cursor:pointer;" />
-                <span style="font-size:13px; font-weight:500;">Setujui</span>
+                <span style="font-size:13px; font-weight:500; color:${l.approved ? '#4caf50' : '#888'};">${l.approved ? 'Disetujui' : 'Setujui'}</span>
               </div>
             </div>`).join('')}
         </div>
+
+        <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px; border-top:1px solid #eee; padding-top:16px; flex-wrap:wrap;">
+          <button type="button" class="btn btn-outline" style="color:var(--danger); border-color:var(--danger); font-weight:600;" onclick="adminRejectUsulanKontrak('${u.id}')">
+            🚫 Tolak Usulan
+          </button>
+          <button type="button" class="btn btn-outline" style="color:#b91c1c; border-color:#b91c1c; background:#fee2e2; font-weight:700;" onclick="adminDeleteUsulanKontrak('${u.id}')">
+            🗑️ Hapus Usulan
+          </button>
+        </div>
+
         ${generateBtnHtml}
       `;
 
@@ -6324,6 +6349,54 @@ function toggleAttachmentApproval(usulanId, lampKey, disetujui) {
     })
     .withFailureHandler(err => showToast('error', 'Gagal memproses persetujuan: ' + (err.message || err)))
     .approveUsulanKontrakAttachment(SESSION.token, usulanId, lampKey, disetujui);
+}
+
+function approveAllUsulanKontrakAttachments(usulanId) {
+  showToast('info', 'Menyetujui semua lampiran...');
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) {
+        showToast('success', res.message || 'Semua lampiran dan usulan disetujui.');
+        viewKontrakReviewDetail(usulanId);
+      } else {
+        showToast('error', res.message || 'Gagal menyetujui usulan.');
+      }
+    })
+    .withFailureHandler(e => showToast('error', 'Gagal menyetujui: ' + (e.message || e)))
+    .approveAllUsulanKontrakAttachments(SESSION.token, usulanId);
+}
+
+function adminRejectUsulanKontrak(usulanId) {
+  const alasan = prompt('Masukkan alasan penolakan usulan (opsional):');
+  if (alasan === null) return;
+  showToast('info', 'Memproses penolakan...');
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) {
+        showToast('success', res.message || 'Usulan berhasil ditolak.');
+        viewKontrakReviewDetail(usulanId);
+      } else {
+        showToast('error', res.message || 'Gagal menolak usulan.');
+      }
+    })
+    .withFailureHandler(e => showToast('error', 'Gagal menolak usulan: ' + (e.message || e)))
+    .rejectUsulanKontrak(SESSION.token, usulanId, alasan);
+}
+
+function adminDeleteUsulanKontrak(usulanId) {
+  if (!confirm('Apakah Anda yakin ingin menghapus usulan kontrak ini secara permanen?')) return;
+  showToast('info', 'Menghapus usulan...');
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) {
+        showToast('success', res.message || 'Usulan berhasil dihapus.');
+        backToKontrakReviewList();
+      } else {
+        showToast('error', res.message || 'Gagal menghapus usulan.');
+      }
+    })
+    .withFailureHandler(e => showToast('error', 'Gagal menghapus usulan: ' + (e.message || e)))
+    .deleteUsulanKontrakSingle(SESSION.token, usulanId);
 }
 
 function generateKontrakFromUsulanAdmin(usulanId) {

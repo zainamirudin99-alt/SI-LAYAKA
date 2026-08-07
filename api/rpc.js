@@ -3501,21 +3501,22 @@ const methods = {
     MEMORY_AKSES_KONTRAK_MANDIRI[kat] = isAllowed;
 
     try {
-      const { error } = await db.from('akses_kontrak_mandiri').upsert({
-        kategori: kat,
-        diizinkan: isAllowed,
-        diubah_oleh: decoded.nip,
-        tanggal_diubah: new Date().toISOString()
-      }, { onConflict: 'kategori' });
-
-      if (error) {
-        console.warn('[rpc] aturAksesKontrakKategori upsert warning:', error.message);
-        await db.from('akses_kontrak_mandiri').insert({
+      const { data: existing } = await db.from('akses_kontrak_mandiri').select('kategori').eq('kategori', kat).maybeSingle();
+      if (existing) {
+        const { error } = await db.from('akses_kontrak_mandiri').update({
+          diizinkan: isAllowed,
+          diubah_oleh: decoded.nip,
+          tanggal_diubah: new Date().toISOString()
+        }).eq('kategori', kat);
+        if (error) console.warn('[rpc] aturAksesKontrakKategori update warning:', error.message);
+      } else {
+        const { error } = await db.from('akses_kontrak_mandiri').insert({
           kategori: kat,
           diizinkan: isAllowed,
           diubah_oleh: decoded.nip,
           tanggal_diubah: new Date().toISOString()
         });
+        if (error) console.warn('[rpc] aturAksesKontrakKategori insert warning:', error.message);
       }
     } catch (e) {
       console.warn('[rpc] aturAksesKontrakKategori db notice:', e.message);
@@ -6191,27 +6192,29 @@ const methods = {
     const [token] = extractArgs(args);
     requireRole(token, ['admin','super_admin']);
     const db = getDb();
-    const { data } = await db.from('usulan_kontrak').select('unit').eq('status','Diajukan');
+    const { data } = await db.from('usulan_kontrak').select('unit, status').neq('status','Ditolak');
     const perUnit = {};
+    let totalUsulanBaru = 0;
     (data || []).forEach(u => {
+      if (u.status === 'Diajukan') totalUsulanBaru++;
       const unit = String(u.unit || '(Tanpa Unit)').trim() || '(Tanpa Unit)';
       perUnit[unit] = (perUnit[unit] || 0) + 1;
     });
     const daftarUnit = Object.keys(perUnit).sort().map(unit => ({ unit, jumlah: perUnit[unit] }));
-    return { success: true, totalUsulanBaru: (data || []).length, daftarUnit };
+    return { success: true, totalUsulanBaru, daftarUnit };
   },
 
   async getUsulanKontrakListByUnit(args) {
     const [token, unit] = extractArgs(args);
     requireRole(token, ['admin','super_admin']);
     const db = getDb();
-    const { data, error } = await db.from('usulan_kontrak').select('*').eq('status','Diajukan').eq('unit', unit);
+    const { data, error } = await db.from('usulan_kontrak').select('*').neq('status','Ditolak').eq('unit', unit);
     if (error) throw error;
     const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat'];
     const daftar = (data || []).map(u => ({
       id: u.id, nip: u.nip, nama: u.nama, unit: u.unit, email: u.email,
       tahun: u.tahun, jenis_usulan: u.jenis_usulan, evaluasi_kinerja: u.evaluasi_kinerja,
-      layanan: u.layanan, sub_menu: u.sub_menu,
+      layanan: u.layanan, sub_menu: u.sub_menu, status: u.status,
       nama_pengaju: u.nama_pengaju, tanggal_diajukan: formatTanggalIndonesia(u.tanggal_diajukan),
       form_data: u.form_data || {},
       lampiran: LAMP_KEYS.map(k => ({
@@ -6240,7 +6243,7 @@ const methods = {
       const allApproved = presentKeys.every(k => row[k+'_approved']);
       if (allApproved && row.status === 'Diajukan') {
         await db.from('usulan_kontrak').update({ status: 'Disetujui', diproses_oleh_nip: decoded.nip }).eq('id', usulanId);
-      } else if (!allApproved && row.status === 'Disetujui') {
+      } else if (!allApproved && (row.status === 'Disetujui' || row.status === 'Selesai')) {
         await db.from('usulan_kontrak').update({ status: 'Diajukan' }).eq('id', usulanId);
       }
     }
