@@ -2081,7 +2081,7 @@
                 <div class="stack-field"></div>
               </div>
 
-              <div class="stack-field">
+              <div class="stack-field" id="kontrak_besaranUpahWrap" style="display:none;">
                 <label>Besaran Upah</label>
                 <input type="text" id="kontrak_besaranUpah" class="field-input" readonly />
                 <div class="helper-text" id="kontrak_besaranUpahMsg">Otomatis dari Pendidikan (S2/Sp1 atau S3/Sp2).</div>
@@ -8278,6 +8278,12 @@ function pilihModeKontrak(mode) {
     searchFn
   );
 
+  const isDosenParuhWaktu = (kontrakSelectedLayanan === 'Kontrak Dosen' && kontrakSelectedSubMenu === 'Kontrak Paruh Waktu');
+  const upahWrap = document.getElementById('kontrak_besaranUpahWrap');
+  if (upahWrap) {
+    upahWrap.style.display = isDosenParuhWaktu ? 'block' : 'none';
+  }
+
   loadServiceTemplates(kontrakSelectedLayanan, kontrakSelectedSubMenu, 'kontrak_templateSelect');
   kontrakGoToState_('form');
 }
@@ -8747,11 +8753,12 @@ function loadUsulanKontrakSaya() {
 
           const pendStr = String(fd.pendidikan || u.pendidikan || '').toUpperCase().replace(/[\s.\-]/g, '');
           let besaranUpahStr = 'Pendidikan belum dikenali (harus S2/Sp1 atau S3/Sp2) — besaran upah tidak bisa dihitung otomatis.';
-          if (pendStr === 'S2' || pendStr === 'SP1') {
-            besaranUpahStr = 'Rp 2.903.600,- (dua juta sembilan ratus tiga ribu enam ratus rupiah)';
-          } else if (pendStr === 'S3' || pendStr === 'SP2') {
-            besaranUpahStr = 'Rp 3.026.400,- (tiga juta dua puluh enam ribu empat ratus rupiah)';
-          }
+          const isDosenParuhWaktu = (u.layanan === 'Kontrak Dosen' && u.sub_menu === 'Kontrak Paruh Waktu');
+          const besaranUpahHtml = isDosenParuhWaktu ? `
+                <div class="stack-field">
+                  <label>BESARAN UPAH</label>
+                  <input type="text" value="${escapeHtml(besaranUpahStr)}" readonly disabled class="field-input-dark" />
+                </div>` : '';
 
           readOnlyCardHtml = `
             <div class="kontrak-form-wrap" style="margin-top:24px; padding:24px; background:var(--surface); border:1px solid var(--border); border-radius:12px;">
@@ -8850,15 +8857,11 @@ function loadUsulanKontrakSaya() {
                       ${years.map(y => `<option value="${y}" ${String(savedTstTahun) === String(y) ? 'selected' : ''}>${y}</option>`).join('')}
                     </select>
                   </div>
-                </div>
                 <div class="stack-field">
                   <label>JANGKA WAKTU KONTRAK</label>
                   <input type="text" value="${escapeHtml(jangkaWaktuStr)}" readonly disabled class="field-input-dark" />
                 </div>
-                <div class="stack-field">
-                  <label>BESARAN UPAH</label>
-                  <input type="text" value="${escapeHtml(besaranUpahStr)}" readonly disabled class="field-input-dark" />
-                </div>
+                ${besaranUpahHtml}
               </div>
 
               <!-- TEMPLATE SELECTOR & ACTIONS -->

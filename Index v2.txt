@@ -1149,7 +1149,7 @@
                 <div class="stack-field"></div>
               </div>
 
-              <div class="stack-field">
+              <div class="stack-field" id="kontrak_besaranUpahWrap" style="display:none;">
                 <label>Besaran Upah</label>
                 <input type="text" id="kontrak_besaranUpah" class="field-input" readonly />
                 <div class="helper-text" id="kontrak_besaranUpahMsg">Otomatis dari Pendidikan (S2/Sp1 atau S3/Sp2).</div>
