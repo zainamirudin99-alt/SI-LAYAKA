@@ -3536,24 +3536,58 @@ function renderStatusDetailModalContent() {
   }).join('');
 }
 
-function updateStatusFromModal(id, newStatus) {
+async function updateStatusFromModal(id, newStatus) {
+  if (!id || !newStatus) return;
+
+  const item = (window.umGlobalList || []).find(x => String(x.id) === String(id));
+  const oldStatus = item ? item.status : '';
+  if (item) item.status = newStatus;
+
+  const masterItem = (window.umMasterRawList || []).find(x => String(x.id) === String(id));
+  if (masterItem) masterItem.status = newStatus;
+
   showToast('info', 'Memperbarui status usulan...');
-  google.script.run
-    .withSuccessHandler(res => {
-      if (!res || !res.success) {
-        showToast('error', (res && res.message) || 'Gagal memperbarui status.');
-        return;
-      }
-      showToast('success', `Status usulan diperbarui menjadi "${newStatus}".`);
-      loadUsulanMasukTmtDashboard();
-      setTimeout(() => {
-        renderStatusDetailModalContent();
-      }, 350);
-    })
-    .withFailureHandler(err => {
-      showToast('error', 'Gagal memperbarui status: ' + (err.message || err));
-    })
-    .updateUsulanMasukStatus(SESSION.token, { id, status: newStatus });
+
+  const handleSuccess = (res) => {
+    if (!res || !res.success) {
+      if (item) item.status = oldStatus;
+      if (masterItem) masterItem.status = oldStatus;
+      showToast('error', (res && res.message) || 'Gagal memperbarui status.');
+      renderStatusDetailModalContent();
+      return;
+    }
+    showToast('success', `Status usulan diperbarui menjadi "${newStatus}".`);
+    loadUsulanMasukTmtDashboard();
+    setTimeout(() => {
+      renderStatusDetailModalContent();
+    }, 350);
+  };
+
+  const handleError = (err) => {
+    if (item) item.status = oldStatus;
+    if (masterItem) masterItem.status = oldStatus;
+    showToast('error', 'Gagal memperbarui status: ' + (err?.message || err));
+    renderStatusDetailModalContent();
+  };
+
+  try {
+    const res = await rpc('updateUsulanMasukStatus', [SESSION.token, { id, status: newStatus }]);
+    if (res && res.success) {
+      handleSuccess(res);
+      return;
+    }
+  } catch (err) {
+    console.warn('[updateStatusFromModal] rpc catch:', err);
+  }
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(handleSuccess)
+      .withFailureHandler(handleError)
+      .updateUsulanMasukStatus(SESSION.token, { id, status: newStatus });
+  } else {
+    handleError('Koneksi ke server gagal.');
+  }
 }
 
 function parseTmt(tmtStr) {
