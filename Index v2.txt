@@ -4,10 +4,24 @@
   <base target="_top">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SI-LAYAKA Personnel System</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0037b0">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SI-LAYAKA">
+  <link rel="icon" type="image/png" href="logo-silayaka.png">
+  <link rel="shortcut icon" type="image/png" href="logo-silayaka.png">
+  <link rel="apple-touch-icon" href="logo-silayaka.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="logo-silayaka.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="logo-silayaka.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Orbitron:wght@600;700;800&family=JetBrains+Mono:wght@500;600&display=swap">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docx-preview@0.1.15/dist/docx-preview.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap">
   <?!= include('Stylesheet'); ?>
   <!-- Libraries for Word template previewing, Charts, & Excel/Spreadsheet Parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
