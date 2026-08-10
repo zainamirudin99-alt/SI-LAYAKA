@@ -849,9 +849,29 @@
     border: 1px solid var(--border); min-width: 140px;
   }
   .um-proyeksi-box .label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
-  .um-proyeksi-box .val { font-size: 16px; font-weight: 800; color: var(--text-main); }
-  .um-proyeksi-box.highlight { background: rgba(16,185,129,0.12); border-color: #10b981; }
-  .um-proyeksi-box.highlight .val { color: #059669; }
-  .um-proyeksi-arrow { font-size: 20px; font-weight: 800; color: #059669; }
+  /* Kontrak TMT/TST Dark Select Dropdowns */
+  .kontrak-select-dark {
+    background-color: #1b365d;
+    color: #ffffff;
+    border: 1px solid #162d4e;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    appearance: auto;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .kontrak-select-dark:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  }
+  .kontrak-select-dark option {
+    background-color: #1b365d;
+    color: #ffffff;
+  }
 
 </style>

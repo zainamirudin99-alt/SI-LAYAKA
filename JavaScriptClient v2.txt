@@ -6393,16 +6393,88 @@ function viewKontrakReviewDetail(usulanId) {
           ✅ Setujui Semua Lampiran
         </button>` : '';
 
+      const BULAN_NAMES = [
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      ];
+      const years = [];
+      const currentYr = new Date().getFullYear();
+      for (let y = currentYr - 2; y <= currentYr + 8; y++) {
+        years.push(y);
+      }
+
+      let savedTmtBulan = u.tmt_bulan || u.form_data?.tmt_bulan || '';
+      let savedTmtTahun = u.tmt_tahun || u.form_data?.tmt_tahun || '';
+      let savedTstBulan = u.tst_bulan || u.form_data?.tst_bulan || '';
+      let savedTstTahun = u.tst_tahun || u.form_data?.tst_tahun || '';
+
+      if (!savedTmtBulan || !savedTmtTahun || !savedTstBulan || !savedTstTahun) {
+        const parsed = parsePeriodeKontrakString(u.periode_kontrak || u.form_data?.periode_kontrak || '');
+        if (!savedTmtBulan) savedTmtBulan = parsed.tmtBulan;
+        if (!savedTmtTahun) savedTmtTahun = parsed.tmtTahun;
+        if (!savedTstBulan) savedTstBulan = parsed.tstBulan;
+        if (!savedTstTahun) savedTstTahun = parsed.tstTahun;
+      }
+
+      let formattedPreview = u.periode_kontrak || u.form_data?.periode_kontrak || '';
+      if (!formattedPreview && savedTmtBulan && savedTmtTahun && savedTstBulan && savedTstTahun) {
+        const tmtBName = BULAN_NAMES[parseInt(savedTmtBulan, 10) - 1];
+        const tstBName = BULAN_NAMES[parseInt(savedTstBulan, 10) - 1];
+        const lastDay = new Date(parseInt(savedTstTahun, 10), parseInt(savedTstBulan, 10), 0).getDate();
+        formattedPreview = `1 ${tmtBName} ${savedTmtTahun} s.d ${lastDay} ${tstBName} ${savedTstTahun}`;
+      }
+
       const periodeInputHtml = `
-        <div style="margin-top:20px; padding:16px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px;">
-          <label style="font-weight:700; font-size:14px; color:#1e293b; display:block; margin-bottom:8px;">
+        <div style="margin-top:20px; padding:18px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px;">
+          <label style="font-weight:700; font-size:14px; color:#1e293b; display:block; margin-bottom:14px;">
             📅 Periode Kontrak (Diisi oleh Admin saat verifikasi berkas usulan):
           </label>
-          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <input type="text" id="kontrakReview_periodeInput_${u.id}" class="field-input" value="${escapeHtml(u.periode_kontrak || u.form_data?.periode_kontrak || '')}" placeholder="Contoh: 1 Januari 2026 s.d 31 Desember 2026" style="flex:1; min-width:250px;" />
-            <button type="button" class="btn btn-primary" onclick="saveKontrakPeriodeAdmin('${u.id}')">💾 Simpan Periode</button>
+
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:20px; margin-bottom:16px;">
+            <!-- TMT KONTRAK (MULAI) -->
+            <div>
+              <label style="font-size:12px; font-weight:700; color:#1e3a8a; letter-spacing:0.5px; text-transform:uppercase; display:block; margin-bottom:8px;">
+                TMT KONTRAK (MULAI)
+              </label>
+              <div style="display:flex; gap:10px;">
+                <select id="kontrakReview_tmtBulan_${u.id}" class="kontrak-select-dark" onchange="updatePeriodePreviewAdmin('${u.id}')">
+                  <option value="">Bulan...</option>
+                  ${BULAN_NAMES.map((b, i) => `<option value="${i+1}" ${String(savedTmtBulan) === String(i+1) ? 'selected' : ''}>${b}</option>`).join('')}
+                </select>
+                <select id="kontrakReview_tmtTahun_${u.id}" class="kontrak-select-dark" onchange="updatePeriodePreviewAdmin('${u.id}')">
+                  <option value="">Tahun...</option>
+                  ${years.map(y => `<option value="${y}" ${String(savedTmtTahun) === String(y) ? 'selected' : ''}>${y}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+
+            <!-- TST KONTRAK (SELESAI) -->
+            <div>
+              <label style="font-size:12px; font-weight:700; color:#1e3a8a; letter-spacing:0.5px; text-transform:uppercase; display:block; margin-bottom:8px;">
+                TST KONTRAK (SELESAI)
+              </label>
+              <div style="display:flex; gap:10px;">
+                <select id="kontrakReview_tstBulan_${u.id}" class="kontrak-select-dark" onchange="updatePeriodePreviewAdmin('${u.id}')">
+                  <option value="">Bulan...</option>
+                  ${BULAN_NAMES.map((b, i) => `<option value="${i+1}" ${String(savedTstBulan) === String(i+1) ? 'selected' : ''}>${b}</option>`).join('')}
+                </select>
+                <select id="kontrakReview_tstTahun_${u.id}" class="kontrak-select-dark" onchange="updatePeriodePreviewAdmin('${u.id}')">
+                  <option value="">Tahun...</option>
+                  ${years.map(y => `<option value="${y}" ${String(savedTstTahun) === String(y) ? 'selected' : ''}>${y}</option>`).join('')}
+                </select>
+              </div>
+            </div>
           </div>
-          <p style="font-size:12px; color:#64748b; margin-top:6px; margin-bottom:0;">
+
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; border-top:1px solid #e2e8f0; padding-top:14px;">
+            <div id="kontrakReview_periodePreview_${u.id}" style="font-size:13px; font-weight:600; color:#0369a1; background:#e0f2fe; padding:8px 14px; border-radius:6px; flex:1; min-width:240px;">
+              Hasil Periode: ${escapeHtml(formattedPreview || '(Belum diisi)')}
+            </div>
+            <button type="button" class="btn btn-primary" style="padding:10px 20px; font-weight:600;" onclick="saveKontrakPeriodeAdmin('${u.id}')">
+              💾 Simpan Periode
+            </button>
+          </div>
+          <p style="font-size:12px; color:#64748b; margin-top:8px; margin-bottom:0; font-style:italic;">
             Periode ini akan dikunci dan ditampilkan pada akun pegawai yang diajukan untuk proses generate dokumen perjanjian kerja.
           </p>
         </div>
@@ -6456,10 +6528,77 @@ function viewKontrakReviewDetail(usulanId) {
     .getUsulanKontrakById(SESSION.token, usulanId);
 }
 
+function parsePeriodeKontrakString(str) {
+  if (!str) return { tmtBulan: '', tmtTahun: '', tstBulan: '', tstTahun: '' };
+  const months = ['januari','februari','maret','april','mei','juni','juli','agustus','september','oktober','november','desember'];
+  const tokens = String(str).split(/s\.d|s\/d|-|sampai/i);
+  let tmtBulan = '', tmtTahun = '', tstBulan = '', tstTahun = '';
+  
+  if (tokens.length >= 2) {
+    const part1 = tokens[0].trim().toLowerCase();
+    const part2 = tokens[1].trim().toLowerCase();
+    
+    months.forEach((m, idx) => {
+      if (part1.includes(m)) tmtBulan = String(idx + 1);
+      if (part2.includes(m)) tstBulan = String(idx + 1);
+    });
+    
+    const y1 = part1.match(/20\d{2}/);
+    if (y1) tmtTahun = y1[0];
+    
+    const y2 = part2.match(/20\d{2}/);
+    if (y2) tstTahun = y2[0];
+  }
+  return { tmtBulan, tmtTahun, tstBulan, tstTahun };
+}
+
+function updatePeriodePreviewAdmin(usulanId) {
+  const tbEl = document.getElementById(`kontrakReview_tmtBulan_${usulanId}`);
+  const ttEl = document.getElementById(`kontrakReview_tmtTahun_${usulanId}`);
+  const sbEl = document.getElementById(`kontrakReview_tstBulan_${usulanId}`);
+  const stEl = document.getElementById(`kontrakReview_tstTahun_${usulanId}`);
+  const prevEl = document.getElementById(`kontrakReview_periodePreview_${usulanId}`);
+  if (!prevEl) return;
+
+  const tb = tbEl ? tbEl.value : '';
+  const tt = ttEl ? ttEl.value : '';
+  const sb = sbEl ? sbEl.value : '';
+  const st = stEl ? stEl.value : '';
+
+  if (tb && tt && sb && st) {
+    const BULAN_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    const tmtBName = BULAN_NAMES[parseInt(tb, 10) - 1];
+    const tstBName = BULAN_NAMES[parseInt(sb, 10) - 1];
+    const lastDay = new Date(parseInt(st, 10), parseInt(sb, 10), 0).getDate();
+    const formatted = `1 ${tmtBName} ${tt} s.d ${lastDay} ${tstBName} ${st}`;
+    prevEl.innerHTML = `Hasil Periode: <strong>${formatted}</strong>`;
+  } else {
+    prevEl.innerHTML = `Hasil Periode: <span style="color:#94a3b8; font-style:italic;">Silakan lengkapi Bulan & Tahun TMT serta TST</span>`;
+  }
+}
+
 function saveKontrakPeriodeAdmin(usulanId) {
-  const input = document.getElementById(`kontrakReview_periodeInput_${usulanId}`);
-  const val = input ? input.value.trim() : '';
-  if (!val) { showToast('error', 'Masukkan periode kontrak terlebih dahulu.'); return; }
+  const tbEl = document.getElementById(`kontrakReview_tmtBulan_${usulanId}`);
+  const ttEl = document.getElementById(`kontrakReview_tmtTahun_${usulanId}`);
+  const sbEl = document.getElementById(`kontrakReview_tstBulan_${usulanId}`);
+  const stEl = document.getElementById(`kontrakReview_tstTahun_${usulanId}`);
+
+  const tb = tbEl ? tbEl.value : '';
+  const tt = ttEl ? ttEl.value : '';
+  const sb = sbEl ? sbEl.value : '';
+  const st = stEl ? stEl.value : '';
+
+  if (!tb || !tt || !sb || !st) {
+    showToast('error', 'Pilih Bulan dan Tahun untuk TMT (Mulai) dan TST (Selesai) secara lengkap.');
+    return;
+  }
+
+  const BULAN_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  const tmtBName = BULAN_NAMES[parseInt(tb, 10) - 1];
+  const tstBName = BULAN_NAMES[parseInt(sb, 10) - 1];
+  const lastDay = new Date(parseInt(st, 10), parseInt(sb, 10), 0).getDate();
+  const val = `1 ${tmtBName} ${tt} s.d ${lastDay} ${tstBName} ${st}`;
+
   showToast('info', 'Menyimpan periode...');
   google.script.run
     .withSuccessHandler(res => {
@@ -6471,7 +6610,7 @@ function saveKontrakPeriodeAdmin(usulanId) {
       }
     })
     .withFailureHandler(err => showToast('error', 'Gagal menyimpan periode: ' + (err.message || err)))
-    .updateUsulanKontrakPeriode(SESSION.token, usulanId, val);
+    .updateUsulanKontrakPeriode(SESSION.token, usulanId, val, tb, tt, sb, st);
 }
 
 function backToKontrakReviewList() {

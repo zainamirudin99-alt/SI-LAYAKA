@@ -6369,13 +6369,19 @@ const methods = {
   },
 
   async updateUsulanKontrakPeriode(args) {
-    const [token, usulanId, periodeKontrak] = extractArgs(args);
+    const [token, usulanId, periodeKontrak, tmtBulan, tmtTahun, tstBulan, tstTahun] = extractArgs(args);
     requireRole(token, ['admin','super_admin']);
     if (!usulanId) return { success: false, message: 'ID usulan wajib diisi.' };
     const db = getDb();
     const val = String(periodeKontrak || '').trim();
     const { data: row } = await db.from('usulan_kontrak').select('form_data').eq('id', usulanId).maybeSingle();
-    const updatedFormData = Object.assign({}, (row && row.form_data) || {}, { periode_kontrak: val });
+    const updatedFormData = Object.assign({}, (row && row.form_data) || {}, {
+      periode_kontrak: val,
+      tmt_bulan: tmtBulan || '',
+      tmt_tahun: tmtTahun || '',
+      tst_bulan: tstBulan || '',
+      tst_tahun: tstTahun || ''
+    });
     
     try {
       const { error } = await db.from('usulan_kontrak').update({
