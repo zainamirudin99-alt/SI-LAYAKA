@@ -10347,6 +10347,107 @@ function updateKontrakJangkaWaktuPreview_() {
   target.value = (selisihBulan === 12) ? '1 (satu) tahun' : `${selisihBulan} bulan`;
 }
 
+function parsePeriodeKontrakString(str) {
+  if (!str) return { tmtBulan: '', tmtTahun: '', tstBulan: '', tstTahun: '' };
+  const BULAN_MAP = {
+    'januari': '1', 'februari': '2', 'maret': '3', 'april': '4', 'mei': '5', 'juni': '6',
+    'juli': '7', 'agustus': '8', 'september': '9', 'oktober': '10', 'november': '11', 'desember': '12',
+    'jan': '1', 'feb': '2', 'mar': '3', 'apr': '4', 'may': '5', 'jun': '6',
+    'jul': '7', 'agu': '8', 'aug': '8', 'sep': '9', 'okt': '10', 'oct': '10', 'nov': '11', 'des': '12', 'dec': '12'
+  };
+  const parts = String(str).split(/s\.?d\.?|sampai|\-/i);
+  let tmtBulan = '', tmtTahun = '', tstBulan = '', tstTahun = '';
+  if (parts[0]) {
+    const mB = parts[0].match(/([a-z]+)/i);
+    const mY = parts[0].match(/(\d{4})/);
+    if (mB && BULAN_MAP[mB[1].toLowerCase()]) tmtBulan = BULAN_MAP[mB[1].toLowerCase()];
+    if (mY) tmtTahun = mY[1];
+  }
+  if (parts[1]) {
+    const mB = parts[1].match(/([a-z]+)/i);
+    const mY = parts[1].match(/(\d{4})/);
+    if (mB && BULAN_MAP[mB[1].toLowerCase()]) tstBulan = BULAN_MAP[mB[1].toLowerCase()];
+    if (mY) tstTahun = mY[1];
+  }
+  return { tmtBulan, tmtTahun, tstBulan, tstTahun };
+}
+
+function updatePeriodePreviewAdmin(usulanId) {
+  const tmtB = document.getElementById(`kontrakReview_tmtBulan_${usulanId}`)?.value;
+  const tmtY = document.getElementById(`kontrakReview_tmtTahun_${usulanId}`)?.value;
+  const tstB = document.getElementById(`kontrakReview_tstBulan_${usulanId}`)?.value;
+  const tstY = document.getElementById(`kontrakReview_tstTahun_${usulanId}`)?.value;
+
+  const BULAN_NAMES = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+
+  const prevEl = document.getElementById(`kontrakReview_periodePreview_${usulanId}`);
+  if (!prevEl) return;
+
+  if (tmtB && tmtY && tstB && tstY) {
+    const tmtBName = BULAN_NAMES[parseInt(tmtB, 10) - 1];
+    const tstBName = BULAN_NAMES[parseInt(tstB, 10) - 1];
+    prevEl.textContent = `Preview Terformat: 1 ${tmtBName} ${tmtY} s.d 31 ${tstBName} ${tstY}`;
+    prevEl.style.color = '#0284c7';
+  } else {
+    prevEl.textContent = 'Pilih bulan & tahun TMT Mulai serta TST Selesai untuk melihat preview.';
+    prevEl.style.color = '#64748b';
+  }
+}
+
+function saveKontrakPeriodeAdmin(usulanId) {
+  const tmtB = document.getElementById(`kontrakReview_tmtBulan_${usulanId}`)?.value || '';
+  const tmtY = document.getElementById(`kontrakReview_tmtTahun_${usulanId}`)?.value || '';
+  const tstB = document.getElementById(`kontrakReview_tstBulan_${usulanId}`)?.value || '';
+  const tstY = document.getElementById(`kontrakReview_tstTahun_${usulanId}`)?.value || '';
+
+  if (!tmtB || !tmtY || !tstB || !tstY) {
+    showToast('error', 'Harap lengkapi Bulan & Tahun untuk TMT Mulai dan TST Selesai.');
+    return;
+  }
+
+  const BULAN_NAMES = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+  const tmtBName = BULAN_NAMES[parseInt(tmtB, 10) - 1];
+  const tstBName = BULAN_NAMES[parseInt(tstB, 10) - 1];
+  const periodeStr = `1 ${tmtBName} ${tmtY} s.d 31 ${tstBName} ${tstY}`;
+
+  showToast('info', 'Menyimpan periode...');
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) {
+        showToast('success', res.message || 'Periode kontrak berhasil disimpan.');
+        if (typeof CURRENT_KONTRAK_REVIEW_USULAN !== 'undefined' && CURRENT_KONTRAK_REVIEW_USULAN) {
+          CURRENT_KONTRAK_REVIEW_USULAN.periode_kontrak = periodeStr;
+          CURRENT_KONTRAK_REVIEW_USULAN.tmt_bulan = tmtB;
+          CURRENT_KONTRAK_REVIEW_USULAN.tmt_tahun = tmtY;
+          CURRENT_KONTRAK_REVIEW_USULAN.tst_bulan = tstB;
+          CURRENT_KONTRAK_REVIEW_USULAN.tst_tahun = tstY;
+          if (!CURRENT_KONTRAK_REVIEW_USULAN.form_data) CURRENT_KONTRAK_REVIEW_USULAN.form_data = {};
+          CURRENT_KONTRAK_REVIEW_USULAN.form_data.periode_kontrak = periodeStr;
+          CURRENT_KONTRAK_REVIEW_USULAN.form_data.tmt_bulan = tmtB;
+          CURRENT_KONTRAK_REVIEW_USULAN.form_data.tmt_tahun = tmtY;
+          CURRENT_KONTRAK_REVIEW_USULAN.form_data.tst_bulan = tstB;
+          CURRENT_KONTRAK_REVIEW_USULAN.form_data.tst_tahun = tstY;
+        }
+      } else {
+        showToast('error', res.message || 'Gagal menyimpan periode kontrak.');
+      }
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal menyimpan: ' + (err.message || err)))
+    .updateUsulanKontrakPeriode(SESSION.token, usulanId, periodeStr, {
+      tmt_bulan: tmtB,
+      tmt_tahun: tmtY,
+      tst_bulan: tstB,
+      tst_tahun: tstY,
+      periode_kontrak: periodeStr
+    });
+}
+
 function runKontrakPreviewGenerate(mode) {
   const formData = kontrakBuildFormData_();
   if (!formData.nip) { showToast('error', 'NIP/NIK wajib diisi (cari pegawai, atau isi manual untuk usulan baru).'); return; }
