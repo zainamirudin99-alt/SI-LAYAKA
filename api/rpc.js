@@ -6189,12 +6189,29 @@ const methods = {
         .maybeSingle();
       if (error) {
         console.warn('[rpc] getUsulanKontrakSaya db warning:', error.message);
-        return { success: true, usulan: null };
       }
-      if (!data) return { success: true, usulan: null };
-
       const emp = await findEmployeeByNip(decoded.nip);
-      const ttl = (data.form_data?.tempat_tanggal_lahir || data.form_data?.ttl || (emp ? ((emp.tempat_lahir || '') + (emp.tanggal_lahir ? (', ' + formatTanggalIndonesia(emp.tanggal_lahir)) : '')) : '')) || '-';
+      const tmpLhr = data?.form_data?.tmp_lhr || data?.form_data?.tempat_lahir || emp?.tmp_lhr || emp?.tempat_lahir || '';
+      const tglLhr = data?.form_data?.tgl_lhr || data?.form_data?.tanggal_lahir || (emp?.tanggal_lahir ? formatTanggalIndonesia(emp.tanggal_lahir) : '') || '';
+      const pend = data?.form_data?.pendidikan || emp?.pendidikan || emp?.pendidikan_terakhir || '';
+      const jur = data?.form_data?.jurusan || emp?.jurusan || emp?.program_studi || '';
+      const alamatEmp = data?.form_data?.alamat || data?.alamat || emp?.alamat || '';
+      const telpEmp = data?.form_data?.nomor_telepon || data?.nomor_telepon || emp?.no_hp || emp?.nomor_telepon || emp?.telepon || '';
+      const emailEmp = data?.form_data?.email || data?.email || emp?.email || decoded?.email || '';
+
+      const formDataEnriched = Object.assign({
+        tmp_lhr: tmpLhr,
+        tgl_lhr: tglLhr,
+        pendidikan: pend,
+        jurusan: jur,
+        alamat: alamatEmp,
+        nomor_telepon: telpEmp,
+        email: emailEmp
+      }, data?.form_data || {});
+
+      const ttl = (data?.form_data?.tempat_tanggal_lahir || data?.form_data?.ttl || (tmpLhr || tglLhr ? (tmpLhr + (tglLhr ? ', ' + tglLhr : '')) : (emp ? ((emp.tempat_lahir || '') + (emp.tanggal_lahir ? (', ' + formatTanggalIndonesia(emp.tanggal_lahir)) : '')) : ''))) || '-';
+
+      if (!data) return { success: true, usulan: null };
 
       const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat'];
       const semuaYangAda = LAMP_KEYS.filter(k => getLampiranUrl(data, k));
@@ -6215,9 +6232,20 @@ const methods = {
           semua_lampiran_disetujui: semuaApproved,
           perjanjian_dibuat: data.perjanjian_dibuat,
           periode_kontrak: data.periode_kontrak || data.form_data?.periode_kontrak || '',
+          tmt_bulan: data.tmt_bulan || data.form_data?.tmt_bulan || '',
+          tmt_tahun: data.tmt_tahun || data.form_data?.tmt_tahun || '',
+          tst_bulan: data.tst_bulan || data.form_data?.tst_bulan || '',
+          tst_tahun: data.tst_tahun || data.form_data?.tst_tahun || '',
           nomor_surat: data.nomor_surat || data.form_data?.nomor_surat || data.form_data?.nomor_perjanjian || '',
           tempat_tanggal_lahir: ttl,
-          form_data: data.form_data || {},
+          tempat_lahir: tmpLhr,
+          tanggal_lahir: tglLhr,
+          pendidikan: pend,
+          jurusan: jur,
+          alamat: alamatEmp,
+          nomor_telepon: telpEmp,
+          email: emailEmp,
+          form_data: formDataEnriched,
           lampiran: LAMP_KEYS.map(k => ({
             key: k,
             url: getLampiranUrl(data, k),

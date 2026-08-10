@@ -11038,19 +11038,19 @@ function handleUsulanKontrakSayaResult(res) {
             </div>
             <div class="stack-field">
               <label>TEMPAT LAHIR</label>
-              <input type="text" value="${escapeHtml(fd.tmp_lhr || u.tempat_lahir || '-')}" readonly disabled class="field-input-dark" />
+              <input type="text" value="${escapeHtml(fd.tmp_lhr || u.tempat_lahir || SESSION.user?.tmp_lhr || SESSION.user?.tempat_lahir || '-')}" readonly disabled class="field-input-dark" />
             </div>
             <div class="stack-field">
               <label>TANGGAL LAHIR</label>
-              <input type="text" value="${escapeHtml(fd.tgl_lhr || u.tanggal_lahir || '-')}" readonly disabled class="field-input-dark" />
+              <input type="text" value="${escapeHtml(fd.tgl_lhr || u.tanggal_lahir || SESSION.user?.tgl_lhr || SESSION.user?.tanggal_lahir || '-')}" readonly disabled class="field-input-dark" />
             </div>
             <div class="stack-field">
               <label>PENDIDIKAN</label>
-              <input type="text" value="${escapeHtml(fd.pendidikan || u.pendidikan || '-')}" readonly disabled class="field-input-dark" />
+              <input type="text" value="${escapeHtml(fd.pendidikan || u.pendidikan || SESSION.user?.pendidikan || '-')}" readonly disabled class="field-input-dark" />
             </div>
             <div class="stack-field">
               <label>JURUSAN</label>
-              <input type="text" value="${escapeHtml(fd.jurusan || u.jurusan || '-')}" readonly disabled class="field-input-dark" />
+              <input type="text" value="${escapeHtml(fd.jurusan || u.jurusan || SESSION.user?.jurusan || '-')}" readonly disabled class="field-input-dark" />
             </div>
             <div class="stack-field">
               <label>UNIT KERJA</label>
