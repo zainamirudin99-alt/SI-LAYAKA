@@ -1,8 +1,18 @@
 {
+  "crons": [
+    {
+      "path": "/api/keep-alive",
+      "schedule": "0 2 * * *"
+    }
+  ],
   "functions": {
     "api/rpc.js": {
       "memory": 1024,
       "maxDuration": 60
+    },
+    "api/keep-alive.js": {
+      "memory": 256,
+      "maxDuration": 10
     }
   },
   "headers": [

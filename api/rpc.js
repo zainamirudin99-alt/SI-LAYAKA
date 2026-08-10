@@ -1998,6 +1998,24 @@ async function uploadTemplateDocx(base64DataUrl, judul) {
 // ================================================================
 const methods = {
 
+  async pingKeepAlive(args) {
+    const db = getDb();
+    try {
+      const { data, error } = await db.from('users').select('id').limit(1);
+      if (error) {
+        const { data: d2, error: e2 } = await db.from('usulan_kontrak').select('id').limit(1);
+        if (e2) return { success: false, error: e2.message, timestamp: new Date().toISOString() };
+      }
+      return {
+        success: true,
+        message: 'Supabase keep-alive ping successful. Project is active.',
+        timestamp: new Date().toISOString()
+      };
+    } catch (err) {
+      return { success: false, error: err.message, timestamp: new Date().toISOString() };
+    }
+  },
+
   // ---- AUTH ----
 
 
