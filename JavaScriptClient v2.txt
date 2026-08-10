@@ -5805,6 +5805,22 @@ function updateKontrakBesaranUpahPreview_() {
   }
 }
 
+function normalizeMonth(val) {
+  if (!val) return '';
+  if (typeof val === 'object') return '';
+  const str = String(val).trim().toLowerCase();
+  if (/^\d+$/.test(str)) {
+    return String(parseInt(str, 10));
+  }
+  const BULAN_MAP = {
+    'januari': '1', 'februari': '2', 'maret': '3', 'april': '4', 'mei': '5', 'juni': '6',
+    'juli': '7', 'agustus': '8', 'september': '9', 'oktober': '10', 'november': '11', 'desember': '12',
+    'jan': '1', 'feb': '2', 'mar': '3', 'apr': '4', 'may': '5', 'jun': '6',
+    'jul': '7', 'agu': '8', 'aug': '8', 'sep': '9', 'okt': '10', 'oct': '10', 'nov': '11', 'des': '12', 'dec': '12'
+  };
+  return BULAN_MAP[str] || str;
+}
+
 function parsePeriodeKontrakString(str) {
   if (!str) return { tmtBulan: '', tmtTahun: '', tstBulan: '', tstTahun: '' };
   const BULAN_MAP = {
@@ -6279,16 +6295,16 @@ function loadUsulanKontrakSaya() {
           const u = res.usulan;
           const fd = u.form_data || {};
 
-          let savedTmtBulan = u.tmt_bulan || fd.tmt_bulan || '';
+          let savedTmtBulan = normalizeMonth(u.tmt_bulan || fd.tmt_bulan);
           let savedTmtTahun = u.tmt_tahun || fd.tmt_tahun || '';
-          let savedTstBulan = u.tst_bulan || fd.tst_bulan || '';
+          let savedTstBulan = normalizeMonth(u.tst_bulan || fd.tst_bulan);
           let savedTstTahun = u.tst_tahun || fd.tst_tahun || '';
 
           if (!savedTmtBulan || !savedTmtTahun || !savedTstBulan || !savedTstTahun) {
             const parsed = parsePeriodeKontrakString(u.periode_kontrak || fd.periode_kontrak || '');
-            if (!savedTmtBulan) savedTmtBulan = parsed.tmtBulan;
+            if (!savedTmtBulan) savedTmtBulan = normalizeMonth(parsed.tmtBulan);
             if (!savedTmtTahun) savedTmtTahun = parsed.tmtTahun;
-            if (!savedTstBulan) savedTstBulan = parsed.tstBulan;
+            if (!savedTstBulan) savedTstBulan = normalizeMonth(parsed.tstBulan);
             if (!savedTstTahun) savedTstTahun = parsed.tstTahun;
           }
 

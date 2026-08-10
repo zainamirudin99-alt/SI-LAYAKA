@@ -6369,18 +6369,32 @@ const methods = {
   },
 
   async updateUsulanKontrakPeriode(args) {
-    const [token, usulanId, periodeKontrak, tmtBulan, tmtTahun, tstBulan, tstTahun] = extractArgs(args);
+    const [token, usulanId, periodeKontrak, arg3, arg4, arg5, arg6] = extractArgs(args);
     requireRole(token, ['admin','super_admin']);
     if (!usulanId) return { success: false, message: 'ID usulan wajib diisi.' };
     const db = getDb();
     const val = String(periodeKontrak || '').trim();
+    
+    let tmtBulan = '', tmtTahun = '', tstBulan = '', tstTahun = '';
+    if (typeof arg3 === 'object' && arg3 !== null) {
+      tmtBulan = arg3.tmt_bulan || arg3.tmtBulan || '';
+      tmtTahun = arg3.tmt_tahun || arg3.tmtTahun || '';
+      tstBulan = arg3.tst_bulan || arg3.tstBulan || '';
+      tstTahun = arg3.tst_tahun || arg3.tstTahun || '';
+    } else {
+      tmtBulan = arg3 || '';
+      tmtTahun = arg4 || '';
+      tstBulan = arg5 || '';
+      tstTahun = arg6 || '';
+    }
+
     const { data: row } = await db.from('usulan_kontrak').select('form_data').eq('id', usulanId).maybeSingle();
     const updatedFormData = Object.assign({}, (row && row.form_data) || {}, {
       periode_kontrak: val,
-      tmt_bulan: tmtBulan || '',
-      tmt_tahun: tmtTahun || '',
-      tst_bulan: tstBulan || '',
-      tst_tahun: tstTahun || ''
+      tmt_bulan: String(tmtBulan || ''),
+      tmt_tahun: String(tmtTahun || ''),
+      tst_bulan: String(tstBulan || ''),
+      tst_tahun: String(tstTahun || '')
     });
     
     try {
