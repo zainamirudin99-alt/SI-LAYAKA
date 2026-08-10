@@ -6841,42 +6841,6 @@ function updatePeriodePreviewAdmin(usulanId) {
   }
 }
 
-function saveKontrakPeriodeAdmin(usulanId) {
-  const tbEl = document.getElementById(`kontrakReview_tmtBulan_${usulanId}`);
-  const ttEl = document.getElementById(`kontrakReview_tmtTahun_${usulanId}`);
-  const sbEl = document.getElementById(`kontrakReview_tstBulan_${usulanId}`);
-  const stEl = document.getElementById(`kontrakReview_tstTahun_${usulanId}`);
-
-  const tb = tbEl ? tbEl.value : '';
-  const tt = ttEl ? ttEl.value : '';
-  const sb = sbEl ? sbEl.value : '';
-  const st = stEl ? stEl.value : '';
-
-  if (!tb || !tt || !sb || !st) {
-    showToast('error', 'Pilih Bulan dan Tahun untuk TMT (Mulai) dan TST (Selesai) secara lengkap.');
-    return;
-  }
-
-  const BULAN_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-  const tmtBName = BULAN_NAMES[parseInt(tb, 10) - 1];
-  const tstBName = BULAN_NAMES[parseInt(sb, 10) - 1];
-  const lastDay = new Date(parseInt(st, 10), parseInt(sb, 10), 0).getDate();
-  const val = `1 ${tmtBName} ${tt} s.d ${lastDay} ${tstBName} ${st}`;
-
-  showToast('info', 'Menyimpan periode...');
-  google.script.run
-    .withSuccessHandler(res => {
-      if (res.success) {
-        showToast('success', res.message || 'Periode kontrak berhasil disimpan.');
-        viewKontrakReviewDetail(usulanId);
-      } else {
-        showToast('error', res.message);
-      }
-    })
-    .withFailureHandler(err => showToast('error', 'Gagal menyimpan periode: ' + (err.message || err)))
-    .updateUsulanKontrakPeriode(SESSION.token, usulanId, val, tb, tt, sb, st);
-}
-
 function backToKontrakReviewList() {
   document.getElementById('kontrakReviewDetailState').style.display = 'none';
   document.getElementById('kontrakReviewListState').style.display = 'block';
