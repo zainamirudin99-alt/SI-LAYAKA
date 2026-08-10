@@ -6535,6 +6535,7 @@ const methods = {
       data: { nip: decoded.nip || '', nama_lengkap: decoded.nama || '', nama: decoded.nama || '', role: decoded.role || 'admin' }
     };
 
+    try {
       const namaPegawai = usulan.nama || usulan.form_data?.nama_lengkap || usulan.form_data?.nama || 'PEGAWAI';
       const cleanFormData = Object.assign({
         nama_lengkap: namaPegawai,
