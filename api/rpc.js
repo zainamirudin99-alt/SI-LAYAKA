@@ -6535,7 +6535,13 @@ const methods = {
       data: { nip: decoded.nip || '', nama_lengkap: decoded.nama || '', nama: decoded.nama || '', role: decoded.role || 'admin' }
     };
 
-    try {
+      const namaPegawai = usulan.nama || usulan.form_data?.nama_lengkap || usulan.form_data?.nama || 'PEGAWAI';
+      const cleanFormData = Object.assign({
+        nama_lengkap: namaPegawai,
+        nama: namaPegawai,
+        nip: usulan.nip
+      }, usulan.form_data || {});
+
       const response = await fetch(gasUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -6543,13 +6549,14 @@ const methods = {
           method: 'generateKontrakFromUsulan',
           params: [shortId, tmplRow?.file_id || templateRef, {
             nip: usulan.nip,
-            nama: usulan.nama,
+            nama: namaPegawai,
+            nama_lengkap: namaPegawai,
             tahun: usulan.tahun,
             jenis_usulan: usulan.jenis_usulan,
             evaluasi_kinerja: usulan.evaluasi_kinerja,
             layanan: usulan.layanan,
             sub_menu: usulan.sub_menu,
-            form_data: usulan.form_data || {}
+            form_data: cleanFormData
           }],
           remoteSession
         })

@@ -5438,11 +5438,12 @@ function renderTemplateSelectorForUsulan(layanan, subMenu, wrapId, btnId, action
       </div>
       <select id="${selectId}" class="field-input" style="width:100%;" required></select>
     </div>
+    ${(btnId && actionName) ? `
     <div style="margin-top:20px; text-align:center;">
       <button class="btn btn-primary" id="${btnId}" onclick="${actionName}('${usulanId}')">
         Buat Dokumen Perjanjian Kerja Final
       </button>
-    </div>
+    </div>` : ''}
   `;
   
   const selectEl = document.getElementById(selectId);
@@ -11127,8 +11128,8 @@ function handleUsulanKontrakSayaResult(res) {
           </div>
 
           <div class="actions-bar" style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
-            <button type="button" class="btn btn-outline" style="padding:10px 20px; font-weight:600;" onclick="previewKontrakUserSelf('${u.id}')">Preview</button>
-            <button type="button" class="btn btn-primary" id="usulan_genBtn_${u.id}" style="padding:10px 24px; font-weight:600;" onclick="generateKontrakUserSelf('${u.id}')">Generate</button>
+            <button type="button" class="btn btn-outline" style="padding:10px 20px; font-weight:600;" onclick="previewKontrakUserSelf('${u.id}')">👁️ Preview</button>
+            <button type="button" class="btn btn-primary" id="usulan_genBtn_${u.id}" style="padding:10px 24px; font-weight:600;" onclick="generateKontrakUserSelf('${u.id}')">🚀 Buat Dokumen Perjanjian Kerja Final</button>
           </div>
         </div>
       `;
@@ -11158,10 +11159,7 @@ function handleUsulanKontrakSayaResult(res) {
           const icon = l.approved ? `<span style="color:#4caf50; font-weight:bold;">✅ Disetujui</span>` : `<span style="color:#ff9800; font-weight:bold;">⏳ Menunggu Review</span>`;
           return `
             <div class="ce-dashboard-list-item" style="cursor:default; display:flex; justify-content:space-between; align-items:center; padding:10px 14px;">
-              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                <a href="${l.url}" target="_blank" style="text-decoration:none; color:#1957b3; font-weight:500;">📄 ${label}</a>
-                <button type="button" class="btn btn-outline" style="padding:2px 8px; font-size:12px;" onclick="openPreviewModal('${escapeHtml(l.url)}')">👁️ Preview</button>
-              </div>
+              <div>📄 ${label}</div>
               <div>${icon}</div>
             </div>`;
         }).join('')}
@@ -11170,13 +11168,13 @@ function handleUsulanKontrakSayaResult(res) {
       ${readOnlyCardHtml}
     `;
 
-    if (res.usulan.status === 'Disetujui' && !res.usulan.perjanjian_dibuat) {
+    if (res.usulan.status === 'Disetujui') {
       renderTemplateSelectorForUsulan(res.usulan.layanan, res.usulan.sub_menu, 'usulan_tplSelectorWrap_' + res.usulan.id, null, null, res.usulan.id);
     }
   }
 }
 
-function previewKontrakUserSelf(usulanId) {
+async function previewKontrakUserSelf(usulanId) {
   const selectEl = document.getElementById(`usulan_templateSelect_${usulanId}`);
   const templateRef = selectEl ? selectEl.value : '';
   if (!templateRef) { showToast('error', 'Pilih template terlebih dahulu.'); return; }
@@ -11188,25 +11186,52 @@ function previewKontrakUserSelf(usulanId) {
     nomor_surat_perjanjian: (document.getElementById(`usulan_nomorSurat_${usulanId}`)?.value || '').trim()
   };
 
-  showToast('info', 'Membuat preview Kontrak...');
-  google.script.run
-    .withSuccessHandler(res => {
-      if (res.success) {
-        if (res.base64) {
-          const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
-          openPreviewModal(blobUrl);
-        } else {
-          openPreviewModal(res.previewUrl || res.docViewUrl || res.pdfUrl);
-        }
+  showToast('info', 'Membuat preview Dokumen Perjanjian Kerja...');
+  
+  try {
+    const res = await rpc('generateKontrakFromUsulanVercel', [SESSION.token, templateRef, usulanId, customFormData]);
+    if (res && res.success) {
+      showToast('success', res.message || 'Preview dokumen berhasil dibuat.');
+      const viewUrl = res.pdfUrl || res.pdfViewUrl || res.viewUrl || res.docViewUrl;
+      if (res.base64) {
+        const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
+        openPreviewModal(blobUrl);
+      } else if (viewUrl) {
+        openPreviewModal(viewUrl);
       } else {
-        showToast('error', res.message);
+        showToast('error', 'URL preview dokumen tidak ditemukan.');
       }
-    })
-    .withFailureHandler(err => showToast('error', 'Gagal preview Kontrak: ' + (err.message || err)))
-    .generateKontrakFromUsulanVercel(SESSION.token, templateRef, usulanId, customFormData);
+      return;
+    } else if (res && res.success === false) {
+      showToast('error', res.message || 'Gagal preview Kontrak.');
+      return;
+    }
+  } catch (err) {}
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(res => {
+        if (res.success) {
+          showToast('success', res.message || 'Preview dokumen berhasil dibuat.');
+          const viewUrl = res.pdfUrl || res.pdfViewUrl || res.viewUrl || res.docViewUrl;
+          if (res.base64) {
+            const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
+            openPreviewModal(blobUrl);
+          } else if (viewUrl) {
+            openPreviewModal(viewUrl);
+          } else {
+            showToast('error', 'URL preview dokumen tidak ditemukan.');
+          }
+        } else {
+          showToast('error', res.message);
+        }
+      })
+      .withFailureHandler(err => showToast('error', 'Gagal preview Kontrak: ' + (err.message || err)))
+      .generateKontrakFromUsulanVercel(SESSION.token, templateRef, usulanId, customFormData);
+  }
 }
 
-function generateKontrakUserSelf(usulanId) {
+async function generateKontrakUserSelf(usulanId) {
   const selectEl = document.getElementById(`usulan_templateSelect_${usulanId}`);
   const templateRef = selectEl ? selectEl.value : '';
   if (!templateRef) { showToast('error', 'Pilih template terlebih dahulu.'); return; }
@@ -11221,29 +11246,52 @@ function generateKontrakUserSelf(usulanId) {
   const btn = document.getElementById(`usulan_genBtn_${usulanId}`) || document.getElementById('kontrakUser_genBtn');
   if (btn) setBtnLoading(btn, true, 'Memproses...');
 
-  google.script.run
-    .withSuccessHandler(res => {
-      if (btn) setBtnLoading(btn, false, 'Generate');
-      if (res.success) {
-        showToast('success', res.message || 'Dokumen kontrak berhasil dibuat.');
-        loadUsulanKontrakSaya();
-        if (res.outputType === 'pdf') {
-          openKontrakResultModal({ outputType: 'pdf', pdfUrl: res.pdfUrl, docViewUrl: res.pdfUrl });
-        } else if (res.outputType === 'docx') {
-          const dlUrl = 'data:' + res.mimeType + ';base64,' + res.base64;
-          openKontrakResultModal({ isDocx: true, docViewUrl: dlUrl, fileName: res.fileName });
-        } else {
-          openKontrakResultModal({ docViewUrl: res.viewUrl, pdfDownloadUrl: `https://drive.google.com/uc?export=download&id=${res.fileId}` });
-        }
+  try {
+    const res = await rpc('generateKontrakFromUsulanVercel', [SESSION.token, templateRef, usulanId, customFormData]);
+    if (btn) setBtnLoading(btn, false, '🚀 Buat Dokumen Perjanjian Kerja Final');
+    if (res && res.success) {
+      showToast('success', res.message || 'Dokumen kontrak berhasil dibuat.');
+      loadUsulanKontrakSaya();
+      if (res.outputType === 'pdf') {
+        openKontrakResultModal({ outputType: 'pdf', pdfUrl: res.pdfUrl, docViewUrl: res.pdfUrl, fileName: res.fileName });
+      } else if (res.outputType === 'docx') {
+        const dlUrl = 'data:' + res.mimeType + ';base64,' + res.base64;
+        openKontrakResultModal({ isDocx: true, docViewUrl: dlUrl, fileName: res.fileName });
       } else {
-        showToast('error', res.message);
+        openKontrakResultModal({ docViewUrl: res.viewUrl, pdfDownloadUrl: `https://drive.google.com/uc?export=download&id=${res.fileId}`, fileName: res.fileName });
       }
-    })
-    .withFailureHandler(err => {
-      if (btn) setBtnLoading(btn, false, 'Generate');
-      showToast('error', 'Gagal membuat kontrak: ' + (err.message || err));
-    })
-    .generateKontrakFromUsulanVercel(SESSION.token, templateRef, usulanId, customFormData);
+      return;
+    } else if (res && res.success === false) {
+      showToast('error', res.message || 'Gagal membuat dokumen kontrak.');
+      return;
+    }
+  } catch (err) {}
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(res => {
+        if (btn) setBtnLoading(btn, false, '🚀 Buat Dokumen Perjanjian Kerja Final');
+        if (res.success) {
+          showToast('success', res.message || 'Dokumen kontrak berhasil dibuat.');
+          loadUsulanKontrakSaya();
+          if (res.outputType === 'pdf') {
+            openKontrakResultModal({ outputType: 'pdf', pdfUrl: res.pdfUrl, docViewUrl: res.pdfUrl, fileName: res.fileName });
+          } else if (res.outputType === 'docx') {
+            const dlUrl = 'data:' + res.mimeType + ';base64,' + res.base64;
+            openKontrakResultModal({ isDocx: true, docViewUrl: dlUrl, fileName: res.fileName });
+          } else {
+            openKontrakResultModal({ docViewUrl: res.viewUrl, pdfDownloadUrl: `https://drive.google.com/uc?export=download&id=${res.fileId}`, fileName: res.fileName });
+          }
+        } else {
+          showToast('error', res.message);
+        }
+      })
+      .withFailureHandler(err => {
+        if (btn) setBtnLoading(btn, false, '🚀 Buat Dokumen Perjanjian Kerja Final');
+        showToast('error', 'Gagal membuat kontrak: ' + (err.message || err));
+      })
+      .generateKontrakFromUsulanVercel(SESSION.token, templateRef, usulanId, customFormData);
+  }
 }
 
 // --- ADMIN REVIEW FUNCTIONS ---
