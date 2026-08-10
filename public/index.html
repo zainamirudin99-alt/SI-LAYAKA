@@ -11070,14 +11070,6 @@ function renderKontrakReviewDetailContent_(u) {
             </div>
           </div>`;
       }).join('')}
-    </div>`padding:3px 10px; font-size:12px;" onclick="openPreviewModal('${escapeHtml(l.url)}')">👁️ Preview</button>
-            </div>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <input type="checkbox" onchange="toggleAttachmentApproval('${u.id}', '${l.key}', this.checked)" ${l.approved ? 'checked' : ''} style="width:20px; height:20px; cursor:pointer;" />
-              <span style="font-size:14px; font-weight:600; color:${l.approved ? '#4caf50' : '#64748b'};">${l.approved ? '✅ Disetujui' : 'Setujui'}</span>
-            </div>
-          </div>`;
-      }).join('')}
     </div>
 
     ${periodeInputHtml}
