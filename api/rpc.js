@@ -6502,7 +6502,7 @@ const methods = {
         if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi (diperlukan untuk konversi PDF).' };
 
         const shortId = uuidv4();
-        const remoteSession = { id: shortId, data: { nip: decoded.nip, nama_lengkap: decoded.nama, nama: decoded.nama, role } };
+        const remoteSession = { id: shortId, data: { nip: decoded.nip, nama_lengkap: decoded.nama, nama: decoded.nama, role: 'admin' } };
 
         const response = await fetch(gasUrl, {
           method: 'POST',
@@ -6537,7 +6537,7 @@ const methods = {
     const shortId = uuidv4();
     const remoteSession = {
       id: shortId,
-      data: { nip: decoded.nip || '', nama_lengkap: decoded.nama || '', nama: decoded.nama || '', role: decoded.role || 'admin' }
+      data: { nip: decoded.nip || '', nama_lengkap: decoded.nama || '', nama: decoded.nama || '', role: 'admin' }
     };
 
     try {
