@@ -6191,9 +6191,11 @@ const methods = {
         console.warn('[rpc] getUsulanKontrakSaya db warning:', error.message);
       }
       const emp = await findEmployeeByNip(decoded.nip);
-      const tmpLhr = data?.form_data?.tmp_lhr || data?.form_data?.tempat_lahir || emp?.tmp_lhr || emp?.tempat_lahir || '';
-      const tglLhr = data?.form_data?.tgl_lhr || data?.form_data?.tanggal_lahir || (emp?.tanggal_lahir ? formatTanggalIndonesia(emp.tanggal_lahir) : '') || '';
-      const pend = data?.form_data?.pendidikan || emp?.pendidikan || emp?.pendidikan_terakhir || '';
+      const rawTmp = data?.form_data?.tmp_lhr || data?.form_data?.tempat_lahir || emp?.tmp_lhr || emp?.tempat_lahir || '';
+      const rawTgl = data?.form_data?.tgl_lhr || data?.form_data?.tanggal_lahir || emp?.tgl_lhr || emp?.tanggal_lahir || '';
+      const tmpLhr = rawTmp ? String(rawTmp).trim() : '';
+      const tglLhr = rawTgl ? (String(rawTgl).includes('-') || String(rawTgl).includes('/') ? formatTanggalIndonesia(rawTgl) : String(rawTgl)) : '';
+      const pend = data?.form_data?.pendidikan || emp?.pendidikan || emp?.pendidikan_terakhir || emp?.jenjang_pendidikan || '';
       const jur = data?.form_data?.jurusan || emp?.jurusan || emp?.program_studi || '';
       const alamatEmp = data?.form_data?.alamat || data?.alamat || emp?.alamat || '';
       const telpEmp = data?.form_data?.nomor_telepon || data?.nomor_telepon || emp?.no_hp || emp?.nomor_telepon || emp?.telepon || '';
@@ -6202,6 +6204,7 @@ const methods = {
       const formDataEnriched = Object.assign({
         tmp_lhr: tmpLhr,
         tgl_lhr: tglLhr,
+        tanggal_lahir: tglLhr,
         pendidikan: pend,
         jurusan: jur,
         alamat: alamatEmp,
@@ -6209,7 +6212,7 @@ const methods = {
         email: emailEmp
       }, data?.form_data || {});
 
-      const ttl = (data?.form_data?.tempat_tanggal_lahir || data?.form_data?.ttl || (tmpLhr || tglLhr ? (tmpLhr + (tglLhr ? ', ' + tglLhr : '')) : (emp ? ((emp.tempat_lahir || '') + (emp.tanggal_lahir ? (', ' + formatTanggalIndonesia(emp.tanggal_lahir)) : '')) : ''))) || '-';
+      const ttl = (data?.form_data?.tempat_tanggal_lahir || data?.form_data?.ttl || (tmpLhr || tglLhr ? (tmpLhr + (tglLhr ? ', ' + tglLhr : '')) : (emp ? ((emp.tmp_lhr || emp.tempat_lahir || '') + (emp.tgl_lhr || emp.tanggal_lahir ? (', ' + formatTanggalIndonesia(emp.tgl_lhr || emp.tanggal_lahir)) : '')) : ''))) || '-';
 
       if (!data) return { success: true, usulan: null };
 
@@ -6240,6 +6243,8 @@ const methods = {
           tempat_tanggal_lahir: ttl,
           tempat_lahir: tmpLhr,
           tanggal_lahir: tglLhr,
+          tmp_lhr: tmpLhr,
+          tgl_lhr: tglLhr,
           pendidikan: pend,
           jurusan: jur,
           alamat: alamatEmp,
@@ -6565,10 +6570,20 @@ const methods = {
       const gasResult = await response.json();
       if (!gasResult.success) return gasResult;
 
-      // Untuk role normal/user: GDocs template selalu menghasilkan PDF (GAS sudah handle)
-      // Untuk admin/super_admin: GDocs/PDF sesuai output GAS
+      const resViewUrl = gasResult.pdfViewUrl || gasResult.viewUrl || gasResult.docViewUrl || (gasResult.pdfFileId ? `https://drive.google.com/file/d/${gasResult.pdfFileId}/preview` : (gasResult.fileId ? `https://drive.google.com/file/d/${gasResult.fileId}/preview` : ''));
+      const resFileId = gasResult.pdfFileId || gasResult.fileId || gasResult.docFileId || '';
+
       await db.from('usulan_kontrak').update({ perjanjian_dibuat: true, diproses_oleh_nip: decoded.nip, status: 'Selesai' }).eq('id', usulanId);
-      return { success: true, fileId: gasResult.fileId, viewUrl: gasResult.viewUrl, fileName: gasResult.fileName, message: gasResult.message, outputType: 'gdocs' };
+      return Object.assign({
+        success: true,
+        fileId: resFileId,
+        viewUrl: resViewUrl,
+        pdfUrl: gasResult.pdfViewUrl || resViewUrl,
+        pdfViewUrl: gasResult.pdfViewUrl || resViewUrl,
+        fileName: gasResult.fileName || gasResult.pdfFileName || `Kontrak_${usulan.nama}_${usulan.tahun}`,
+        message: gasResult.message || 'Kontrak berhasil digenerate.',
+        outputType: gasResult.outputType || 'pdf'
+      }, gasResult);
     } catch (err) {
       return { success: false, message: 'Gagal generate kontrak: ' + err.message };
     }
