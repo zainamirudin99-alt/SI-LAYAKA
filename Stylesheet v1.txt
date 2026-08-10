@@ -867,11 +867,58 @@
   }
   .kontrak-select-dark:focus {
     border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  /* Kontrak Form Dark Input & Text Visibility Styling */
+  .kontrak-form-wrap input,
+  .kontrak-form-wrap select,
+  .kontrak-form-wrap textarea,
+  .field-input-dark {
+    background-color: #1b365d !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    border: 1px solid #162d4e !important;
+    border-radius: 10px !important;
+    padding: 10px 14px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    opacity: 1 !important;
   }
-  .kontrak-select-dark option {
-    background-color: #1b365d;
-    color: #ffffff;
+
+  .kontrak-form-wrap input:disabled,
+  .kontrak-form-wrap select:disabled,
+  .kontrak-form-wrap textarea:disabled,
+  .kontrak-form-wrap input[readonly],
+  .kontrak-form-wrap select[readonly],
+  .kontrak-form-wrap textarea[readonly],
+  .field-input-dark:disabled,
+  .field-input-dark[readonly] {
+    background-color: #162d4e !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    cursor: not-allowed !important;
+    opacity: 1 !important;
+  }
+
+  .kontrak-form-wrap input::placeholder,
+  .kontrak-form-wrap textarea::placeholder,
+  .field-input-dark::placeholder {
+    color: #94a3b8 !important;
+    -webkit-text-fill-color: #94a3b8 !important;
+  }
+
+  .kontrak-form-wrap label {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: #1e3a8a !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    margin-bottom: 6px !important;
+    display: block !important;
+  }
+
+  body.theme-dark .kontrak-form-wrap label {
+    color: #93c5fd !important;
   }
 
 </style>

@@ -1661,25 +1661,27 @@ function renderTemplateSelectorForUsulan(layanan, subMenu, wrapId, btnId, action
   
   const selectId = `usulan_templateSelect_${usulanId}`;
   const radioName = `usulan_templateSelectType_${usulanId}`;
-  
-  wrap.innerHTML = `
-    <div style="margin-bottom:12px; text-align:left;">
-      <label style="font-weight:600; font-size:13px; display:block; margin-bottom:6px;">PILIH TIPE & TEMPLATE KONTRAK</label>
-      <div style="display:flex; gap:16px; margin-bottom:8px;">
-        <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
-          <input type="radio" name="${radioName}" value="gdocs" checked /> Google Docs (GDocs)
-        </label>
-        <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
-          <input type="radio" name="${radioName}" value="docx" /> Microsoft Word (.docx)
-        </label>
-      </div>
-      <select id="${selectId}" class="field-input" style="width:100%;" required></select>
-    </div>
+
+  const btnHtml = (btnId && actionName) ? `
     <div style="margin-top:20px; text-align:center;">
       <button class="btn btn-primary" id="${btnId}" onclick="${actionName}('${usulanId}')">
         Buat Dokumen Perjanjian Kerja Final
       </button>
+    </div>` : '';
+  
+  wrap.innerHTML = `
+    <div style="margin-bottom:12px; text-align:left;">
+      <div style="display:flex; gap:16px; margin-bottom:8px;">
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; font-weight:600;">
+          <input type="radio" name="${radioName}" value="gdocs" checked onchange="filterUsulanTemplates('${selectId}', 'gdocs')"> Google Docs (GDocs)
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; font-weight:600;">
+          <input type="radio" name="${radioName}" value="docx" onchange="filterUsulanTemplates('${selectId}', 'docx')"> Microsoft Word (.docx)
+        </label>
+      </div>
+      <select id="${selectId}" class="kontrak-select-dark" style="width:100%;" required></select>
     </div>
+    ${btnHtml}
   `;
   
   const selectEl = document.getElementById(selectId);
@@ -6167,47 +6169,168 @@ function loadUsulanKontrakSaya() {
         let readOnlyCardHtml = '';
 
         if (res.usulan.status === 'Disetujui') {
+          const u = res.usulan;
+          const fd = u.form_data || {};
+
+          let savedTmtBulan = u.tmt_bulan || fd.tmt_bulan || '';
+          let savedTmtTahun = u.tmt_tahun || fd.tmt_tahun || '';
+          let savedTstBulan = u.tst_bulan || fd.tst_bulan || '';
+          let savedTstTahun = u.tst_tahun || fd.tst_tahun || '';
+
+          if (!savedTmtBulan || !savedTmtTahun || !savedTstBulan || !savedTstTahun) {
+            const parsed = parsePeriodeKontrakString(u.periode_kontrak || fd.periode_kontrak || '');
+            if (!savedTmtBulan) savedTmtBulan = parsed.tmtBulan;
+            if (!savedTmtTahun) savedTmtTahun = parsed.tmtTahun;
+            if (!savedTstBulan) savedTstBulan = parsed.tstBulan;
+            if (!savedTstTahun) savedTstTahun = parsed.tstTahun;
+          }
+
+          const BULAN_NAMES = [
+            'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+          ];
+          const years = [];
+          const currentYr = new Date().getFullYear();
+          for (let y = currentYr - 2; y <= currentYr + 8; y++) {
+            years.push(y);
+          }
+
+          let jangkaWaktuStr = 'Otomatis dari TMT & TST di atas';
+          if (savedTmtBulan && savedTmtTahun && savedTstBulan && savedTstTahun) {
+            const selisihBulan = (parseInt(savedTstTahun, 10) - parseInt(savedTmtTahun, 10)) * 12 + (parseInt(savedTstBulan, 10) - parseInt(savedTmtBulan, 10)) + 1;
+            if (selisihBulan > 0) {
+              jangkaWaktuStr = (selisihBulan === 12) ? '1 (satu) tahun' : `${selisihBulan} bulan`;
+            }
+          }
+
+          const pendStr = String(fd.pendidikan || u.pendidikan || '').toUpperCase().replace(/[\s.\-]/g, '');
+          let besaranUpahStr = 'Pendidikan belum dikenali (harus S2/Sp1 atau S3/Sp2) — besaran upah tidak bisa dihitung otomatis.';
+          if (pendStr === 'S2' || pendStr === 'SP1') {
+            besaranUpahStr = 'Rp 2.903.600,- (dua juta sembilan ratus tiga ribu enam ratus rupiah)';
+          } else if (pendStr === 'S3' || pendStr === 'SP2') {
+            besaranUpahStr = 'Rp 3.026.400,- (tiga juta dua puluh enam ribu empat ratus rupiah)';
+          }
+
           readOnlyCardHtml = `
-            <div style="margin-top:20px; padding:16px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px;">
-              <h4 style="margin-top:0; margin-bottom:12px; font-size:15px; color:#1e293b; border-bottom:1px solid #e2e8f0; padding-bottom:8px;">
-                📋 Data Inputan Dokumen Perjanjian Kerja (Read-Only)
-              </h4>
-              <div class="grid-2" style="gap:12px;">
-                <div>
-                  <label style="font-size:12px; font-weight:600; color:#475569;">Nama Pegawai</label>
-                  <input type="text" value="${escapeHtml(res.usulan.nama || SESSION.user.nama || SESSION.user.nama_lengkap || '')}" readonly disabled class="field-input" style="background:#e2e8f0; cursor:not-allowed; color:#1e293b; font-weight:600;" />
+            <div class="kontrak-form-wrap" style="margin-top:24px; padding:24px; background:var(--surface); border:1px solid var(--border); border-radius:12px;">
+              <h3 style="margin-top:0; margin-bottom:18px; color:var(--text); border-bottom:1px solid var(--border); padding-bottom:10px;">
+                📝 Formulir Perjanjian Kerja / Kontrak
+              </h3>
+
+              <!-- CARI PEGAWAI (INFO DISPLAY) -->
+              <div class="stack-field" style="margin-bottom:16px;">
+                <label>CARI PEGAWAI</label>
+                <input type="text" value="${escapeHtml((u.nama || SESSION.user.nama || SESSION.user.nama_lengkap || '') + ' (' + (u.nip || SESSION.user.nip || '') + ')')}" readonly disabled class="field-input-dark" />
+              </div>
+
+              <div class="grid-2 kp-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-bottom:16px;">
+                <div class="stack-field">
+                  <label>NIP/NIK</label>
+                  <input type="text" value="${escapeHtml(u.nip || SESSION.user.nip || '')}" readonly disabled class="field-input-dark" />
                 </div>
-                <div>
-                  <label style="font-size:12px; font-weight:600; color:#475569;">NIP / NIPPPK / NPU</label>
-                  <input type="text" value="${escapeHtml(res.usulan.nip || SESSION.user.nip || '')}" readonly disabled class="field-input" style="background:#e2e8f0; cursor:not-allowed; color:#1e293b; font-weight:600;" />
+                <div class="stack-field">
+                  <label>NAMA LENGKAP</label>
+                  <input type="text" value="${escapeHtml(u.nama || SESSION.user.nama || SESSION.user.nama_lengkap || '')}" readonly disabled class="field-input-dark" />
                 </div>
-                <div>
-                  <label style="font-size:12px; font-weight:600; color:#475569;">Tempat, Tanggal Lahir</label>
-                  <input type="text" value="${escapeHtml(res.usulan.tempat_tanggal_lahir || '-')}" readonly disabled class="field-input" style="background:#e2e8f0; cursor:not-allowed; color:#1e293b; font-weight:600;" />
+                <div class="stack-field">
+                  <label>TEMPAT LAHIR</label>
+                  <input type="text" value="${escapeHtml(fd.tmp_lhr || u.tempat_lahir || '-')}" readonly disabled class="field-input-dark" />
                 </div>
-                <div>
-                  <label style="font-size:12px; font-weight:600; color:#475569;">Unit Kerja</label>
-                  <input type="text" value="${escapeHtml(res.usulan.unit || SESSION.user.unit_es_ii || '')}" readonly disabled class="field-input" style="background:#e2e8f0; cursor:not-allowed; color:#1e293b; font-weight:600;" />
+                <div class="stack-field">
+                  <label>TANGGAL LAHIR</label>
+                  <input type="text" value="${escapeHtml(fd.tgl_lhr || u.tanggal_lahir || '-')}" readonly disabled class="field-input-dark" />
                 </div>
-                <div>
-                  <label style="font-size:12px; font-weight:600; color:#475569;">Nomor Surat / Perjanjian</label>
-                  <input type="text" value="${escapeHtml(res.usulan.nomor_surat || '(Otomatis / Ditentukan Sistem)')}" readonly disabled class="field-input" style="background:#e2e8f0; cursor:not-allowed; color:#1e293b; font-weight:600;" />
+                <div class="stack-field">
+                  <label>PENDIDIKAN</label>
+                  <input type="text" value="${escapeHtml(fd.pendidikan || u.pendidikan || '-')}" readonly disabled class="field-input-dark" />
                 </div>
-                <div>
-                  <label style="font-size:12px; font-weight:600; color:#475569;">Periode Kontrak <span style="color:#ef4444;">*</span></label>
-                  <input type="text" value="${escapeHtml(res.usulan.periode_kontrak || '(Belum diisi admin waktu verifikasi berkas usulannya)')}" readonly disabled class="field-input" style="background:#e2e8f0; cursor:not-allowed; color:#0284c7; font-weight:700;" />
+                <div class="stack-field">
+                  <label>JURUSAN</label>
+                  <input type="text" value="${escapeHtml(fd.jurusan || u.jurusan || '-')}" readonly disabled class="field-input-dark" />
+                </div>
+                <div class="stack-field">
+                  <label>UNIT KERJA</label>
+                  <input type="text" value="${escapeHtml(u.unit || SESSION.user.unit_es_ii || '-')}" readonly disabled class="field-input-dark" />
+                </div>
+                <div class="stack-field">
+                  <label>JABATAN</label>
+                  <input type="text" value="${escapeHtml(fd.jabatan || u.jabatan || '-')}" readonly disabled class="field-input-dark" />
                 </div>
               </div>
-              <p style="font-size:12px; color:#64748b; margin-top:10px; margin-bottom:0; font-style:italic;">
-                *(Periode kontrak diisi oleh admin waktu verifikasi berkas usulannya. Seluruh data di atas tidak bisa diedit).
-              </p>
+
+              <!-- ALAMAT (EDITABLE BY USER) -->
+              <div class="stack-field" style="margin-bottom:16px;">
+                <label>ALAMAT <span style="color:#ef4444;">*</span></label>
+                <textarea id="usulan_alamat_${u.id}" class="field-input-dark" rows="2" placeholder="Ketik alamat lengkap...">${escapeHtml(fd.alamat || u.alamat || '')}</textarea>
+                <div style="font-size:11px; color:#64748b; margin-top:4px;">*Dapat Anda ubah/lengkapi bila perlu sebelum generate.</div>
+              </div>
+
+              <!-- NOMOR TELEPON & EMAIL (EDITABLE BY USER) & NOMOR SURAT -->
+              <div class="grid-2 kp-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-bottom:16px;">
+                <div class="stack-field">
+                  <label>NOMOR TELEPON</label>
+                  <input type="text" id="usulan_nomorTelepon_${u.id}" class="field-input-dark" value="${escapeHtml(fd.nomor_telepon || u.nomor_telepon || '')}" placeholder="Ketik nomor telepon..." />
+                </div>
+                <div class="stack-field">
+                  <label>EMAIL</label>
+                  <input type="text" id="usulan_email_${u.id}" class="field-input-dark" value="${escapeHtml(fd.email || u.email || SESSION.user.email || '')}" placeholder="Ketik email..." />
+                </div>
+                <div class="stack-field grid-full" style="grid-column: 1 / -1;">
+                  <label>NOMOR SURAT PERJANJIAN (OPSIONAL)</label>
+                  <input type="text" id="usulan_nomorSurat_${u.id}" class="field-input-dark" value="${escapeHtml(u.nomor_surat || fd.nomor_surat || fd.nomor_surat_perjanjian || '')}" placeholder="Kosongkan bila belum ada" />
+                </div>
+              </div>
+
+              <!-- TMT & TST KONTRAK (PRESET ADMIN) -->
+              <div class="grid-2 kp-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-bottom:16px;">
+                <div class="stack-field">
+                  <label>TMT KONTRAK (MULAI)</label>
+                  <div style="display:flex; gap:10px;">
+                    <select id="usulan_tmtBulan_${u.id}" class="kontrak-select-dark" disabled style="opacity:1; cursor:not-allowed;">
+                      <option value="">Bulan...</option>
+                      ${BULAN_NAMES.map((b, i) => `<option value="${i+1}" ${String(savedTmtBulan) === String(i+1) ? 'selected' : ''}>${b}</option>`).join('')}
+                    </select>
+                    <select id="usulan_tmtTahun_${u.id}" class="kontrak-select-dark" disabled style="opacity:1; cursor:not-allowed;">
+                      <option value="">Tahun...</option>
+                      ${years.map(y => `<option value="${y}" ${String(savedTmtTahun) === String(y) ? 'selected' : ''}>${y}</option>`).join('')}
+                    </select>
+                  </div>
+                </div>
+                <div class="stack-field">
+                  <label>TST KONTRAK (SELESAI)</label>
+                  <div style="display:flex; gap:10px;">
+                    <select id="usulan_tstBulan_${u.id}" class="kontrak-select-dark" disabled style="opacity:1; cursor:not-allowed;">
+                      <option value="">Bulan...</option>
+                      ${BULAN_NAMES.map((b, i) => `<option value="${i+1}" ${String(savedTstBulan) === String(i+1) ? 'selected' : ''}>${b}</option>`).join('')}
+                    </select>
+                    <select id="usulan_tstTahun_${u.id}" class="kontrak-select-dark" disabled style="opacity:1; cursor:not-allowed;">
+                      <option value="">Tahun...</option>
+                      ${years.map(y => `<option value="${y}" ${String(savedTstTahun) === String(y) ? 'selected' : ''}>${y}</option>`).join('')}
+                    </select>
+                  </div>
+                </div>
+                <div class="stack-field">
+                  <label>JANGKA WAKTU KONTRAK</label>
+                  <input type="text" value="${escapeHtml(jangkaWaktuStr)}" readonly disabled class="field-input-dark" />
+                </div>
+                <div class="stack-field">
+                  <label>BESARAN UPAH</label>
+                  <input type="text" value="${escapeHtml(besaranUpahStr)}" readonly disabled class="field-input-dark" />
+                </div>
+              </div>
+
+              <!-- TEMPLATE SELECTOR & ACTIONS -->
+              <div class="stack-field" style="margin-top:20px; margin-bottom:16px;">
+                <label style="font-weight:700; margin-bottom:8px; display:block;">PILIH TIPE & TEMPLATE KONTRAK</label>
+                <div id="usulan_tplSelectorWrap_${u.id}"></div>
+              </div>
+
+              <div class="actions-bar" style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
+                <button type="button" class="btn btn-outline" style="padding:10px 20px; font-weight:600;" onclick="previewKontrakUserSelf('${u.id}')">Preview</button>
+                <button type="button" class="btn btn-primary" id="usulan_genBtn_${u.id}" style="padding:10px 24px; font-weight:600;" onclick="generateKontrakUserSelf('${u.id}')">Generate</button>
+              </div>
             </div>
           `;
-
-          if (!res.usulan.perjanjian_dibuat) {
-            generateBtnHtml = `
-              <div id="kontrakUser_tplSelectorWrap" style="margin-top:20px; text-align:center;"></div>`;
-          }
         }
         
         card.innerHTML = `
@@ -6241,15 +6364,44 @@ function loadUsulanKontrakSaya() {
           </div>
 
           ${readOnlyCardHtml}
-          ${generateBtnHtml}
         `;
 
         if (res.usulan.status === 'Disetujui' && !res.usulan.perjanjian_dibuat) {
-          renderTemplateSelectorForUsulan(res.usulan.layanan, res.usulan.sub_menu, 'kontrakUser_tplSelectorWrap', 'kontrakUser_genBtn', 'generateKontrakUserSelf', res.usulan.id);
+          renderTemplateSelectorForUsulan(res.usulan.layanan, res.usulan.sub_menu, 'usulan_tplSelectorWrap_' + res.usulan.id, null, null, res.usulan.id);
         }
       }
     })
     .getUsulanKontrakSaya(SESSION.token);
+}
+
+function previewKontrakUserSelf(usulanId) {
+  const selectEl = document.getElementById(`usulan_templateSelect_${usulanId}`);
+  const templateRef = selectEl ? selectEl.value : '';
+  if (!templateRef) { showToast('error', 'Pilih template terlebih dahulu.'); return; }
+
+  const customFormData = {
+    alamat: (document.getElementById(`usulan_alamat_${usulanId}`)?.value || '').trim(),
+    nomor_telepon: (document.getElementById(`usulan_nomorTelepon_${usulanId}`)?.value || '').trim(),
+    email: (document.getElementById(`usulan_email_${usulanId}`)?.value || '').trim(),
+    nomor_surat_perjanjian: (document.getElementById(`usulan_nomorSurat_${usulanId}`)?.value || '').trim()
+  };
+
+  showToast('info', 'Membuat preview Kontrak...');
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.success) {
+        if (res.base64) {
+          const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
+          openPreviewModal(blobUrl);
+        } else {
+          openPreviewModal(res.previewUrl || res.docViewUrl || res.pdfUrl);
+        }
+      } else {
+        showToast('error', res.message);
+      }
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal preview Kontrak: ' + (err.message || err)))
+    .generateKontrakFromUsulanVercel(SESSION.token, templateRef, usulanId, customFormData);
 }
 
 function generateKontrakUserSelf(usulanId) {
@@ -6257,13 +6409,21 @@ function generateKontrakUserSelf(usulanId) {
   const templateRef = selectEl ? selectEl.value : '';
   if (!templateRef) { showToast('error', 'Pilih template terlebih dahulu.'); return; }
 
-  const btn = document.getElementById('kontrakUser_genBtn');
-  setBtnLoading(btn, true, 'Memproses...');
+  const customFormData = {
+    alamat: (document.getElementById(`usulan_alamat_${usulanId}`)?.value || '').trim(),
+    nomor_telepon: (document.getElementById(`usulan_nomorTelepon_${usulanId}`)?.value || '').trim(),
+    email: (document.getElementById(`usulan_email_${usulanId}`)?.value || '').trim(),
+    nomor_surat_perjanjian: (document.getElementById(`usulan_nomorSurat_${usulanId}`)?.value || '').trim()
+  };
+
+  const btn = document.getElementById(`usulan_genBtn_${usulanId}`) || document.getElementById('kontrakUser_genBtn');
+  if (btn) setBtnLoading(btn, true, 'Memproses...');
+
   google.script.run
     .withSuccessHandler(res => {
-      setBtnLoading(btn, false, 'Buat Dokumen Perjanjian Kerja Final');
+      if (btn) setBtnLoading(btn, false, 'Generate');
       if (res.success) {
-        showToast('success', res.message);
+        showToast('success', res.message || 'Dokumen kontrak berhasil dibuat.');
         loadUsulanKontrakSaya();
         if (res.outputType === 'pdf') {
           openKontrakResultModal({ outputType: 'pdf', pdfUrl: res.pdfUrl, docViewUrl: res.pdfUrl });
@@ -6278,10 +6438,10 @@ function generateKontrakUserSelf(usulanId) {
       }
     })
     .withFailureHandler(err => {
-      setBtnLoading(btn, false, 'Buat Dokumen Perjanjian Kerja Final');
+      if (btn) setBtnLoading(btn, false, 'Generate');
       showToast('error', 'Gagal membuat kontrak: ' + (err.message || err));
     })
-    .generateKontrakFromUsulanVercel(SESSION.token, templateRef, usulanId);
+    .generateKontrakFromUsulanVercel(SESSION.token, templateRef, usulanId, customFormData);
 }
 
 // --- ADMIN REVIEW FUNCTIONS ---

@@ -6398,7 +6398,7 @@ const methods = {
   },
 
   async generateKontrakFromUsulanVercel(args) {
-    const [token, templateRef, usulanId] = extractArgs(args);
+    const [token, templateRef, usulanId, customFormData] = extractArgs(args);
     const decoded = requireRole(token, ['admin', 'super_admin', 'normal', 'user']);
     const role = decoded.role || 'normal';
     const db = getDb();
@@ -6407,6 +6407,12 @@ const methods = {
     const { data: usulan, error: fetchErr } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
     if (fetchErr) throw fetchErr;
     if (!usulan) return { success: false, message: 'Usulan tidak ditemukan.' };
+
+    if (customFormData && typeof customFormData === 'object') {
+      const merged = Object.assign({}, usulan.form_data || {}, customFormData);
+      await db.from('usulan_kontrak').update({ form_data: merged }).eq('id', usulanId);
+      usulan.form_data = merged;
+    }
 
     // Pastikan semua lampiran sudah disetujui (hanya wajib untuk admin+)
     if (['admin', 'super_admin'].includes(role)) {

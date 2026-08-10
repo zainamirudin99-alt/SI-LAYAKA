@@ -1069,7 +1069,7 @@
             </div>
 
             <!-- STATE 4: Form -->
-            <div id="kontrakFormState" style="display:none;">
+            <div id="kontrakFormState" class="kontrak-form-wrap" style="display:none;">
               <button type="button" class="ce-dashboard-back" id="kontrakBackToModeBtn">&larr; Kembali</button>
 
               <div class="stack-field autocomplete-wrap" id="kontrakSearchWrap">
