@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
   <base target="_top">
@@ -26,6 +26,7 @@
   <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.3/dist/docx-preview.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
+
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Orbitron:wght@600;700;800&family=JetBrains+Mono:wght@500;600&display=swap');
 
   :root {
@@ -1432,6 +1433,7 @@
     cursor: not-allowed !important;
     border-color: #274463 !important;
   }
+
 </style>
   <!-- Libraries for Word template previewing & Excel/Spreadsheet parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -3510,29 +3512,6 @@
   </div>
 
   <script>
-// Helper Global RPC untuk Vercel / Supabase API
-async function rpc(methodName, params = []) {
-  try {
-    const response = await fetch('/api/rpc', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ method: methodName, params: Array.isArray(params) ? params : [params] })
-    });
-    const text = await response.text();
-    let data;
-    try { data = JSON.parse(text); } catch(e) {
-      throw new Error('Respon server tidak valid (' + response.status + ')');
-    }
-    if (!response.ok || data.success === false) {
-      throw new Error((data && (data.message || data.error)) || 'Terjadi kesalahan pada server (' + response.status + ')');
-    }
-    return data;
-  } catch(err) {
-    console.error('[rpc] Fetch error:', err);
-    throw err;
-  }
-}
-window.rpc = rpc;
 if (typeof google === 'undefined' || !google.script || !google.script.run) {
   var google = {
     script: {
@@ -3625,6 +3604,31 @@ if (typeof google === 'undefined' || !google.script || !google.script.run) {
     }
   };
 }
+
+// Helper Global RPC untuk Vercel / Supabase API
+async function rpc(methodName, params = []) {
+  try {
+    const response = await fetch('/api/rpc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method: methodName, params: Array.isArray(params) ? params : [params] })
+    });
+    const text = await response.text();
+    let data;
+    try { data = JSON.parse(text); } catch(e) {
+      throw new Error('Respon server tidak valid (' + response.status + ')');
+    }
+    if (!response.ok || data.success === false) {
+      throw new Error((data && (data.message || data.error)) || 'Terjadi kesalahan pada server (' + response.status + ')');
+    }
+    return data;
+  } catch(err) {
+    console.error('[rpc] Fetch error:', err);
+    throw err;
+  }
+}
+window.rpc = rpc;
+
 /**
  * =================================================================
  * JAVASCRIPTCLIENT.HTML
@@ -14848,6 +14852,7 @@ function buatSkReset() {
 
 // Helper HTML escape
 function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;'); }
+
 </script>
 </body>
 </html>
