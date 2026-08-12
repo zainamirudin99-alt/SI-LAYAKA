@@ -4,6 +4,8 @@
 
 
 
+
+
 // Helper Global RPC untuk Vercel / Supabase API
 async function rpc(methodName, params = []) {
   try {
@@ -3534,6 +3536,7 @@ async function loadUsulanMasukTmtDashboard(forceRefresh = false) {
     if (res && res.success && res.list && res.list.length > 0) {
       umGlobalCache = res;
       applyUsulanMasukDashboardData(res, container);
+      if (forceRefresh) loadPromosiDashboard(currentSelectedTmt);
     } else if (typeof google !== 'undefined' && google.script && google.script.run) {
       google.script.run
         .withSuccessHandler(gasRes => {
@@ -3544,13 +3547,16 @@ async function loadUsulanMasukTmtDashboard(forceRefresh = false) {
             umGlobalCache = res || gasRes;
             applyUsulanMasukDashboardData(res || gasRes || { success: true, total: 0, list: [] }, container);
           }
+          if (forceRefresh) loadPromosiDashboard(currentSelectedTmt);
         })
         .withFailureHandler(() => {
           applyUsulanMasukDashboardData(res || { success: true, total: 0, list: [] }, container);
+          if (forceRefresh) loadPromosiDashboard(currentSelectedTmt);
         })
         .getUsulanMasukTmtGrouped(SESSION.token);
     } else {
       applyUsulanMasukDashboardData(res || { success: true, total: 0, list: [] }, container);
+      if (forceRefresh) loadPromosiDashboard(currentSelectedTmt);
     }
   } catch (err) {
     if (typeof google !== 'undefined' && google.script && google.script.run) {
@@ -11251,6 +11257,7 @@ function buatSkReset() {
 
 // Helper HTML escape
 function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;'); }
+
 
 
 

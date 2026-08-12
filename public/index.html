@@ -29,6 +29,7 @@
 
 
 
+
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Orbitron:wght@600;700;800&family=JetBrains+Mono:wght@500;600&display=swap');
 
   :root {
@@ -1435,6 +1436,7 @@
     cursor: not-allowed !important;
     border-color: #274463 !important;
   }
+
 
 
 
@@ -3608,6 +3610,8 @@ if (typeof google === 'undefined' || !google.script || !google.script.run) {
     }
   };
 }
+
+
 
 
 
@@ -7143,6 +7147,7 @@ async function loadUsulanMasukTmtDashboard(forceRefresh = false) {
     if (res && res.success && res.list && res.list.length > 0) {
       umGlobalCache = res;
       applyUsulanMasukDashboardData(res, container);
+      if (forceRefresh) loadPromosiDashboard(currentSelectedTmt);
     } else if (typeof google !== 'undefined' && google.script && google.script.run) {
       google.script.run
         .withSuccessHandler(gasRes => {
@@ -7153,13 +7158,16 @@ async function loadUsulanMasukTmtDashboard(forceRefresh = false) {
             umGlobalCache = res || gasRes;
             applyUsulanMasukDashboardData(res || gasRes || { success: true, total: 0, list: [] }, container);
           }
+          if (forceRefresh) loadPromosiDashboard(currentSelectedTmt);
         })
         .withFailureHandler(() => {
           applyUsulanMasukDashboardData(res || { success: true, total: 0, list: [] }, container);
+          if (forceRefresh) loadPromosiDashboard(currentSelectedTmt);
         })
         .getUsulanMasukTmtGrouped(SESSION.token);
     } else {
       applyUsulanMasukDashboardData(res || { success: true, total: 0, list: [] }, container);
+      if (forceRefresh) loadPromosiDashboard(currentSelectedTmt);
     }
   } catch (err) {
     if (typeof google !== 'undefined' && google.script && google.script.run) {
@@ -14860,6 +14868,7 @@ function buatSkReset() {
 
 // Helper HTML escape
 function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;'); }
+
 
 
 
