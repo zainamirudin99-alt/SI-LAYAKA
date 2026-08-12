@@ -1441,6 +1441,51 @@ function parseSelectedTmt(selectedTmt) {
   return isNaN(dParsed) ? null : dParsed;
 }
 
+function isTmtMatchingSelected(uTmtStr, uDateStr, targetDate) {
+  if (!targetDate) return true;
+  const targetYr = targetDate.getFullYear();
+  const targetMo = targetDate.getMonth() + 1;
+
+  const rawTmt = String(uTmtStr || '').trim();
+  if (rawTmt) {
+    const pDate = parseSelectedTmt(rawTmt);
+    if (pDate && !isNaN(pDate.getTime())) {
+      if (pDate.getFullYear() === targetYr && (pDate.getMonth() + 1) === targetMo) {
+        return true;
+      }
+    }
+
+    const lower = rawTmt.toLowerCase();
+    const targetMonthName = BULAN_ID[targetMo - 1].toLowerCase();
+    if (lower.includes(targetMonthName) && lower.includes(String(targetYr))) {
+      return true;
+    }
+
+    const mNum = lower.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (mNum) {
+      const mVal = parseInt(mNum[2], 10);
+      const yVal = parseInt(mNum[3], 10);
+      if (mVal === targetMo && yVal === targetYr) return true;
+    }
+
+    const mMy = lower.match(/(\d{1,2})[\/\-](\d{4})/);
+    if (mMy) {
+      const mVal = parseInt(mMy[1], 10);
+      const yVal = parseInt(mMy[2], 10);
+      if (mVal === targetMo && yVal === targetYr) return true;
+    }
+  }
+
+  if (uDateStr) {
+    const d = new Date(uDateStr);
+    if (!isNaN(d.getTime())) {
+      return d.getFullYear() === targetYr && (d.getMonth() + 1) === targetMo;
+    }
+  }
+
+  return false;
+}
+
 function cekEligiblePromosi(emp, targetDate, latestUsulanTmtMap) {
   const kategori = klasifikasiPegawai(emp.jabatan);
   const statusInfo = klasifikasiStatusBekerja(emp.status_bekerja);
@@ -3773,7 +3818,7 @@ const methods = {
     let usulanRows = [];
     const latestUsulanTmtMap = {};
     try {
-      let queryUsulan = db.from('usulan_kp').select('id, nip, status, unit, tmt, tmt_terbaru, created_at, opsi_a_selesai_pada, opsi_b_selesai_pada');
+      let queryUsulan = db.from('usulan_kp').select('id, nip, status, unit, tmt, tmt_terbaru, created_at, tanggal_diajukan, jenis_pegawai, jabatan, opsi_a_selesai_pada, opsi_b_selesai_pada');
       if (callerUnit) {
         queryUsulan = queryUsulan.eq('unit', callerUnit);
       }
@@ -3782,7 +3827,7 @@ const methods = {
 
       (usulanRows || []).forEach(u => {
         const nipT = String(u.nip || '').trim();
-        const tmtVal = u.tmt_terbaru || u.tmt || u.created_at;
+        const tmtVal = u.tmt_terbaru || u.tmt || u.created_at || u.tanggal_diajukan;
         if (nipT && tmtVal) {
           if (!latestUsulanTmtMap[nipT] || new Date(tmtVal) > new Date(latestUsulanTmtMap[nipT])) {
             latestUsulanTmtMap[nipT] = tmtVal;
@@ -3826,9 +3871,18 @@ const methods = {
     let diprosesTendik = 0;
 
     (usulanRows || []).forEach(u => {
-      const kat = empKategoriMap[u.nip] || 'tendik_non_jabatan_fungsional';
+      const uTmtStr = u.tmt || u.tmt_terbaru || '';
+      const uDateStr = u.created_at || u.tanggal_diajukan || '';
+      if (!isTmtMatchingSelected(uTmtStr, uDateStr, target.targetDate)) {
+        return;
+      }
+
+      const kat = empKategoriMap[u.nip] || klasifikasiPegawai(u.jabatan || u.jenis_pegawai || '') || 'tendik_non_jabatan_fungsional';
       const isDosen = (kat === 'dosen');
-      const isDiproses = u.status !== 'Diajukan' || u.opsi_a_selesai_pada || u.opsi_b_selesai_pada;
+      const st = String(u.status || '').trim();
+
+      const isDiusulkanStatus = (st === 'Diajukan' || st === 'Diterima DSDM' || st === 'Belum Eligible' || !st);
+      const isDiproses = !isDiusulkanStatus || u.opsi_a_selesai_pada || u.opsi_b_selesai_pada;
 
       if (isDiproses) {
         if (isDosen) diprosesDosen++;
