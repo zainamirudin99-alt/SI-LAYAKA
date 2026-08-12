@@ -1418,18 +1418,64 @@ function klasifikasiStatusBekerja(sb) {
   };
 }
 
-function cekEligiblePromosi(emp, targetDate) {
-  const kategori=klasifikasiPegawai(emp.jabatan);
-  const statusInfo=klasifikasiStatusBekerja(emp.status_bekerja);
-  if (!statusInfo.eligibleSamaSekali) return {kategori,eligible:false,masaKerjaTahun:0,syaratTahun:0,batasGolongan:null,sudahMencapaiBatas:false,batasTidakDiketahui:false,statusInfo,jalurReguler:false};
-  const isJf=(kategori==='dosen'||kategori==='tendik_jabatan_fungsional');
-  const jalurReguler=kategori==='tendik_non_jabatan_fungsional'||(isJf&&statusInfo.track==='reguler');
-  const syaratTahun=jalurReguler?CONFIG.MASA_KERJA_MINIMAL.tendik_non_jabatan_fungsional:CONFIG.MASA_KERJA_MINIMAL[kategori]||0;
-  const masaKerjaTahun=diffYears(emp.tmt_gol,targetDate);
-  const cukup=!!emp.tmt_gol&&masaKerjaTahun>=syaratTahun;
-  const kat2=jalurReguler?'tendik_non_jabatan_fungsional':kategori;
-  const batasInfo=sudahMencapaiBatasGolongan(kat2,emp);
-  return {kategori,eligible:cukup&&batasInfo.determinable&&!batasInfo.sudahMencapaiBatas,masaKerjaTahun,syaratTahun,batasGolongan:batasInfo.batasGolongan,sudahMencapaiBatas:batasInfo.sudahMencapaiBatas,batasTidakDiketahui:!batasInfo.determinable,statusInfo,jalurReguler};
+function parseSelectedTmt(selectedTmt) {
+  if (!selectedTmt) return null;
+  if (selectedTmt instanceof Date && !isNaN(selectedTmt)) return selectedTmt;
+  const str = String(selectedTmt).trim();
+  if (!str) return null;
+  const mIso = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (mIso) {
+    return new Date(parseInt(mIso[1], 10), parseInt(mIso[2], 10) - 1, parseInt(mIso[3], 10));
+  }
+  const mInd = str.match(/^(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})/);
+  if (mInd) {
+    const day = parseInt(mInd[1], 10);
+    const monthName = mInd[2].toLowerCase();
+    const year = parseInt(mInd[3], 10);
+    const mIdx = BULAN_ID.findIndex(b => b.toLowerCase() === monthName);
+    if (mIdx !== -1) {
+      return new Date(year, mIdx, day);
+    }
+  }
+  const dParsed = new Date(str);
+  return isNaN(dParsed) ? null : dParsed;
+}
+
+function cekEligiblePromosi(emp, targetDate, latestUsulanTmtMap) {
+  const kategori = klasifikasiPegawai(emp.jabatan);
+  const statusInfo = klasifikasiStatusBekerja(emp.status_bekerja);
+  if (!statusInfo.eligibleSamaSekali) {
+    return { kategori, eligible: false, masaKerjaTahun: 0, syaratTahun: 0, batasGolongan: null, sudahMencapaiBatas: false, batasTidakDiketahui: false, statusInfo, jalurReguler: false };
+  }
+
+  const jabLower = String(emp.jabatan || '').toLowerCase();
+  const isJf = (kategori === 'dosen' || kategori === 'tendik_jabatan_fungsional' || jabLower.includes('fungsional') || jabLower.includes('dosen') || jabLower.includes('lektor') || jabLower.includes('asisten ahli') || jabLower.includes('guru besar'));
+  const jalurReguler = kategori === 'tendik_non_jabatan_fungsional' || (isJf && statusInfo.track === 'reguler');
+
+  // Aturan Kelayakan KP: Jabatan Fungsional = 2 tahun (24 bulan), Non-Fungsional = 4 tahun (48 bulan)
+  const syaratTahun = isJf ? 2 : 4;
+
+  const nipTrim = String(emp.nip || '').trim();
+  const latestUsulanTmt = latestUsulanTmtMap && latestUsulanTmtMap[nipTrim];
+  const tmtAcuan = latestUsulanTmt || emp.tmt_gol;
+
+  const masaKerjaTahun = diffYears(tmtAcuan, targetDate);
+  const cukup = !!tmtAcuan && masaKerjaTahun >= syaratTahun;
+  const kat2 = jalurReguler ? 'tendik_non_jabatan_fungsional' : kategori;
+  const batasInfo = sudahMencapaiBatasGolongan(kat2, emp);
+
+  return {
+    kategori,
+    eligible: cukup && batasInfo.determinable && !batasInfo.sudahMencapaiBatas,
+    masaKerjaTahun,
+    syaratTahun,
+    batasGolongan: batasInfo.batasGolongan,
+    sudahMencapaiBatas: batasInfo.sudahMencapaiBatas,
+    batasTidakDiketahui: !batasInfo.determinable,
+    statusInfo,
+    jalurReguler,
+    tmtAcuan
+  };
 }
 
 // ================================================================
@@ -3690,7 +3736,7 @@ const methods = {
   // ---- PROMOSI DASHBOARD ----
 
   async getPromosiDashboardSummary(args) {
-    const [token] = extractArgs(args);
+    const [token, selectedTmt] = extractArgs(args);
     const decoded = verifyToken(token);
     const db = getDb();
     
@@ -3716,7 +3762,37 @@ const methods = {
       pageE++;
     }
 
-    const target = hitungTargetTmtPromosi(new Date());
+    let parsedTargetDate = parseSelectedTmt(selectedTmt);
+    let target = parsedTargetDate ? {
+      targetDate: parsedTargetDate,
+      targetMonth: parsedTargetDate.getMonth() + 1,
+      targetYear: parsedTargetDate.getFullYear()
+    } : hitungTargetTmtPromosi(new Date());
+
+    // Ambil data usulan_kp untuk hitung statistik Diusulkan, Diproses, serta tmt_terbaru pengajuan
+    let usulanRows = [];
+    const latestUsulanTmtMap = {};
+    try {
+      let queryUsulan = db.from('usulan_kp').select('id, nip, status, unit, tmt, tmt_terbaru, created_at, opsi_a_selesai_pada, opsi_b_selesai_pada');
+      if (callerUnit) {
+        queryUsulan = queryUsulan.eq('unit', callerUnit);
+      }
+      const { data: uData } = await queryUsulan;
+      usulanRows = uData || [];
+
+      (usulanRows || []).forEach(u => {
+        const nipT = String(u.nip || '').trim();
+        const tmtVal = u.tmt_terbaru || u.tmt || u.created_at;
+        if (nipT && tmtVal) {
+          if (!latestUsulanTmtMap[nipT] || new Date(tmtVal) > new Date(latestUsulanTmtMap[nipT])) {
+            latestUsulanTmtMap[nipT] = tmtVal;
+          }
+        }
+      });
+    } catch (e) {
+      console.warn('[rpc] getPromosiDashboardSummary usulan_kp query notice:', e.message);
+    }
+
     const perUnit = {};
     let eligibleDosenCount = 0;
     let eligibleTendikCount = 0;
@@ -3724,7 +3800,7 @@ const methods = {
     (emps || []).forEach(emp => {
       const sb = klasifikasiStatusBekerja(emp.status_bekerja);
       if (!sb.eligibleSamaSekali) return;
-      const hasil = cekEligiblePromosi(emp, target.targetDate);
+      const hasil = cekEligiblePromosi(emp, target.targetDate, latestUsulanTmtMap);
       if (!hasil.eligible) return;
       const unit = String(emp.unit_es_ii || '(Tanpa Unit)').trim() || '(Tanpa Unit)';
       if (!perUnit[unit]) perUnit[unit] = { dosen: 0, tendik: 0 };
@@ -3738,19 +3814,6 @@ const methods = {
     });
 
     const daftarUnit = Object.keys(perUnit).sort().map(u => ({ unit: u, dosen: perUnit[u].dosen, tendik: perUnit[u].tendik, total: perUnit[u].dosen + perUnit[u].tendik }));
-
-    // Ambil data usulan_kp untuk hitung statistik Diusulkan & Diproses
-    let usulanRows = [];
-    try {
-      let queryUsulan = db.from('usulan_kp').select('id, nip, status, unit, opsi_a_selesai_pada, opsi_b_selesai_pada');
-      if (callerUnit) {
-        queryUsulan = queryUsulan.eq('unit', callerUnit);
-      }
-      const { data: uData } = await queryUsulan;
-      usulanRows = uData || [];
-    } catch (e) {
-      console.warn('[rpc] getPromosiDashboardSummary usulan_kp query notice:', e.message);
-    }
 
     const empKategoriMap = {};
     (emps || []).forEach(e => {
@@ -3801,7 +3864,7 @@ const methods = {
   },
 
   async getPromosiEligibleList(args) {
-    const [token, unit, kategoriFilter] = extractArgs(args);
+    const [token, unit, kategoriFilter, selectedTmt] = extractArgs(args);
     const decoded = verifyToken(token);
     const db = getDb();
     let targetUnit = unit;
@@ -3812,14 +3875,49 @@ const methods = {
 
     const {data:emps, error} = await db.from('data_utama').select('*').eq('unit_es_ii', targetUnit);
     if (error) throw error;
-    const target=hitungTargetTmtPromosi(new Date());
-    const hasil=(emps||[])
-      .map(emp=>Object.assign({emp},cekEligiblePromosi(emp,target.targetDate)))
-      .filter(r=>r.eligible)
-      .filter(r=>kategoriFilter==='dosen'?r.kategori==='dosen':r.kategori!=='dosen')
-      .map(r=>({nip:r.emp.nip,nama:r.emp.nama_lengkap||r.emp.nama,jabatan:r.emp.jabatan,kategori:r.kategori,tmtGolongan:formatTanggalIndonesia(r.emp.tmt_gol),golonganSekarang:r.emp.golongan,batasGolongan:r.batasGolongan,masaKerjaTahun:r.masaKerjaTahun,syaratTahun:r.syaratTahun,jalurReguler:r.jalurReguler,notifPerhatian:r.statusInfo.notifPerhatian,catatanNotif:r.statusInfo.catatanNotif||'',labelStatus:r.statusInfo.labelStatus}))
-      .sort((a,b)=>String(a.nama).localeCompare(String(b.nama)));
-    return {success:true,targetTmt:`1 ${BULAN_ID[target.targetMonth-1]} ${target.targetYear}`,daftar:hasil};
+
+    let parsedTargetDate = parseSelectedTmt(selectedTmt);
+    let target = parsedTargetDate ? {
+      targetDate: parsedTargetDate,
+      targetMonth: parsedTargetDate.getMonth() + 1,
+      targetYear: parsedTargetDate.getFullYear()
+    } : hitungTargetTmtPromosi(new Date());
+
+    const latestUsulanTmtMap = {};
+    try {
+      const { data: uData } = await db.from('usulan_kp').select('nip, tmt, tmt_terbaru, created_at');
+      (uData || []).forEach(u => {
+        const nipT = String(u.nip || '').trim();
+        const tmtVal = u.tmt_terbaru || u.tmt || u.created_at;
+        if (nipT && tmtVal) {
+          if (!latestUsulanTmtMap[nipT] || new Date(tmtVal) > new Date(latestUsulanTmtMap[nipT])) {
+            latestUsulanTmtMap[nipT] = tmtVal;
+          }
+        }
+      });
+    } catch (_) {}
+
+    const hasil = (emps || [])
+      .map(emp => Object.assign({ emp }, cekEligiblePromosi(emp, target.targetDate, latestUsulanTmtMap)))
+      .filter(r => r.eligible)
+      .filter(r => kategoriFilter === 'dosen' ? r.kategori === 'dosen' : r.kategori !== 'dosen')
+      .map(r => ({
+        nip: r.emp.nip,
+        nama: r.emp.nama_lengkap || r.emp.nama,
+        jabatan: r.emp.jabatan,
+        kategori: r.kategori,
+        tmtGolongan: formatTanggalIndonesia(r.tmtAcuan || r.emp.tmt_gol),
+        golonganSekarang: r.emp.golongan,
+        batasGolongan: r.batasGolongan,
+        masaKerjaTahun: r.masaKerjaTahun,
+        syaratTahun: r.syaratTahun,
+        jalurReguler: r.jalurReguler,
+        notifPerhatian: r.statusInfo.notifPerhatian,
+        catatanNotif: r.statusInfo.catatanNotif || '',
+        labelStatus: r.statusInfo.labelStatus
+      }))
+      .sort((a, b) => String(a.nama).localeCompare(String(b.nama)));
+    return { success: true, targetTmt: `1 ${BULAN_ID[target.targetMonth - 1]} ${target.targetYear}`, daftar: hasil };
   },
 
   // ---- PENSIUN DASHBOARD ----

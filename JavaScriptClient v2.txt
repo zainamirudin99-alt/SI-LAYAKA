@@ -2334,22 +2334,70 @@ function escapeHtml(str) {
  * mesin AK untuk Tendik).
  * ===================================================================== */
 let promosiDashboardData = null; // cache respons getPromosiDashboardSummary
+let currentSelectedTmt = '';
 
-function loadPromosiDashboard() {
+function renderTmtDropdownHeader(currentTargetTmt) {
+  const targetEl = document.getElementById('ceDashboardTarget');
+  if (!targetEl) return;
+
+  const currentYr = new Date().getFullYear();
+  const BULAN_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+  const optionsHtml = [];
+  for (let y = currentYr - 1; y <= currentYr + 4; y++) {
+    for (let m = 0; m < 12; m++) {
+      const valStr = `1 ${BULAN_NAMES[m]} ${y}`;
+      const isSel = currentTargetTmt && currentTargetTmt.toLowerCase() === valStr.toLowerCase();
+      optionsHtml.push(`<option value="${valStr}" ${isSel ? 'selected' : ''}>TMT: 1 ${BULAN_NAMES[m]} ${y}</option>`);
+    }
+  }
+
+  targetEl.innerHTML = `
+    <div style="display:inline-flex; align-items:center; gap:8px;">
+      <span style="font-weight:600; font-size:13px;">Periode TMT:</span>
+      <select id="ceDashboardTmtSelect" class="kontrak-select-dark" style="padding:4px 10px; font-size:13px; font-weight:600; border-radius:6px;" onchange="onPromosiTmtChange(this.value)">
+        ${optionsHtml.join('')}
+      </select>
+    </div>`;
+}
+
+function onPromosiTmtChange(val) {
+  currentSelectedTmt = val;
+  loadPromosiDashboard(val);
+}
+
+async function loadPromosiDashboard(selectedTmt) {
   if (!SESSION.token) return;
-  google.script.run
-    .withSuccessHandler(res => {
-      if (!res.success) { showToast('error', res.message); return; }
+  if (selectedTmt) currentSelectedTmt = selectedTmt;
+
+  try {
+    const res = await rpc('getPromosiDashboardSummary', [SESSION.token, currentSelectedTmt]);
+    if (res && res.success) {
       promosiDashboardData = res;
-      document.getElementById('ceDashboardTarget').textContent = 'TMT diproses: ' + res.targetTmt;
+      renderTmtDropdownHeader(res.targetTmt);
       renderSummaryWidgets(res.widgets);
       renderPromosiDashboardLevel1(res.daftarUnit);
-
       const dashboardAjukanBtn = document.getElementById('ceDashboardAjukanUsulanBtn');
       if (dashboardAjukanBtn) dashboardAjukanBtn.style.display = (SESSION.user && SESSION.user.role !== 'normal') ? 'inline-flex' : 'none';
-    })
-    .withFailureHandler(err => showToast('error', 'Gagal memuat dashboard eligible: ' + (err.message || err)))
-    .getPromosiDashboardSummary(SESSION.token);
+      return;
+    }
+  } catch (err) {}
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(res => {
+        if (!res.success) { showToast('error', res.message); return; }
+        promosiDashboardData = res;
+        renderTmtDropdownHeader(res.targetTmt);
+        renderSummaryWidgets(res.widgets);
+        renderPromosiDashboardLevel1(res.daftarUnit);
+
+        const dashboardAjukanBtn = document.getElementById('ceDashboardAjukanUsulanBtn');
+        if (dashboardAjukanBtn) dashboardAjukanBtn.style.display = (SESSION.user && SESSION.user.role !== 'normal') ? 'inline-flex' : 'none';
+      })
+      .withFailureHandler(err => showToast('error', 'Gagal memuat dashboard eligible: ' + (err.message || err)))
+      .getPromosiDashboardSummary(SESSION.token, currentSelectedTmt);
+  }
 }
 
 function renderSummaryWidgets(widgets) {
@@ -2479,33 +2527,47 @@ function showPromosiDashboardLevel2(unit) {
   };
 }
 
-function loadPromosiDashboardLevel3(unit, kategori) {
-  google.script.run
-    .withSuccessHandler(res => {
-      if (!res.success) { showToast('error', res.message); return; }
-      document.getElementById('ceDashboardLevel2').style.display = 'none';
-      document.getElementById('ceDashboardLevel3').style.display = 'block';
+async function loadPromosiDashboardLevel3(unit, kategori) {
+  const renderList = (daftar) => {
+    document.getElementById('ceDashboardLevel2').style.display = 'none';
+    document.getElementById('ceDashboardLevel3').style.display = 'block';
 
-      const listEl = document.getElementById('ceDashboardLevel3List');
-      if (!res.daftar.length) {
-        listEl.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada data.</div>';
-      } else {
-        listEl.innerHTML = res.daftar.map(p => `
-          <div class="ce-dashboard-list-item" onclick="onSelectPromosiPegawai('${escapeHtml(p.nip)}','${escapeHtml(p.nama).replace(/'/g, "\\'")}','${p.kategori}')">
-            <div>
-              <div class="cdli-name">${escapeHtml(p.nama)} ${p.notifPerhatian ? `<span class="cdli-warn" title="${escapeHtml(p.catatanNotif || 'Perlu perhatian khusus')}">⚠️ ${escapeHtml(p.catatanNotif || 'Perhatian')}</span>` : ''}</div>
-              <div class="cdli-meta">${escapeHtml(p.jabatan || '-')} &middot; NIP ${escapeHtml(p.nip)} &middot; TMT Golongan: ${escapeHtml(p.tmtGolongan || '-')} &middot; Golongan: ${escapeHtml(p.golonganSekarang || '-')}${p.batasGolongan ? ' (maks. ' + escapeHtml(p.batasGolongan) + ')' : ''}</div>
-              <div class="cdli-meta">Status: ${escapeHtml(p.labelStatus || '-')}${p.jalurReguler ? ' &middot; Jalur Kenaikan Pangkat Reguler (syarat ' + p.syaratTahun + ' tahun)' : ''}</div>
-            </div>
-            <span class="cdli-badge">${p.kategori === 'dosen' ? 'DOSEN' : (p.kategori === 'tendik_jabatan_fungsional' ? 'TENDIK JF' : 'TENDIK NON-JF')}</span>
+    const listEl = document.getElementById('ceDashboardLevel3List');
+    if (!daftar || !daftar.length) {
+      listEl.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada data.</div>';
+    } else {
+      listEl.innerHTML = daftar.map(p => `
+        <div class="ce-dashboard-list-item" onclick="onSelectPromosiPegawai('${escapeHtml(p.nip)}','${escapeHtml(p.nama).replace(/'/g, "\\'")}','${p.kategori}')">
+          <div>
+            <div class="cdli-name">${escapeHtml(p.nama)} ${p.notifPerhatian ? `<span class="cdli-warn" title="${escapeHtml(p.catatanNotif || 'Perlu perhatian khusus')}">⚠️ ${escapeHtml(p.catatanNotif || 'Perhatian')}</span>` : ''}</div>
+            <div class="cdli-meta">${escapeHtml(p.jabatan || '-')} &middot; NIP ${escapeHtml(p.nip)} &middot; TMT Golongan: ${escapeHtml(p.tmtGolongan || '-')} &middot; Golongan: ${escapeHtml(p.golonganSekarang || '-')}${p.batasGolongan ? ' (maks. ' + escapeHtml(p.batasGolongan) + ')' : ''}</div>
+            <div class="cdli-meta">Status: ${escapeHtml(p.labelStatus || '-')}${p.jalurReguler ? ' &middot; Jalur Kenaikan Pangkat Reguler (syarat ' + p.syaratTahun + ' tahun)' : ''}</div>
           </div>
-        `).join('');
-      }
+          <span class="cdli-badge">${p.kategori === 'dosen' ? 'DOSEN' : (p.kategori === 'tendik_jabatan_fungsional' ? 'TENDIK JF' : 'TENDIK NON-JF')}</span>
+        </div>
+      `).join('');
+    }
 
-      document.querySelector('#ceDashboardLevel3 .ce-dashboard-back').onclick = () => showPromosiDashboardLevel2(unit);
-    })
-    .withFailureHandler(err => showToast('error', 'Gagal memuat daftar pegawai: ' + (err.message || err)))
-    .getPromosiEligibleList(SESSION.token, unit, kategori);
+    document.querySelector('#ceDashboardLevel3 .ce-dashboard-back').onclick = () => showPromosiDashboardLevel2(unit);
+  };
+
+  try {
+    const res = await rpc('getPromosiEligibleList', [SESSION.token, unit, kategori, currentSelectedTmt]);
+    if (res && res.success) {
+      renderList(res.daftar);
+      return;
+    }
+  } catch (err) {}
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(res => {
+        if (!res.success) { showToast('error', res.message); return; }
+        renderList(res.daftar);
+      })
+      .withFailureHandler(err => showToast('error', 'Gagal memuat daftar pegawai: ' + (err.message || err)))
+      .getPromosiEligibleList(SESSION.token, unit, kategori, currentSelectedTmt);
+  }
 }
 
 function onSelectPromosiPegawai(nip, nama, kategori) {
