@@ -1418,68 +1418,76 @@ function klasifikasiStatusBekerja(sb) {
   };
 }
 
-function parseSelectedTmt(selectedTmt) {
-  if (!selectedTmt) return null;
-  if (selectedTmt instanceof Date && !isNaN(selectedTmt)) return selectedTmt;
-  const str = String(selectedTmt).trim();
-  if (!str) return null;
-  const mIso = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
-  if (mIso) {
-    return new Date(parseInt(mIso[1], 10), parseInt(mIso[2], 10) - 1, parseInt(mIso[3], 10));
+function extractMonthYear(input) {
+  if (!input) return null;
+  if (input instanceof Date && !isNaN(input.getTime())) {
+    return { month: input.getMonth() + 1, year: input.getFullYear() };
   }
-  const mInd = str.match(/^(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})/);
-  if (mInd) {
-    const day = parseInt(mInd[1], 10);
-    const monthName = mInd[2].toLowerCase();
-    const year = parseInt(mInd[3], 10);
-    const mIdx = BULAN_ID.findIndex(b => b.toLowerCase() === monthName);
-    if (mIdx !== -1) {
-      return new Date(year, mIdx, day);
+  const str = String(input).trim().toLowerCase();
+  if (!str) return null;
+
+  const BULAN_FULL = ['januari', 'februari', 'maret', 'april', 'mei', 'juni', 'juli', 'agustus', 'september', 'oktober', 'november', 'desember'];
+  const BULAN_SHORT = ['jan', 'feb', 'mar', 'apr', 'mei', 'jun', 'jul', 'agu', 'sep', 'okt', 'nov', 'des'];
+
+  for (let i = 0; i < 12; i++) {
+    if (str.includes(BULAN_FULL[i]) || str.includes(BULAN_SHORT[i])) {
+      const mYear = str.match(/\b(20\d{2})\b/);
+      const yr = mYear ? parseInt(mYear[1], 10) : new Date().getFullYear();
+      return { month: i + 1, year: yr };
     }
   }
+
+  const mIso = str.match(/\b(20\d{2})[\/\-](\d{1,2})/);
+  if (mIso) {
+    const year = parseInt(mIso[1], 10);
+    const month = parseInt(mIso[2], 10);
+    if (month >= 1 && month <= 12) return { month, year };
+  }
+
+  const mDmy = str.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](20\d{2})\b/);
+  if (mDmy) {
+    const month = parseInt(mDmy[2], 10);
+    const year = parseInt(mDmy[3], 10);
+    if (month >= 1 && month <= 12) return { month, year };
+  }
+
+  const mMy = str.match(/\b(\d{1,2})[\/\-](20\d{2})\b/);
+  if (mMy) {
+    const month = parseInt(mMy[1], 10);
+    const year = parseInt(mMy[2], 10);
+    if (month >= 1 && month <= 12) return { month, year };
+  }
+
   const dParsed = new Date(str);
-  return isNaN(dParsed) ? null : dParsed;
+  if (!isNaN(dParsed.getTime())) {
+    return { month: dParsed.getMonth() + 1, year: dParsed.getFullYear() };
+  }
+
+  return null;
+}
+
+function parseSelectedTmt(selectedTmt) {
+  const my = extractMonthYear(selectedTmt);
+  if (my) return new Date(my.year, my.month - 1, 1);
+  return null;
 }
 
 function isTmtMatchingSelected(uTmtStr, uDateStr, targetDate) {
   if (!targetDate) return true;
-  const targetYr = targetDate.getFullYear();
-  const targetMo = targetDate.getMonth() + 1;
+  const targetMy = extractMonthYear(targetDate);
+  if (!targetMy) return true;
 
-  const rawTmt = String(uTmtStr || '').trim();
-  if (rawTmt) {
-    const pDate = parseSelectedTmt(rawTmt);
-    if (pDate && !isNaN(pDate.getTime())) {
-      if (pDate.getFullYear() === targetYr && (pDate.getMonth() + 1) === targetMo) {
-        return true;
-      }
-    }
-
-    const lower = rawTmt.toLowerCase();
-    const targetMonthName = BULAN_ID[targetMo - 1].toLowerCase();
-    if (lower.includes(targetMonthName) && lower.includes(String(targetYr))) {
-      return true;
-    }
-
-    const mNum = lower.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-    if (mNum) {
-      const mVal = parseInt(mNum[2], 10);
-      const yVal = parseInt(mNum[3], 10);
-      if (mVal === targetMo && yVal === targetYr) return true;
-    }
-
-    const mMy = lower.match(/(\d{1,2})[\/\-](\d{4})/);
-    if (mMy) {
-      const mVal = parseInt(mMy[1], 10);
-      const yVal = parseInt(mMy[2], 10);
-      if (mVal === targetMo && yVal === targetYr) return true;
+  if (uTmtStr) {
+    const tmtMy = extractMonthYear(uTmtStr);
+    if (tmtMy) {
+      return tmtMy.month === targetMy.month && tmtMy.year === targetMy.year;
     }
   }
 
   if (uDateStr) {
-    const d = new Date(uDateStr);
-    if (!isNaN(d.getTime())) {
-      return d.getFullYear() === targetYr && (d.getMonth() + 1) === targetMo;
+    const dMy = extractMonthYear(uDateStr);
+    if (dMy) {
+      return dMy.month === targetMy.month && dMy.year === targetMy.year;
     }
   }
 
@@ -3871,7 +3879,7 @@ const methods = {
     let diprosesTendik = 0;
 
     (usulanRows || []).forEach(u => {
-      const uTmtStr = u.tmt || u.tmt_terbaru || '';
+      const uTmtStr = u.tmt || u.tmt_terbaru || u.periode || u.periode_kp || u.keterangan || (u.form_data && (u.form_data.tmt || u.form_data.periode)) || '';
       const uDateStr = u.created_at || u.tanggal_diajukan || '';
       if (!isTmtMatchingSelected(uTmtStr, uDateStr, target.targetDate)) {
         return;
