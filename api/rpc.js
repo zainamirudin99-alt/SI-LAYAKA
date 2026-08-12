@@ -1477,7 +1477,7 @@ function isTmtMatchingSelected(uTmtStr, uDateStr, targetDate) {
   const targetMy = extractMonthYear(targetDate);
   if (!targetMy) return true;
 
-  if (uTmtStr) {
+  if (uTmtStr && String(uTmtStr).trim()) {
     const tmtMy = extractMonthYear(uTmtStr);
     if (tmtMy) {
       return tmtMy.month === targetMy.month && tmtMy.year === targetMy.year;
@@ -1487,11 +1487,21 @@ function isTmtMatchingSelected(uTmtStr, uDateStr, targetDate) {
   if (uDateStr) {
     const dMy = extractMonthYear(uDateStr);
     if (dMy) {
-      return dMy.month === targetMy.month && dMy.year === targetMy.year;
+      if (dMy.month === targetMy.month && dMy.year === targetMy.year) {
+        return true;
+      }
+      const submitDate = new Date(uDateStr);
+      if (!isNaN(submitDate.getTime())) {
+        const targetTmtDate = new Date(targetMy.year, targetMy.month - 1, 1);
+        const diffMonths = (targetTmtDate.getFullYear() - submitDate.getFullYear()) * 12 + (targetTmtDate.getMonth() - submitDate.getMonth());
+        if (diffMonths >= 0 && diffMonths <= 6) {
+          return true;
+        }
+      }
     }
   }
 
-  return false;
+  return true;
 }
 
 function cekEligiblePromosi(emp, targetDate, latestUsulanTmtMap) {
@@ -3827,11 +3837,18 @@ const methods = {
     const latestUsulanTmtMap = {};
     try {
       let queryUsulan = db.from('usulan_kp').select('id, nip, status, unit, tmt, tmt_terbaru, created_at, tanggal_diajukan, jenis_pegawai, jabatan, opsi_a_selesai_pada, opsi_b_selesai_pada');
-      if (callerUnit) {
-        queryUsulan = queryUsulan.eq('unit', callerUnit);
-      }
       const { data: uData } = await queryUsulan;
-      usulanRows = uData || [];
+      let rawRows = uData || [];
+
+      if (callerUnit) {
+        const cLower = String(callerUnit).toLowerCase();
+        usulanRows = rawRows.filter(u => {
+          const uUnit = String(u.unit || '').toLowerCase();
+          return uUnit.includes(cLower) || cLower.includes(uUnit);
+        });
+      } else {
+        usulanRows = rawRows;
+      }
 
       (usulanRows || []).forEach(u => {
         const nipT = String(u.nip || '').trim();
@@ -3888,9 +3905,17 @@ const methods = {
       const kat = empKategoriMap[u.nip] || klasifikasiPegawai(u.jabatan || u.jenis_pegawai || '') || 'tendik_non_jabatan_fungsional';
       const isDosen = (kat === 'dosen');
       const st = String(u.status || '').trim();
+      const lowerSt = st.toLowerCase();
 
-      const isDiusulkanStatus = (st === 'Diajukan' || st === 'Diterima DSDM' || st === 'Belum Eligible' || !st);
-      const isDiproses = !isDiusulkanStatus || u.opsi_a_selesai_pada || u.opsi_b_selesai_pada;
+      const isDiprosesStatus = (
+        lowerSt.includes('siasn') ||
+        lowerSt.includes('pertek') ||
+        lowerSt.includes('sk berhasil') ||
+        lowerSt.includes('disetujui') ||
+        lowerSt.includes('selesai') ||
+        lowerSt.includes('terbit sk')
+      );
+      const isDiproses = isDiprosesStatus || u.opsi_a_selesai_pada || u.opsi_b_selesai_pada;
 
       if (isDiproses) {
         if (isDosen) diprosesDosen++;
