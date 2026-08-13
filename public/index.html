@@ -10684,18 +10684,6 @@ function confirmAndGoToFormWithNip(nip, tmpLhr, tglLhr) {
   const tglLhrEl = document.getElementById('kontrak_tglLhr');
   if (tglLhrEl && tglLhr) tglLhrEl.value = tglLhr;
 
-  showToast('success', 'NIP & Data TTL berhasil dimasukkan ke Form Usulan.');
-}
-  // admin/super_admin memakai pencarian standar tanpa batasan.
-  const searchFn = (role === 'user') ? 'searchEmployeesForKontrak' : 'searchEmployees';
-  setupAutocompleteElCustom(
-    document.getElementById('kontrak_search'),
-    document.getElementById('kontrak_searchList'),
-    document.getElementById('kontrak_nip'),
-    (nip, nama) => kontrakIsiFormDariPegawai_(nip, nama),
-    searchFn
-  );
-
   const isDosenParuhWaktu = (kontrakSelectedLayanan === 'Kontrak Dosen' && kontrakSelectedSubMenu === 'Kontrak Paruh Waktu');
   const upahWrap = document.getElementById('kontrak_besaranUpahWrap');
   if (upahWrap) {
@@ -10703,7 +10691,8 @@ function confirmAndGoToFormWithNip(nip, tmpLhr, tglLhr) {
   }
 
   loadServiceTemplates(kontrakSelectedLayanan, kontrakSelectedSubMenu, 'kontrak_templateSelect');
-  kontrakGoToState_('form');
+
+  showToast('success', 'NIP & Data TTL berhasil dimasukkan ke Form Usulan.');
 }
 
 function kontrakResetForm_() {
