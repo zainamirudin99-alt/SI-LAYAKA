@@ -460,9 +460,14 @@ function ajukanUsulanKontrakDrive(sessionId, payload) {
  * (semua lampiran approved). Simpan ke folder tahun di FOLDER_KONTRAK_ROOT.
  */
 function generateKontrakFromUsulan(sessionToken, templateFileId, usulanData) {
-  const adminSession = requireRole_(sessionToken, ['admin', 'super_admin']);
+  const employeeSession = requireRole_(sessionToken, ['normal', 'user', 'admin', 'super_admin']);
   try {
     if (!usulanData) return { success: false, message: 'Data usulan tidak tersedia.' };
+
+    const role = employeeSession.role || getUserRole_(employeeSession.nip);
+    if (role === 'normal' && String(usulanData.nip || '').trim() !== String(employeeSession.nip || '').trim()) {
+      return { success: false, message: 'Anda hanya dapat membuat dokumen kontrak untuk usulan Anda sendiri.' };
+    }
 
     let fileId = templateFileId;
     if (!fileId) {

@@ -119,7 +119,7 @@ function lampirkanRole_(safeUser) {
 /** Guard: lempar Error kalau peran sesi TIDAK termasuk salah satu peran yang diizinkan. */
 function requireRole_(sessionToken, peranDiizinkan) {
   const employee = requireSession_(sessionToken);
-  const role = getUserRole_(employee.nip);
+  const role = employee.role || getUserRole_(employee.nip);
   if (peranDiizinkan.indexOf(role) === -1) {
     throw new Error('Anda tidak memiliki hak akses untuk aksi ini.');
   }
