@@ -4374,7 +4374,7 @@ const methods = {
     const BULAN_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
     const labelBulanMasuk = `${mmMasuk} (${BULAN_ID[dMasuk.getMonth()] || ''})`;
 
-    // 4. Hitung Nomor Urut (NNN) untuk tahun masuk tersebut
+    // 4. Hitung Nomor Urut (NNN) spesifik per Jenis Pegawai (kodeJenis) dan Tahun Masuk (yyMasuk)
     const db = getDb();
     let currentCount = 0;
     try {
@@ -4393,7 +4393,17 @@ const methods = {
       console.warn('[generateAutoNip] Warning counting existing NIPs:', countErr.message);
     }
 
-    const nextSeq = currentCount + 1;
+    // Baseline nomor urut di tahun 2026 sesuai jenis pegawai:
+    // Dosen (kode 01): minimal urutan 13 (013)
+    // Tendik (kode 02): minimal urutan 27 (027)
+    let nextSeq = currentCount + 1;
+    if (yyMasuk === '26') {
+      if (kodeJenis === '01') {
+        nextSeq = Math.max(nextSeq, 13);
+      } else if (kodeJenis === '02') {
+        nextSeq = Math.max(nextSeq, 27);
+      }
+    }
     const nnnSeq = String(nextSeq).padStart(3, '0');
 
     // 5. Rakit NIP 17 Digit: YYYYMMDDKKYYMMNNN
@@ -4409,7 +4419,7 @@ const methods = {
         kodeJenis: labelJenis,
         thnMasuk: `${yyMasuk} (Tahun ${fullYearMasuk})`,
         blnMasuk: labelBulanMasuk,
-        nomorUrut: `${nnnSeq} (Urutan ke-${nextSeq} pada tahun ${fullYearMasuk})`
+        nomorUrut: `${nnnSeq} (Urutan ke-${nextSeq} pegawai ${isDosen ? 'Dosen' : 'Tendik'} pada tahun ${fullYearMasuk})`
       }
     };
   },
