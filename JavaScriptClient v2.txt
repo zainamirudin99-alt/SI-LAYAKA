@@ -6802,18 +6802,9 @@ function pilihModeKontrak(mode) {
   const role = SESSION.user.role;
 
   if (mode === 'baru') {
-    searchWrap.style.display = 'none';
-    if (role === 'normal') {
-      // REF alur terkoreksi: peran normal yang pilih "Usulan Baru" tetap
-      // TERKUNCI ke NIP diri sendiri (login menentukan siapa) -- hanya
-      // field LAIN yang diisi manual (mis. profil di Data Utama belum
-      // lengkap), bukan berarti bisa mengajukan atas nama orang lain.
-      document.getElementById('kontrak_nipManual').value = SESSION.user.nip;
-      document.getElementById('kontrak_nipManual').setAttribute('readonly', 'readonly');
-      document.getElementById('kontrak_namaLengkap').value = SESSION.user.nama || '';
-    } else {
-      document.getElementById('kontrak_nipManual').removeAttribute('readonly');
-    }
+    // REVISI ALUR: Trigger Pop-up 1 Generate NIP sebelum masuk ke form usulan baru!
+    openKontrakPopup1GenerateNip();
+    return;
   } else {
     document.getElementById('kontrak_nipManual').setAttribute('readonly', 'readonly');
     if (role === 'normal') {
@@ -6824,20 +6815,250 @@ function pilihModeKontrak(mode) {
     }
   }
 
+  kontrakGoToState_('form');
+
   populateSelect('kontrak_tmtBulan', kontrakFormOptionsCache.bulan, { placeholder: 'Bulan...', valueField: 'value', labelField: 'label' });
   populateSelect('kontrak_tstBulan', kontrakFormOptionsCache.bulan, { placeholder: 'Bulan...', valueField: 'value', labelField: 'label' });
   populateSelect('kontrak_tmtTahun', kontrakFormOptionsCache.tahun, { placeholder: 'Tahun...' });
   populateSelect('kontrak_tstTahun', kontrakFormOptionsCache.tahun, { placeholder: 'Tahun...' });
 
-  // REF (konfirmasi Titto): Jangka Waktu Kontrak SEKARANG dihitung
-  // otomatis dari selisih TMT->TST (inklusif) begitu keempatnya terisi --
-  // bukan lagi dipilih terpisah lewat dropdown sendiri.
   ['kontrak_tmtBulan', 'kontrak_tmtTahun', 'kontrak_tstBulan', 'kontrak_tstTahun'].forEach(id => {
     document.getElementById(id).addEventListener('change', updateKontrakJangkaWaktuPreview_);
   });
+}
 
-  // Pencarian: peran 'user' diarahkan ke pencarian yang SUDAH dibatasi di
-  // server (searchEmployeesForKontrak, hanya pegawai kategori eligible);
+/* ==========================================================================
+   ALUR REVISI POP-UP 1 (GENERATE NIP) & POP-UP 2 (BREAKDOWN NIP) FOR KONTRAK
+   ========================================================================== */
+
+function openKontrakPopup1GenerateNip() {
+  document.getElementById('modalTitle').textContent = '⚡ Pop-up 1: Input Data Lahir & Generate NIP Otomatis';
+
+  const jenisPegLabel = (kontrakSelectedLayanan === 'Kontrak Dosen') ? 'Tenaga Dosen (Kode: 01)' : 'Tenaga Kependidikan / Tendik (Kode: 02)';
+  const subMenuLabel = kontrakSelectedSubMenu || 'Kontrak Utama';
+
+  const html = `
+    <div style="padding:20px; text-align:left; font-size:13.5px;">
+      <div style="background:var(--surface-alt, #f8fafc); border:1px solid var(--border, #e2e8f0); border-radius:10px; padding:14px; margin-bottom:18px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div>
+            <span style="font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:700;">Kategori Pegawai:</span>
+            <strong style="color:var(--primary); font-size:13px; display:block;">${escapeHtml(jenisPegLabel)}</strong>
+          </div>
+          <div>
+            <span style="font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:700;">Jenis Kontrak:</span>
+            <strong style="color:#059669; font-size:13px; display:block;">${escapeHtml(subMenuLabel)}</strong>
+          </div>
+        </div>
+      </div>
+
+      <form id="popup1NipForm" onsubmit="submitKontrakPopup1Nip(event)">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:18px;">
+          <div>
+            <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Tempat Lahir <span style="color:red;">*</span></label>
+            <input type="text" id="pop1_tmpLhr" class="field-input" placeholder="Contoh: Semarang" required />
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Tanggal Lahir <span style="color:red;">*</span></label>
+            <input type="date" id="pop1_tglLhr" class="field-input" onchange="autoCalculatePopup1Nip()" required />
+          </div>
+        </div>
+
+        <div style="margin-bottom:18px; background:var(--surface-alt, #f1f5f9); padding:16px; border-radius:10px; border:1px solid var(--border);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <label style="font-size:12px; font-weight:700; color:var(--text-main);">NIP Hasil Generate (17 Digit):</label>
+            <button type="button" class="btn btn-outline kp-small-btn" onclick="autoCalculatePopup1Nip()" style="font-size:11px; font-weight:700;">🔄 Hitung Ulang NIP</button>
+          </div>
+          <input type="text" id="pop1_nipGenerated" class="field-input" style="font-size:18px; font-weight:800; letter-spacing:1px; font-family:monospace; color:var(--primary); background:#fff;" placeholder="Isi TTL di atas untuk generate NIP..." required />
+          <div style="font-size:11.5px; color:#16a34a; margin-top:6px;">✓ NIP di atas di-generate otomatis dan <strong>tetap dapat Anda edit/sesuaikan secara manual</strong>.</div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Batal</button>
+          <button type="submit" class="btn btn-primary" id="pop1_submitBtn" style="font-weight:700; padding:9px 24px;">Lanjut ➔ Pop-up 2 (Lihat Breakdown Structure NIP)</button>
+        </div>
+      </form>
+    </div>`;
+
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+
+async function autoCalculatePopup1Nip() {
+  const tglLahir = document.getElementById('pop1_tglLhr')?.value;
+  if (!tglLahir) return;
+
+  const defaultJenis = (kontrakSelectedLayanan === 'Kontrak Dosen') ? 'Dosen' : 'Tendik';
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  try {
+    const payload = { tglLahir, jenisPegawai: defaultJenis, tglMasuk: todayStr };
+    const res = await rpc('generateAutoNip', [SESSION.token, payload]);
+    if (res && res.success) {
+      const nipEl = document.getElementById('pop1_nipGenerated');
+      if (nipEl) {
+        nipEl.value = res.nip;
+        nipEl.dataset.rincian = JSON.stringify(res.rincian);
+      }
+      showToast('success', `NIP otomatis berhasil di-generate: ${res.nip}`);
+    }
+  } catch (err) {
+    console.warn('[autoCalculatePopup1Nip] error:', err.message);
+  }
+}
+
+async function submitKontrakPopup1Nip(e) {
+  e.preventDefault();
+  const tmpLhr = document.getElementById('pop1_tmpLhr')?.value?.trim();
+  const tglLhr = document.getElementById('pop1_tglLhr')?.value;
+  const nipVal = document.getElementById('pop1_nipGenerated')?.value?.trim();
+
+  if (!tmpLhr || !tglLhr || !nipVal) {
+    showToast('error', 'Lengkapi Tempat Lahir, Tanggal Lahir, dan NIP.');
+    return;
+  }
+
+  const defaultJenis = (kontrakSelectedLayanan === 'Kontrak Dosen') ? 'Dosen' : 'Tendik';
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const btn = document.getElementById('pop1_submitBtn');
+  if (btn) setBtnLoading(btn, true, 'Menyiapkan Breakdown...');
+
+  try {
+    const payload = { tglLahir: tglLhr, jenisPegawai: defaultJenis, tglMasuk: todayStr };
+    const res = await rpc('generateAutoNip', [SESSION.token, payload]);
+    if (btn) setBtnLoading(btn, false, 'Lanjut ➔ Pop-up 2 (Lihat Breakdown Structure NIP)');
+
+    const rincian = (res && res.success) ? res.rincian : {
+      thnLahir: nipVal.slice(0,4),
+      blnLahir: nipVal.slice(4,6),
+      tglLahir: nipVal.slice(6,8),
+      kodeJenis: nipVal.slice(8,10) === '01' ? '01 (Tenaga Dosen)' : '02 (Tenaga Kependidikan)',
+      thnMasuk: nipVal.slice(10,12),
+      blnMasuk: nipVal.slice(12,14),
+      nomorUrut: nipVal.slice(14,17)
+    };
+
+    openKontrakPopup2BreakdownNip(nipVal, rincian, { tmpLhr, tglLhr, defaultJenis });
+  } catch (err) {
+    if (btn) setBtnLoading(btn, false, 'Lanjut ➔ Pop-up 2 (Lihat Breakdown Structure NIP)');
+    showToast('error', 'Gagal memproses breakdown: ' + err.message);
+  }
+}
+
+function openKontrakPopup2BreakdownNip(nip, rincian, extraData) {
+  document.getElementById('modalTitle').textContent = '⚡ Pop-up 2: Breakdown Structure NIP';
+
+  const contentHtml = `
+    <div style="padding:20px; text-align:left; font-size:13.5px;">
+      <div style="background:var(--surface-alt, #f8fafc); border:1px solid var(--border, #e2e8f0); border-radius:10px; padding:16px; margin-bottom:18px; text-align:center;">
+        <div style="font-size:12px; color:var(--text-muted, #64748b); text-transform:uppercase; letter-spacing:0.5px; font-weight:600; margin-bottom:4px;">NIP Dikonfirmasi (17 Digit)</div>
+        <div style="font-size:24px; font-weight:800; color:var(--primary, #0284c7); letter-spacing:1.5px; font-family:monospace;">${escapeHtml(nip)}</div>
+        <div style="font-size:11.5px; color:#16a34a; margin-top:4px;">✓ Pemetaan digit NIP telah dikonfirmasi dan siap dimasukkan ke Form Usulan.</div>
+      </div>
+
+      <h4 style="font-size:14px; font-weight:700; margin-bottom:10px; color:var(--text-main);">📌 Tabel Pemetaan Digit Structure NIP:</h4>
+
+      <table class="tmt-table" style="width:100%; border-collapse:collapse; margin-bottom:20px;">
+        <thead>
+          <tr style="background:var(--surface-alt, #f1f5f9);">
+            <th style="padding:8px 10px; border:1px solid var(--border); text-align:center; width:100px;">Posisi Digit</th>
+            <th style="padding:8px 10px; border:1px solid var(--border); text-align:left;">Nama Komponen</th>
+            <th style="padding:8px 10px; border:1px solid var(--border); text-align:center; width:90px;">Digit Teks</th>
+            <th style="padding:8px 10px; border:1px solid var(--border); text-align:left;">Penjelasan / Makna</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 1–4</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Tahun Lahir</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#0284c7;">${escapeHtml(nip.slice(0,4))}</td>
+            <td style="padding:8px 10px; border:1px solid var(--border);">Tahun kelahiran pegawai</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 5–6</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Bulan Lahir</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#0284c7;">${escapeHtml(nip.slice(4,6))}</td>
+            <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.blnLahir || 'Bulan lahir')}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 7–8</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Tanggal Lahir</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#0284c7;">${escapeHtml(nip.slice(6,8))}</td>
+            <td style="padding:8px 10px; border:1px solid var(--border);">Tanggal lahir pegawai</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 9–10</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Kode Jenis Pegawai</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#d97706;">${escapeHtml(nip.slice(8,10))}</td>
+            <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.kodeJenis || 'Jenis Pegawai')}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 11–12</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Tahun Masuk</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#2563eb;">${escapeHtml(nip.slice(10,12))}</td>
+            <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.thnMasuk || 'Tahun masuk')}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 13–14</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Bulan Masuk</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#2563eb;">${escapeHtml(nip.slice(12,14))}</td>
+            <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.blnMasuk || 'Bulan masuk')}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 15–17</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Nomor Urut Pegawai</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#16a34a;">${escapeHtml(nip.slice(14,17))}</td>
+            <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.nomorUrut || 'Nomor urut')}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <button type="button" class="btn btn-outline" onclick="openKontrakPopup1GenerateNip()">&larr; Kembali ke Pop-up 1</button>
+        <button type="button" class="btn btn-primary" onclick="confirmAndGoToFormWithNip('${escapeHtml(nip)}', '${escapeHtml(extraData.tmpLhr)}', '${escapeHtml(extraData.tglLhr)}')" style="padding:9px 24px; font-weight:700;">🚀 Gunakan NIP &amp; Masuk ke Form Usulan</button>
+      </div>
+    </div>`;
+
+  document.getElementById('modalBody').innerHTML = contentHtml;
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+
+function confirmAndGoToFormWithNip(nip, tmpLhr, tglLhr) {
+  closeModal();
+  
+  // Transition into Form State
+  kontrakGoToState_('form');
+
+  const searchWrap = document.getElementById('kontrakSearchWrap');
+  if (searchWrap) searchWrap.style.display = 'none';
+
+  // Populate form dropdowns
+  populateSelect('kontrak_tmtBulan', kontrakFormOptionsCache.bulan, { placeholder: 'Bulan...', valueField: 'value', labelField: 'label' });
+  populateSelect('kontrak_tstBulan', kontrakFormOptionsCache.bulan, { placeholder: 'Bulan...', valueField: 'value', labelField: 'label' });
+  populateSelect('kontrak_tmtTahun', kontrakFormOptionsCache.tahun, { placeholder: 'Tahun...' });
+  populateSelect('kontrak_tstTahun', kontrakFormOptionsCache.tahun, { placeholder: 'Tahun...' });
+
+  ['kontrak_tmtBulan', 'kontrak_tmtTahun', 'kontrak_tstBulan', 'kontrak_tstTahun'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', updateKontrakJangkaWaktuPreview_);
+  });
+
+  // Fill in form values
+  const nipEl = document.getElementById('kontrak_nipManual');
+  if (nipEl) {
+    nipEl.value = nip;
+    nipEl.removeAttribute('readonly');
+  }
+
+  const tmpLhrEl = document.getElementById('kontrak_tmpLhr');
+  if (tmpLhrEl && tmpLhr) tmpLhrEl.value = tmpLhr;
+
+  const tglLhrEl = document.getElementById('kontrak_tglLhr');
+  if (tglLhrEl && tglLhr) tglLhrEl.value = tglLhr;
+
+  showToast('success', 'NIP & Data TTL berhasil dimasukkan ke Form Usulan.');
+}
   // admin/super_admin memakai pencarian standar tanpa batasan.
   const searchFn = (role === 'user') ? 'searchEmployeesForKontrak' : 'searchEmployees';
   setupAutocompleteElCustom(
