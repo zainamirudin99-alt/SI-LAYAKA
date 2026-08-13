@@ -1,4 +1,4 @@
-﻿<script>
+<script>
 
 
 
@@ -2132,16 +2132,21 @@ function openPreviewModal(url) {
   let cleanUrl = String(url).trim();
   let embedUrl = cleanUrl;
 
-  // Transformasi Google Drive URL agar dapat di-embed dalam iframe
-  if (cleanUrl.includes('drive.google.com')) {
+  // Transformasi Google Drive & Google Docs URL agar dapat di-embed dalam iframe
+  if (cleanUrl.includes('drive.google.com') || cleanUrl.includes('docs.google.com')) {
     if (cleanUrl.includes('/view')) {
       embedUrl = cleanUrl.replace(/\/view.*/, '/preview');
+    } else if (cleanUrl.includes('/edit')) {
+      embedUrl = cleanUrl.replace(/\/edit.*/, '/preview');
     } else if (cleanUrl.includes('/open?id=')) {
       const fileId = cleanUrl.split('id=')[1]?.split('&')[0];
       if (fileId) embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
     } else if (cleanUrl.includes('/file/d/')) {
       const parts = cleanUrl.split('/file/d/')[1]?.split('/');
       if (parts && parts[0]) embedUrl = `https://drive.google.com/file/d/${parts[0]}/preview`;
+    } else if (cleanUrl.includes('/document/d/')) {
+      const parts = cleanUrl.split('/document/d/')[1]?.split('/');
+      if (parts && parts[0]) embedUrl = `https://docs.google.com/document/d/${parts[0]}/preview`;
     }
   }
 
@@ -6995,19 +7000,42 @@ function runKontrakPreviewGenerate(mode) {
 function openKontrakResultModal(res) {
   document.getElementById('modalTitle').textContent = 'Dokumen Kontrak Siap';
   let linksHtml = '';
-  if (res.outputType === 'pdf') {
-    linksHtml = `<a class="btn btn-primary" style="text-decoration:none;" href="${res.pdfDownloadUrl}" target="_blank" rel="noopener">Unduh PDF</a>`;
+  const url = res.pdfUrl || res.pdfDownloadUrl || res.docViewUrl || res.viewUrl || '';
+  const fileName = res.fileName || 'Dokumen_Kontrak';
+
+  if (res.outputType === 'pdf' || (url && url.includes('.pdf'))) {
+    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:10px 20px; font-weight:600;" href="${url}" target="_blank" rel="noopener">📥 Unduh / Buka Dokumen PDF (${escapeHtml(fileName)})</a>`;
+  } else if (res.isDocx && res.docViewUrl) {
+    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:10px 20px; font-weight:600;" href="${res.docViewUrl}" download="${escapeHtml(fileName)}.docx">📥 Unduh Dokumen DOCX (${escapeHtml(fileName)})</a>`;
   } else {
-    linksHtml = `<a class="btn btn-primary" style="text-decoration:none;" href="${res.docViewUrl}" target="_blank" rel="noopener">Buka Google Docs</a>`;
+    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:10px 20px; font-weight:600;" href="${url}" target="_blank" rel="noopener">📄 Buka Google Docs (${escapeHtml(fileName)})</a>`;
   }
+
   document.getElementById('modalBody').innerHTML = `
     <div style="padding:24px; text-align:center;">
-      <p style="margin-bottom:18px;">Dokumen Kontrak berhasil dibuat dan tersimpan di folder "Kontrak".</p>
-      <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+      <p style="margin-bottom:18px; font-size:14px; color:var(--text-main);">Dokumen Kontrak berhasil dibuat dan tersimpan.</p>
+      <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-bottom:12px;">
         ${linksHtml}
       </div>
     </div>`;
   document.getElementById('modalOverlay').style.display = 'flex';
+
+  // Otomatis buka di tab baru atau trigger download file
+  if (url && !res.isDocx) {
+    try {
+      const win = window.open(url, '_blank');
+      if (!win) showToast('info', 'Harap izinkan pop-up di browser Anda untuk membuka file secara otomatis.');
+    } catch (_) {}
+  } else if (res.isDocx && res.docViewUrl) {
+    try {
+      const a = document.createElement('a');
+      a.href = res.docViewUrl;
+      a.download = `${fileName}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (_) {}
+  }
 }
 
 /* ------------------------- KONTRAK USER PROPOSAL & ADMIN REVIEW ------------------------- */

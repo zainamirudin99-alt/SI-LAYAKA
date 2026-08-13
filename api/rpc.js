@@ -4102,12 +4102,14 @@ const methods = {
     const db=getDb();
     const batchId=uuidv4();
     const now=new Date().toISOString();
+    const targetTmt = String(payload.tmt || payload.periode || payload.targetTmt || '').trim();
     const {data:emps}=await db.from('data_utama').select('nip,unit_es_ii').in('nip',daftarPegawai.map(p=>p.nip));
     const empMap={};
     (emps||[]).forEach(e=>{empMap[e.nip]=e;});
     const rows=daftarPegawai.map(p=>({
       batch_id:batchId,nip:p.nip,nama:p.nama,
       unit:(empMap[p.nip]&&empMap[p.nip].unit_es_ii)||'',
+      tmt: String(p.tmt || p.periode || targetTmt || '').trim(),
       diajukan_oleh_nip:decoded.nip,nama_pengaju:decoded.nama,
       tanggal_diajukan:now,
       file_url:fileUrl,           // backward-compat
