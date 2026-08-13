@@ -4318,6 +4318,102 @@ const methods = {
     return { success: true, message: 'Status usulan berhasil diperbarui.' };
   },
 
+  async generateAutoNip(args) {
+    const [token, payload] = extractArgs(args);
+    verifyToken(token);
+    const { tglLahir, jenisPegawai, tglMasuk } = payload || {};
+
+    if (!tglLahir) {
+      return { success: false, message: 'Tanggal lahir wajib diisi untuk membuat NIP otomatis.' };
+    }
+
+    // 1. Parsing Tanggal Lahir (YYYY, MM, DD)
+    let dLahir = new Date(tglLahir);
+    if (isNaN(dLahir.getTime())) {
+      const parts = String(tglLahir).trim().split(/[\/\-\s]+/);
+      if (parts.length >= 3) {
+        if (parts[0].length === 4) {
+          dLahir = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        } else if (parts[2].length === 4) {
+          dLahir = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+        }
+      }
+    }
+
+    if (isNaN(dLahir.getTime())) {
+      return { success: false, message: 'Format tanggal lahir tidak valid. Gunakan format YYYY-MM-DD atau DD-MM-YYYY.' };
+    }
+
+    const yyyyLahir = String(dLahir.getFullYear());
+    const mmLahir = String(dLahir.getMonth() + 1).padStart(2, '0');
+    const ddLahir = String(dLahir.getDate()).padStart(2, '0');
+
+    // 2. Kode Jenis Pegawai: 01 (Dosen), 02 (Tendik)
+    const jpStr = String(jenisPegawai || '').trim().toLowerCase();
+    const isDosen = jpStr.includes('dosen') || jpStr === '01';
+    const kodeJenis = isDosen ? '01' : '02';
+    const labelJenis = isDosen ? '01 (Tenaga Dosen)' : '02 (Tenaga Kependidikan)';
+
+    // 3. Parsing Tanggal / Tahun Masuk (YY, MM)
+    let dMasuk = tglMasuk ? new Date(tglMasuk) : new Date();
+    if (isNaN(dMasuk.getTime())) {
+      const partsM = String(tglMasuk).trim().split(/[\/\-\s]+/);
+      if (partsM.length >= 3) {
+        if (partsM[0].length === 4) {
+          dMasuk = new Date(parseInt(partsM[0], 10), parseInt(partsM[1], 10) - 1, parseInt(partsM[2], 10));
+        } else if (partsM[2].length === 4) {
+          dMasuk = new Date(parseInt(partsM[2], 10), parseInt(partsM[1], 10) - 1, parseInt(partsM[0], 10));
+        }
+      }
+    }
+    if (isNaN(dMasuk.getTime())) dMasuk = new Date();
+
+    const fullYearMasuk = dMasuk.getFullYear();
+    const yyMasuk = String(fullYearMasuk).slice(-2);
+    const mmMasuk = String(dMasuk.getMonth() + 1).padStart(2, '0');
+    const BULAN_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    const labelBulanMasuk = `${mmMasuk} (${BULAN_ID[dMasuk.getMonth()] || ''})`;
+
+    // 4. Hitung Nomor Urut (NNN) untuk tahun masuk tersebut
+    const db = getDb();
+    let currentCount = 0;
+    try {
+      const patternYy = `%${kodeJenis}${yyMasuk}%`;
+      const { data: dData } = await db.from('data_utama').select('nip').like('nip', patternYy);
+      const { data: uKontrak } = await db.from('usulan_kontrak').select('nip').like('nip', patternYy);
+      const { data: uKp } = await db.from('usulan_kp').select('nip').like('nip', patternYy);
+
+      const nipsSet = new Set();
+      (dData || []).forEach(r => { if (r.nip) nipsSet.add(r.nip); });
+      (uKontrak || []).forEach(r => { if (r.nip) nipsSet.add(r.nip); });
+      (uKp || []).forEach(r => { if (r.nip) nipsSet.add(r.nip); });
+
+      currentCount = nipsSet.size;
+    } catch (countErr) {
+      console.warn('[generateAutoNip] Warning counting existing NIPs:', countErr.message);
+    }
+
+    const nextSeq = currentCount + 1;
+    const nnnSeq = String(nextSeq).padStart(3, '0');
+
+    // 5. Rakit NIP 17 Digit: YYYYMMDDKKYYMMNNN
+    const generatedNip = `${yyyyLahir}${mmLahir}${ddLahir}${kodeJenis}${yyMasuk}${mmMasuk}${nnnSeq}`;
+
+    return {
+      success: true,
+      nip: generatedNip,
+      rincian: {
+        thnLahir: yyyyLahir,
+        blnLahir: `${mmLahir} (${BULAN_ID[parseInt(mmLahir, 10) - 1] || ''})`,
+        tglLahir: ddLahir,
+        kodeJenis: labelJenis,
+        thnMasuk: `${yyMasuk} (Tahun ${fullYearMasuk})`,
+        blnMasuk: labelBulanMasuk,
+        nomorUrut: `${nnnSeq} (Urutan ke-${nextSeq} pada tahun ${fullYearMasuk})`
+      }
+    };
+  },
+
   async deleteUsulanMasukSingle(args) {
     const [token, id] = extractArgs(args);
     requireRole(token, ['admin', 'super_admin']);
