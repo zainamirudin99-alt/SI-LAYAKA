@@ -642,9 +642,13 @@ function bindPeranAkunSearch() {
 }
 
 function logoutUser() {
-  google.script.run.logout(SESSION.token);
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run.logout(SESSION.token);
+  }
   sessionStorage.removeItem('sikp_token');
   SESSION = { token: null, user: null };
+  currentSelectedTmt = '';
+  promosiDashboardData = null;
   document.getElementById('appShell').style.display = 'none';
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('loginForm').reset();
@@ -2767,12 +2771,13 @@ function onPromosiTmtChange(val) {
 
 async function loadPromosiDashboard(selectedTmt) {
   if (!SESSION.token) return;
-  if (selectedTmt) currentSelectedTmt = selectedTmt;
+  if (selectedTmt !== undefined) currentSelectedTmt = selectedTmt;
 
   try {
-    const res = await rpc('getPromosiDashboardSummary', [SESSION.token, currentSelectedTmt]);
+    const res = await rpc('getPromosiDashboardSummary', [SESSION.token, currentSelectedTmt || '']);
     if (res && res.success) {
       promosiDashboardData = res;
+      currentSelectedTmt = res.targetTmt || currentSelectedTmt;
       renderTmtDropdownHeader(res.targetTmt);
       renderSummaryWidgets(res.widgets);
       renderPromosiDashboardLevel1(res.daftarUnit);
