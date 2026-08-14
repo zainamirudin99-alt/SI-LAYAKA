@@ -6732,48 +6732,6 @@ const methods = {
     return { success: true, message: 'Periode kontrak berhasil disimpan.' };
   },
 
-function buildKontrakDataContext(usulan, formData) {
-  const tglSekarang = formatTanggalIndonesia(new Date());
-  const fd = Object.assign({}, formData || (usulan ? usulan.form_data : {}) || {});
-  const namaPegawai = String((usulan && usulan.nama) || fd.nama_lengkap || fd.nama || fd.nama_pegawai || 'PEGAWAI').trim();
-  const nipPegawai = String((usulan && usulan.nip) || fd.nip || '').trim();
-
-  const aliases = {
-    nip: nipPegawai,
-    NIP: nipPegawai,
-    nama: namaPegawai,
-    NAMA: namaPegawai,
-    nama_lengkap: namaPegawai,
-    NAMA_LENGKAP: namaPegawai,
-    nama_pegawai: namaPegawai,
-    NAMA_PEGAWAI: namaPegawai,
-    pihak_kedua: namaPegawai,
-    PIHAK_KEDUA: namaPegawai,
-    pihak_kedua_nama: namaPegawai,
-    nama_pihak_kedua: namaPegawai,
-    today: tglSekarang,
-    TODAY: tglSekarang,
-    tgl_buat: tglSekarang,
-    TGL_BUAT: tglSekarang,
-    tanggal_buat: tglSekarang,
-    TANGGAL_BUAT: tglSekarang,
-    tgl_sk: tglSekarang,
-    TGL_SK: tglSekarang,
-    tanggal_sk: tglSekarang,
-    TANGGAL_SK: tglSekarang,
-    tgl_generate: tglSekarang,
-    TGL_GENERATE: tglSekarang
-  };
-
-  return Object.assign({}, fd, usulan ? {
-    tahun: usulan.tahun,
-    jenis_usulan: usulan.jenis_usulan,
-    evaluasi_kinerja: usulan.evaluasi_kinerja,
-    layanan: usulan.layanan,
-    sub_menu: usulan.sub_menu
-  } : {}, aliases);
-}
-
   async generateKontrakFromUsulanVercel(args) {
     const [token, templateRef, usulanId, customFormData] = extractArgs(args);
     const decoded = requireRole(token, ['admin', 'super_admin', 'normal', 'user']);
@@ -7411,8 +7369,48 @@ function buildKontrakDataContext(usulan, formData) {
       allApproved,
       status: newStatus
     };
-  }
 };
+
+function buildKontrakDataContext(usulan, formData) {
+  const tglSekarang = formatTanggalIndonesia(new Date());
+  const fd = Object.assign({}, formData || (usulan ? usulan.form_data : {}) || {});
+  const namaPegawai = String((usulan && usulan.nama) || fd.nama_lengkap || fd.nama || fd.nama_pegawai || 'PEGAWAI').trim();
+  const nipPegawai = String((usulan && usulan.nip) || fd.nip || '').trim();
+
+  const aliases = {
+    nip: nipPegawai,
+    NIP: nipPegawai,
+    nama: namaPegawai,
+    NAMA: namaPegawai,
+    nama_lengkap: namaPegawai,
+    NAMA_LENGKAP: namaPegawai,
+    nama_pegawai: namaPegawai,
+    NAMA_PEGAWAI: namaPegawai,
+    pihak_kedua: namaPegawai,
+    PIHAK_KEDUA: namaPegawai,
+    pihak_kedua_nama: namaPegawai,
+    nama_pihak_kedua: namaPegawai,
+    today: tglSekarang,
+    TODAY: tglSekarang,
+    tgl_buat: tglSekarang,
+    TGL_BUAT: tglSekarang,
+    tanggal_buat: tglSekarang,
+    TANGGAL_BUAT: tglSekarang,
+    tgl_sk: tglSekarang,
+    TGL_SK: tglSekarang,
+    tanggal_sk: tglSekarang,
+    TANGGAL_SK: tglSekarang,
+    tgl_generate: tglSekarang,
+    TGL_GENERATE: tglSekarang
+  };
+
+  return Object.assign({}, fd, usulan ? {
+    tahun: usulan.tahun,
+    jenis_usulan: usulan.jenis_usulan,
+    evaluasi_kinerja: usulan.evaluasi_kinerja,
+    layanan: usulan.layanan,
+    sub_menu: usulan.sub_menu
+}
 
 function rpcFormatJnsKel(val) {
   if (!val) return '';
