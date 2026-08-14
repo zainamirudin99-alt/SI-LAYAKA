@@ -7105,6 +7105,79 @@ const methods = {
     return gasResult;
   },
 
+  async getDraftNipBelumDigunakan(args) {
+    const [token, payload] = extractArgs(args);
+    const decoded = verifyToken(token);
+    const db = getDb();
+    const { layanan, sub_menu } = payload || {};
+
+    try {
+      // 1. Ambil NIP yang sudah selesai agar tidak dimunculkan lagi
+      const { data: usulanSelesai } = await db.from('usulan_kontrak')
+        .select('nip')
+        .eq('status', 'Selesai');
+      const selesaiSet = new Set((usulanSelesai || []).map(r => String(r.nip).trim()));
+
+      // 2. Ambil dari usulan_kontrak_baru yang statusnya Draft atau belum Selesai
+      const { data: listBaru, error: errBaru } = await db.from('usulan_kontrak_baru')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      const resultMap = new Map();
+
+      if (!errBaru && listBaru) {
+        for (const r of listBaru) {
+          const nipTrim = String(r.nip || '').trim();
+          if (nipTrim && r.status !== 'Selesai' && !selesaiSet.has(nipTrim)) {
+            resultMap.set(nipTrim, {
+              nip: nipTrim,
+              tmp_lhr: r.tmp_lhr || '',
+              tgl_lhr: r.tgl_lhr || '',
+              nama_lengkap: r.nama_lengkap || '',
+              layanan: r.layanan || '',
+              sub_menu: r.sub_menu || '',
+              status: r.status || 'Draft',
+              created_at: r.created_at
+            });
+          }
+        }
+      }
+
+      // 3. Ambil juga dari data_utama jika ada NIP yang belum ada nama_lengkap (draft awal)
+      const { data: emps } = await db.from('data_utama')
+        .select('nip, tmp_lhr, tgl_lhr, nama_lengkap, unit_es_ii, created_at')
+        .or('nama_lengkap.is.null,nama_lengkap.eq.""')
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (emps) {
+        for (const e of emps) {
+          const nipTrim = String(e.nip || '').trim();
+          if (nipTrim && !selesaiSet.has(nipTrim) && !resultMap.has(nipTrim)) {
+            resultMap.set(nipTrim, {
+              nip: nipTrim,
+              tmp_lhr: e.tmp_lhr || '',
+              tgl_lhr: e.tgl_lhr || '',
+              nama_lengkap: e.nama_lengkap || '',
+              layanan: layanan || '',
+              sub_menu: sub_menu || '',
+              status: 'Draft',
+              created_at: e.created_at
+            });
+          }
+        }
+      }
+
+      return {
+        success: true,
+        data: Array.from(resultMap.values())
+      };
+    } catch (err) {
+      console.warn('[getDraftNipBelumDigunakan] err:', err.message);
+      return { success: true, data: [] };
+    }
+  },
+
   async saveNipBaruDraft(args) {
     const [token, payload] = extractArgs(args);
     const decoded = verifyToken(token);

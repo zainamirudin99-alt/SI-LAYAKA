@@ -6851,6 +6851,65 @@ function pilihModeKontrak(mode) {
    ALUR REVISI POP-UP 1 (GENERATE NIP) & POP-UP 2 (BREAKDOWN NIP) FOR KONTRAK
    ========================================================================== */
 
+let POPUP1_DRAFT_NIP_CACHE = [];
+
+async function loadDraftNipOptionsForPopup1() {
+  const selectEl = document.getElementById('pop1_draftNipSelect');
+  if (!selectEl) return;
+  selectEl.innerHTML = '<option value="">Memeriksa NIP draft belum selesai...</option>';
+
+  try {
+    const res = await rpc('getDraftNipBelumDigunakan', [SESSION.token, {
+      layanan: kontrakSelectedLayanan,
+      sub_menu: kontrakSelectedSubMenu
+    }]);
+
+    const list = (res && res.success && Array.isArray(res.data)) ? res.data : [];
+    POPUP1_DRAFT_NIP_CACHE = list;
+
+    if (!list.length) {
+      selectEl.innerHTML = '<option value="">-- Tidak ada NIP draft (Buat NIP Baru di bawah) --</option>';
+      return;
+    }
+
+    let opts = '<option value="">-- Buat NIP Baru (Isi TTL di Bawah) --</option>';
+    list.forEach(item => {
+      const nip = item.nip;
+      const ttl = [item.tmp_lhr, item.tgl_lhr].filter(Boolean).join(', ');
+      const sub = item.sub_menu || item.layanan || '';
+      const label = `${nip}${ttl ? ' (' + ttl + ')' : ''}${sub ? ' - ' + sub : ''}`;
+      opts += `<option value="${escapeHtml(nip)}">${escapeHtml(label)}</option>`;
+    });
+    selectEl.innerHTML = opts;
+  } catch (err) {
+    console.warn('[loadDraftNipOptionsForPopup1] err:', err);
+    selectEl.innerHTML = '<option value="">-- Buat NIP Baru (Isi TTL di Bawah) --</option>';
+  }
+}
+
+function onSelectDraftNipInPopup1(selectedNip) {
+  if (!selectedNip) {
+    const nipEl = document.getElementById('pop1_nipGenerated');
+    const tmpEl = document.getElementById('pop1_tmpLhr');
+    const tglEl = document.getElementById('pop1_tglLhr');
+    if (nipEl) nipEl.value = '';
+    if (tmpEl) tmpEl.value = '';
+    if (tglEl) tglEl.value = '';
+    return;
+  }
+
+  const found = POPUP1_DRAFT_NIP_CACHE.find(d => String(d.nip).trim() === String(selectedNip).trim());
+  const nipEl = document.getElementById('pop1_nipGenerated');
+  const tmpEl = document.getElementById('pop1_tmpLhr');
+  const tglEl = document.getElementById('pop1_tglLhr');
+
+  if (nipEl) nipEl.value = selectedNip;
+  if (tmpEl && found && found.tmp_lhr) tmpEl.value = found.tmp_lhr;
+  if (tglEl && found && found.tgl_lhr) tglEl.value = pensiunToDateInputValue(found.tgl_lhr);
+
+  showToast('info', `NIP Draft ${selectedNip} dipilih.`);
+}
+
 function openKontrakPopup1GenerateNip() {
   document.getElementById('modalTitle').textContent = '⚡ Pop-up 1: Input Data Lahir & Generate NIP Otomatis';
 
@@ -6869,6 +6928,19 @@ function openKontrakPopup1GenerateNip() {
             <span style="font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:700;">Jenis Kontrak:</span>
             <strong style="color:#059669; font-size:13px; display:block;">${escapeHtml(subMenuLabel)}</strong>
           </div>
+        </div>
+      </div>
+
+      <!-- KOLOM PILIH NIP DRAFT / BELUM DIGUNAKAN -->
+      <div style="margin-bottom:16px; background:#fff; border:1.5px dashed var(--primary); border-radius:10px; padding:14px;">
+        <label style="font-size:12px; font-weight:700; display:block; margin-bottom:6px; color:var(--primary);">
+          📌 Lanjutkan NIP yang Sudah Dibuat (Belum Digunakan):
+        </label>
+        <select id="pop1_draftNipSelect" class="field-input" onchange="onSelectDraftNipInPopup1(this.value)" style="width:100%; font-weight:600;">
+          <option value="">Memuat daftar NIP draft...</option>
+        </select>
+        <div style="font-size:11px; color:var(--text-muted); margin-top:5px;">
+          Pilih NIP dari daftar di atas untuk melanjutkan pengisian, atau biarkan kosong untuk men-generate NIP baru.
         </div>
       </div>
 
@@ -6902,6 +6974,9 @@ function openKontrakPopup1GenerateNip() {
 
   document.getElementById('modalBody').innerHTML = html;
   document.getElementById('modalOverlay').style.display = 'flex';
+
+  // Muat opsi NIP draft secara asynchronous
+  loadDraftNipOptionsForPopup1();
 }
 
 async function autoCalculatePopup1Nip() {
