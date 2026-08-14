@@ -10712,7 +10712,24 @@ function confirmAndGoToFormWithNip(nip, tmpLhr, tglLhr) {
 
   loadServiceTemplates(kontrakSelectedLayanan, kontrakSelectedSubMenu, 'kontrak_templateSelect');
 
-  showToast('success', 'NIP & Data TTL berhasil dimasukkan ke Form Usulan.');
+  // Simpan NIP baru ini langsung ke Supabase data_utama
+  try {
+    rpc('saveNipBaruDraft', [SESSION.token, {
+      nip: nip,
+      tmp_lhr: tmpLhr || '',
+      tgl_lhr: tglLhr || null,
+      layanan: kontrakSelectedLayanan,
+      sub_menu: kontrakSelectedSubMenu
+    }]).then(res => {
+      if (res && res.success) {
+        console.log('[saveNipBaruDraft] NIP draft berhasil disimpan ke Supabase data_utama:', nip);
+      }
+    }).catch(err => {
+      console.warn('[saveNipBaruDraft] warning:', err);
+    });
+  } catch (_) {}
+
+  showToast('success', 'NIP & Data TTL berhasil disimpan dan dimasukkan ke Form Usulan.');
 }
 
 function kontrakResetForm_() {
@@ -11017,7 +11034,7 @@ async function saveKontrakPeriodeAdmin(usulanId) {
   }
 }
 
-function runKontrakPreviewGenerate(mode) {
+async function runKontrakPreviewGenerate(mode) {
   const formData = kontrakBuildFormData_();
   if (!formData.nip) { showToast('error', 'NIP/NIK wajib diisi (cari pegawai, atau isi manual untuk usulan baru).'); return; }
   if (!formData.nama_lengkap) { showToast('error', 'Nama Lengkap wajib diisi.'); return; }
@@ -11027,42 +11044,90 @@ function runKontrakPreviewGenerate(mode) {
   const selisihCek = (parseInt(formData.tst_tahun, 10) - parseInt(formData.tmt_tahun, 10)) * 12 + (parseInt(formData.tst_bulan, 10) - parseInt(formData.tmt_bulan, 10)) + 1;
   if (selisihCek <= 0) { showToast('error', 'TST Kontrak harus SETELAH atau SAMA DENGAN TMT Kontrak.'); return; }
 
-  const payload = { layanan: kontrakSelectedLayanan, subMenu: kontrakSelectedSubMenu, formData: formData };
+  const selectEl = document.getElementById('kontrak_templateSelect');
+  const templateId = selectEl ? selectEl.value : '';
+  const selectedOption = selectEl && selectEl.selectedIndex >= 0 ? selectEl.options[selectEl.selectedIndex] : null;
+  const tipe = selectedOption ? selectedOption.dataset.tipe : 'gdocs';
+
+  const payload = {
+    layanan: kontrakSelectedLayanan,
+    subMenu: kontrakSelectedSubMenu,
+    sub_menu: kontrakSelectedSubMenu,
+    formData: formData,
+    form_data: formData,
+    templateFileId: templateId,
+    templateId: templateId,
+    tipe: tipe
+  };
 
   if (mode === 'preview') {
     showToast('info', 'Membuat preview Kontrak...');
-    google.script.run
-      .withSuccessHandler(res => {
-        if (res.success) {
-          if (res.base64) {
-            const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
-            openPreviewModal(blobUrl);
-          } else {
-            openPreviewModal(res.previewUrl);
-          }
+    try {
+      const res = await rpc('previewKontrakDocument', [SESSION.token, payload]);
+      if (res && res.success) {
+        if (res.base64) {
+          const blobUrl = convertBase64ToBlobUrl_(res.base64, res.mimeType || 'application/pdf');
+          openPreviewModal(blobUrl);
         } else {
-          showToast('error', res.message);
+          openPreviewModal(res.previewUrl || res.docViewUrl || res.viewUrl);
         }
-      })
-      .withFailureHandler(err => showToast('error', 'Gagal preview Kontrak: ' + (err.message || err)))
-      .previewKontrakDocument(SESSION.token, payload);
+      } else {
+        showToast('error', res?.message || 'Gagal preview Kontrak.');
+      }
+    } catch (rpcErr) {
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(res => {
+            if (res.success) {
+              if (res.base64) {
+                const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
+                openPreviewModal(blobUrl);
+              } else {
+                openPreviewModal(res.previewUrl);
+              }
+            } else {
+              showToast('error', res.message);
+            }
+          })
+          .withFailureHandler(err => showToast('error', 'Gagal preview Kontrak: ' + (err.message || err)))
+          .previewKontrakDocument(SESSION.token, payload);
+      } else {
+        showToast('error', 'Gagal preview: ' + (rpcErr.message || rpcErr));
+      }
+    }
     return;
   }
 
   const btn = document.getElementById('kontrak_generateBtn');
   setBtnLoading(btn, true, 'Memproses...');
-  google.script.run
-    .withSuccessHandler(res => {
-      setBtnLoading(btn, false, 'Generate');
-      if (!res.success) { showToast('error', res.message); return; }
-      showToast('success', res.message);
+  try {
+    const res = await rpc('generateKontrakDocument', [SESSION.token, payload]);
+    setBtnLoading(btn, false, 'Generate');
+    if (res && res.success) {
+      showToast('success', res.message || 'Dokumen Kontrak berhasil dibuat.');
       openKontrakResultModal(res);
-    })
-    .withFailureHandler(err => {
+    } else {
+      showToast('error', res?.message || 'Gagal generate Kontrak.');
+    }
+  } catch (rpcErr) {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(res => {
+          setBtnLoading(btn, false, 'Generate');
+          if (!res.success) { showToast('error', res.message); return; }
+          showToast('success', res.message);
+          openKontrakResultModal(res);
+        })
+        .withFailureHandler(err => {
+          setBtnLoading(btn, false, 'Generate');
+          showToast('error', 'Gagal generate Kontrak: ' + (err.message || err));
+        })
+        .generateKontrakDocument(SESSION.token, payload);
+    } else {
       setBtnLoading(btn, false, 'Generate');
-      showToast('error', 'Gagal generate Kontrak: ' + (err.message || err));
-    })
-    .generateKontrakDocument(SESSION.token, payload);
+      showToast('error', 'Gagal generate: ' + (rpcErr.message || rpcErr));
+    }
+  }
 }
 
 /** REF (konfirmasi Titto): hasil generate Kontrak SELALU 2 file (Google Docs & PDF) -- tampilkan tautan keduanya. */

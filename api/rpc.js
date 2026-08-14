@@ -7105,6 +7105,220 @@ const methods = {
     return gasResult;
   },
 
+  async saveNipBaruDraft(args) {
+    const [token, payload] = extractArgs(args);
+    const decoded = verifyToken(token);
+    const db = getDb();
+    const { nip, tmp_lhr, tgl_lhr, layanan, sub_menu } = payload || {};
+    const cleanNip = String(nip || '').trim();
+    if (!cleanNip) return { success: false, message: 'NIP wajib diisi.' };
+
+    const { data: existing } = await db.from('data_utama').select('nip').eq('nip', cleanNip).maybeSingle();
+    if (!existing) {
+      const { error } = await db.from('data_utama').insert({
+        nip: cleanNip,
+        tmp_lhr: tmp_lhr || '',
+        tgl_lhr: tgl_lhr || null,
+        status_kepegawaian: 'Non ASN / Kontrak',
+        status_bekerja: 'Aktif Bekerja'
+      });
+      if (error) {
+        console.warn('[saveNipBaruDraft] insert error:', error.message);
+      }
+    }
+    return { success: true, message: 'Draft NIP berhasil disimpan ke Supabase data_utama.' };
+  },
+
+  async previewKontrakDocument(args) {
+    const [token, payload] = extractArgs(args);
+    const decoded = verifyToken(token);
+    const db = getDb();
+    const { layanan, subMenu, sub_menu, formData, form_data, templateFileId, templateId, tipe } = payload || {};
+
+    const actualFormData = formData || form_data || {};
+    const cleanNip = String(actualFormData.nip || '').trim();
+    const namaLengkap = String(actualFormData.nama_lengkap || '').trim();
+    const targetSubMenu = subMenu || sub_menu || '';
+
+    // Cari template jika ada di database
+    let targetTemplateId = templateId || templateFileId;
+    let tmpl = null;
+    if (targetTemplateId) {
+      const { data } = await db.from('templates').select('*').eq('id', targetTemplateId).maybeSingle();
+      if (data) tmpl = data;
+    }
+    if (!tmpl && layanan && targetSubMenu) {
+      const { data } = await db.from('templates').select('*').eq('layanan', layanan).eq('sub_menu', targetSubMenu).limit(1).maybeSingle();
+      if (data) tmpl = data;
+    }
+
+    const isDocx = (tipe === 'docx') || (tmpl && tmpl.tipe === 'docx');
+
+    if (isDocx && tmpl) {
+      let employee = {};
+      try {
+        if (cleanNip) employee = await methods.getEmployeeFullData([token, cleanNip]);
+      } catch (_) {}
+      const dataCtx = buildKontrakDataContext(null, actualFormData, employee);
+      const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
+      const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx);
+      return {
+        success: true,
+        outputType: 'docx',
+        base64: renderedBuffer.toString('base64'),
+        fileName: `${tmpl.judul || 'Preview_Kontrak'}.docx`,
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      };
+    }
+
+    // Google Docs via GAS
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (!gasUrl) {
+      return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi di server.' };
+    }
+
+    const shortId = uuidv4();
+    const remoteSession = {
+      id: shortId,
+      data: {
+        nip: decoded.nip || '',
+        nama_lengkap: decoded.nama || '',
+        nama: decoded.nama || '',
+        role: decoded.role || 'admin'
+      }
+    };
+
+    const response = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        method: 'previewKontrakDocument',
+        params: [shortId, Object.assign({}, payload, { templateFileId: tmpl?.file_id || templateFileId })],
+        remoteSession
+      })
+    });
+    return await response.json();
+  },
+
+  async generateKontrakDocument(args) {
+    const [token, payload] = extractArgs(args);
+    const decoded = verifyToken(token);
+    const role = decoded.role || 'normal';
+    const db = getDb();
+    const { layanan, subMenu, sub_menu, formData, form_data, templateFileId, templateId, tipe } = payload || {};
+
+    const actualFormData = formData || form_data || {};
+    const cleanNip = String(actualFormData.nip || '').trim();
+    const namaLengkap = String(actualFormData.nama_lengkap || '').trim();
+    const targetSubMenu = subMenu || sub_menu || '';
+    if (!cleanNip) return { success: false, message: 'NIP wajib diisi.' };
+
+    // 1. Simpan/Upsert seluruh isian form ke tabel data_utama di Supabase (kolom pertama: NIP)
+    const empRecord = {
+      nip: cleanNip,
+      nama_lengkap: namaLengkap,
+      nama: namaLengkap,
+      tmp_lhr: actualFormData.tmp_lhr || '',
+      tgl_lhr: actualFormData.tgl_lhr || null,
+      pendidikan: actualFormData.pendidikan || '',
+      jurusan: actualFormData.jurusan || '',
+      unit_es_ii: actualFormData.unit_es_ii || '',
+      jabatan: actualFormData.jabatan || '',
+      alamat: actualFormData.alamat || '',
+      nomor_telepon: actualFormData.nomor_telepon || '',
+      status_kepegawaian: 'Non ASN / Kontrak',
+      status_bekerja: 'Aktif Bekerja'
+    };
+    try {
+      await db.from('data_utama').upsert(empRecord, { onConflict: 'nip' });
+    } catch (dbErr) {
+      console.warn('[generateKontrakDocument] upsert data_utama warning:', dbErr.message);
+    }
+
+    // 2. Simpan/Upsert data usulan ke tabel usulan_kontrak di Supabase (kolom pertama: NIP)
+    const tahun = String(actualFormData.tmt_tahun || new Date().getFullYear());
+    const usulanRecord = {
+      nip: cleanNip,
+      nama: namaLengkap,
+      unit: actualFormData.unit_es_ii || '',
+      email: actualFormData.email || decoded.email || '',
+      tahun: tahun,
+      jenis_usulan: actualFormData.jenis_usulan || 'Baru',
+      layanan: layanan || 'Kontrak Tendik',
+      sub_menu: targetSubMenu,
+      form_data: actualFormData,
+      status: 'Selesai',
+      perjanjian_dibuat: true,
+      diajukan_oleh_nip: decoded.nip,
+      diproses_oleh_nip: decoded.nip
+    };
+    try {
+      await db.from('usulan_kontrak').insert(usulanRecord);
+    } catch (uErr) {
+      console.warn('[generateKontrakDocument] insert usulan_kontrak warning:', uErr.message);
+    }
+
+    // 3. Generate Dokumen
+    let targetTemplateId = templateId || templateFileId;
+    let tmpl = null;
+    if (targetTemplateId) {
+      const { data } = await db.from('templates').select('*').eq('id', targetTemplateId).maybeSingle();
+      if (data) tmpl = data;
+    }
+    if (!tmpl && layanan && targetSubMenu) {
+      const { data } = await db.from('templates').select('*').eq('layanan', layanan).eq('sub_menu', targetSubMenu).limit(1).maybeSingle();
+      if (data) tmpl = data;
+    }
+
+    const isDocx = (tipe === 'docx') || (tmpl && tmpl.tipe === 'docx');
+
+    if (isDocx && tmpl) {
+      let employee = {};
+      try {
+        if (cleanNip) employee = await methods.getEmployeeFullData([token, cleanNip]);
+      } catch (_) {}
+      const dataCtx = buildKontrakDataContext(null, actualFormData, employee);
+      const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
+      const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx);
+      return {
+        success: true,
+        outputType: 'docx',
+        base64: renderedBuffer.toString('base64'),
+        fileName: `Kontrak_${targetSubMenu || 'Dokumen'}_${namaLengkap || 'Pegawai'}.docx`,
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        message: 'Dokumen Kontrak berhasil dibuat.'
+      };
+    }
+
+    // Google Docs via GAS
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (!gasUrl) {
+      return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi di server.' };
+    }
+
+    const shortId = uuidv4();
+    const remoteSession = {
+      id: shortId,
+      data: {
+        nip: decoded.nip || '',
+        nama_lengkap: decoded.nama || '',
+        nama: decoded.nama || '',
+        role: decoded.role || 'admin'
+      }
+    };
+
+    const response = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        method: 'generateKontrakDocument',
+        params: [shortId, Object.assign({}, payload, { templateFileId: tmpl?.file_id || templateFileId })],
+        remoteSession
+      })
+    });
+    return await response.json();
+  },
+
   async previewDocumentVercel(args) {
     const [token, payload] = extractArgs(args);
     const decoded = verifyToken(token);

@@ -672,6 +672,109 @@ function generateSkFromUsulan(sessionToken, templateFileId, dataCtx) {
 }
 
 /**
+ * PREVIEW KONTRAK DOKUMEN (Google Docs)
+ */
+function previewKontrakDocument(sessionToken, payload) {
+  const employee = requireRole_(sessionToken, ['normal', 'user', 'admin', 'super_admin']);
+  try {
+    const { layanan, subMenu, sub_menu, formData, form_data, templateFileId } = payload || {};
+    const actualFormData = formData || form_data || {};
+    const targetSubMenu = subMenu || sub_menu || '';
+
+    let fileId = templateFileId;
+    if (!fileId) {
+      const templates = getTemplatesForService(sessionToken, layanan, targetSubMenu);
+      if (!templates.length) return { success: false, message: `Template "${targetSubMenu}" (${layanan}) belum terdaftar.` };
+      fileId = templates[0].fileId || templates[0].id;
+    }
+
+    const dataContext = buildKontrakDataContext(null, actualFormData, {});
+    const tempName = '[PREVIEW] Kontrak - ' + sanitizeFileName_(dataContext.nama_lengkap || 'pegawai') + ' - ' + new Date().getTime();
+    const copyFile = renderTemplateCopy_(fileId, dataContext, tempName);
+    try { copyFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(_) {}
+
+    return {
+      success: true,
+      previewUrl: `https://docs.google.com/document/d/${copyFile.getId()}/preview`,
+      tempFileId: copyFile.getId()
+    };
+  } catch (err) {
+    return { success: false, message: 'Gagal membuat preview Kontrak: ' + err.message };
+  }
+}
+
+/**
+ * GENERATE KONTRAK DOKUMEN (Google Docs / PDF)
+ */
+function generateKontrakDocument(sessionToken, payload) {
+  const employee = requireRole_(sessionToken, ['normal', 'user', 'admin', 'super_admin']);
+  try {
+    const role = getUserRole_(employee.nip);
+    const { layanan, subMenu, sub_menu, formData, form_data, templateFileId } = payload || {};
+    const actualFormData = formData || form_data || {};
+    const targetSubMenu = subMenu || sub_menu || '';
+
+    let fileId = templateFileId;
+    if (!fileId) {
+      const templates = getTemplatesForService(sessionToken, layanan, targetSubMenu);
+      if (!templates.length) return { success: false, message: `Template "${targetSubMenu}" (${layanan}) belum terdaftar.` };
+      fileId = templates[0].fileId || templates[0].id;
+    }
+
+    const dataContext = buildKontrakDataContext(null, actualFormData, {});
+    const namaUtama = dataContext.nama_lengkap || 'PEGAWAI';
+    const fileName = sanitizeFileName_(`Kontrak_${targetSubMenu || 'Dokumen'}_${namaUtama}`);
+
+    const docCopy = renderTemplateCopy_(fileId, dataContext, fileName);
+
+    const tahun = String(actualFormData.tmt_tahun || new Date().getFullYear());
+    const rootKontrak = DriveApp.getFolderById(CONFIG.FOLDER_KONTRAK_ROOT);
+    const existing = rootKontrak.getFoldersByName(tahun);
+    const outputFolder = existing.hasNext() ? existing.next() : rootKontrak.createFolder(tahun);
+    pindahFileKeFolder_(docCopy, outputFolder);
+    try { docCopy.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(_) {}
+
+    const isNormalOrUser = (role === 'normal' || role === 'user');
+
+    if (isNormalOrUser) {
+      const pdfBlob = docCopy.getAs('application/pdf');
+      pdfBlob.setName(fileName + '.pdf');
+      const pdfFile = outputFolder.createFile(pdfBlob);
+      try { pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(_) {}
+      docCopy.setTrashed(true);
+      try {
+        const parents = docCopy.getParents();
+        while (parents.hasNext()) parents.next().removeFile(docCopy);
+      } catch (_) {}
+
+      return {
+        success: true,
+        message: 'Dokumen Kontrak berhasil dibuat sebagai PDF.',
+        pdfFileId: pdfFile.getId(),
+        pdfFileName: fileName + '.pdf',
+        pdfDownloadUrl: `https://drive.google.com/uc?export=download&id=${pdfFile.getId()}`,
+        pdfViewUrl: pdfFile.getUrl(),
+        viewUrl: pdfFile.getUrl(),
+        fileName: fileName + '.pdf',
+        outputType: 'pdf'
+      };
+    } else {
+      return {
+        success: true,
+        message: 'Dokumen Kontrak berhasil dibuat sebagai Google Docs.',
+        docFileId: docCopy.getId(),
+        docViewUrl: docCopy.getUrl(),
+        viewUrl: docCopy.getUrl(),
+        fileName: fileName,
+        outputType: 'gdocs'
+      };
+    }
+  } catch (err) {
+    return { success: false, message: 'Gagal generate dokumen Kontrak: ' + err.message };
+  }
+}
+
+/**
  * ENTRY POINT WEB APP: Menerima request rpc dari Vercel
  * untuk meng-generate / preview Google Docs.
  */
