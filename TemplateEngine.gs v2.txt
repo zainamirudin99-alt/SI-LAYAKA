@@ -194,10 +194,13 @@ function renderDocumentBody_(body, dataContext) {
     }
   });
 
-  // 4) Auto-fit tinggi baris tabel & pastikan seluruh isi tabel berukuran font 9
+  // 4) Auto-fit tinggi baris tabel & pastikan seluruh isi tabel berukuran font 9 HANYA jika Opsi B (AK Konversi Kumulatif)
+  const isOpsiB = String(dataContext.sub_layanan || dataContext.sub_menu || dataContext.subLayanan || '').toLowerCase().includes('kumulatif');
   findAllTablesRecursive_(body).forEach(table => {
     autoFitTableRows_(table);
-    enforceMinFontSizeInContainer_(table, 9);
+    if (isOpsiB) {
+      enforceMinFontSizeInContainer_(table, 9);
+    }
   });
 }
 
@@ -268,7 +271,10 @@ function renderCellTextInPlace_(cell, dataContext) {
     if (newText !== originalText) {
       cell.clear();
       const newP = cell.appendParagraph(newText || ' ');
-      enforceMinFontSizeInParagraph_(newP, 9);
+      const isOpsiB = String(dataContext.sub_layanan || dataContext.sub_menu || dataContext.subLayanan || '').toLowerCase().includes('kumulatif');
+      if (isOpsiB) {
+        enforceMinFontSizeInParagraph_(newP, 9);
+      }
     }
     return;
   }
