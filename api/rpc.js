@@ -581,6 +581,9 @@ function cleanWordXmlParagraphBraces(xml) {
   return xml.replace(/<w:p\b[^>]*>([\s\S]*?)<\/w:p>/gi, (pMatch, pBody) => {
     if (!pBody.includes('{') || !pBody.includes('}')) return pMatch;
 
+    // Cek apakah ada format bold (<w:b/> atau <w:bCs/>) di dalam paragraf ini
+    const hasBold = /<w:b\b[^/>]*\/>|<w:bCs\b[^/>]*\/>/i.test(pBody);
+
     // Bersihkan batas run tag di antara kurung kurawal agar tag {{foto}} / {foto} menyatu,
     // sambil mempertahankan rPr (formatting seperti bold <w:b/>) jika ada di run kedua.
     let cleanedBody = pBody.replace(/<\/w:t><\/w:r>(?:<w:proofErr[^>]*\/>)?<w:r\b[^>]*>(?:<w:rPr>([\s\S]*?)<\/w:rPr>)?<w:t\b[^>]*>/gi, (match, rPrInner) => {
@@ -595,6 +598,19 @@ function cleanWordXmlParagraphBraces(xml) {
       const cleanContent = content.replace(/<[^>]+>/g, '').trim();
       return `{${cleanContent}}`;
     });
+
+    // Jika paragraf semula memiliki tag bold (<w:b/>), pastikan run yang menampung {placeholder} memiliki tag bold <w:b/><w:bCs/>
+    if (hasBold) {
+      cleanedBody = cleanedBody.replace(/(<w:r\b[^>]*>)(?:<w:rPr>([\s\S]*?)<\/w:rPr>)?(<w:t\b[^>]*>[^<]*\{[^{}]+\}[^<]*<\/w:t>)/gi, (m, rStart, rPrContent, tContent) => {
+        if (!rPrContent) {
+          return `${rStart}<w:rPr><w:b/><w:bCs/></w:rPr>${tContent}`;
+        }
+        if (!rPrContent.includes('<w:b') && !rPrContent.includes('<w:bCs')) {
+          return `${rStart}<w:rPr>${rPrContent}<w:b/><w:bCs/></w:rPr>${tContent}`;
+        }
+        return m;
+      });
+    }
 
     return pMatch.replace(pBody, cleanedBody);
   });
@@ -7402,16 +7418,27 @@ function buildKontrakDataContext(usulan, formData) {
     tanggal_sk: tglSekarang,
     TANGGAL_SK: tglSekarang,
     tgl_generate: tglSekarang,
-    TGL_GENERATE: tglSekarang
+    TGL_GENERATE: tglSekarang,
+    tanggal: tglSekarang,
+    TANGGAL: tglSekarang
   };
 
-  return Object.assign({}, fd, usulan ? {
+  const baseCtx = Object.assign({}, fd, usulan ? {
     tahun: usulan.tahun,
     jenis_usulan: usulan.jenis_usulan,
     evaluasi_kinerja: usulan.evaluasi_kinerja,
     layanan: usulan.layanan,
     sub_menu: usulan.sub_menu
-  } : {}, aliases);
+  } : {});
+
+  // Pastikan kunci alias yang bernilai kosong atau tidak ada diisi dengan nilai alias resmi
+  for (const [k, v] of Object.entries(aliases)) {
+    if (!baseCtx[k] || String(baseCtx[k]).trim() === '') {
+      baseCtx[k] = v;
+    }
+  }
+
+  return Object.assign(baseCtx, aliases);
 }
 
 function rpcFormatJnsKel(val) {
