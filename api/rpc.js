@@ -581,8 +581,14 @@ function cleanWordXmlParagraphBraces(xml) {
   return xml.replace(/<w:p\b[^>]*>([\s\S]*?)<\/w:p>/gi, (pMatch, pBody) => {
     if (!pBody.includes('{') || !pBody.includes('}')) return pMatch;
 
-    // Bersihkan batas run tag di antara kurung kurawal agar tag {{foto}} / {foto} menyatu
-    let cleanedBody = pBody.replace(/<\/w:t><\/w:r>(?:<w:proofErr[^>]*\/>)?<w:r\b[^>]*>(?:<w:rPr>[\s\S]*?<\/w:rPr>)?<w:t\b[^>]*>/gi, '');
+    // Bersihkan batas run tag di antara kurung kurawal agar tag {{foto}} / {foto} menyatu,
+    // sambil mempertahankan rPr (formatting seperti bold <w:b/>) jika ada di run kedua.
+    let cleanedBody = pBody.replace(/<\/w:t><\/w:r>(?:<w:proofErr[^>]*\/>)?<w:r\b[^>]*>(?:<w:rPr>([\s\S]*?)<\/w:rPr>)?<w:t\b[^>]*>/gi, (match, rPrInner) => {
+      if (rPrInner && (rPrInner.includes('<w:b/>') || rPrInner.includes('<w:b ') || rPrInner.includes('<w:bCs/>') || rPrInner.includes('<w:rFonts'))) {
+        return `</w:t></w:r><w:r><w:rPr>${rPrInner}</w:rPr><w:t>`;
+      }
+      return '';
+    });
 
     // Bersihkan tag XML internal di dalam kurung kurawal
     cleanedBody = cleanedBody.replace(/\{([^{}]+)\}/g, (match, content) => {
@@ -596,38 +602,8 @@ function cleanWordXmlParagraphBraces(xml) {
 
 function cleanDocxTableCellLeadingEmptyParagraphs(xml) {
   if (!xml || typeof xml !== 'string') return xml;
-  try {
-    return xml.replace(/(<w:tc\b[^>]*>)([\s\S]*?)(<\/w:tc>)/gi, (tcMatch, tcStart, tcContent, tcEnd) => {
-      const pMatches = tcContent.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/gi);
-      if (!pMatches || pMatches.length <= 1) return tcMatch;
-
-      let removeCount = 0;
-      for (let i = 0; i < pMatches.length - 1; i++) {
-        const textOnly = pMatches[i].replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, '').trim();
-        if (textOnly === '') {
-          removeCount++;
-        } else {
-          break;
-        }
-      }
-
-      if (removeCount > 0) {
-        let newContent = tcContent;
-        for (let i = 0; i < removeCount; i++) {
-          const targetP = pMatches[i];
-          const idx = newContent.indexOf(targetP);
-          if (idx !== -1) {
-            newContent = newContent.slice(0, idx) + newContent.slice(idx + targetP.length);
-          }
-        }
-        return tcStart + newContent + tcEnd;
-      }
-      return tcMatch;
-    });
-  } catch (e) {
-    console.warn('[cleanDocxTableCellLeadingEmptyParagraphs] Warning:', e.message);
-    return xml;
-  }
+  // Nonaktifkan pemotongan paragraf kosong awal di dalam sel tabel agar alignment tanda tangan (Pihak Kesatu vs Pihak Kedua) tetap sejajar
+  return xml;
 }
 
 function createDefaultSkDocxBuffer(jenis_sk, dataCtx) {
@@ -6756,6 +6732,48 @@ const methods = {
     return { success: true, message: 'Periode kontrak berhasil disimpan.' };
   },
 
+function buildKontrakDataContext(usulan, formData) {
+  const tglSekarang = formatTanggalIndonesia(new Date());
+  const fd = Object.assign({}, formData || (usulan ? usulan.form_data : {}) || {});
+  const namaPegawai = String((usulan && usulan.nama) || fd.nama_lengkap || fd.nama || fd.nama_pegawai || 'PEGAWAI').trim();
+  const nipPegawai = String((usulan && usulan.nip) || fd.nip || '').trim();
+
+  const aliases = {
+    nip: nipPegawai,
+    NIP: nipPegawai,
+    nama: namaPegawai,
+    NAMA: namaPegawai,
+    nama_lengkap: namaPegawai,
+    NAMA_LENGKAP: namaPegawai,
+    nama_pegawai: namaPegawai,
+    NAMA_PEGAWAI: namaPegawai,
+    pihak_kedua: namaPegawai,
+    PIHAK_KEDUA: namaPegawai,
+    pihak_kedua_nama: namaPegawai,
+    nama_pihak_kedua: namaPegawai,
+    today: tglSekarang,
+    TODAY: tglSekarang,
+    tgl_buat: tglSekarang,
+    TGL_BUAT: tglSekarang,
+    tanggal_buat: tglSekarang,
+    TANGGAL_BUAT: tglSekarang,
+    tgl_sk: tglSekarang,
+    TGL_SK: tglSekarang,
+    tanggal_sk: tglSekarang,
+    TANGGAL_SK: tglSekarang,
+    tgl_generate: tglSekarang,
+    TGL_GENERATE: tglSekarang
+  };
+
+  return Object.assign({}, fd, usulan ? {
+    tahun: usulan.tahun,
+    jenis_usulan: usulan.jenis_usulan,
+    evaluasi_kinerja: usulan.evaluasi_kinerja,
+    layanan: usulan.layanan,
+    sub_menu: usulan.sub_menu
+  } : {}, aliases);
+}
+
   async generateKontrakFromUsulanVercel(args) {
     const [token, templateRef, usulanId, customFormData] = extractArgs(args);
     const decoded = requireRole(token, ['admin', 'super_admin', 'normal', 'user']);
@@ -6794,16 +6812,7 @@ const methods = {
       const templateBuffer = Buffer.from(arrayBuf);
 
       // Susun dataContext dari data usulan
-      const dataCtx = Object.assign({}, usulan.form_data || {}, {
-        nip: usulan.nip,
-        nama: usulan.nama,
-        tahun: usulan.tahun,
-        jenis_usulan: usulan.jenis_usulan,
-        evaluasi_kinerja: usulan.evaluasi_kinerja,
-        layanan: usulan.layanan,
-        sub_menu: usulan.sub_menu,
-        today: new Date()
-      });
+      const dataCtx = buildKontrakDataContext(usulan, usulan.form_data);
 
       const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx);
 
@@ -6960,16 +6969,7 @@ const methods = {
         dataCtx = rpcBuildSuperContext(firstEntry.formData);
       }
     } else {
-      dataCtx = Object.assign({}, firstEntry.formData, {
-        nip: firstEntry.formData.nip,
-        nama: firstEntry.formData.nama,
-        tahun: firstEntry.formData.tahun,
-        jenis_usulan: firstEntry.formData.jenis_usulan,
-        evaluasi_kinerja: firstEntry.formData.evaluasi_kinerja,
-        layanan: firstEntry.formData.layanan,
-        sub_menu: firstEntry.formData.sub_menu,
-        today: new Date()
-      });
+      dataCtx = buildKontrakDataContext(null, firstEntry.formData);
     }
     
     let templateBuffer;
@@ -7049,16 +7049,7 @@ const methods = {
         dataCtx = rpcBuildSuperContext(firstEntry.formData);
       }
     } else {
-      dataCtx = Object.assign({}, firstEntry.formData, {
-        nip: firstEntry.formData.nip,
-        nama: firstEntry.formData.nama,
-        tahun: firstEntry.formData.tahun,
-        jenis_usulan: firstEntry.formData.jenis_usulan,
-        evaluasi_kinerja: firstEntry.formData.evaluasi_kinerja,
-        layanan: firstEntry.formData.layanan,
-        sub_menu: firstEntry.formData.sub_menu,
-        today: new Date()
-      });
+      dataCtx = buildKontrakDataContext(null, firstEntry.formData);
     }
     
     let templateBuffer;
