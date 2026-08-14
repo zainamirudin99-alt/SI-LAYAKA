@@ -616,3 +616,45 @@ ALTER TABLE data_utama ADD COLUMN IF NOT EXISTS alamat TEXT;
 ALTER TABLE data_utama ADD COLUMN IF NOT EXISTS nomor_telepon TEXT;
 ALTER TABLE data_utama ADD COLUMN IF NOT EXISTS no_hp TEXT;
 
+-- ============================================================
+-- 20. TABEL: usulan_kontrak_baru
+--     Menampung data usulan baru dari form Kontrak (kolom 1: NIP)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS usulan_kontrak_baru (
+  nip                     TEXT NOT NULL,
+  nama_lengkap            TEXT,
+  tmp_lhr                 TEXT,
+  tgl_lhr                 TEXT,
+  pendidikan              TEXT,
+  jurusan                 TEXT,
+  unit_es_ii              TEXT,
+  jabatan                 TEXT,
+  alamat                  TEXT,
+  nomor_telepon           TEXT,
+  nomor_surat_perjanjian  TEXT,
+  tmt_bulan               TEXT,
+  tmt_tahun               TEXT,
+  tst_bulan               TEXT,
+  tst_tahun               TEXT,
+  jangka_waktu            TEXT,
+  besaran_upah            TEXT,
+  layanan                 TEXT,
+  sub_menu                TEXT,
+  form_data               JSONB DEFAULT '{}',
+  status                  TEXT DEFAULT 'Selesai',
+  diajukan_oleh_nip       TEXT,
+  created_at              TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (nip)
+);
+
+CREATE INDEX IF NOT EXISTS idx_usulan_kontrak_baru_nip  ON usulan_kontrak_baru(nip);
+CREATE INDEX IF NOT EXISTS idx_usulan_kontrak_baru_unit ON usulan_kontrak_baru(unit_es_ii);
+
+ALTER TABLE usulan_kontrak_baru ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='usulan_kontrak_baru' AND policyname='deny_public_usulan_kontrak_baru') THEN
+    CREATE POLICY "deny_public_usulan_kontrak_baru" ON usulan_kontrak_baru FOR ALL TO public USING (false);
+  END IF;
+END $$;
+
+

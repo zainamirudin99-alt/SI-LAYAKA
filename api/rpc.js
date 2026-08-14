@@ -7113,6 +7113,22 @@ const methods = {
     const cleanNip = String(nip || '').trim();
     if (!cleanNip) return { success: false, message: 'NIP wajib diisi.' };
 
+    // 1. Simpan ke tabel usulan_kontrak_baru di Supabase (kolom pertama: NIP)
+    try {
+      await db.from('usulan_kontrak_baru').upsert({
+        nip: cleanNip,
+        tmp_lhr: tmp_lhr || '',
+        tgl_lhr: tgl_lhr || null,
+        layanan: layanan || 'Kontrak Tendik',
+        sub_menu: sub_menu || '',
+        diajukan_oleh_nip: decoded.nip,
+        status: 'Draft'
+      }, { onConflict: 'nip' });
+    } catch (eBaru) {
+      console.warn('[saveNipBaruDraft] upsert usulan_kontrak_baru warning:', eBaru.message);
+    }
+
+    // 2. Simpan juga ke data_utama
     const { data: existing } = await db.from('data_utama').select('nip').eq('nip', cleanNip).maybeSingle();
     if (!existing) {
       const { error } = await db.from('data_utama').insert({
@@ -7126,7 +7142,7 @@ const methods = {
         console.warn('[saveNipBaruDraft] insert error:', error.message);
       }
     }
-    return { success: true, message: 'Draft NIP berhasil disimpan ke Supabase data_utama.' };
+    return { success: true, message: 'Draft NIP berhasil disimpan ke Supabase usulan_kontrak_baru & data_utama.' };
   },
 
   async previewKontrakDocument(args) {
@@ -7213,7 +7229,42 @@ const methods = {
     const targetSubMenu = subMenu || sub_menu || '';
     if (!cleanNip) return { success: false, message: 'NIP wajib diisi.' };
 
-    // 1. Simpan/Upsert seluruh isian form ke tabel data_utama di Supabase (kolom pertama: NIP)
+    // 1. Simpan/Upsert seluruh data isian ke tabel usulan_kontrak_baru di Supabase (kolom pertama: NIP)
+    const durasiBulan = ((parseInt(actualFormData.tst_tahun, 10) - parseInt(actualFormData.tmt_tahun, 10)) * 12) + (parseInt(actualFormData.tst_bulan, 10) - parseInt(actualFormData.tmt_bulan, 10)) + 1;
+    const jangkaWaktuStr = (durasiBulan === 12) ? '1 (satu) tahun' : (durasiBulan > 0 ? `${durasiBulan} bulan` : '');
+
+    const usulanKontrakBaruRecord = {
+      nip: cleanNip,
+      nama_lengkap: namaLengkap,
+      tmp_lhr: actualFormData.tmp_lhr || '',
+      tgl_lhr: actualFormData.tgl_lhr || null,
+      pendidikan: actualFormData.pendidikan || '',
+      jurusan: actualFormData.jurusan || '',
+      unit_es_ii: actualFormData.unit_es_ii || '',
+      jabatan: actualFormData.jabatan || '',
+      alamat: actualFormData.alamat || '',
+      nomor_telepon: actualFormData.nomor_telepon || '',
+      nomor_surat_perjanjian: actualFormData.nomor_surat_perjanjian || '',
+      tmt_bulan: actualFormData.tmt_bulan || '',
+      tmt_tahun: actualFormData.tmt_tahun || '',
+      tst_bulan: actualFormData.tst_bulan || '',
+      tst_tahun: actualFormData.tst_tahun || '',
+      jangka_waktu: actualFormData.jangka_waktu || jangkaWaktuStr,
+      besaran_upah: actualFormData.besaran_upah || '',
+      layanan: layanan || 'Kontrak Tendik',
+      sub_menu: targetSubMenu,
+      form_data: actualFormData,
+      status: 'Selesai',
+      diajukan_oleh_nip: decoded.nip
+    };
+    try {
+      const { error: errBaru } = await db.from('usulan_kontrak_baru').upsert(usulanKontrakBaruRecord, { onConflict: 'nip' });
+      if (errBaru) throw errBaru;
+    } catch (eBaru) {
+      console.warn('[generateKontrakDocument] upsert usulan_kontrak_baru warning:', eBaru.message);
+    }
+
+    // 2. Simpan/Upsert juga ke tabel data_utama di Supabase
     const empRecord = {
       nip: cleanNip,
       nama_lengkap: namaLengkap,
@@ -7252,7 +7303,7 @@ const methods = {
       } catch (_) {}
     }
 
-    // 2. Simpan/Upsert data usulan ke tabel usulan_kontrak di Supabase (kolom pertama: NIP)
+    // 3. Simpan juga ke tabel usulan_kontrak
     const tahun = String(actualFormData.tmt_tahun || new Date().getFullYear());
     const usulanRecord = {
       nip: cleanNip,
