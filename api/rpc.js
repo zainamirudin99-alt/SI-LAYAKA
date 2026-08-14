@@ -6838,6 +6838,9 @@ const methods = {
     }
 
     // === JALUR GDOCS (existing flow) ===
+    const dataCtx = buildKontrakDataContext(usulan, usulan.form_data);
+    const cleanFormData = Object.assign({}, usulan.form_data || {}, dataCtx);
+
     const gasUrl = process.env.GOOGLE_SCRIPT_URL;
     if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi.' };
 
@@ -6848,29 +6851,30 @@ const methods = {
     };
 
     try {
-      const namaPegawai = usulan.nama || usulan.form_data?.nama_lengkap || usulan.form_data?.nama || 'PEGAWAI';
-      const cleanFormData = Object.assign({
-        nama_lengkap: namaPegawai,
-        nama: namaPegawai,
-        nip: usulan.nip
-      }, usulan.form_data || {});
-
+      const namaPegawai = dataCtx.nama_lengkap || dataCtx.nama || usulan.nama || 'PEGAWAI';
       const response = await fetch(gasUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           method: 'generateKontrakFromUsulan',
-          params: [shortId, tmplRow?.file_id || templateRef, {
+          params: [shortId, tmplRow?.file_id || templateRef, Object.assign({}, dataCtx, {
             nip: usulan.nip,
             nama: namaPegawai,
             nama_lengkap: namaPegawai,
+            pihak_kedua: namaPegawai,
+            pihak_kedua_nama: namaPegawai,
             tahun: usulan.tahun,
             jenis_usulan: usulan.jenis_usulan,
             evaluasi_kinerja: usulan.evaluasi_kinerja,
             layanan: usulan.layanan,
             sub_menu: usulan.sub_menu,
+            today: dataCtx.tgl_buat,
+            tgl_buat: dataCtx.tgl_buat,
+            tanggal_buat: dataCtx.tgl_buat,
+            tgl_sk: dataCtx.tgl_buat,
+            tanggal_sk: dataCtx.tgl_buat,
             form_data: cleanFormData
-          }],
+          })],
           remoteSession
         })
       });
