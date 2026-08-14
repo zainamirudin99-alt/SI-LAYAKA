@@ -223,7 +223,7 @@ function renderMultiEntryDocument_(templateFileId, entries, tempName) {
   // lalu gabungkan hasilnya (dengan page break) ke dokumen utama, baru
   // salinan sementara tsb dibuang.
   for (let i = 1; i < entries.length; i++) {
-    const extraCopy = templateFile.makeCopy(tempName + ' (bagian ' + (i + 1) + ')');
+    const extraCopy = templateFile.makeCopy('TEMP_' + tempName + '_' + i);
     const extraDoc = DocumentApp.openById(extraCopy.getId());
     renderDocumentBody_(extraDoc.getBody(), entries[i].dataContext);
 
@@ -231,7 +231,13 @@ function renderMultiEntryDocument_(templateFileId, entries, tempName) {
     appendBodyContent_(mainDoc.getBody(), extraDoc.getBody());
 
     extraDoc.saveAndClose();
-    extraCopy.setTrashed(true);
+    try {
+      extraCopy.setTrashed(true);
+      const parents = extraCopy.getParents();
+      while (parents.hasNext()) {
+        parents.next().removeFile(extraCopy);
+      }
+    } catch (_) {}
   }
 
   mainDoc.saveAndClose();
@@ -402,6 +408,12 @@ function generateDocument(sessionToken, payload) {
       
       // Hapus Google Docs aslinya
       docCopy.setTrashed(true);
+      try {
+        const parents = docCopy.getParents();
+        while (parents.hasNext()) {
+          parents.next().removeFile(docCopy);
+        }
+      } catch (_) {}
 
       return {
         success: true,
