@@ -7397,9 +7397,20 @@ function buildKontrakDataContext(usulan, formData, employee) {
   const emp = employee || {};
   const fd = Object.assign({}, emp, formData || (usulan ? usulan.form_data : {}) || {});
   
-  let rawNama = String(fd.nama_lengkap || emp.nama_lengkap || fd.nama || (usulan && usulan.nama_lengkap) || (usulan && usulan.nama) || emp.nama || 'PEGAWAI').trim();
-  const gDepan = String(fd.gelar_depan || fd.glr_dpn || emp.gelar_depan || emp.glr_dpn || (usulan && usulan.gelar_depan) || '').trim();
-  const gBelakang = String(fd.gelar_belakang || fd.glr_blk || emp.gelar_belakang || emp.glr_blk || (usulan && usulan.gelar_belakang) || '').trim();
+  let namaLengkapUtama = String(emp.nama_lengkap || '').trim();
+  let namaForm = String(fd.nama_lengkap || (usulan && usulan.nama_lengkap) || '').trim();
+  let namaDasar = String(emp.nama || fd.nama || (usulan && usulan.nama) || fd.nama_pegawai || 'PEGAWAI').trim();
+
+  let rawNama = namaLengkapUtama;
+  if (!rawNama || (namaForm && namaForm.includes(','))) {
+    rawNama = namaForm;
+  }
+  if (!rawNama) {
+    rawNama = namaForm || namaDasar;
+  }
+
+  const gDepan = String(emp.gelar_depan || emp.glr_dpn || fd.gelar_depan || fd.glr_dpn || (usulan && usulan.gelar_depan) || '').trim();
+  const gBelakang = String(emp.gelar_belakang || emp.glr_blk || fd.gelar_belakang || fd.glr_blk || (usulan && usulan.gelar_belakang) || '').trim();
 
   if (gDepan && !rawNama.startsWith(gDepan)) {
     rawNama = `${gDepan} ${rawNama}`;

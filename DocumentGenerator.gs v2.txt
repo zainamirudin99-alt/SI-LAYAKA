@@ -523,7 +523,7 @@ function generateKontrakFromUsulan(sessionToken, templateFileId, usulanData) {
     let employee = {};
     try { employee = getEmployeeFullData(sessionToken, nip) || {}; } catch (e) { /* best effort */ }
 
-    const formData = Object.assign({}, usulanData.form_data || {}, {
+    const formData = Object.assign({}, employee, usulanData.form_data || {}, usulanData, {
       tahun_kontrak: usulanData.tahun,
       jenis_usulan: usulanData.jenis_usulan,
       evaluasi_kinerja: usulanData.evaluasi_kinerja,
@@ -532,7 +532,20 @@ function generateKontrakFromUsulan(sessionToken, templateFileId, usulanData) {
     });
     const dataContext = buildDataContext_(employee, formData, usulanData.sub_menu);
 
-    const namaFile = sanitizeFileName_(String(nip + '-' + (employee.nama_lengkap || usulanData.nama || 'kontrak') + '-' + (usulanData.tahun || '')));
+    for (const k in usulanData) {
+      if (usulanData[k] !== undefined && usulanData[k] !== null && String(usulanData[k]).trim() !== '') {
+        dataContext[k] = usulanData[k];
+      }
+    }
+    if (usulanData.form_data) {
+      for (const k in usulanData.form_data) {
+        if (usulanData.form_data[k] !== undefined && usulanData.form_data[k] !== null && String(usulanData.form_data[k]).trim() !== '') {
+          dataContext[k] = usulanData.form_data[k];
+        }
+      }
+    }
+
+    const namaFile = sanitizeFileName_(String(nip + '-' + (dataContext.nama_lengkap || usulanData.nama || 'kontrak') + '-' + (usulanData.tahun || '')));
     const docCopy = renderTemplateCopy_(fileId, dataContext, namaFile);
 
     // Simpan ke folder tahun di root kontrak
