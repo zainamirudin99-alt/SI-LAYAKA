@@ -4376,34 +4376,53 @@ const methods = {
 
     // 4. Hitung Nomor Urut (NNN) spesifik per Jenis Pegawai (kodeJenis) dan Tahun Masuk (yyMasuk)
     const db = getDb();
-    let currentCount = 0;
+    let maxSeqFound = 0;
     try {
-      const patternYy = `%${kodeJenis}${yyMasuk}%`;
+      // NIP 17 digit: YYYYMMDDKKYYMMNNN (KK: pos 9-10, YY: pos 11-12)
+      // Gunakan 8 underscore '_' agar pencarian SQL strictly mencocokkan KKYY pada posisi 9-12 (mencegah false match pada MMDD tanggal lahir)
+      const patternYy = `________${kodeJenis}${yyMasuk}%`;
       const { data: dData } = await db.from('data_utama').select('nip').like('nip', patternYy);
       const { data: uKontrak } = await db.from('usulan_kontrak').select('nip').like('nip', patternYy);
       const { data: uKp } = await db.from('usulan_kp').select('nip').like('nip', patternYy);
 
       const nipsSet = new Set();
-      (dData || []).forEach(r => { if (r.nip) nipsSet.add(r.nip); });
-      (uKontrak || []).forEach(r => { if (r.nip) nipsSet.add(r.nip); });
-      (uKp || []).forEach(r => { if (r.nip) nipsSet.add(r.nip); });
+      const processNips = (arr) => {
+        (arr || []).forEach(r => {
+          if (r && r.nip) {
+            const clean = String(r.nip).trim();
+            if (clean.length === 17 && clean.slice(8, 10) === kodeJenis && clean.slice(10, 12) === yyMasuk) {
+              nipsSet.add(clean);
+            }
+          }
+        });
+      };
 
-      currentCount = nipsSet.size;
+      processNips(dData);
+      processNips(uKontrak);
+      processNips(uKp);
+
+      nipsSet.forEach(nip => {
+        const seq = parseInt(nip.slice(14, 17), 10);
+        if (!isNaN(seq) && seq > maxSeqFound) {
+          maxSeqFound = seq;
+        }
+      });
     } catch (countErr) {
       console.warn('[generateAutoNip] Warning counting existing NIPs:', countErr.message);
     }
 
     // Baseline nomor urut di tahun 2026 sesuai jenis pegawai:
-    // Dosen (kode 01): minimal urutan 13 (013)
-    // Tendik (kode 02): minimal urutan 27 (027)
-    let nextSeq = currentCount + 1;
+    // Dosen (kode 01): posisi sekarang sudah 013, maka berikutnya minimal 14 (014)
+    // Tendik (kode 02): posisi sekarang sudah 027, maka berikutnya minimal 28 (028)
+    let minNextSeq = 1;
     if (yyMasuk === '26') {
       if (kodeJenis === '01') {
-        nextSeq = Math.max(nextSeq, 13);
+        minNextSeq = 14;
       } else if (kodeJenis === '02') {
-        nextSeq = Math.max(nextSeq, 27);
+        minNextSeq = 28;
       }
     }
+    const nextSeq = Math.max(minNextSeq, maxSeqFound + 1);
     const nnnSeq = String(nextSeq).padStart(3, '0');
 
     // 5. Rakit NIP 17 Digit: YYYYMMDDKKYYMMNNN
