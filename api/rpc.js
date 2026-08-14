@@ -585,14 +585,11 @@ function cleanWordXmlParagraphBraces(xml) {
     const isPihakKeduaPara = /Pihak\s+Kedua|pihak_kedua|nama_lengkap|nama_pegawai/i.test(pBody);
     const hasBold = isPihakKeduaPara || /<w:b\b[^/>]*\/>|<w:bCs\b[^/>]*\/>/i.test(pBody);
 
-    // Bersihkan batas run tag di antara kurung kurawal agar tag {{foto}} / {foto} menyatu,
-    // sambil mempertahankan rPr (formatting seperti bold <w:b/>) jika ada di run kedua.
-    let cleanedBody = pBody.replace(/<\/w:t><\/w:r>(?:<w:proofErr[^>]*\/>)?<w:r\b[^>]*>(?:<w:rPr>([\s\S]*?)<\/w:rPr>)?<w:t\b[^>]*>/gi, (match, rPrInner) => {
-      if (rPrInner && (rPrInner.includes('<w:b/>') || rPrInner.includes('<w:b ') || rPrInner.includes('<w:bCs/>') || rPrInner.includes('<w:rFonts'))) {
-        return `</w:t></w:r><w:r><w:rPr>${rPrInner}</w:rPr><w:t>`;
-      }
-      return '';
-    });
+    // Hapus proofErr dan tag pengganggu yang sering memisahkan placeholder Word
+    let cleanedBody = pBody.replace(/<w:proofErr[^>]*\/>|<w:noProof[^>]*\/>|<w:lang[^>]*\/>/gi, '');
+
+    // Bersihkan batas run tag di antara kurung kurawal agar tag {{placeholder}} menyatu 100%
+    cleanedBody = cleanedBody.replace(/<\/w:t>\s*<\/w:r>[\s\S]*?<w:r\b[^>]*>(?:<w:rPr>[\s\S]*?<\/w:rPr>)?\s*<w:t\b[^>]*>/gi, '');
 
     // Bersihkan tag XML internal di dalam kurung kurawal
     cleanedBody = cleanedBody.replace(/\{([^{}]+)\}/g, (match, content) => {
@@ -7406,7 +7403,19 @@ const methods = {
 function buildKontrakDataContext(usulan, formData) {
   const tglSekarang = formatTanggalIndonesia(new Date());
   const fd = Object.assign({}, formData || (usulan ? usulan.form_data : {}) || {});
-  const namaPegawai = String((usulan && usulan.nama) || fd.nama_lengkap || fd.nama || fd.nama_pegawai || 'PEGAWAI').trim();
+  
+  let rawNama = String(fd.nama_lengkap || fd.nama || (usulan && usulan.nama_lengkap) || (usulan && usulan.nama) || fd.nama_pegawai || 'PEGAWAI').trim();
+  const gDepan = String(fd.gelar_depan || fd.glr_dpn || (usulan && usulan.gelar_depan) || '').trim();
+  const gBelakang = String(fd.gelar_belakang || fd.glr_blk || (usulan && usulan.gelar_belakang) || '').trim();
+
+  if (gDepan && !rawNama.startsWith(gDepan)) {
+    rawNama = `${gDepan} ${rawNama}`;
+  }
+  if (gBelakang && !rawNama.includes(gBelakang)) {
+    rawNama = `${rawNama}, ${gBelakang}`;
+  }
+
+  const namaPegawai = rawNama;
   const nipPegawai = String((usulan && usulan.nip) || fd.nip || '').trim();
 
   const aliases = {
