@@ -7124,8 +7124,14 @@ async function kontrakIsiFormDariPegawai_(nip, nama) {
 
   const populateFields = (emp) => {
     if (!emp) return;
+    let namaLengkapEmp = String(emp.nama_lengkap || emp.nama || '').trim();
+    const gDepan = String(emp.gelar_depan || emp.glr_dpn || '').trim();
+    const gBelakang = String(emp.gelar_belakang || emp.glr_blk || '').trim();
+    if (gDepan && !namaLengkapEmp.startsWith(gDepan)) namaLengkapEmp = `${gDepan} ${namaLengkapEmp}`;
+    if (gBelakang && !namaLengkapEmp.includes(gBelakang)) namaLengkapEmp = `${namaLengkapEmp}, ${gBelakang}`;
+
     const namaEl = document.getElementById('kontrak_namaLengkap');
-    if (namaEl) namaEl.value = emp.nama_lengkap || emp.nama || '';
+    if (namaEl) namaEl.value = namaLengkapEmp;
     const tmpLhrEl = document.getElementById('kontrak_tmpLhr');
     if (tmpLhrEl) tmpLhrEl.value = emp.tmp_lhr || '';
     const tglLhrEl = document.getElementById('kontrak_tglLhr');

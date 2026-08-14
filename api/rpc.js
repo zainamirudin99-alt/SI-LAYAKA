@@ -6753,6 +6753,12 @@ const methods = {
     if (fetchErr) throw fetchErr;
     if (!usulan) return { success: false, message: 'Usulan tidak ditemukan.' };
 
+    let empData = {};
+    try {
+      const { data: empDb } = await db.from('data_utama').select('*').eq('nip', String(usulan.nip || '').trim()).maybeSingle();
+      if (empDb) empData = empDb;
+    } catch (_) {}
+
     if (customFormData && typeof customFormData === 'object') {
       const merged = Object.assign({}, usulan.form_data || {}, customFormData);
       await db.from('usulan_kontrak').update({ form_data: merged }).eq('id', usulanId);
@@ -6779,8 +6785,8 @@ const methods = {
       const arrayBuf = await fetchResp.arrayBuffer();
       const templateBuffer = Buffer.from(arrayBuf);
 
-      // Susun dataContext dari data usulan
-      const dataCtx = buildKontrakDataContext(usulan, usulan.form_data);
+      // Susun dataContext dari data usulan dan data pegawai
+      const dataCtx = buildKontrakDataContext(usulan, usulan.form_data, empData);
 
       const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx);
 
@@ -6820,8 +6826,8 @@ const methods = {
     }
 
     // === JALUR GDOCS (existing flow) ===
-    const dataCtx = buildKontrakDataContext(usulan, usulan.form_data);
-    const cleanFormData = Object.assign({}, usulan.form_data || {}, dataCtx);
+    const dataCtx = buildKontrakDataContext(usulan, usulan.form_data, empData);
+    const cleanFormData = Object.assign({}, empData, usulan.form_data || {}, dataCtx);
 
     const gasUrl = process.env.GOOGLE_SCRIPT_URL;
     if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi.' };
@@ -7386,13 +7392,14 @@ const methods = {
   }
 };
 
-function buildKontrakDataContext(usulan, formData) {
+function buildKontrakDataContext(usulan, formData, employee) {
   const tglSekarang = formatTanggalIndonesia(new Date());
-  const fd = Object.assign({}, formData || (usulan ? usulan.form_data : {}) || {});
+  const emp = employee || {};
+  const fd = Object.assign({}, emp, formData || (usulan ? usulan.form_data : {}) || {});
   
-  let rawNama = String(fd.nama_lengkap || fd.nama || (usulan && usulan.nama_lengkap) || (usulan && usulan.nama) || fd.nama_pegawai || 'PEGAWAI').trim();
-  const gDepan = String(fd.gelar_depan || fd.glr_dpn || (usulan && usulan.gelar_depan) || '').trim();
-  const gBelakang = String(fd.gelar_belakang || fd.glr_blk || (usulan && usulan.gelar_belakang) || '').trim();
+  let rawNama = String(fd.nama_lengkap || emp.nama_lengkap || fd.nama || (usulan && usulan.nama_lengkap) || (usulan && usulan.nama) || emp.nama || 'PEGAWAI').trim();
+  const gDepan = String(fd.gelar_depan || fd.glr_dpn || emp.gelar_depan || emp.glr_dpn || (usulan && usulan.gelar_depan) || '').trim();
+  const gBelakang = String(fd.gelar_belakang || fd.glr_blk || emp.gelar_belakang || emp.glr_blk || (usulan && usulan.gelar_belakang) || '').trim();
 
   if (gDepan && !rawNama.startsWith(gDepan)) {
     rawNama = `${gDepan} ${rawNama}`;
@@ -7402,7 +7409,7 @@ function buildKontrakDataContext(usulan, formData) {
   }
 
   const namaPegawai = rawNama;
-  const nipPegawai = String((usulan && usulan.nip) || fd.nip || '').trim();
+  const nipPegawai = String((usulan && usulan.nip) || fd.nip || emp.nip || '').trim();
 
   const aliases = {
     nip: nipPegawai,
@@ -7433,7 +7440,7 @@ function buildKontrakDataContext(usulan, formData) {
     TANGGAL: tglSekarang
   };
 
-  const baseCtx = Object.assign({}, fd, usulan ? {
+  const baseCtx = Object.assign({}, emp, fd, usulan ? {
     tahun: usulan.tahun,
     jenis_usulan: usulan.jenis_usulan,
     evaluasi_kinerja: usulan.evaluasi_kinerja,
