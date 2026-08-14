@@ -7410,6 +7410,7 @@ function buildKontrakDataContext(usulan, formData) {
     evaluasi_kinerja: usulan.evaluasi_kinerja,
     layanan: usulan.layanan,
     sub_menu: usulan.sub_menu
+  } : {}, aliases);
 }
 
 function rpcFormatJnsKel(val) {
