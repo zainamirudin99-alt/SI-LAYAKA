@@ -6880,6 +6880,211 @@ const methods = {
     }
   },
 
+  async previewDocument(args) {
+    const [token, payload] = extractArgs(args);
+    const decoded = verifyToken(token);
+    const db = getDb();
+    
+    const tId = payload.templateFileId || payload.templateId;
+    let templateFileId = tId;
+    let isDocx = false;
+
+    if (tId && typeof tId === 'string') {
+      try {
+        const { data: tmpl } = await db.from('templates').select('*').eq('id', tId).maybeSingle();
+        if (tmpl) {
+          templateFileId = tmpl.file_id || tId;
+          isDocx = (tmpl.tipe === 'docx');
+        }
+      } catch (err) {
+        console.warn('[previewDocument] get template error:', err.message);
+      }
+    }
+
+    if (isDocx) {
+      return methods.previewDocumentVercel([token, payload]);
+    }
+
+    const enrichedPayload = Object.assign({}, payload, { templateFileId });
+    if (enrichedPayload.entries && Array.isArray(enrichedPayload.entries)) {
+      for (const entry of enrichedPayload.entries) {
+        const nip = entry.targetNip || (entry.formData && entry.formData.nip) || decoded.nip;
+        let employee = {};
+        try {
+          employee = await methods.getEmployeeFullData([token, nip]);
+        } catch (_) {}
+        entry.employee = employee;
+        
+        if (!entry.dataContext) {
+          if (enrichedPayload.layanan === 'Kenaikan Pangkat') {
+            const derived = rpcBuildDerivedFields(employee, entry.formData, enrichedPayload.subLayanan);
+            const alias = {};
+            if (entry.formData && entry.formData.jumlah_angka_kredit_diperoleh !== undefined) {
+              alias.jumlah_angka_kredit_yang_diperoleh_saat_integrasi = entry.formData.jumlah_angka_kredit_diperoleh;
+            }
+            if (entry.formData && entry.formData.ada_ijazah_baru_2023 !== undefined) {
+              alias.ada_ijazah_baru_setelah_2023 = entry.formData.ada_ijazah_baru_2023;
+            }
+            const map = {
+              tgl_lhr: 'tanggal_lahir',
+              tmp_lhr: 'tempat_lahir',
+              jns_kel: 'jenis_kelamin',
+              tmt_gol: 'tmt_golongan',
+              tmt_jab: 'tmt_jabatan',
+              unit_es_ii: 'unit_kerja',
+              karpeg: 'kartu_pegawai'
+            };
+            for (const [key, val] of Object.entries(map)) {
+              if (employee && employee[key] !== undefined && alias[val] === undefined) alias[val] = employee[key];
+              if (employee && employee[val] !== undefined && alias[key] === undefined) alias[key] = employee[val];
+              if (entry.formData && entry.formData[key] !== undefined && alias[val] === undefined) alias[val] = entry.formData[key];
+              if (entry.formData && entry.formData[val] !== undefined && alias[key] === undefined) alias[key] = entry.formData[val];
+            }
+            entry.dataContext = Object.assign({}, employee, entry.formData, alias, derived);
+          }
+        }
+      }
+    }
+
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (!gasUrl) {
+      return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi di server.' };
+    }
+
+    const shortId = uuidv4();
+    const remoteSession = {
+      id: shortId,
+      data: {
+        nip: decoded.nip || '',
+        nama_lengkap: decoded.nama || '',
+        nama: decoded.nama || '',
+        jabatan: decoded.jabatan || '',
+        status_kepegawaian: decoded.status_kepegawaian || '',
+        role: decoded.role || 'normal'
+      }
+    };
+
+    const response = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        method: 'previewDocument',
+        params: [shortId, enrichedPayload],
+        remoteSession
+      })
+    });
+
+    const gasResult = await response.json();
+    return gasResult;
+  },
+
+  async generateDocument(args) {
+    const [token, payload] = extractArgs(args);
+    const decoded = verifyToken(token);
+    const db = getDb();
+    
+    const tId = payload.templateFileId || payload.templateId;
+    let templateFileId = tId;
+    let isDocx = false;
+
+    if (tId && typeof tId === 'string') {
+      try {
+        const { data: tmpl } = await db.from('templates').select('*').eq('id', tId).maybeSingle();
+        if (tmpl) {
+          templateFileId = tmpl.file_id || tId;
+          isDocx = (tmpl.tipe === 'docx');
+        }
+      } catch (err) {
+        console.warn('[generateDocument] get template error:', err.message);
+      }
+    }
+
+    if (isDocx) {
+      return methods.generateDocumentVercel([token, payload]);
+    }
+
+    const enrichedPayload = Object.assign({}, payload, { templateFileId });
+    if (enrichedPayload.entries && Array.isArray(enrichedPayload.entries)) {
+      for (const entry of enrichedPayload.entries) {
+        const nip = entry.targetNip || (entry.formData && entry.formData.nip) || decoded.nip;
+        let employee = {};
+        try {
+          employee = await methods.getEmployeeFullData([token, nip]);
+        } catch (_) {}
+        entry.employee = employee;
+        
+        if (!entry.dataContext) {
+          if (enrichedPayload.layanan === 'Kenaikan Pangkat') {
+            const derived = rpcBuildDerivedFields(employee, entry.formData, enrichedPayload.subLayanan);
+            const alias = {};
+            if (entry.formData && entry.formData.jumlah_angka_kredit_diperoleh !== undefined) {
+              alias.jumlah_angka_kredit_yang_diperoleh_saat_integrasi = entry.formData.jumlah_angka_kredit_diperoleh;
+            }
+            if (entry.formData && entry.formData.ada_ijazah_baru_2023 !== undefined) {
+              alias.ada_ijazah_baru_setelah_2023 = entry.formData.ada_ijazah_baru_2023;
+            }
+            const map = {
+              tgl_lhr: 'tanggal_lahir',
+              tmp_lhr: 'tempat_lahir',
+              jns_kel: 'jenis_kelamin',
+              tmt_gol: 'tmt_golongan',
+              tmt_jab: 'tmt_jabatan',
+              unit_es_ii: 'unit_kerja',
+              karpeg: 'kartu_pegawai'
+            };
+            for (const [key, val] of Object.entries(map)) {
+              if (employee && employee[key] !== undefined && alias[val] === undefined) alias[val] = employee[key];
+              if (employee && employee[val] !== undefined && alias[key] === undefined) alias[key] = employee[val];
+              if (entry.formData && entry.formData[key] !== undefined && alias[val] === undefined) alias[val] = entry.formData[key];
+              if (entry.formData && entry.formData[val] !== undefined && alias[key] === undefined) alias[key] = entry.formData[val];
+            }
+            entry.dataContext = Object.assign({}, employee, entry.formData, alias, derived);
+          }
+        }
+      }
+    }
+
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (!gasUrl) {
+      return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi di server.' };
+    }
+
+    const shortId = uuidv4();
+    const remoteSession = {
+      id: shortId,
+      data: {
+        nip: decoded.nip || '',
+        nama_lengkap: decoded.nama || '',
+        nama: decoded.nama || '',
+        jabatan: decoded.jabatan || '',
+        status_kepegawaian: decoded.status_kepegawaian || '',
+        role: decoded.role || 'normal'
+      }
+    };
+
+    const response = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        method: 'generateDocument',
+        params: [shortId, enrichedPayload],
+        remoteSession
+      })
+    });
+
+    const gasResult = await response.json();
+    if (gasResult && gasResult.success && enrichedPayload.layanan === 'Kenaikan Pangkat' && enrichedPayload.entries) {
+      for (const entry of enrichedPayload.entries) {
+        try {
+          await methods.tandaiOpsiKpSelesai([token, entry.targetNip, enrichedPayload.subLayanan]);
+        } catch (dbErr) {
+          console.error('[generateDocument post-process] Gagal tandai opsi KP:', dbErr.message);
+        }
+      }
+    }
+    return gasResult;
+  },
+
   async previewDocumentVercel(args) {
     const [token, payload] = extractArgs(args);
     const decoded = verifyToken(token);

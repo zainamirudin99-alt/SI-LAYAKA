@@ -184,12 +184,17 @@ function buildEntriesContexts_(sessionToken, employeeSession, payload) {
     .map(e => {
       const fd = e.formData || e.dataCtx || e.dataContext || {};
       const targetNip = e.targetNip || fd.nip;
-      const employee = targetNip
-        ? getEmployeeFullData(sessionToken, targetNip)
-        : employeeSession;
+      let employee = e.employee;
+      if (!employee) {
+        try {
+          employee = targetNip ? getEmployeeFullData(sessionToken, targetNip) : employeeSession;
+        } catch (_) {
+          employee = employeeSession || {};
+        }
+      }
       return {
         employee: employee,
-        dataContext: buildDataContext_(employee, fd, payload.subLayanan)
+        dataContext: e.dataContext || buildDataContext_(employee, fd, payload.subLayanan)
       };
     });
 }

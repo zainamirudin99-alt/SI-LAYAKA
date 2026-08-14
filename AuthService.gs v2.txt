@@ -150,8 +150,25 @@ function logout(sessionToken) {
  */
 function requireSession_(sessionToken) {
   if (!sessionToken) throw new Error('Sesi tidak ditemukan. Silakan login kembali.');
+  const tokenStr = String(sessionToken).trim();
+  
+  if (tokenStr.split('.').length === 3) {
+    try {
+      const payloadJson = Utilities.newBlob(Utilities.base64Decode(tokenStr.split('.')[1])).getDataAsString();
+      const jwtPayload = JSON.parse(payloadJson);
+      return {
+        nip: jwtPayload.nip || '',
+        nama: jwtPayload.nama || '',
+        nama_lengkap: jwtPayload.nama || '',
+        role: jwtPayload.role || 'normal',
+        status_kepegawaian: jwtPayload.status_kepegawaian || ''
+      };
+    } catch (jwtErr) {}
+  }
+
   const cache = CacheService.getScriptCache();
-  const raw = cache.get('session_' + sessionToken);
+  const safeKey = tokenStr.length > 200 ? ('session_' + tokenStr.substring(0, 200)) : ('session_' + tokenStr);
+  const raw = cache.get(safeKey);
   if (!raw) throw new Error('Sesi telah berakhir. Silakan login kembali.');
   return JSON.parse(raw);
 }
