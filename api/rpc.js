@@ -1470,24 +1470,14 @@ function isTmtMatchingSelected(uTmtStr, uDateStr, targetDate) {
     }
   }
 
-  if (uDateStr) {
+  if (uDateStr && String(uDateStr).trim()) {
     const dMy = extractMonthYear(uDateStr);
     if (dMy) {
-      if (dMy.month === targetMy.month && dMy.year === targetMy.year) {
-        return true;
-      }
-      const submitDate = new Date(uDateStr);
-      if (!isNaN(submitDate.getTime())) {
-        const targetTmtDate = new Date(targetMy.year, targetMy.month - 1, 1);
-        const diffMonths = (targetTmtDate.getFullYear() - submitDate.getFullYear()) * 12 + (targetTmtDate.getMonth() - submitDate.getMonth());
-        if (diffMonths >= 0 && diffMonths <= 6) {
-          return true;
-        }
-      }
+      return dMy.month === targetMy.month && dMy.year === targetMy.year;
     }
   }
 
-  return true;
+  return false;
 }
 
 function cekEligiblePromosi(emp, targetDate, latestUsulanTmtMap) {
@@ -3822,8 +3812,10 @@ const methods = {
     let usulanRows = [];
     const latestUsulanTmtMap = {};
     try {
-      let queryUsulan = db.from('usulan_kp').select('id, nip, status, unit, tmt, tmt_terbaru, created_at, tanggal_diajukan, jenis_pegawai, jabatan, opsi_a_selesai_pada, opsi_b_selesai_pada');
-      const { data: uData } = await queryUsulan;
+      const { data: uData, error: uErr } = await db.from('usulan_kp').select('*');
+      if (uErr) {
+        console.warn('[rpc] getPromosiDashboardSummary usulan_kp query error:', uErr.message);
+      }
       let rawRows = uData || [];
 
       if (callerUnit) {
@@ -3838,7 +3830,7 @@ const methods = {
 
       (usulanRows || []).forEach(u => {
         const nipT = String(u.nip || '').trim();
-        const tmtVal = u.tmt_terbaru || u.tmt || u.created_at || u.tanggal_diajukan;
+        const tmtVal = u.tmt || u.tmt_terbaru || u.tanggal_diajukan || u.created_at;
         if (nipT && tmtVal) {
           if (!latestUsulanTmtMap[nipT] || new Date(tmtVal) > new Date(latestUsulanTmtMap[nipT])) {
             latestUsulanTmtMap[nipT] = tmtVal;
@@ -3958,10 +3950,10 @@ const methods = {
 
     const latestUsulanTmtMap = {};
     try {
-      const { data: uData } = await db.from('usulan_kp').select('nip, tmt, tmt_terbaru, created_at');
+      const { data: uData } = await db.from('usulan_kp').select('*');
       (uData || []).forEach(u => {
         const nipT = String(u.nip || '').trim();
-        const tmtVal = u.tmt_terbaru || u.tmt || u.created_at;
+        const tmtVal = u.tmt || u.tmt_terbaru || u.tanggal_diajukan || u.created_at;
         if (nipT && tmtVal) {
           if (!latestUsulanTmtMap[nipT] || new Date(tmtVal) > new Date(latestUsulanTmtMap[nipT])) {
             latestUsulanTmtMap[nipT] = tmtVal;
