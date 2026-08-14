@@ -608,3 +608,11 @@ DO $$ BEGIN
     CREATE POLICY "deny_public_jenis_surat" ON jenis_surat FOR ALL TO public USING (false);
   END IF;
 END $$;
+
+-- ============================================================
+-- 19. KOLOM TAMBAHAN UNTUK DATA UTAMA (ALAMAT & KONTAK KONTRAK)
+-- ============================================================
+ALTER TABLE data_utama ADD COLUMN IF NOT EXISTS alamat TEXT;
+ALTER TABLE data_utama ADD COLUMN IF NOT EXISTS nomor_telepon TEXT;
+ALTER TABLE data_utama ADD COLUMN IF NOT EXISTS no_hp TEXT;
+

@@ -7230,9 +7230,26 @@ const methods = {
       status_bekerja: 'Aktif Bekerja'
     };
     try {
-      await db.from('data_utama').upsert(empRecord, { onConflict: 'nip' });
+      const { error: upsertErr } = await db.from('data_utama').upsert(empRecord, { onConflict: 'nip' });
+      if (upsertErr) throw upsertErr;
     } catch (dbErr) {
       console.warn('[generateKontrakDocument] upsert data_utama warning:', dbErr.message);
+      try {
+        const coreRecord = {
+          nip: cleanNip,
+          nama_lengkap: namaLengkap,
+          nama: namaLengkap,
+          tmp_lhr: actualFormData.tmp_lhr || '',
+          tgl_lhr: actualFormData.tgl_lhr || null,
+          pendidikan: actualFormData.pendidikan || '',
+          jurusan: actualFormData.jurusan || '',
+          unit_es_ii: actualFormData.unit_es_ii || '',
+          jabatan: actualFormData.jabatan || '',
+          status_kepegawaian: 'Non ASN / Kontrak',
+          status_bekerja: 'Aktif Bekerja'
+        };
+        await db.from('data_utama').upsert(coreRecord, { onConflict: 'nip' });
+      } catch (_) {}
     }
 
     // 2. Simpan/Upsert data usulan ke tabel usulan_kontrak di Supabase (kolom pertama: NIP)
