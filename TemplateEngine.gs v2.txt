@@ -199,6 +199,32 @@ function renderDocumentBody_(body, dataContext) {
   //    membuat Google Docs menyesuaikan tinggi baris ke konten aktual).
   findAllTablesRecursive_(body).forEach(table => autoFitTableRows_(table));
 
+  // 4b) BOLD-kan teks Pihak Kedua dan nama pegawai di blok tanda tangan agar sejajar dengan Pihak Kesatu
+  try {
+    let pkFound = body.findText("Pihak Kedua");
+    while (pkFound) {
+      const el = pkFound.getElement();
+      if (el && el.asText) {
+        el.asText().setBold(pkFound.getStartOffset(), pkFound.getEndOffsetInclusive(), true);
+      }
+      pkFound = body.findText("Pihak Kedua", pkFound);
+    }
+
+    const namaTarget = dataContext.nama_lengkap || dataContext.nama || dataContext.pihak_kedua;
+    if (namaTarget && String(namaTarget).trim().length > 2) {
+      let nmFound = body.findText(String(namaTarget).trim());
+      while (nmFound) {
+        const el = nmFound.getElement();
+        if (el && el.asText) {
+          el.asText().setBold(nmFound.getStartOffset(), nmFound.getEndOffsetInclusive(), true);
+        }
+        nmFound = body.findText(String(namaTarget).trim(), nmFound);
+      }
+    }
+  } catch (e) {
+    Logger.log('Gagal set bold Pihak Kedua di GDocs: ' + e.message);
+  }
+
   // 5) Pertahankan font dan format asli dokumen dari file template.
 }
 

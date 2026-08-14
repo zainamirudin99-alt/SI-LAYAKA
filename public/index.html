@@ -10310,21 +10310,36 @@ function bindKontrakForm() {
     });
   }
 
-  const searchInput = document.getElementById('kontrak_searchPegawai');
-  if (searchInput) {
+  const searchInput = document.getElementById('kontrak_search');
+  const searchList = document.getElementById('kontrak_searchList');
+  if (searchInput && searchList) {
     let searchDebounceTimer = null;
     searchInput.addEventListener('input', () => {
       clearTimeout(searchDebounceTimer);
       const q = searchInput.value.trim();
-      if (!q) {
-        document.getElementById('kontrak_searchResults').style.display = 'none';
+      if (q.length < 2) {
+        searchList.style.display = 'none';
         return;
       }
-      searchDebounceTimer = setTimeout(() => {
-        google.script.run
-          .withSuccessHandler(renderKontrakSearchResults_)
-          .searchEmployees(SESSION.token, q);
+      searchDebounceTimer = setTimeout(async () => {
+        try {
+          const results = await rpc('searchEmployees', [SESSION.token, q]);
+          renderAdminKontrakSearchResults_(results, searchInput, searchList);
+          return;
+        } catch (e) {}
+
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run
+            .withSuccessHandler(results => renderAdminKontrakSearchResults_(results, searchInput, searchList))
+            .searchEmployees(SESSION.token, q);
+        }
       }, 300);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!searchInput.contains(e.target) && !searchList.contains(e.target)) {
+        searchList.style.display = 'none';
+      }
     });
   }
 
@@ -10705,33 +10720,82 @@ function kontrakResetForm_() {
   document.getElementById('kontrak_alamatMsg').textContent = '';
 }
 
-function kontrakIsiFormDariPegawai_(nip, nama) {
-  document.getElementById('kontrak_search').value = `${nama} (${nip})`;
-  document.getElementById('kontrak_nip').value = nip;
-  document.getElementById('kontrak_nipManual').value = nip;
+function renderAdminKontrakSearchResults_(results, searchInput, searchList) {
+  if (!searchList) return;
+  searchList.innerHTML = '';
+  if (!results || !results.length) {
+    searchList.innerHTML = '<div style="padding:8px 12px; color:#64748b; font-size:12px;">Tidak ditemukan pegawai.</div>';
+    searchList.style.display = 'block';
+    return;
+  }
+  results.forEach(r => {
+    const item = document.createElement('div');
+    item.className = 'autocomplete-item';
+    item.innerHTML = `<strong>${escapeHtml(r.nama)}</strong><br><small style="color:#64748b;">NIP: ${escapeHtml(r.nip)} &middot; ${escapeHtml(r.unit_es_ii || '')}</small>`;
+    item.addEventListener('click', () => {
+      searchList.style.display = 'none';
+      kontrakIsiFormDariPegawai_(r.nip, r.nama);
+    });
+    searchList.appendChild(item);
+  });
+  searchList.style.display = 'block';
+}
 
-  google.script.run
-    .withSuccessHandler(emp => {
-      document.getElementById('kontrak_namaLengkap').value = emp.nama_lengkap || emp.nama || '';
-      document.getElementById('kontrak_tmpLhr').value = emp.tmp_lhr || '';
-      document.getElementById('kontrak_tglLhr').value = pensiunToDateInputValue(emp.tgl_lhr);
-      document.getElementById('kontrak_pendidikan').value = emp.pendidikan || '';
-      document.getElementById('kontrak_jurusan').value = emp.jurusan || '';
-      document.getElementById('kontrak_unitEsIi').value = emp.unit_es_ii || '';
-      document.getElementById('kontrak_jabatan').value = emp.jabatan || '';
+async function kontrakIsiFormDariPegawai_(nip, nama) {
+  const searchEl = document.getElementById('kontrak_search');
+  if (searchEl) searchEl.value = `${nama} (${nip})`;
+  const nipEl = document.getElementById('kontrak_nip');
+  if (nipEl) nipEl.value = nip;
+  const nipManEl = document.getElementById('kontrak_nipManual');
+  if (nipManEl) nipManEl.value = nip;
 
-      const alamatMsg = document.getElementById('kontrak_alamatMsg');
-      if (emp.alamat) {
-        document.getElementById('kontrak_alamat').value = emp.alamat;
-        alamatMsg.textContent = 'Otomatis dari data utama, dapat diubah bila perlu.';
-      } else {
-        document.getElementById('kontrak_alamat').value = '';
-        alamatMsg.textContent = 'Data utama tidak memiliki Alamat untuk pegawai ini — wajib diisi manual.';
-      }
-      updateKontrakBesaranUpahPreview_();
-    })
-    .withFailureHandler(err => showToast('error', 'Gagal memuat data pegawai: ' + (err.message || err)))
-    .getEmployeeFullData(SESSION.token, nip);
+  const populateFields = (emp) => {
+    if (!emp) return;
+    const namaEl = document.getElementById('kontrak_namaLengkap');
+    if (namaEl) namaEl.value = emp.nama_lengkap || emp.nama || '';
+    const tmpLhrEl = document.getElementById('kontrak_tmpLhr');
+    if (tmpLhrEl) tmpLhrEl.value = emp.tmp_lhr || '';
+    const tglLhrEl = document.getElementById('kontrak_tglLhr');
+    if (tglLhrEl) tglLhrEl.value = pensiunToDateInputValue(emp.tgl_lhr);
+    const pendEl = document.getElementById('kontrak_pendidikan');
+    if (pendEl) pendEl.value = emp.pendidikan || '';
+    const jurEl = document.getElementById('kontrak_jurusan');
+    if (jurEl) jurEl.value = emp.jurusan || '';
+    const unitEl = document.getElementById('kontrak_unitEsIi');
+    if (unitEl) unitEl.value = emp.unit_es_ii || '';
+    const jabEl = document.getElementById('kontrak_jabatan');
+    if (jabEl) jabEl.value = emp.jabatan || '';
+
+    const alamatEl = document.getElementById('kontrak_alamat');
+    const alamatMsg = document.getElementById('kontrak_alamatMsg');
+    if (emp.alamat) {
+      if (alamatEl) alamatEl.value = emp.alamat;
+      if (alamatMsg) alamatMsg.textContent = 'Otomatis dari data utama, dapat diubah bila perlu.';
+    } else {
+      if (alamatEl) alamatEl.value = '';
+      if (alamatMsg) alamatMsg.textContent = 'Data utama tidak memiliki Alamat untuk pegawai ini — wajib diisi manual.';
+    }
+    const telpEl = document.getElementById('kontrak_nomorTelepon');
+    if (telpEl && (emp.nomor_telepon || emp.no_hp || emp.telepon)) {
+      telpEl.value = emp.nomor_telepon || emp.no_hp || emp.telepon;
+    }
+    updateKontrakBesaranUpahPreview_();
+  };
+
+  try {
+    const emp = await rpc('getEmployeeFullData', [SESSION.token, nip]);
+    if (emp) {
+      populateFields(emp);
+      return;
+    }
+  } catch (err) {}
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(emp => populateFields(emp))
+      .withFailureHandler(err => showToast('error', 'Gagal memuat data pegawai: ' + (err.message || err)))
+      .getEmployeeFullData(SESSION.token, nip);
+  }
 }
 
 /** Preview instan besaran_upah di sisi klien (server tetap yang menentukan nilai FINAL saat Preview/Generate). */

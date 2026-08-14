@@ -44,9 +44,42 @@
  */
 function buildDataContext_(employee, formData, subLayanan) {
   formData = formData || {};
+  employee = employee || {};
   const derived = docGen_buildDerivedFields_(employee, formData, subLayanan);
 
-  const alias = {};
+  const tglHariIni = formatTanggalIndonesia_(new Date());
+
+  // Susun nama lengkap dengan gelar jika ada gelar depan atau gelar belakang
+  let rawNama = String(formData.nama_lengkap || formData.nama || employee.nama_lengkap || employee.nama || 'PEGAWAI').trim();
+  const gDepan = String(formData.gelar_depan || formData.glr_dpn || employee.gelar_depan || employee.glr_dpn || '').trim();
+  const gBelakang = String(formData.gelar_belakang || formData.glr_blk || employee.gelar_belakang || employee.glr_blk || '').trim();
+  if (gDepan && !rawNama.startsWith(gDepan)) rawNama = gDepan + ' ' + rawNama;
+  if (gBelakang && !rawNama.includes(gBelakang)) rawNama = rawNama + ', ' + gBelakang;
+
+  const alias = {
+    tgl_buat: tglHariIni,
+    TGL_BUAT: tglHariIni,
+    tanggal_buat: tglHariIni,
+    TANGGAL_BUAT: tglHariIni,
+    today: tglHariIni,
+    TODAY: tglHariIni,
+    tgl_sk: tglHariIni,
+    TGL_SK: tglHariIni,
+    tanggal_sk: tglHariIni,
+    TANGGAL_SK: tglHariIni,
+    tgl_generate: tglHariIni,
+    TGL_GENERATE: tglHariIni,
+    tanggal: tglHariIni,
+    TANGGAL: tglHariIni,
+    nama_lengkap: rawNama,
+    NAMA_LENGKAP: rawNama,
+    nama: rawNama,
+    NAMA: rawNama,
+    pihak_kedua: rawNama,
+    PIHAK_KEDUA: rawNama,
+    pihak_kedua_nama: rawNama
+  };
+
   if (formData.jumlah_angka_kredit_diperoleh !== undefined) {
     alias.jumlah_angka_kredit_yang_diperoleh_saat_integrasi = formData.jumlah_angka_kredit_diperoleh;
   }
@@ -79,7 +112,16 @@ function buildDataContext_(employee, formData, subLayanan) {
     ctx.jns_kel = formattedJnsKel;
     ctx.jenis_kelamin = formattedJnsKel;
   }
-  // "today" tersedia otomatis lewat resolveIdentifier_, tidak perlu disuntik di sini.
+  ctx.tgl_buat = tglHariIni;
+  ctx.TGL_BUAT = tglHariIni;
+  ctx.tanggal_buat = tglHariIni;
+  ctx.TANGGAL_BUAT = tglHariIni;
+  ctx.today = tglHariIni;
+  ctx.TODAY = tglHariIni;
+  ctx.nama_lengkap = rawNama;
+  ctx.NAMA_LENGKAP = rawNama;
+  ctx.pihak_kedua = rawNama;
+  ctx.PIHAK_KEDUA = rawNama;
   return ctx;
 }
 
