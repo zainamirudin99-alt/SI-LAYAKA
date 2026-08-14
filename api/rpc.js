@@ -6941,6 +6941,16 @@ const methods = {
               if (entry.formData && entry.formData[val] !== undefined && alias[key] === undefined) alias[key] = entry.formData[val];
             }
             entry.dataContext = Object.assign({}, employee, entry.formData, alias, derived);
+            const rawJnsKel = entry.dataContext.jns_kel || entry.dataContext.jenis_kelamin || (employee && (employee.jns_kel || employee.jenis_kelamin));
+            if (rawJnsKel !== undefined && rawJnsKel !== null) {
+              const formattedJnsKel = rpcFormatJnsKel(rawJnsKel);
+              entry.dataContext.jns_kel = formattedJnsKel;
+              entry.dataContext.JNS_KEL = formattedJnsKel;
+              entry.dataContext.jenis_kelamin = formattedJnsKel;
+              entry.dataContext.JENIS_KELAMIN = formattedJnsKel;
+              entry.dataContext.gender = formattedJnsKel;
+              entry.dataContext.GENDER = formattedJnsKel;
+            }
           }
         }
       }
@@ -7039,6 +7049,16 @@ const methods = {
               if (entry.formData && entry.formData[val] !== undefined && alias[key] === undefined) alias[key] = entry.formData[val];
             }
             entry.dataContext = Object.assign({}, employee, entry.formData, alias, derived);
+            const rawJnsKel = entry.dataContext.jns_kel || entry.dataContext.jenis_kelamin || (employee && (employee.jns_kel || employee.jenis_kelamin));
+            if (rawJnsKel !== undefined && rawJnsKel !== null) {
+              const formattedJnsKel = rpcFormatJnsKel(rawJnsKel);
+              entry.dataContext.jns_kel = formattedJnsKel;
+              entry.dataContext.JNS_KEL = formattedJnsKel;
+              entry.dataContext.jenis_kelamin = formattedJnsKel;
+              entry.dataContext.JENIS_KELAMIN = formattedJnsKel;
+              entry.dataContext.gender = formattedJnsKel;
+              entry.dataContext.GENDER = formattedJnsKel;
+            }
           }
         }
       }

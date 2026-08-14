@@ -269,7 +269,7 @@ function renderCellTextInPlace_(cell, dataContext) {
     if (newText !== originalText) {
       cell.clear();
       const newP = cell.appendParagraph(newText || ' ');
-      enforceMinFontSizeInParagraph_(newP, 9);
+      enforceMinFontSizeInParagraph_(newP, 8);
     }
     return;
   }
@@ -331,7 +331,7 @@ function enforceMinFontSizeInContainer_(container, targetSize) {
 }
 
 function enforceMinFontSizeInParagraph_(paragraph, targetSize) {
-  targetSize = targetSize || 9;
+  targetSize = targetSize || 8;
   if (!paragraph) return;
   try {
     const numChildren = paragraph.getNumChildren();
