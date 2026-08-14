@@ -194,12 +194,11 @@ function renderDocumentBody_(body, dataContext) {
     }
   });
 
-  // 4) Auto-fit tinggi baris tabel: setelah semua konten terisi, pastikan
-  //    setiap baris tabel tidak lebih tinggi dari isinya (minimumHeight = 0
-  //    membuat Google Docs menyesuaikan tinggi baris ke konten aktual).
-  findAllTablesRecursive_(body).forEach(table => autoFitTableRows_(table));
-
-  // 5) Pertahankan font dan format asli dokumen dari file template.
+  // 4) Auto-fit tinggi baris tabel & pastikan seluruh isi tabel berukuran font 9
+  findAllTablesRecursive_(body).forEach(table => {
+    autoFitTableRows_(table);
+    enforceMinFontSizeInContainer_(table, 9);
+  });
 }
 
 /** Isi tag {{..}} di setiap sel sebuah tabel, sel per sel (lihat renderCellTextInPlace_). */
@@ -269,7 +268,7 @@ function renderCellTextInPlace_(cell, dataContext) {
     if (newText !== originalText) {
       cell.clear();
       const newP = cell.appendParagraph(newText || ' ');
-      enforceMinFontSizeInParagraph_(newP, 8);
+      enforceMinFontSizeInParagraph_(newP, 9);
     }
     return;
   }
@@ -331,7 +330,7 @@ function enforceMinFontSizeInContainer_(container, targetSize) {
 }
 
 function enforceMinFontSizeInParagraph_(paragraph, targetSize) {
-  targetSize = targetSize || 8;
+  targetSize = targetSize || 9;
   if (!paragraph) return;
   try {
     const numChildren = paragraph.getNumChildren();
@@ -339,10 +338,7 @@ function enforceMinFontSizeInParagraph_(paragraph, targetSize) {
       const child = paragraph.getChild(i);
       if (child.getType() === DocumentApp.ElementType.TEXT) {
         const textEl = child.asText();
-        const sz = textEl.getFontSize();
-        if (sz !== null && sz < 8) {
-          textEl.setFontSize(targetSize);
-        }
+        textEl.setFontSize(targetSize);
       }
     }
   } catch (e) {
