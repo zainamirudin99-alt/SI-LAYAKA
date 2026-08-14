@@ -11438,7 +11438,8 @@ function handleUsulanKontrakSayaResult(res) {
     let generateBtnHtml = '';
     let readOnlyCardHtml = '';
 
-    if (res.usulan.status === 'Disetujui') {
+    const isApprovedOrCompleted = (res.usulan.status === 'Disetujui' || res.usulan.status === 'Selesai' || !!res.usulan.perjanjian_dibuat);
+    if (isApprovedOrCompleted) {
       const u = res.usulan;
       const fd = u.form_data || {};
 
@@ -11487,6 +11488,9 @@ function handleUsulanKontrakSayaResult(res) {
               <label>BESARAN UPAH</label>
               <input type="text" value="${escapeHtml(besaranUpahStr)}" readonly disabled class="field-input-dark" />
             </div>` : '';
+
+      const isAlreadySelesai = (res.usulan.status === 'Selesai' || !!res.usulan.perjanjian_dibuat);
+      const genBtnText = isAlreadySelesai ? '🔄 Generate Ulang Dokumen Perjanjian Kerja' : '🚀 Buat Dokumen Perjanjian Kerja Final';
 
       readOnlyCardHtml = `
         <div class="kontrak-form-wrap" style="margin-top:24px; padding:24px; background:var(--surface); border:1px solid var(--border); border-radius:12px;">
@@ -11601,7 +11605,7 @@ function handleUsulanKontrakSayaResult(res) {
 
           <div class="actions-bar" style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
             <button type="button" class="btn btn-outline" style="padding:10px 20px; font-weight:600;" onclick="previewKontrakUserSelf('${u.id}')">👁️ Preview</button>
-            <button type="button" class="btn btn-primary" id="usulan_genBtn_${u.id}" style="padding:10px 24px; font-weight:600;" onclick="generateKontrakUserSelf('${u.id}')">🚀 Buat Dokumen Perjanjian Kerja Final</button>
+            <button type="button" class="btn btn-primary" id="usulan_genBtn_${u.id}" style="padding:10px 24px; font-weight:600;" onclick="generateKontrakUserSelf('${u.id}')">${genBtnText}</button>
           </div>
         </div>
       `;
@@ -11640,7 +11644,7 @@ function handleUsulanKontrakSayaResult(res) {
       ${readOnlyCardHtml}
     `;
 
-    if (res.usulan.status === 'Disetujui') {
+    if (isApprovedOrCompleted) {
       renderTemplateSelectorForUsulan(res.usulan.layanan, res.usulan.sub_menu, 'usulan_tplSelectorWrap_' + res.usulan.id, null, null, res.usulan.id);
     }
   }
