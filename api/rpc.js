@@ -7369,6 +7369,7 @@ const methods = {
       allApproved,
       status: newStatus
     };
+  }
 };
 
 function buildKontrakDataContext(usulan, formData) {
