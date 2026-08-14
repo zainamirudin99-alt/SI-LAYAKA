@@ -579,10 +579,11 @@ function enforceDocxFont(zip, fontName = null) {
 function cleanWordXmlParagraphBraces(xml) {
   if (!xml) return '';
   return xml.replace(/<w:p\b[^>]*>([\s\S]*?)<\/w:p>/gi, (pMatch, pBody) => {
-    if (!pBody.includes('{') || !pBody.includes('}')) return pMatch;
+    if (!pBody.includes('{') && !pBody.includes('}') && !pBody.includes('Pihak Kedua')) return pMatch;
 
-    // Cek apakah ada format bold (<w:b/> atau <w:bCs/>) di dalam paragraf ini
-    const hasBold = /<w:b\b[^/>]*\/>|<w:bCs\b[^/>]*\/>/i.test(pBody);
+    // Cek apakah paragraf ini berisi Pihak Kedua atau nama pegawai
+    const isPihakKeduaPara = /Pihak\s+Kedua|pihak_kedua|nama_lengkap|nama_pegawai/i.test(pBody);
+    const hasBold = isPihakKeduaPara || /<w:b\b[^/>]*\/>|<w:bCs\b[^/>]*\/>/i.test(pBody);
 
     // Bersihkan batas run tag di antara kurung kurawal agar tag {{foto}} / {foto} menyatu,
     // sambil mempertahankan rPr (formatting seperti bold <w:b/>) jika ada di run kedua.
@@ -599,9 +600,10 @@ function cleanWordXmlParagraphBraces(xml) {
       return `{${cleanContent}}`;
     });
 
-    // Jika paragraf semula memiliki tag bold (<w:b/>), pastikan run yang menampung {placeholder} memiliki tag bold <w:b/><w:bCs/>
+    // Jika paragraf semula memiliki tag bold (<w:b/>) ATAU merupakan bagian Pihak Kedua:
+    // Pastikan setiap run <w:r> di dalam paragraf tersebut memiliki tag <w:b/><w:bCs/>
     if (hasBold) {
-      cleanedBody = cleanedBody.replace(/(<w:r\b[^>]*>)(?:<w:rPr>([\s\S]*?)<\/w:rPr>)?(<w:t\b[^>]*>[^<]*\{[^{}]+\}[^<]*<\/w:t>)/gi, (m, rStart, rPrContent, tContent) => {
+      cleanedBody = cleanedBody.replace(/(<w:r\b[^>]*>)(?:<w:rPr>([\s\S]*?)<\/w:rPr>)?(<w:t\b[^>]*>[\s\S]*?<\/w:t>)/gi, (m, rStart, rPrContent, tContent) => {
         if (!rPrContent) {
           return `${rStart}<w:rPr><w:b/><w:bCs/></w:rPr>${tContent}`;
         }
@@ -1043,6 +1045,19 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = n
       let filteredVal = rawVal;
       try { filteredVal = String(docxApplyFilter(filterName, rawVal)); } catch(_) { filteredVal = rawVal; }
       return escapeXmlText(filteredVal ?? '');
+    });
+
+    // 3b. Jamin penggantian tanggal otomatis jika ada {{tgl_buat}} / {{tanggal_buat}} / {{today}} atau jika ada teks 'Semarang,'
+    const tglHariIni = formatTanggalIndonesia(new Date());
+    ['tgl_buat', 'tanggal_buat', 'today', 'tgl_sk', 'tanggal_sk', 'tgl_generate', 'tanggal'].forEach(tk => {
+      const regDbl = new RegExp(`\\{\\{\\s*${tk}\\s*\\}\\}`, 'gi');
+      const regSgl = new RegExp(`\\{\\s*${tk}\\s*\\}`, 'gi');
+      xml = xml.replace(regDbl, tglHariIni).replace(regSgl, tglHariIni);
+    });
+
+    // Jika terdapat 'Semarang,' tetapi belum diikuti tanggal, sisipkan tanggal hari ini
+    xml = xml.replace(/(Semarang,\s*)(?:\{\{?\s*(?:tgl_buat|tanggal_buat|today|tgl_sk|tanggal_sk|tanggal)?\s*\}?\}?)?(\s*<\/w:t>)/gi, (m, prefix, suffix) => {
+      return `${prefix}${tglHariIni}${suffix}`;
     });
 
     // 4. Render loop section: duplikasi seluruh baris tabel <w:tr> ke bawah
