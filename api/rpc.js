@@ -579,11 +579,7 @@ function enforceDocxFont(zip, fontName = null) {
 function cleanWordXmlParagraphBraces(xml) {
   if (!xml) return '';
   return xml.replace(/<w:p\b[^>]*>([\s\S]*?)<\/w:p>/gi, (pMatch, pBody) => {
-    if (!pBody.includes('{') && !pBody.includes('}') && !pBody.includes('Pihak Kedua')) return pMatch;
-
-    // Cek apakah paragraf ini berisi Pihak Kedua atau nama pegawai
-    const isPihakKeduaPara = /Pihak\s+Kedua|pihak_kedua|nama_lengkap|nama_pegawai/i.test(pBody);
-    const hasBold = isPihakKeduaPara || /<w:b\b[^/>]*\/>|<w:bCs\b[^/>]*\/>/i.test(pBody);
+    if (!pBody.includes('{') && !pBody.includes('}')) return pMatch;
 
     // Hapus proofErr dan tag pengganggu yang sering memisahkan placeholder Word
     let cleanedBody = pBody.replace(/<w:proofErr[^>]*\/>|<w:noProof[^>]*\/>|<w:lang[^>]*\/>/gi, '');
@@ -596,20 +592,6 @@ function cleanWordXmlParagraphBraces(xml) {
       const cleanContent = content.replace(/<[^>]+>/g, '').trim();
       return `{${cleanContent}}`;
     });
-
-    // Jika paragraf semula memiliki tag bold (<w:b/>) ATAU merupakan bagian Pihak Kedua:
-    // Pastikan setiap run <w:r> di dalam paragraf tersebut memiliki tag <w:b/><w:bCs/>
-    if (hasBold) {
-      cleanedBody = cleanedBody.replace(/(<w:r\b[^>]*>)(?:<w:rPr>([\s\S]*?)<\/w:rPr>)?(<w:t\b[^>]*>[\s\S]*?<\/w:t>)/gi, (m, rStart, rPrContent, tContent) => {
-        if (!rPrContent) {
-          return `${rStart}<w:rPr><w:b/><w:bCs/></w:rPr>${tContent}`;
-        }
-        if (!rPrContent.includes('<w:b') && !rPrContent.includes('<w:bCs')) {
-          return `${rStart}<w:rPr>${rPrContent}<w:b/><w:bCs/></w:rPr>${tContent}`;
-        }
-        return m;
-      });
-    }
 
     return pMatch.replace(pBody, cleanedBody);
   });
