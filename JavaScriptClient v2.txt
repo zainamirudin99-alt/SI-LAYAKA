@@ -6902,10 +6902,16 @@ function onSelectDraftNipInPopup1(selectedNip) {
   const nipEl = document.getElementById('pop1_nipGenerated');
   const tmpEl = document.getElementById('pop1_tmpLhr');
   const tglEl = document.getElementById('pop1_tglLhr');
+  const tmtBlnEl = document.getElementById('pop1_tmtBulan');
 
   if (nipEl) nipEl.value = selectedNip;
   if (tmpEl && found && found.tmp_lhr) tmpEl.value = found.tmp_lhr;
   if (tglEl && found && found.tgl_lhr) tglEl.value = pensiunToDateInputValue(found.tgl_lhr);
+
+  if (tmtBlnEl && selectedNip && selectedNip.length >= 14) {
+    const draftBln = selectedNip.slice(12, 14);
+    if (draftBln) tmtBlnEl.value = draftBln;
+  }
 
   showToast('info', `NIP Draft ${selectedNip} dipilih.`);
 }
@@ -6915,6 +6921,28 @@ function openKontrakPopup1GenerateNip() {
 
   const jenisPegLabel = (kontrakSelectedLayanan === 'Kontrak Dosen') ? 'Tenaga Dosen (Kode: 01)' : 'Tenaga Kependidikan / Tendik (Kode: 02)';
   const subMenuLabel = kontrakSelectedSubMenu || 'Kontrak Utama';
+
+  const currMonthStr = String(new Date().getMonth() + 1).padStart(2, '0');
+  const bulanList = [
+    { val: '01', label: '01 - Januari' },
+    { val: '02', label: '02 - Februari' },
+    { val: '03', label: '03 - Maret' },
+    { val: '04', label: '04 - April' },
+    { val: '05', label: '05 - Mei' },
+    { val: '06', label: '06 - Juni' },
+    { val: '07', label: '07 - Juli' },
+    { val: '08', label: '08 - Agustus' },
+    { val: '09', label: '09 - September' },
+    { val: '10', label: '10 - Oktober' },
+    { val: '11', label: '11 - November' },
+    { val: '12', label: '12 - Desember' }
+  ];
+
+  let bulanOpts = '';
+  bulanList.forEach(b => {
+    const isSel = (b.val === currMonthStr) ? 'selected' : '';
+    bulanOpts += `<option value="${b.val}" ${isSel}>${b.label}</option>`;
+  });
 
   const html = `
     <div style="padding:20px; text-align:left; font-size:13.5px;">
@@ -6945,7 +6973,7 @@ function openKontrakPopup1GenerateNip() {
       </div>
 
       <form id="popup1NipForm" onsubmit="submitKontrakPopup1Nip(event)">
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:18px;">
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:18px;">
           <div>
             <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Tempat Lahir <span style="color:red;">*</span></label>
             <input type="text" id="pop1_tmpLhr" class="field-input" placeholder="Contoh: Semarang" required />
@@ -6954,6 +6982,12 @@ function openKontrakPopup1GenerateNip() {
             <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Tanggal Lahir <span style="color:red;">*</span></label>
             <input type="date" id="pop1_tglLhr" class="field-input" onchange="autoCalculatePopup1Nip()" required />
           </div>
+          <div>
+            <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">TMT Bulan <span style="color:red;">*</span></label>
+            <select id="pop1_tmtBulan" class="field-input" onchange="autoCalculatePopup1Nip()" required>
+              ${bulanOpts}
+            </select>
+          </div>
         </div>
 
         <div style="margin-bottom:18px; background:var(--surface-alt, #f1f5f9); padding:16px; border-radius:10px; border:1px solid var(--border);">
@@ -6961,7 +6995,7 @@ function openKontrakPopup1GenerateNip() {
             <label style="font-size:12px; font-weight:700; color:var(--text-main);">NIP Hasil Generate (17 Digit):</label>
             <button type="button" class="btn btn-outline kp-small-btn" onclick="autoCalculatePopup1Nip()" style="font-size:11px; font-weight:700;">🔄 Hitung Ulang NIP</button>
           </div>
-          <input type="text" id="pop1_nipGenerated" class="field-input" style="font-size:18px; font-weight:800; letter-spacing:1px; font-family:monospace; color:var(--primary); background:#fff;" placeholder="Isi TTL di atas untuk generate NIP..." required />
+          <input type="text" id="pop1_nipGenerated" class="field-input" style="font-size:18px; font-weight:800; letter-spacing:1px; font-family:monospace; color:var(--primary); background:#fff;" placeholder="Isi TTL & TMT Bulan di atas untuk generate NIP..." required />
           <div style="font-size:11.5px; color:#16a34a; margin-top:6px;">✓ NIP di atas di-generate otomatis dan <strong>tetap dapat Anda edit/sesuaikan secara manual</strong>.</div>
         </div>
 
@@ -6982,12 +7016,13 @@ function openKontrakPopup1GenerateNip() {
 async function autoCalculatePopup1Nip() {
   const tglLahir = document.getElementById('pop1_tglLhr')?.value;
   if (!tglLahir) return;
+  const tmtBulan = document.getElementById('pop1_tmtBulan')?.value;
 
   const defaultJenis = (kontrakSelectedLayanan === 'Kontrak Dosen') ? 'Dosen' : 'Tendik';
   const todayStr = new Date().toISOString().split('T')[0];
 
   try {
-    const payload = { tglLahir, jenisPegawai: defaultJenis, tglMasuk: todayStr };
+    const payload = { tglLahir, jenisPegawai: defaultJenis, tglMasuk: todayStr, tmtBulan };
     const res = await rpc('generateAutoNip', [SESSION.token, payload]);
     if (res && res.success) {
       const nipEl = document.getElementById('pop1_nipGenerated');
@@ -7006,10 +7041,11 @@ async function submitKontrakPopup1Nip(e) {
   e.preventDefault();
   const tmpLhr = document.getElementById('pop1_tmpLhr')?.value?.trim();
   const tglLhr = document.getElementById('pop1_tglLhr')?.value;
+  const tmtBulan = document.getElementById('pop1_tmtBulan')?.value;
   const nipVal = document.getElementById('pop1_nipGenerated')?.value?.trim();
 
-  if (!tmpLhr || !tglLhr || !nipVal) {
-    showToast('error', 'Lengkapi Tempat Lahir, Tanggal Lahir, dan NIP.');
+  if (!tmpLhr || !tglLhr || !tmtBulan || !nipVal) {
+    showToast('error', 'Lengkapi Tempat Lahir, Tanggal Lahir, TMT Bulan, dan NIP.');
     return;
   }
 
@@ -7020,7 +7056,7 @@ async function submitKontrakPopup1Nip(e) {
   if (btn) setBtnLoading(btn, true, 'Menyiapkan Breakdown...');
 
   try {
-    const payload = { tglLahir: tglLhr, jenisPegawai: defaultJenis, tglMasuk: todayStr };
+    const payload = { tglLahir: tglLhr, jenisPegawai: defaultJenis, tglMasuk: todayStr, tmtBulan };
     const res = await rpc('generateAutoNip', [SESSION.token, payload]);
     if (btn) setBtnLoading(btn, false, 'Lanjut ➔ Pop-up 2 (Lihat Breakdown Structure NIP)');
 
@@ -7034,7 +7070,7 @@ async function submitKontrakPopup1Nip(e) {
       nomorUrut: nipVal.slice(14,17)
     };
 
-    openKontrakPopup2BreakdownNip(nipVal, rincian, { tmpLhr, tglLhr, defaultJenis });
+    openKontrakPopup2BreakdownNip(nipVal, rincian, { tmpLhr, tglLhr, tmtBulan, defaultJenis });
   } catch (err) {
     if (btn) setBtnLoading(btn, false, 'Lanjut ➔ Pop-up 2 (Lihat Breakdown Structure NIP)');
     showToast('error', 'Gagal memproses breakdown: ' + err.message);
@@ -7096,7 +7132,7 @@ function openKontrakPopup2BreakdownNip(nip, rincian, extraData) {
           </tr>
           <tr>
             <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 13–14</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Bulan Masuk</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Bulan Masuk (TMT Bulan)</td>
             <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#2563eb;">${escapeHtml(nip.slice(12,14))}</td>
             <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.blnMasuk || 'Bulan masuk')}</td>
           </tr>
@@ -7111,7 +7147,7 @@ function openKontrakPopup2BreakdownNip(nip, rincian, extraData) {
 
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <button type="button" class="btn btn-outline" onclick="openKontrakPopup1GenerateNip()">&larr; Kembali ke Pop-up 1</button>
-        <button type="button" class="btn btn-primary" onclick="confirmAndGoToFormWithNip('${escapeHtml(nip)}', '${escapeHtml(extraData.tmpLhr)}', '${escapeHtml(extraData.tglLhr)}')" style="padding:9px 24px; font-weight:700;">🚀 Gunakan NIP &amp; Masuk ke Form Usulan</button>
+        <button type="button" class="btn btn-primary" onclick="confirmAndGoToFormWithNip('${escapeHtml(nip)}', '${escapeHtml(extraData.tmpLhr)}', '${escapeHtml(extraData.tglLhr)}', '${escapeHtml(extraData.tmtBulan || '')}')" style="padding:9px 24px; font-weight:700;">🚀 Gunakan NIP &amp; Masuk ke Form Usulan</button>
       </div>
     </div>`;
 
@@ -7119,7 +7155,7 @@ function openKontrakPopup2BreakdownNip(nip, rincian, extraData) {
   document.getElementById('modalOverlay').style.display = 'flex';
 }
 
-function confirmAndGoToFormWithNip(nip, tmpLhr, tglLhr) {
+function confirmAndGoToFormWithNip(nip, tmpLhr, tglLhr, tmtBulan) {
   closeModal();
   
   // Transition into Form State
@@ -7138,6 +7174,15 @@ function confirmAndGoToFormWithNip(nip, tmpLhr, tglLhr) {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', updateKontrakJangkaWaktuPreview_);
   });
+
+  // Set TMT Bulan if provided
+  if (tmtBulan) {
+    const tmtBulanEl = document.getElementById('kontrak_tmtBulan');
+    if (tmtBulanEl) {
+      tmtBulanEl.value = parseInt(tmtBulan, 10);
+      updateKontrakJangkaWaktuPreview_();
+    }
+  }
 
   // Fill in form values
   const nipEl = document.getElementById('kontrak_nipManual');

@@ -102,12 +102,12 @@ if (typeof google === 'undefined' || !google.script || !google.script.run) {
 }
 "@
 
-$jsClientWithPolyfill = $jsClient -replace "<script>", "<script>`n$polyfill"
+$jsClientWithPolyfill = $jsClient.Replace("<script>", "<script>`n$polyfill")
 
-# Perform replacements
-$output = $index -replace '<\?!= include\(''Stylesheet''\); \?>', $stylesheet
-$output = $output -replace '<\?!= include\(''Logos''\); \?>', $logos
-$output = $output -replace '<\?!= include\(''JavaScriptClient''\); \?>', $jsClientWithPolyfill
+# Perform replacements using exact literal string Replace
+$output = $index.Replace("<?!= include('Stylesheet'); ?>", $stylesheet)
+$output = $output.Replace("<?!= include('Logos'); ?>", $logos)
+$output = $output.Replace("<?!= include('JavaScriptClient'); ?>", $jsClientWithPolyfill)
 
 if (-not (Test-Path "public")) {
     New-Item -ItemType Directory -Path "public"

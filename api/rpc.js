@@ -4299,7 +4299,7 @@ const methods = {
   async generateAutoNip(args) {
     const [token, payload] = extractArgs(args);
     verifyToken(token);
-    const { tglLahir, jenisPegawai, tglMasuk } = payload || {};
+    const { tglLahir, jenisPegawai, tglMasuk, tmtBulan, tmtTahun } = payload || {};
 
     if (!tglLahir) {
       return { success: false, message: 'Tanggal lahir wajib diisi untuk membuat NIP otomatis.' };
@@ -4332,7 +4332,7 @@ const methods = {
     const kodeJenis = isDosen ? '01' : '02';
     const labelJenis = isDosen ? '01 (Tenaga Dosen)' : '02 (Tenaga Kependidikan)';
 
-    // 3. Parsing Tanggal / Tahun Masuk (YY, MM)
+    // 3. Parsing Tanggal / Tahun Masuk / TMT (YY, MM)
     let dMasuk = tglMasuk ? new Date(tglMasuk) : new Date();
     if (isNaN(dMasuk.getTime())) {
       const partsM = String(tglMasuk).trim().split(/[\/\-\s]+/);
@@ -4346,11 +4346,25 @@ const methods = {
     }
     if (isNaN(dMasuk.getTime())) dMasuk = new Date();
 
-    const fullYearMasuk = dMasuk.getFullYear();
+    let fullYearMasuk = dMasuk.getFullYear();
+    if (tmtTahun) {
+      const parsedThn = parseInt(tmtTahun, 10);
+      if (!isNaN(parsedThn) && parsedThn >= 1900) {
+        fullYearMasuk = parsedThn;
+      }
+    }
     const yyMasuk = String(fullYearMasuk).slice(-2);
-    const mmMasuk = String(dMasuk.getMonth() + 1).padStart(2, '0');
+
+    let mmMasuk = String(dMasuk.getMonth() + 1).padStart(2, '0');
+    if (tmtBulan) {
+      const parsedBln = parseInt(tmtBulan, 10);
+      if (!isNaN(parsedBln) && parsedBln >= 1 && parsedBln <= 12) {
+        mmMasuk = String(parsedBln).padStart(2, '0');
+      }
+    }
+
     const BULAN_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-    const labelBulanMasuk = `${mmMasuk} (${BULAN_ID[dMasuk.getMonth()] || ''})`;
+    const labelBulanMasuk = `${mmMasuk} (${BULAN_ID[parseInt(mmMasuk, 10) - 1] || ''})`;
 
     // 4. Hitung Nomor Urut (NNN) spesifik per Jenis Pegawai (kodeJenis) dan Tahun Masuk (yyMasuk)
     const db = getDb();
