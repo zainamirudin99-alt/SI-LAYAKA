@@ -253,6 +253,7 @@ function renderMultiEntryDocument_(templateFileId, entries, tempName) {
 function appendBodyContent_(targetBody, sourceBody) {
   const total = sourceBody.getNumChildren();
   let contentStarted = false;
+  const listIdMap = {};
 
   for (let i = 0; i < total; i++) {
     const child = sourceBody.getChild(i);
@@ -282,11 +283,11 @@ function appendBodyContent_(targetBody, sourceBody) {
       contentStarted = true;
     }
 
-    appendElementByType_(targetBody, child);
+    appendElementByType_(targetBody, child, listIdMap);
   }
 }
 
-function appendElementByType_(targetBody, el) {
+function appendElementByType_(targetBody, el, listIdMap) {
   const type = el.getType();
   switch (type) {
     case DocumentApp.ElementType.PARAGRAPH:
@@ -295,9 +296,22 @@ function appendElementByType_(targetBody, el) {
     case DocumentApp.ElementType.TABLE:
       targetBody.appendTable(el.copy());
       break;
-    case DocumentApp.ElementType.LIST_ITEM:
-      targetBody.appendListItem(el.copy());
+    case DocumentApp.ElementType.LIST_ITEM: {
+      const srcLi = el.asListItem();
+      const newLi = targetBody.appendListItem(srcLi.copy());
+      const srcListId = srcLi.getListId();
+      if (srcListId && listIdMap) {
+        if (!listIdMap[srcListId]) {
+          // Buat list container baru terpisah agar penomoran mengulang dari 1
+          newLi.setListId(newLi);
+          listIdMap[srcListId] = newLi;
+        } else {
+          // Hubungkan list item berikutnya di halaman yang sama ke list ID baru tersebut
+          newLi.setListId(listIdMap[srcListId]);
+        }
+      }
       break;
+    }
     case DocumentApp.ElementType.INLINE_IMAGE:
       targetBody.appendImage(el.copy());
       break;
