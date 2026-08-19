@@ -1940,17 +1940,40 @@ function openDocxPreviewModal(base64Data, fileName) {
 function openDownloadModalVercel(res) {
   document.getElementById('modalTitle').textContent = 'Dokumen Siap';
   if (res.outputType === 'pdf') {
+    const pdfUrl = res.pdfUrl || res.viewUrl;
+    if (pdfUrl) {
+      try { window.open(pdfUrl, '_blank', 'noopener,noreferrer'); } catch (e) {}
+    }
     document.getElementById('modalBody').innerHTML = `
       <div style="padding:24px; text-align:center;">
-        <p style="margin-bottom:18px;">File <strong>${escapeHtml(res.fileName)}</strong> berhasil dibuat sebagai PDF.</p>
-        <a class="btn btn-primary" style="text-decoration:none;" href="${res.pdfUrl}" target="_blank" rel="noopener">Buka PDF</a>
+        <div style="font-size:40px; margin-bottom:12px;">🎉</div>
+        <p style="margin-bottom:18px;">File <strong>${escapeHtml(res.fileName || 'Dokumen')}</strong> berhasil dibuat sebagai PDF.</p>
+        <div style="display:flex; justify-content:center; gap:10px;">
+          <a class="btn btn-primary" style="text-decoration:none; padding:10px 20px; font-size:14px; font-weight:600;" href="${pdfUrl}" target="_blank" rel="noopener">📄 Buka PDF di Tab Baru ↗</a>
+        </div>
       </div>`;
   } else {
-    const url = 'data:' + res.mimeType + ';base64,' + res.base64;
+    const url = 'data:' + (res.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') + ';base64,' + res.base64;
+    const fileName = res.fileName || 'Dokumen.docx';
+    try {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.warn('Auto download error:', e);
+    }
+
     document.getElementById('modalBody').innerHTML = `
       <div style="padding:24px; text-align:center;">
-        <p style="margin-bottom:18px;">File <strong>${escapeHtml(res.fileName)}</strong> berhasil dibuat sebagai Word (.docx).</p>
-        <a class="btn btn-primary" style="text-decoration:none;" href="${url}" download="${res.fileName}">Download Dokumen</a>
+        <div style="font-size:40px; margin-bottom:12px;">🎉</div>
+        <p style="margin-bottom:18px;">File <strong>${escapeHtml(fileName)}</strong> berhasil dibuat sebagai Word (.docx).</p>
+        <p style="font-size:12.5px; color:var(--text-muted); margin-bottom:20px;">Unduhan berkas otomatis dimulai. Jika belum terunduh, klik tombol di bawah:</p>
+        <div style="display:flex; justify-content:center; gap:10px;">
+          <a class="btn btn-primary" style="text-decoration:none; padding:10px 20px; font-size:14px; font-weight:600;" href="${url}" download="${fileName}">⬇ Unduh Dokumen (.docx)</a>
+        </div>
       </div>`;
   }
   document.getElementById('modalOverlay').style.display = 'flex';
@@ -2184,15 +2207,27 @@ function openPreviewModal(url) {
 function openDownloadModal(res) {
   document.getElementById('modalTitle').textContent = 'Dokumen Siap';
   const isPdf = res.outputType === 'pdf' || String(res.fileName).toLowerCase().endsWith('.pdf');
+  const viewUrl = res.viewUrl || res.docUrl || (res.fileId ? `https://docs.google.com/document/d/${res.fileId}/edit` : '#');
   const msg = isPdf 
-    ? `File <strong>${escapeHtml(res.fileName)}</strong> berhasil dibuat sebagai PDF dan tersimpan di folder "Kenaikan Pangkat".`
-    : `File <strong>${escapeHtml(res.fileName)}</strong> berhasil dibuat sebagai Google Docs dan tersimpan di folder "Kenaikan Pangkat".`;
-  const btnLabel = isPdf ? 'Unduh PDF' : 'Buka Google Docs';
+    ? `File <strong>${escapeHtml(res.fileName || 'Dokumen')}</strong> berhasil dibuat sebagai PDF.`
+    : `File <strong>${escapeHtml(res.fileName || 'Dokumen')}</strong> berhasil dibuat sebagai Google Docs.`;
+  const btnLabel = isPdf ? 'Unduh PDF' : '📄 Buka Dokumen di Tab Baru ↗';
+
+  if (!isPdf && viewUrl && viewUrl !== '#') {
+    try {
+      window.open(viewUrl, '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      console.warn('Auto window.open blocked:', e);
+    }
+  }
 
   document.getElementById('modalBody').innerHTML = `
     <div style="padding:24px; text-align:center;">
-      <p style="margin-bottom:18px;">${msg}</p>
-      <a class="btn btn-primary" style="text-decoration:none;" href="${res.viewUrl}" target="_blank" rel="noopener">${btnLabel}</a>
+      <div style="font-size:40px; margin-bottom:12px;">🎉</div>
+      <p style="margin-bottom:18px; font-size:14.5px;">${msg}</p>
+      <div style="display:flex; justify-content:center; gap:10px;">
+        <a class="btn btn-primary" style="text-decoration:none; padding:10px 20px; font-size:14px; font-weight:600;" href="${viewUrl}" target="_blank" rel="noopener">${btnLabel}</a>
+      </div>
     </div>`;
   document.getElementById('modalOverlay').style.display = 'flex';
 }
@@ -3064,6 +3099,8 @@ function showPensiunDashboardLevel2(unit) {
 }
 
 function pensiunGoToFormState() {
+  const tabBtn = document.querySelector('[data-tab-group="pensiun"] [data-tab-target="tab-dpcp"]');
+  if (tabBtn) tabBtn.click();
   document.getElementById('pensiunDashboardState').style.display = 'none';
   document.getElementById('pensiunFormState').style.display = 'block';
 }
@@ -3420,56 +3457,320 @@ function pensiunBuildFormData() {
 
 function openPensiunResultModal(res, label) {
   document.getElementById('modalTitle').textContent = 'Dokumen ' + label + ' Siap';
-  document.getElementById('modalBody').innerHTML = `
-    <div style="padding:24px; text-align:center;">
-      <p style="margin-bottom:18px;">Dokumen ${label} berhasil dibuat sebagai Google Docs.</p>
-      <a class="btn btn-primary" style="text-decoration:none;" href="${res.docUrl}" target="_blank" rel="noopener">Buka Dokumen</a>
-    </div>`;
+  const isDocx = res.outputType === 'docx' || (res.fileName && String(res.fileName).toLowerCase().endsWith('.docx')) || res.base64;
+
+  if (isDocx && res.base64) {
+    const dataUrl = 'data:' + (res.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') + ';base64,' + res.base64;
+    const fileName = res.fileName || `${label}_${res.nip || 'dokumen'}.docx`;
+
+    // Otomatis download file Word jika ms word
+    try {
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.warn('Auto download docx error:', e);
+    }
+
+    document.getElementById('modalBody').innerHTML = `
+      <div style="padding:24px; text-align:center;">
+        <div style="font-size:40px; margin-bottom:12px;">🎉</div>
+        <p style="margin-bottom:18px; font-size:14.5px;">Dokumen <strong>${label}</strong> berhasil dibuat sebagai berkas <strong>MS Word (.docx)</strong>.</p>
+        <p style="font-size:12.5px; color:var(--text-muted); margin-bottom:20px;">Unduhan berkas otomatis dimulai. Jika belum terunduh, klik tombol di bawah:</p>
+        <div style="display:flex; justify-content:center; gap:10px;">
+          <a class="btn btn-primary" style="text-decoration:none; padding:10px 20px; font-size:14px; font-weight:600;" href="${dataUrl}" download="${fileName}">⬇ Unduh Dokumen (.docx)</a>
+        </div>
+      </div>`;
+  } else {
+    const viewUrl = res.docUrl || res.viewUrl || (res.fileId ? `https://docs.google.com/document/d/${res.fileId}/edit` : '#');
+
+    // Buka otomatis ke tab baru jika template GDocs
+    if (viewUrl && viewUrl !== '#') {
+      try {
+        window.open(viewUrl, '_blank', 'noopener,noreferrer');
+      } catch (e) {
+        console.warn('Auto window.open blocked:', e);
+      }
+    }
+
+    document.getElementById('modalBody').innerHTML = `
+      <div style="padding:24px; text-align:center;">
+        <div style="font-size:40px; margin-bottom:12px;">🎉</div>
+        <p style="margin-bottom:18px; font-size:14.5px;">Dokumen <strong>${label}</strong> berhasil dibuat dan tersimpan di <strong>Google Docs</strong>.</p>
+        <div style="display:flex; justify-content:center; gap:10px;">
+          <a class="btn btn-primary" style="text-decoration:none; padding:10px 20px; font-size:14px; font-weight:600;" href="${viewUrl}" target="_blank" rel="noopener">📄 Buka Dokumen di Tab Baru ↗</a>
+        </div>
+      </div>`;
+  }
   document.getElementById('modalOverlay').style.display = 'flex';
 }
 
 function pensiunRunPreviewDpcp() {
   const fd = pensiunBuildFormData();
   if (!fd.nip) { showToast('error', 'Pilih pegawai terlebih dahulu.'); return; }
-  showToast('info', 'Membuat preview DPCP...');
-  google.script.run
-    .withSuccessHandler(res => res.success ? openPreviewModal(res.previewUrl) : showToast('error', res.message))
-    .withFailureHandler(err => showToast('error', 'Gagal preview DPCP: ' + (err.message || err)))
-    .previewDpcpDocument(SESSION.token, fd);
+
+  const selectEl = document.getElementById('pensiun_dpcpTemplateSelect');
+  if (!selectEl || !selectEl.value) {
+    showToast('error', 'Pilih template DPCP terlebih dahulu.');
+    return;
+  }
+  const selectedOption = selectEl.options[selectEl.selectedIndex];
+  const tipe = selectedOption?.dataset?.tipe || (document.querySelector('input[name="pensiun_dpcpTemplateSelectType"]:checked')?.value || 'gdocs');
+  const templateId = selectEl.value;
+
+  const btn = document.getElementById('pensiun_previewDpcpBtn');
+  setBtnLoading(btn, true, 'Membuat preview DPCP...');
+
+  const payload = {
+    templateId,
+    templateFileId: templateId,
+    layanan: 'Pensiun',
+    subLayanan: 'DPCP',
+    formData: fd,
+    entries: [{ formData: fd, targetNip: fd.nip }]
+  };
+
+  if (tipe === 'docx') {
+    showToast('info', 'Membuat preview DPCP (.docx)...');
+    google.script.run
+      .withSuccessHandler(res => {
+        setBtnLoading(btn, false, 'Preview DPCP');
+        if (res && res.success) {
+          if (res.outputType === 'pdf') {
+            openPreviewModal(res.pdfUrl);
+          } else {
+            openDocxPreviewModal(res.base64, res.fileName || 'Preview_DPCP.docx');
+          }
+        } else {
+          showToast('error', (res && res.message) || 'Gagal preview DPCP.');
+        }
+      })
+      .withFailureHandler(err => {
+        setBtnLoading(btn, false, 'Preview DPCP');
+        showToast('error', 'Gagal preview DPCP: ' + (err.message || err));
+      })
+      .previewDocumentVercel(SESSION.token, payload);
+  } else {
+    showToast('info', 'Membuat preview DPCP (Google Docs)...');
+    google.script.run
+      .withSuccessHandler(res => {
+        setBtnLoading(btn, false, 'Preview DPCP');
+        if (res && res.success) {
+          if (res.base64) {
+            const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
+            openPreviewModal(blobUrl);
+          } else if (res.previewUrl) {
+            openPreviewModal(res.previewUrl);
+          } else {
+            showToast('error', 'URL preview DPCP tidak ditemukan.');
+          }
+        } else {
+          showToast('error', (res && res.message) || 'Gagal preview DPCP.');
+        }
+      })
+      .withFailureHandler(err => {
+        setBtnLoading(btn, false, 'Preview DPCP');
+        showToast('error', 'Gagal preview DPCP: ' + (err.message || err));
+      })
+      .previewDocument(SESSION.token, payload);
+  }
 }
+
 function pensiunRunGenerateDpcp() {
   const fd = pensiunBuildFormData();
   if (!fd.nip) { showToast('error', 'Pilih pegawai terlebih dahulu.'); return; }
   if (!fd.jenis_pensiun) { showToast('error', 'Jenis Pensiun wajib dipilih.'); return; }
-  showToast('info', 'Memproses dokumen DPCP...');
-  google.script.run
-    .withSuccessHandler(res => {
-      if (res.success) { showToast('success', res.message); openPensiunResultModal(res, 'DPCP'); }
-      else showToast('error', res.message);
-    })
-    .withFailureHandler(err => showToast('error', 'Gagal generate DPCP: ' + (err.message || err)))
-    .generateDpcpDocument(SESSION.token, fd);
+
+  const selectEl = document.getElementById('pensiun_dpcpTemplateSelect');
+  if (!selectEl || !selectEl.value) {
+    showToast('error', 'Pilih template DPCP terlebih dahulu.');
+    return;
+  }
+  const selectedOption = selectEl.options[selectEl.selectedIndex];
+  const tipe = selectedOption?.dataset?.tipe || (document.querySelector('input[name="pensiun_dpcpTemplateSelectType"]:checked')?.value || 'gdocs');
+  const templateId = selectEl.value;
+
+  const btn = document.getElementById('pensiun_generateDpcpBtn');
+  setBtnLoading(btn, true, 'Memproses DPCP...');
+
+  const payload = {
+    templateId,
+    templateFileId: templateId,
+    layanan: 'Pensiun',
+    subLayanan: 'DPCP',
+    formData: fd,
+    entries: [{ formData: fd, targetNip: fd.nip }]
+  };
+
+  showToast('info', 'Memproses dokumen DPCP, mohon tunggu...');
+  if (tipe === 'docx') {
+    google.script.run
+      .withSuccessHandler(res => {
+        setBtnLoading(btn, false, 'Generate DPCP');
+        if (res && res.success) {
+          showToast('success', res.message || 'Dokumen DPCP berhasil dibuat.');
+          openPensiunResultModal(res, 'DPCP');
+        } else {
+          showToast('error', (res && res.message) || 'Gagal generate DPCP.');
+        }
+      })
+      .withFailureHandler(err => {
+        setBtnLoading(btn, false, 'Generate DPCP');
+        showToast('error', 'Gagal generate DPCP: ' + (err.message || err));
+      })
+      .generateDocumentVercel(SESSION.token, payload);
+  } else {
+    google.script.run
+      .withSuccessHandler(res => {
+        setBtnLoading(btn, false, 'Generate DPCP');
+        if (res && res.success) {
+          showToast('success', res.message || 'Dokumen DPCP berhasil dibuat.');
+          openPensiunResultModal(res, 'DPCP');
+        } else {
+          showToast('error', (res && res.message) || 'Gagal generate DPCP.');
+        }
+      })
+      .withFailureHandler(err => {
+        setBtnLoading(btn, false, 'Generate DPCP');
+        showToast('error', 'Gagal generate DPCP: ' + (err.message || err));
+      })
+      .generateDocument(SESSION.token, payload);
+  }
 }
+
 function pensiunRunPreviewSuper() {
   const fd = pensiunBuildFormData();
   if (!fd.nip) { showToast('error', 'Pilih pegawai terlebih dahulu.'); return; }
-  showToast('info', 'Membuat preview SUPER...');
-  google.script.run
-    .withSuccessHandler(res => res.success ? openPreviewModal(res.previewUrl) : showToast('error', res.message))
-    .withFailureHandler(err => showToast('error', 'Gagal preview SUPER: ' + (err.message || err)))
-    .previewSuperDocument(SESSION.token, fd);
+
+  const selectEl = document.getElementById('pensiun_superTemplateSelect');
+  if (!selectEl || !selectEl.value) {
+    showToast('error', 'Pilih template SUPER terlebih dahulu.');
+    return;
+  }
+  const selectedOption = selectEl.options[selectEl.selectedIndex];
+  const tipe = selectedOption?.dataset?.tipe || (document.querySelector('input[name="pensiun_superTemplateSelectType"]:checked')?.value || 'gdocs');
+  const templateId = selectEl.value;
+
+  const btn = document.getElementById('pensiun_previewSuperBtn');
+  setBtnLoading(btn, true, 'Membuat preview SUPER...');
+
+  const payload = {
+    templateId,
+    templateFileId: templateId,
+    layanan: 'Pensiun',
+    subLayanan: 'SUPER',
+    formData: fd,
+    entries: [{ formData: fd, targetNip: fd.nip }]
+  };
+
+  if (tipe === 'docx') {
+    showToast('info', 'Membuat preview SUPER (.docx)...');
+    google.script.run
+      .withSuccessHandler(res => {
+        setBtnLoading(btn, false, 'Preview SUPER');
+        if (res && res.success) {
+          if (res.outputType === 'pdf') {
+            openPreviewModal(res.pdfUrl);
+          } else {
+            openDocxPreviewModal(res.base64, res.fileName || 'Preview_SUPER.docx');
+          }
+        } else {
+          showToast('error', (res && res.message) || 'Gagal preview SUPER.');
+        }
+      })
+      .withFailureHandler(err => {
+        setBtnLoading(btn, false, 'Preview SUPER');
+        showToast('error', 'Gagal preview SUPER: ' + (err.message || err));
+      })
+      .previewDocumentVercel(SESSION.token, payload);
+  } else {
+    showToast('info', 'Membuat preview SUPER (Google Docs)...');
+    google.script.run
+      .withSuccessHandler(res => {
+        setBtnLoading(btn, false, 'Preview SUPER');
+        if (res && res.success) {
+          if (res.base64) {
+            const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
+            openPreviewModal(blobUrl);
+          } else if (res.previewUrl) {
+            openPreviewModal(res.previewUrl);
+          } else {
+            showToast('error', 'URL preview SUPER tidak ditemukan.');
+          }
+        } else {
+          showToast('error', (res && res.message) || 'Gagal preview SUPER.');
+        }
+      })
+      .withFailureHandler(err => {
+        setBtnLoading(btn, false, 'Preview SUPER');
+        showToast('error', 'Gagal preview SUPER: ' + (err.message || err));
+      })
+      .previewDocument(SESSION.token, payload);
+  }
 }
+
 function pensiunRunGenerateSuper() {
   const fd = pensiunBuildFormData();
   if (!fd.nip) { showToast('error', 'Pilih pegawai terlebih dahulu.'); return; }
-  showToast('info', 'Memproses dokumen SUPER...');
-  google.script.run
-    .withSuccessHandler(res => {
-      if (res.success) { showToast('success', res.message); openPensiunResultModal(res, 'SUPER'); }
-      else showToast('error', res.message);
-    })
-    .withFailureHandler(err => showToast('error', 'Gagal generate SUPER: ' + (err.message || err)))
-    .generateSuperDocument(SESSION.token, fd);
+
+  const selectEl = document.getElementById('pensiun_superTemplateSelect');
+  if (!selectEl || !selectEl.value) {
+    showToast('error', 'Pilih template SUPER terlebih dahulu.');
+    return;
+  }
+  const selectedOption = selectEl.options[selectEl.selectedIndex];
+  const tipe = selectedOption?.dataset?.tipe || (document.querySelector('input[name="pensiun_superTemplateSelectType"]:checked')?.value || 'gdocs');
+  const templateId = selectEl.value;
+
+  const btn = document.getElementById('pensiun_generateSuperBtn');
+  setBtnLoading(btn, true, 'Memproses SUPER...');
+
+  const payload = {
+    templateId,
+    templateFileId: templateId,
+    layanan: 'Pensiun',
+    subLayanan: 'SUPER',
+    formData: fd,
+    entries: [{ formData: fd, targetNip: fd.nip }]
+  };
+
+  showToast('info', 'Memproses dokumen SUPER, mohon tunggu...');
+  if (tipe === 'docx') {
+    google.script.run
+      .withSuccessHandler(res => {
+        setBtnLoading(btn, false, 'Generate SUPER');
+        if (res && res.success) {
+          showToast('success', res.message || 'Dokumen SUPER berhasil dibuat.');
+          openPensiunResultModal(res, 'SUPER');
+        } else {
+          showToast('error', (res && res.message) || 'Gagal generate SUPER.');
+        }
+      })
+      .withFailureHandler(err => {
+        setBtnLoading(btn, false, 'Generate SUPER');
+        showToast('error', 'Gagal generate SUPER: ' + (err.message || err));
+      })
+      .generateDocumentVercel(SESSION.token, payload);
+  } else {
+    google.script.run
+      .withSuccessHandler(res => {
+        setBtnLoading(btn, false, 'Generate SUPER');
+        if (res && res.success) {
+          showToast('success', res.message || 'Dokumen SUPER berhasil dibuat.');
+          openPensiunResultModal(res, 'SUPER');
+        } else {
+          showToast('error', (res && res.message) || 'Gagal generate SUPER.');
+        }
+      })
+      .withFailureHandler(err => {
+        setBtnLoading(btn, false, 'Generate SUPER');
+        showToast('error', 'Gagal generate SUPER: ' + (err.message || err));
+      })
+      .generateDocument(SESSION.token, payload);
+  }
 }
 
 /* ---------- BIND SEMUA EVENT MODUL PENSIUN ---------- */
@@ -6445,18 +6746,45 @@ function submitGenerateSkPensiunNonAsn() {
 
 function openSkPensiunResultModal(res) {
   document.getElementById('modalTitle').textContent = 'Penerbitan SK Pensiun Berhasil';
-  if (res.outputType === 'docx' && res.base64) {
+  const isDocx = res.outputType === 'docx' || (res.fileName && String(res.fileName).toLowerCase().endsWith('.docx')) || res.base64;
+
+  if (isDocx && res.base64) {
     const dataUrl = 'data:' + (res.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') + ';base64,' + res.base64;
+    const fileName = res.fileName || 'SK_Pensiun_Non_ASN.docx';
+
+    // Otomatis download file Word jika ms word
+    try {
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.warn('Auto download docx error:', e);
+    }
+
     document.getElementById('modalBody').innerHTML = `
       <div style="padding:24px; text-align:center;">
         <div style="font-size:40px; margin-bottom:12px;">🎉</div>
         <p style="margin-bottom:18px; font-size:14.5px;">SK Pensiun Pegawai Undip Non ASN berhasil diterbitkan sebagai berkas <strong>MS Word (.docx)</strong>.</p>
+        <p style="font-size:12.5px; color:var(--text-muted); margin-bottom:20px;">Unduhan berkas otomatis dimulai. Jika belum terunduh, klik tombol di bawah:</p>
         <div style="display:flex; justify-content:center; gap:10px;">
-          <a class="btn btn-primary" style="text-decoration:none; padding:10px 20px; font-size:14px; font-weight:600;" href="${dataUrl}" download="${res.fileName || 'SK_Pensiun_Non_ASN.docx'}">⬇ Unduh File SK Pensiun (.docx)</a>
+          <a class="btn btn-primary" style="text-decoration:none; padding:10px 20px; font-size:14px; font-weight:600;" href="${dataUrl}" download="${fileName}">⬇ Unduh File SK Pensiun (.docx)</a>
         </div>
       </div>`;
   } else {
-    const viewUrl = res.viewUrl || (res.fileId ? `https://docs.google.com/document/d/${res.fileId}/edit` : '#');
+    const viewUrl = res.docUrl || res.viewUrl || (res.fileId ? `https://docs.google.com/document/d/${res.fileId}/edit` : '#');
+
+    // Buka otomatis ke tab baru jika template GDocs
+    if (viewUrl && viewUrl !== '#') {
+      try {
+        window.open(viewUrl, '_blank', 'noopener,noreferrer');
+      } catch (e) {
+        console.warn('Auto window.open blocked:', e);
+      }
+    }
+
     document.getElementById('modalBody').innerHTML = `
       <div style="padding:24px; text-align:center;">
         <div style="font-size:40px; margin-bottom:12px;">🎉</div>
@@ -6604,8 +6932,13 @@ function submitPreviewSkPensiunNonAsn() {
 
       if (res.outputType === 'docx' && res.base64) {
         openDocxPreviewModal(res.base64, res.fileName || 'Preview_SK_Pensiun.docx');
+      } else if (res.base64 && res.outputType !== 'docx') {
+        const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
+        openPreviewModal(blobUrl);
       } else if (res.previewUrl) {
         openPreviewModal(res.previewUrl);
+      } else {
+        showToast('error', 'URL preview SK Pensiun tidak ditemukan.');
       }
     })
     .withFailureHandler(err => {

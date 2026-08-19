@@ -2492,11 +2492,13 @@ const methods = {
     if ((!data || data.length === 0) && (layanan || subMenu)) {
       const { data: allData } = await db.from('templates').select('*').order('dibuat_pada', { ascending: false });
       if (allData && allData.length > 0) {
-        return allData.map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, file_id: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || null, dibuatPada: t.dibuat_pada }));
+        const list = allData.map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, file_id: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || null, dibuatPada: t.dibuat_pada }));
+        return { success: true, templates: list };
       }
     }
 
-    return (data || []).map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, file_id: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || null, dibuatPada: t.dibuat_pada }));
+    const list = (data || []).map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, file_id: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || null, dibuatPada: t.dibuat_pada }));
+    return { success: true, templates: list };
   },
 
 
@@ -5690,6 +5692,156 @@ const methods = {
     };
   },
 
+  // ---- PENSIUN DPCP & SUPER HANDLERS ----
+
+  async previewDpcpDocument(args) {
+    const [token, formData] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+    const templateId = formData?.templateId || formData?.templateFileId;
+    const db = getDb();
+    let tmpl = null;
+    if (templateId) {
+      const { data } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
+      tmpl = data;
+    }
+    if (!tmpl) {
+      const { data } = await db.from('templates').select('*').eq('layanan', 'Pensiun').eq('sub_menu', 'DPCP').order('dibuat_pada', { ascending: false }).limit(1);
+      if (data && data.length) tmpl = data[0];
+    }
+    if (!tmpl) {
+      return { success: false, message: 'Template DPCP belum terdaftar. Tambahkan di menu Template.' };
+    }
+    const payload = {
+      templateId: tmpl.id,
+      templateFileId: tmpl.file_id || tmpl.id,
+      layanan: 'Pensiun',
+      subLayanan: 'DPCP',
+      formData: formData || {},
+      entries: [{ formData: formData || {}, targetNip: formData?.nip }]
+    };
+    if (tmpl.tipe === 'docx' || tmpl.file_id?.endsWith('.docx')) {
+      return methods.previewDocumentVercel([token, payload]);
+    }
+    return methods.previewDocument([token, payload]);
+  },
+
+  async generateDpcpDocument(args) {
+    const [token, formData] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    const templateId = formData?.templateId || formData?.templateFileId;
+    const db = getDb();
+    let tmpl = null;
+    if (templateId) {
+      const { data } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
+      tmpl = data;
+    }
+    if (!tmpl) {
+      const { data } = await db.from('templates').select('*').eq('layanan', 'Pensiun').eq('sub_menu', 'DPCP').order('dibuat_pada', { ascending: false }).limit(1);
+      if (data && data.length) tmpl = data[0];
+    }
+    if (!tmpl) {
+      return { success: false, message: 'Template DPCP belum terdaftar. Tambahkan di menu Template.' };
+    }
+    const payload = {
+      templateId: tmpl.id,
+      templateFileId: tmpl.file_id || tmpl.id,
+      layanan: 'Pensiun',
+      subLayanan: 'DPCP',
+      formData: formData || {},
+      entries: [{ formData: formData || {}, targetNip: formData?.nip }]
+    };
+
+    let res;
+    if (tmpl.tipe === 'docx' || tmpl.file_id?.endsWith('.docx')) {
+      res = await methods.generateDocumentVercel([token, payload]);
+    } else {
+      res = await methods.generateDocument([token, payload]);
+    }
+
+    if (res && res.success && formData?.nip) {
+      try {
+        await methods.tandaiDokumenPensiunSelesai([token, formData.nip, 'dpcp']);
+      } catch (err) {
+        console.warn('tandaiDokumenPensiunSelesai dpcp err:', err.message);
+      }
+    }
+    return res;
+  },
+
+  async previewSuperDocument(args) {
+    const [token, formData] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+    const templateId = formData?.templateId || formData?.templateFileId;
+    const db = getDb();
+    let tmpl = null;
+    if (templateId) {
+      const { data } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
+      tmpl = data;
+    }
+    if (!tmpl) {
+      const { data } = await db.from('templates').select('*').eq('layanan', 'Pensiun').eq('sub_menu', 'SUPER').order('dibuat_pada', { ascending: false }).limit(1);
+      if (data && data.length) tmpl = data[0];
+    }
+    if (!tmpl) {
+      return { success: false, message: 'Template SUPER belum terdaftar. Tambahkan di menu Template.' };
+    }
+    const payload = {
+      templateId: tmpl.id,
+      templateFileId: tmpl.file_id || tmpl.id,
+      layanan: 'Pensiun',
+      subLayanan: 'SUPER',
+      formData: formData || {},
+      entries: [{ formData: formData || {}, targetNip: formData?.nip }]
+    };
+    if (tmpl.tipe === 'docx' || tmpl.file_id?.endsWith('.docx')) {
+      return methods.previewDocumentVercel([token, payload]);
+    }
+    return methods.previewDocument([token, payload]);
+  },
+
+  async generateSuperDocument(args) {
+    const [token, formData] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    const templateId = formData?.templateId || formData?.templateFileId;
+    const db = getDb();
+    let tmpl = null;
+    if (templateId) {
+      const { data } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
+      tmpl = data;
+    }
+    if (!tmpl) {
+      const { data } = await db.from('templates').select('*').eq('layanan', 'Pensiun').eq('sub_menu', 'SUPER').order('dibuat_pada', { ascending: false }).limit(1);
+      if (data && data.length) tmpl = data[0];
+    }
+    if (!tmpl) {
+      return { success: false, message: 'Template SUPER belum terdaftar. Tambahkan di menu Template.' };
+    }
+    const payload = {
+      templateId: tmpl.id,
+      templateFileId: tmpl.file_id || tmpl.id,
+      layanan: 'Pensiun',
+      subLayanan: 'SUPER',
+      formData: formData || {},
+      entries: [{ formData: formData || {}, targetNip: formData?.nip }]
+    };
+
+    let res;
+    if (tmpl.tipe === 'docx' || tmpl.file_id?.endsWith('.docx')) {
+      res = await methods.generateDocumentVercel([token, payload]);
+    } else {
+      res = await methods.generateDocument([token, payload]);
+    }
+
+    if (res && res.success && formData?.nip) {
+      try {
+        await methods.tandaiDokumenPensiunSelesai([token, formData.nip, 'super']);
+      } catch (err) {
+        console.warn('tandaiDokumenPensiunSelesai super err:', err.message);
+      }
+    }
+    return res;
+  },
+
   // ---- GLOSARIUM TAG ----
 
   async getGlosariumTag(args) {
@@ -6272,18 +6424,6 @@ const methods = {
     }
 
     return { success: false, message: 'sourceType tidak dikenali' };
-  },
-
-  async getTemplates(args) {
-    const [token, layanan, sub_menu] = extractArgs(args);
-    verifyToken(token);
-    const db = getDb();
-    let q = db.from('templates').select('*');
-    if (layanan)  q = q.eq('layanan', layanan);
-    if (sub_menu) q = q.eq('sub_menu', sub_menu);
-    const { data, error } = await q.order('dibuat_pada', { ascending: false });
-    if (error) throw error;
-    return { success: true, templates: data || [] };
   },
 
   async deleteTemplate(args) {
@@ -6965,6 +7105,27 @@ const methods = {
               entry.dataContext.gender = formattedJnsKel;
               entry.dataContext.GENDER = formattedJnsKel;
             }
+          } else if (enrichedPayload.layanan === 'Pensiun') {
+            if (enrichedPayload.subLayanan === 'DPCP' || String(enrichedPayload.subLayanan).toUpperCase().includes('DPCP')) {
+              entry.dataContext = rpcBuildDpcpContext(entry.formData);
+            } else if (enrichedPayload.subLayanan === 'SUPER' || String(enrichedPayload.subLayanan).toUpperCase().includes('SUPER')) {
+              entry.dataContext = rpcBuildSuperContext(entry.formData);
+            } else {
+              const now = new Date();
+              const tglSekarang = formatTanggalIndonesia(now);
+              const rawDataCtx = {
+                ...employee,
+                today: tglSekarang,
+                tanggal_sk: tglSekarang,
+                tgl_sk: tglSekarang,
+                tgl_buat: tglSekarang,
+                tanggal_buat: tglSekarang,
+                tgl_generate: tglSekarang,
+                ...entry.formData
+              };
+              const isDpcp = String(enrichedPayload.subLayanan || '').toUpperCase().includes('DPCP');
+              entry.dataContext = processDataCtxFormatting(rawDataCtx, isDpcp);
+            }
           }
         }
       }
@@ -7072,6 +7233,27 @@ const methods = {
               entry.dataContext.JENIS_KELAMIN = formattedJnsKel;
               entry.dataContext.gender = formattedJnsKel;
               entry.dataContext.GENDER = formattedJnsKel;
+            }
+          } else if (enrichedPayload.layanan === 'Pensiun') {
+            if (enrichedPayload.subLayanan === 'DPCP' || String(enrichedPayload.subLayanan).toUpperCase().includes('DPCP')) {
+              entry.dataContext = rpcBuildDpcpContext(entry.formData);
+            } else if (enrichedPayload.subLayanan === 'SUPER' || String(enrichedPayload.subLayanan).toUpperCase().includes('SUPER')) {
+              entry.dataContext = rpcBuildSuperContext(entry.formData);
+            } else {
+              const now = new Date();
+              const tglSekarang = formatTanggalIndonesia(now);
+              const rawDataCtx = {
+                ...employee,
+                today: tglSekarang,
+                tanggal_sk: tglSekarang,
+                tgl_sk: tglSekarang,
+                tgl_buat: tglSekarang,
+                tanggal_buat: tglSekarang,
+                tgl_generate: tglSekarang,
+                ...entry.formData
+              };
+              const isDpcp = String(enrichedPayload.subLayanan || '').toUpperCase().includes('DPCP');
+              entry.dataContext = processDataCtxFormatting(rawDataCtx, isDpcp);
             }
           }
         }
@@ -7527,10 +7709,25 @@ const methods = {
         dataCtx.jenis_kelamin = formattedJnsKel;
       }
     } else if (layanan === 'Pensiun') {
-      if (subLayanan === 'DPCP') {
+      if (subLayanan === 'DPCP' || String(subLayanan).toUpperCase().includes('DPCP')) {
         dataCtx = rpcBuildDpcpContext(firstEntry.formData);
-      } else {
+      } else if (subLayanan === 'SUPER' || String(subLayanan).toUpperCase().includes('SUPER')) {
         dataCtx = rpcBuildSuperContext(firstEntry.formData);
+      } else {
+        const now = new Date();
+        const tglSekarang = formatTanggalIndonesia(now);
+        const rawDataCtx = {
+          ...employee,
+          today: tglSekarang,
+          tanggal_sk: tglSekarang,
+          tgl_sk: tglSekarang,
+          tgl_buat: tglSekarang,
+          tanggal_buat: tglSekarang,
+          tgl_generate: tglSekarang,
+          ...firstEntry.formData
+        };
+        const isDpcp = String(subLayanan || '').toUpperCase().includes('DPCP');
+        dataCtx = processDataCtxFormatting(rawDataCtx, isDpcp);
       }
     } else {
       dataCtx = buildKontrakDataContext(null, firstEntry.formData);
@@ -7607,10 +7804,25 @@ const methods = {
         dataCtx.jenis_kelamin = formattedJnsKel;
       }
     } else if (layanan === 'Pensiun') {
-      if (subLayanan === 'DPCP') {
+      if (subLayanan === 'DPCP' || String(subLayanan).toUpperCase().includes('DPCP')) {
         dataCtx = rpcBuildDpcpContext(firstEntry.formData);
-      } else {
+      } else if (subLayanan === 'SUPER' || String(subLayanan).toUpperCase().includes('SUPER')) {
         dataCtx = rpcBuildSuperContext(firstEntry.formData);
+      } else {
+        const now = new Date();
+        const tglSekarang = formatTanggalIndonesia(now);
+        const rawDataCtx = {
+          ...employee,
+          today: tglSekarang,
+          tanggal_sk: tglSekarang,
+          tgl_sk: tglSekarang,
+          tgl_buat: tglSekarang,
+          tanggal_buat: tglSekarang,
+          tgl_generate: tglSekarang,
+          ...firstEntry.formData
+        };
+        const isDpcp = String(subLayanan || '').toUpperCase().includes('DPCP');
+        dataCtx = processDataCtxFormatting(rawDataCtx, isDpcp);
       }
     } else {
       dataCtx = buildKontrakDataContext(null, firstEntry.formData);
