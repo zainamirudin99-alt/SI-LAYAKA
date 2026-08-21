@@ -143,15 +143,26 @@ function logout(sessionToken) {
   return { success: true };
 }
 
-/**
- * Validasi token sesi. Melempar Error bila tidak valid/kedaluwarsa
- * (dipakai sebagai guard di semua fungsi backend yang butuh login).
- * @return {Object} data pegawai lengkap dari cache
- */
 function requireSession_(sessionToken) {
-  if (!sessionToken) throw new Error('Sesi tidak ditemukan. Silakan login kembali.');
+  if (!sessionToken) {
+    if (typeof _CURRENT_REMOTE_SESSION_ !== 'undefined' && _CURRENT_REMOTE_SESSION_) {
+      return _CURRENT_REMOTE_SESSION_;
+    }
+    throw new Error('Sesi tidak ditemukan. Silakan login kembali.');
+  }
   const tokenStr = String(sessionToken).trim();
   
+  // 1. Fallback in-memory session dari request doPost Vercel saat ini
+  if (typeof _CURRENT_REMOTE_SESSION_ !== 'undefined' && _CURRENT_REMOTE_SESSION_) {
+    if (typeof _CURRENT_REMOTE_SESSION_ID_ !== 'undefined' && _CURRENT_REMOTE_SESSION_ID_ === tokenStr) {
+      return _CURRENT_REMOTE_SESSION_;
+    }
+    if (tokenStr.split('.').length === 3 || tokenStr.length < 50) {
+      return _CURRENT_REMOTE_SESSION_;
+    }
+  }
+
+  // 2. Decode JWT langsung bila token berformat header.payload.signature
   if (tokenStr.split('.').length === 3) {
     try {
       const payloadJson = Utilities.newBlob(Utilities.base64Decode(tokenStr.split('.')[1])).getDataAsString();
@@ -166,11 +177,20 @@ function requireSession_(sessionToken) {
     } catch (jwtErr) {}
   }
 
+  // 3. Cek ScriptCache
   const cache = CacheService.getScriptCache();
   const safeKey = tokenStr.length > 200 ? ('session_' + tokenStr.substring(0, 200)) : ('session_' + tokenStr);
   const raw = cache.get(safeKey);
-  if (!raw) throw new Error('Sesi telah berakhir. Silakan login kembali.');
-  return JSON.parse(raw);
+  if (raw) {
+    try { return JSON.parse(raw); } catch (_) {}
+  }
+
+  // 4. Fallback jika _CURRENT_REMOTE_SESSION_ ada (eksekusi doPost)
+  if (typeof _CURRENT_REMOTE_SESSION_ !== 'undefined' && _CURRENT_REMOTE_SESSION_) {
+    return _CURRENT_REMOTE_SESSION_;
+  }
+
+  throw new Error('Sesi telah berakhir. Silakan login kembali.');
 }
 
 /** Dipanggil client untuk cek apakah sesi masih valid setelah reload. */

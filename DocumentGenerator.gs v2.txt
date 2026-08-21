@@ -788,6 +788,9 @@ function generateKontrakDocument(sessionToken, payload) {
   }
 }
 
+var _CURRENT_REMOTE_SESSION_ = null;
+var _CURRENT_REMOTE_SESSION_ID_ = null;
+
 /**
  * ENTRY POINT WEB APP: Menerima request rpc dari Vercel
  * untuk meng-generate / preview Google Docs.
@@ -803,6 +806,8 @@ function doPost(e) {
     // sebagai key CacheService. Data user yang sudah diverifikasi dikirim
     // via field "remoteSession" dan di-inject ke sini sebelum fungsi dipakai.
     if (postData.remoteSession && postData.remoteSession.id && postData.remoteSession.data) {
+      _CURRENT_REMOTE_SESSION_ = postData.remoteSession.data;
+      _CURRENT_REMOTE_SESSION_ID_ = postData.remoteSession.id;
       try {
         const cache = CacheService.getScriptCache();
         const key   = 'session_' + postData.remoteSession.id;
