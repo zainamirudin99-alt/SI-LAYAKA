@@ -552,16 +552,48 @@ function pensiunGen_buildSuperContext_(formData) {
   formData = formData || {};
   const fmtTmtGol = pensiunGen_tanggalBiasa_(formData.tmt_gol);
   const pangkatGabungan = `${formData.pangkat || ''}/${formData.golongan || ''}/${fmtTmtGol}`;
+  const tglSuper = pensiunGen_tanggalBiasa_(new Date());
+  const rawNama = formData.nama_lengkap || formData.nama || '';
+  const unitKerja = formData.unit_es_ii || formData.unit_kerja || '';
 
-  return {
+  const ctx = Object.assign({}, formData, {
     nomor_super_tidak_hukdis_sedangberat: formData.nomor_super_tidak_hukdis_sedangberat || '',
-    nama_lengkap: formData.nama_lengkap || '',
+    nomor_super_pidana: formData.nomor_super_pidana || '',
+    nama_lengkap: rawNama,
+    nama: rawNama,
+    NAMA_LENGKAP: rawNama,
+    NAMA: rawNama,
     nip: formData.nip || '',
+    NIP: formData.nip || '',
     pangkat: pangkatGabungan,
+    PANGKAT: pangkatGabungan,
+    golongan: formData.golongan || '',
+    GOLONGAN: formData.golongan || '',
+    tmt_gol: fmtTmtGol,
+    TMT_GOL: fmtTmtGol,
     jabatan: formData.jabatan || '',
-    tanggal_super: pensiunGen_tanggalBiasa_(new Date()),
-    nomor_super_pidana: formData.nomor_super_pidana || ''
-  };
+    JABATAN: formData.jabatan || '',
+    unit_es_ii: unitKerja,
+    UNIT_ES_II: unitKerja,
+    unit_kerja: unitKerja,
+    UNIT_KERJA: unitKerja,
+    tanggal_super: tglSuper,
+    TANGGAL_SUPER: tglSuper,
+    tgl_super: tglSuper,
+    TGL_SUPER: tglSuper,
+    today: tglSuper,
+    TODAY: tglSuper,
+    tgl_buat: tglSuper,
+    TGL_BUAT: tglSuper,
+    tanggal_buat: tglSuper,
+    TANGGAL_BUAT: tglSuper,
+    tmp_lhr: formData.tmp_lhr || '',
+    tgl_lhr: formData.tgl_lhr ? pensiunGen_tanggalBiasa_(formData.tgl_lhr) : '',
+    tempat_lahir: formData.tmp_lhr || '',
+    tanggal_lahir: formData.tgl_lhr ? pensiunGen_tanggalBiasa_(formData.tgl_lhr) : ''
+  });
+
+  return ctx;
 }
 
 /** Opsi dropdown untuk form DPCP (Jenis Pensiun). */
