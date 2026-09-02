@@ -13077,6 +13077,78 @@ function downloadBase64File_(base64Data, filename, mimeType = 'application/vnd.o
   }
 }
 
+function openEvaluasiResultModal(res, isPreview = false) {
+  const modalTitle = document.getElementById('modalTitle');
+  const modalBody = document.getElementById('modalBody');
+  const modalOverlay = document.getElementById('modalOverlay');
+  if (!modalOverlay || !modalBody) return;
+
+  modalOverlay.style.zIndex = '9999';
+
+  modalTitle.textContent = isPreview 
+    ? '👁️ Pratinjau Formulir Evaluasi Kinerja Tenaga Kependidikan'
+    : '🎉 Formulir Evaluasi Kinerja Berhasil Digenerate';
+
+  const gdocsUrl = res.gdocsUrl || res.viewUrl || (res.docUrl && res.docUrl.includes('docs.google.com') ? res.docUrl : '');
+  const isGdocs = !!(gdocsUrl && gdocsUrl.includes('docs.google.com'));
+  const fileName = res.fileName || (isPreview ? 'Preview_Formulir_Evaluasi.docx' : 'Formulir_Evaluasi_TKK.docx');
+
+  let buttonsHtml = '';
+  if (isGdocs) {
+    buttonsHtml += `
+      <a href="${gdocsUrl}" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none; padding:10px 22px; font-weight:700; font-size:13.5px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);">
+        📄 Buka Dokumen Google Docs ↗
+      </a>
+    `;
+  }
+  if (res.base64) {
+    buttonsHtml += `
+      <button type="button" class="btn btn-primary" style="padding:10px 22px; font-weight:700; font-size:13.5px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" onclick="downloadBase64File_('${res.base64}', '${escapeHtml(fileName)}')">
+        📥 Unduh Dokumen Word (.docx)
+      </button>
+    `;
+  } else if (res.docUrl && !isGdocs) {
+    buttonsHtml += `
+      <a href="${res.docUrl}" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none; padding:10px 22px; font-weight:700; font-size:13.5px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);">
+        📥 Unduh / Buka Dokumen Word (.docx)
+      </a>
+    `;
+  }
+
+  modalBody.innerHTML = `
+    <div style="padding:20px 24px;">
+      <div style="text-align:center; margin-bottom:18px;">
+        <div style="font-size:36px; margin-bottom:8px;">${isPreview ? '📋' : '🎉'}</div>
+        <h3 style="margin:0 0 6px 0; color:var(--text, #0f172a); font-size:17px; font-weight:700;">
+          ${isPreview ? 'Dokumen Pratinjau Evaluasi Kinerja (TKK)' : 'Formulir Evaluasi Kinerja Siap Digunakan'}
+        </h3>
+        <p style="margin:0; color:var(--text-muted, #64748b); font-size:13px;">
+          ${isPreview ? 'Berikut pratinjau dokumen formulir evaluasi kinerja. Anda dapat membukanya atau mengunduhnya di bawah ini.' : 'Dokumen evaluasi kinerja telah berhasil dibuat dan disimpan.'}
+        </p>
+      </div>
+
+      <div style="background:var(--surface-alt, #f8fafc); border:1px solid var(--border, #e2e8f0); border-radius:10px; padding:14px 18px; margin-bottom:18px; font-size:13px;">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px;">
+          <div><strong>Total Skor Kinerja:</strong> <span style="color:#2563eb; font-weight:700;">${escapeHtml(String(res.totalSkor || '-'))} / 21</span></div>
+          <div><strong>Rekomendasi Atasan:</strong> <span style="font-weight:700; color:${res.status === 'evaluated_extend' || Number(res.totalSkor) >= 11 ? '#16a34a' : '#dc2626'};">${escapeHtml(res.rekomendasi || '-')}</span></div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:center; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+        ${buttonsHtml}
+      </div>
+
+      ${isGdocs ? `
+        <div style="margin-top:14px; border:1px solid var(--border, #cbd5e1); border-radius:8px; overflow:hidden; height:450px; background:#fff;">
+          <iframe src="${gdocsUrl.replace('/edit', '/preview')}" style="width:100%; height:100%; border:none;" title="Preview Dokumen Google Docs"></iframe>
+        </div>
+      ` : ''}
+    </div>
+  `;
+
+  modalOverlay.style.display = 'flex';
+}
+
 async function previewDocxEvaluasiTkk() {
   if (!activeEvaluasiUsulanId) return;
   const payload = collectEvaluasiTkkPayload();
@@ -13085,12 +13157,8 @@ async function previewDocxEvaluasiTkk() {
   try {
     const res = await rpc('simpanDanGenerateEvaluasiTkk', [SESSION.token, activeEvaluasiUsulanId, payload, true]);
     if (res && res.success) {
-      showToast('success', 'Preview dokumen evaluasi berhasil dibuat.');
-      if (res.base64) {
-        downloadBase64File_(res.base64, res.fileName || 'Formulir_Evaluasi_Preview.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-      } else if (res.docUrl) {
-        window.open(res.docUrl, '_blank');
-      }
+      showToast('success', 'Pratinjau formulir evaluasi berhasil dibuat.');
+      openEvaluasiResultModal(res, true);
     } else {
       showToast('error', res?.message || 'Gagal membuat preview formulir evaluasi.');
     }
@@ -13116,11 +13184,9 @@ async function simpanEvaluasiTkkFinal() {
     setBtnLoading(btn, false, '💾 Simpan & Generate Dokumen (.docx)');
     if (res && res.success) {
       showToast('success', res.message || 'Evaluasi kinerja berhasil disimpan & dokumen tergenerate.');
-      if (res.base64) {
-        downloadBase64File_(res.base64, res.fileName || 'Formulir_Evaluasi_TKK.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-      }
       tutupModalEvaluasiTkk();
       loadKontrakAtasanReviewList();
+      openEvaluasiResultModal(res, false);
     } else {
       showToast('error', res?.message || 'Gagal menyimpan evaluasi.');
     }

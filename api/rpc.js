@@ -7475,6 +7475,8 @@ const methods = {
     // Cari template kustom di database tabel templates
     let renderedBuffer = null;
     let usedCustomTemplate = false;
+    let gdocsViewUrl = '';
+
     try {
       const { data: tmplList } = await db.from('templates')
         .select('*')
@@ -7483,7 +7485,36 @@ const methods = {
         .limit(1);
 
       if (tmplList && tmplList.length > 0 && tmplList[0].file_id) {
-        const tmplBuf = await downloadTemplateBuffer(tmplList[0].file_id);
+        const tmpl = tmplList[0];
+        const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+
+        // Jika template berupa Google Docs dan GAS aktif, buat salinan Google Docs
+        if (tmpl.tipe === 'gdocs' && gasUrl) {
+          try {
+            const shortId = uuidv4();
+            const gasResp = await fetch(gasUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                method: 'generateKontrakFromUsulan',
+                params: [shortId, tmpl.file_id, Object.assign({}, dataCtx, {
+                  namaPegawai: usulan.nama,
+                  nipPegawai: usulan.nip,
+                  fileName: `Evaluasi_${usulan.nama}_${usulan.nip}`
+                })],
+                remoteSession: { id: shortId, data: { nip: decoded.nip, nama: decoded.nama, role: 'admin' } }
+              })
+            });
+            const gasJson = await gasResp.json();
+            if (gasJson && gasJson.success) {
+              gdocsViewUrl = gasJson.viewUrl || gasJson.docViewUrl || gasJson.url || (gasJson.fileId ? `https://docs.google.com/document/d/${gasJson.fileId}/edit` : '');
+            }
+          } catch (gErr) {
+            console.warn('[simpanDanGenerateEvaluasiTkk] GAS Google Docs generation notice:', gErr.message);
+          }
+        }
+
+        const tmplBuf = await downloadTemplateBuffer(tmpl.file_id);
         if (tmplBuf) {
           renderedBuffer = docxRenderTemplate(tmplBuf, dataCtx);
           usedCustomTemplate = true;
@@ -7501,8 +7532,11 @@ const methods = {
       return {
         success: true,
         isPreview: true,
-        base64: renderedBuffer.toString('base64'),
+        base64: renderedBuffer ? renderedBuffer.toString('base64') : null,
         fileName: `Preview_Evaluasi_${usulan.nama}_${usulan.nip}.docx`,
+        gdocsUrl: gdocsViewUrl,
+        viewUrl: gdocsViewUrl,
+        docUrl: gdocsViewUrl || null,
         totalSkor,
         rekomendasi: dataCtx.rekomendasi,
         status: newStatus
@@ -7511,11 +7545,14 @@ const methods = {
 
     // Upload dokumen hasil evaluasi ke Supabase Storage
     const fileNameSafe = `Formulir_Evaluasi_TKK_${String(usulan.nama).replace(/[^a-zA-Z0-9_-]/g, '_')}_${usulan.nip}.docx`;
-    const docB64 = renderedBuffer.toString('base64');
+    const docB64 = renderedBuffer ? renderedBuffer.toString('base64') : '';
     const docDataUrl = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${docB64}`;
-    let evalDocUrl = '';
+    let evalDocUrl = gdocsViewUrl || '';
     try {
-      evalDocUrl = await uploadLampiran(docDataUrl, fileNameSafe, 'evaluasi-tkk');
+      if (docB64) {
+        const supUrl = await uploadLampiran(docDataUrl, fileNameSafe, 'evaluasi-tkk');
+        if (!evalDocUrl) evalDocUrl = supUrl;
+      }
     } catch (eUp) {
       console.warn('[simpanDanGenerateEvaluasiTkk] Supabase upload warning:', eUp.message);
     }
@@ -7523,7 +7560,7 @@ const methods = {
     // Upload & simpan ke Google Drive folder root (1i6ePepJQzOm2HxVzevvEYWF5L6xR5Bue)
     const gasUrl = process.env.GOOGLE_SCRIPT_URL;
     let gdriveFolderId = '', gdriveFileId = '';
-    if (gasUrl) {
+    if (gasUrl && docB64) {
       try {
         const shortId = uuidv4();
         const gasResp = await fetch(gasUrl, {
@@ -7572,6 +7609,9 @@ const methods = {
       message: `Formulir Evaluasi Kinerja berhasil disimpan & digenerate. Status usulan: "${newStatus}". Rekomendasi: "${dataCtx.rekomendasi}".`,
       base64: docB64,
       docUrl: evalDocUrl,
+      gdocsUrl: gdocsViewUrl,
+      viewUrl: gdocsViewUrl || evalDocUrl,
+      fileName: fileNameSafe,
       totalSkor,
       rekomendasi: dataCtx.rekomendasi,
       status: newStatus
