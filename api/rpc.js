@@ -6645,7 +6645,7 @@ const methods = {
         });
 
         (gabungan.match(/(?<!\{)\{#(\w+)\}(?!\})/g) || []).forEach(m => tagLoopValid.add(m));
-        (gabungan.match(/(?<!\{)\\{\/(\w+)\}(?!\})/g) || []).forEach(m => tagLoopValid.add(m));
+        (gabungan.match(/(?<!\{)\{\/(\w+)\}(?!\})/g) || []).forEach(m => tagLoopValid.add(m));
         (gabungan.match(/\{\{#(\w+)\}\}/g) || []).forEach(m => tagLoopValid.add(m));
         (gabungan.match(/\{\{\/(\w+)\}\}/g) || []).forEach(m => tagLoopValid.add(m));
 
