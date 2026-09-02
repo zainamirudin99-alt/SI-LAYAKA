@@ -9231,6 +9231,37 @@ function collectEvaluasiTkkPayload() {
   };
 }
 
+function downloadBase64File_(base64Data, filename, mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+  if (!base64Data) return;
+  try {
+    const raw = base64Data.replace(/^data:.*?;base64,/, '');
+    const byteCharacters = atob(raw);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || 'Formulir_Evaluasi.docx';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 200);
+  } catch (err) {
+    const a = document.createElement('a');
+    a.href = base64Data.startsWith('data:') ? base64Data : `data:${mimeType};base64,${base64Data}`;
+    a.download = filename || 'Formulir_Evaluasi.docx';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => document.body.removeChild(a), 200);
+  }
+}
+
 async function previewDocxEvaluasiTkk() {
   if (!activeEvaluasiUsulanId) return;
   const payload = collectEvaluasiTkkPayload();
@@ -9239,7 +9270,7 @@ async function previewDocxEvaluasiTkk() {
   try {
     const res = await rpc('simpanDanGenerateEvaluasiTkk', [SESSION.token, activeEvaluasiUsulanId, payload, true]);
     if (res && res.success) {
-      showToast('success', 'Preview berhasil dibuat.');
+      showToast('success', 'Preview dokumen evaluasi berhasil dibuat.');
       if (res.base64) {
         downloadBase64File_(res.base64, res.fileName || 'Formulir_Evaluasi_Preview.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
       } else if (res.docUrl) {
@@ -9270,6 +9301,9 @@ async function simpanEvaluasiTkkFinal() {
     setBtnLoading(btn, false, '💾 Simpan & Generate Dokumen (.docx)');
     if (res && res.success) {
       showToast('success', res.message || 'Evaluasi kinerja berhasil disimpan & dokumen tergenerate.');
+      if (res.base64) {
+        downloadBase64File_(res.base64, res.fileName || 'Formulir_Evaluasi_TKK.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      }
       tutupModalEvaluasiTkk();
       loadKontrakAtasanReviewList();
     } else {

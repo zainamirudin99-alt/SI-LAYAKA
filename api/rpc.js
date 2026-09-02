@@ -699,13 +699,13 @@ function buildEvaluasiTkkDataContext(usulan, evalData, empData, atasanEmp) {
   const tglBuat = (evalData && evalData.tgl_buat) || formatTanggalIndonesia(now);
 
   const ed = evalData || {};
-  const p1 = Math.max(1, Math.min(3, Number(ed.orientasi_pelayanan || 1)));
-  const p2 = Math.max(1, Math.min(3, Number(ed.inisiatif_kerja || 1)));
-  const p3 = Math.max(1, Math.min(3, Number(ed.komitmen || 1)));
-  const p4 = Math.max(1, Math.min(3, Number(ed.kerjasama || 1)));
-  const p5 = Math.max(1, Math.min(3, Number(ed.kehadiran || 1)));
-  const p6 = Math.max(1, Math.min(3, Number(ed.disiplin || 1)));
-  const p7 = Math.max(1, Math.min(3, Number(ed.hasil_kerja || 1)));
+  const p1 = Math.max(1, Math.min(3, Number(ed.orientasi_pelayanan || (ed.kriteria && ed.kriteria[0]) || 1)));
+  const p2 = Math.max(1, Math.min(3, Number(ed.inisiatif_kerja || (ed.kriteria && ed.kriteria[1]) || 1)));
+  const p3 = Math.max(1, Math.min(3, Number(ed.komitmen || (ed.kriteria && ed.kriteria[2]) || 1)));
+  const p4 = Math.max(1, Math.min(3, Number(ed.kerjasama || (ed.kriteria && ed.kriteria[3]) || 1)));
+  const p5 = Math.max(1, Math.min(3, Number(ed.kehadiran || (ed.kriteria && ed.kriteria[4]) || 1)));
+  const p6 = Math.max(1, Math.min(3, Number(ed.disiplin || (ed.kriteria && ed.kriteria[5]) || 1)));
+  const p7 = Math.max(1, Math.min(3, Number(ed.hasil_kerja || (ed.kriteria && ed.kriteria[6]) || 1)));
 
   const totalSkor = p1 + p2 + p3 + p4 + p5 + p6 + p7;
   const isExtend = totalSkor > 10.5; // (>= 11)
@@ -747,7 +747,7 @@ function buildEvaluasiTkkDataContext(usulan, evalData, empData, atasanEmp) {
     nip_atasan_langsung: nipAtasan,
     total_tahun_perpanjangan: String(totalTahunPerpanjangan),
     rekomendasi: rekomendasi,
-    ttd: ed.ttd || ''
+    ttd: ed.ttd || ed.ttd_base64 || ''
   };
 }
 
@@ -7448,19 +7448,20 @@ const methods = {
     };
 
     const ed = evalPayload || {};
-    const p1 = Number(ed.orientasi_pelayanan || 0);
-    const p2 = Number(ed.inisiatif_kerja || 0);
-    const p3 = Number(ed.komitmen || 0);
-    const p4 = Number(ed.kerjasama || 0);
-    const p5 = Number(ed.kehadiran || 0);
-    const p6 = Number(ed.disiplin || 0);
-    const p7 = Number(ed.hasil_kerja || 0);
+    const p1 = Number(ed.orientasi_pelayanan || (ed.kriteria && ed.kriteria[0]) || 0);
+    const p2 = Number(ed.inisiatif_kerja || (ed.kriteria && ed.kriteria[1]) || 0);
+    const p3 = Number(ed.komitmen || (ed.kriteria && ed.kriteria[2]) || 0);
+    const p4 = Number(ed.kerjasama || (ed.kriteria && ed.kriteria[3]) || 0);
+    const p5 = Number(ed.kehadiran || (ed.kriteria && ed.kriteria[4]) || 0);
+    const p6 = Number(ed.disiplin || (ed.kriteria && ed.kriteria[5]) || 0);
+    const p7 = Number(ed.hasil_kerja || (ed.kriteria && ed.kriteria[6]) || 0);
+    const ttdSig = ed.ttd || ed.ttd_base64 || '';
 
     if (!isPreviewOnly) {
       if ([p1, p2, p3, p4, p5, p6, p7].some(v => v < 1 || v > 3)) {
         return { success: false, message: 'Semua 7 kriteria penilaian wajib diisi dengan skor 1 s.d. 3.' };
       }
-      if (!ed.ttd || !String(ed.ttd).trim()) {
+      if (!ttdSig || !String(ttdSig).trim()) {
         return { success: false, message: 'Tanda tangan atasan langsung pada signature pad wajib diisi.' };
       }
     }
@@ -7469,7 +7470,7 @@ const methods = {
     const isExtend = totalSkor > 10.5; // (>= 11)
     const newStatus = isExtend ? 'evaluated_extend' : 'evaluated_not_extend';
 
-    const dataCtx = buildEvaluasiTkkDataContext(usulan, ed, empData, atasanEmp);
+    const dataCtx = buildEvaluasiTkkDataContext(usulan, Object.assign({}, ed, { ttd: ttdSig }), empData, atasanEmp);
 
     // Cari template kustom di database tabel templates
     let renderedBuffer = null;
@@ -7477,14 +7478,16 @@ const methods = {
     try {
       const { data: tmplList } = await db.from('templates')
         .select('*')
-        .ilike('layanan', '%Kontrak%')
+        .or('layanan.ilike.%Kontrak%,layanan.ilike.%Evaluasi%')
         .ilike('sub_menu', '%Evaluasi%')
         .limit(1);
 
-      if (tmplList && tmplList.length > 0 && tmplList[0].tipe === 'docx') {
+      if (tmplList && tmplList.length > 0 && tmplList[0].file_id) {
         const tmplBuf = await downloadTemplateBuffer(tmplList[0].file_id);
-        renderedBuffer = docxRenderTemplate(tmplBuf, dataCtx);
-        usedCustomTemplate = true;
+        if (tmplBuf) {
+          renderedBuffer = docxRenderTemplate(tmplBuf, dataCtx);
+          usedCustomTemplate = true;
+        }
       }
     } catch (tmplE) {
       console.warn('[simpanDanGenerateEvaluasiTkk] Custom template fetch warning:', tmplE.message);
