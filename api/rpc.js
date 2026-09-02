@@ -6644,12 +6644,12 @@ const methods = {
           });
         });
 
-        (gabungan.match(/(?<!\{)\{#(\w+)\}(?!\})/g) || []).forEach(m => tagLoopValid.add(m));
-        (gabungan.match(/(?<!\{)\{\/(\w+)\}(?!\})/g) || []).forEach(m => tagLoopValid.add(m));
-        (gabungan.match(/\{\{#(\w+)\}\}/g) || []).forEach(m => tagLoopValid.add(m));
-        (gabungan.match(/\{\{\/(\w+)\}\}/g) || []).forEach(m => tagLoopValid.add(m));
+        (gabungan.match(/\{#\w+\}/g) || []).forEach(m => tagLoopValid.add(m));
+        (gabungan.match(/\{\/\w+\}/g) || []).forEach(m => tagLoopValid.add(m));
+        (gabungan.match(/\{\{#\w+\}\}/g) || []).forEach(m => tagLoopValid.add(m));
+        (gabungan.match(/\{\{\/\w+\}\}/g) || []).forEach(m => tagLoopValid.add(m));
 
-        (gabungan.match(/\{\{\^(\w+)\}\}/g) || []).forEach(m => {
+        (gabungan.match(/\{\{\^\w+\}\}/g) || []).forEach(m => {
           tagLoopBermasalah.add(m);
           issues.push({
             type: 'kontrol_negasi_tidak_dikenal',
@@ -6660,7 +6660,7 @@ const methods = {
 
         const loopDiLuarTabel = new Set();
         (teksParagrafSaja.match(/\{\{[#\/\^]\w+\}\}/g) || []).forEach(m => loopDiLuarTabel.add(m));
-        (teksParagrafSaja.match(/(?<!\{)\{[#\/]\w+\}(?!\})/g) || []).forEach(m => loopDiLuarTabel.add(m));
+        (teksParagrafSaja.match(/\{[#\/\^]\w+\}/g) || []).forEach(m => loopDiLuarTabel.add(m));
         if (loopDiLuarTabel.size > 0) {
           issues.push({
             type: 'loop_di_luar_tabel',
