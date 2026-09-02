@@ -132,6 +132,8 @@ function processPhotoPlaceholderInBody_(container, dataContext) {
       Logger.log('Photo insert err for ' + tagText + ': ' + e.message);
     }
   }
+}
+
 function processSignaturePlaceholderInBody_(container, dataContext) {
   if (!container || !dataContext) return;
 
@@ -1063,7 +1065,7 @@ function debugScanLoopRows_(templateFileId) {
           if (c < numCells - 1) rowText += ' || ';
         }
         // Hanya log baris yang mengandung tag loop, supaya output tidak kebanjiran.
-        if (/\{\{?[#/^]\w+\}?\}/.test(rowText)) {
+        if (/\{\{?[#\/\^]\w+\}?/.test(rowText)) {
           Logger.log('Baris ' + r + ' (' + numCells + ' sel): ' + rowText);
           const found = findLoopMarkersInRow_(row);
           Logger.log('  -> findLoopMarkersInRow_ hasil: ' +
