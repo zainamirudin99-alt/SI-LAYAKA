@@ -11790,24 +11790,90 @@ async function runKontrakPreviewGenerate(mode) {
 
 /** REF (konfirmasi Titto): hasil generate Kontrak SELALU 2 file (Google Docs & PDF) -- tampilkan tautan keduanya. */
 function openKontrakResultModal(res) {
-  document.getElementById('modalTitle').textContent = 'Dokumen Kontrak Siap';
+  document.getElementById('modalTitle').textContent = '📄 Dokumen Perjanjian Kerja / Kontrak Siap';
   let linksHtml = '';
   const url = res.pdfUrl || res.pdfDownloadUrl || res.docViewUrl || res.viewUrl || '';
   const fileName = res.fileName || 'Dokumen_Kontrak';
 
   if (res.outputType === 'pdf' || (url && url.includes('.pdf'))) {
-    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:10px 20px; font-weight:600;" href="${url}" target="_blank" rel="noopener">📥 Unduh / Buka Dokumen PDF (${escapeHtml(fileName)})</a>`;
+    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:12px 24px; font-weight:700; font-size:14px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" href="${url}" target="_blank" rel="noopener">📥 Unduh / Buka Dokumen PDF (${escapeHtml(fileName)})</a>`;
   } else if (res.isDocx && res.docViewUrl) {
-    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:10px 20px; font-weight:600;" href="${res.docViewUrl}" download="${escapeHtml(fileName)}.docx">📥 Unduh Dokumen DOCX (${escapeHtml(fileName)})</a>`;
+    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:12px 24px; font-weight:700; font-size:14px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" href="${res.docViewUrl}" download="${escapeHtml(fileName)}.docx">📥 Unduh Dokumen DOCX (${escapeHtml(fileName)})</a>`;
   } else {
-    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:10px 20px; font-weight:600;" href="${url}" target="_blank" rel="noopener">📄 Buka Google Docs (${escapeHtml(fileName)})</a>`;
+    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:12px 24px; font-weight:700; font-size:14px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" href="${url}" target="_blank" rel="noopener">📄 Buka Google Docs (${escapeHtml(fileName)})</a>`;
   }
 
   document.getElementById('modalBody').innerHTML = `
-    <div style="padding:24px; text-align:center;">
-      <p style="margin-bottom:18px; font-size:14px; color:var(--text-main);">Dokumen Kontrak berhasil dibuat dan tersimpan.</p>
-      <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-bottom:12px;">
-        ${linksHtml}
+    <div style="padding:16px 20px;">
+      <div style="text-align:center; margin-bottom:18px;">
+        <div style="font-size:32px; margin-bottom:6px;">🎉</div>
+        <p style="margin:0 0 14px; font-size:15px; font-weight:600; color:var(--text, #1e293b);">
+          Dokumen Perjanjian Kerja berhasil dibuat dan tersimpan.
+        </p>
+        <div style="display:flex; justify-content:center; margin-bottom:6px;">
+          ${linksHtml}
+        </div>
+      </div>
+
+      <!-- KETERANGAN PENCETAKAN & RANGKAP DOKUMEN -->
+      <div style="background:var(--surface-alt, #f8fafc); border:1px solid var(--border, #e2e8f0); border-radius:12px; padding:16px 18px; margin-top:14px; text-align:left;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; border-bottom:1px solid var(--border, #e2e8f0); padding-bottom:8px;">
+          <span style="font-size:18px;">📋</span>
+          <span style="font-weight:700; font-size:14.5px; color:var(--text, #1e293b);">Petunjuk Pencetakan &amp; Penandatanganan Dokumen</span>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
+          <div style="background:var(--surface, #ffffff); border:1px solid var(--border, #e2e8f0); border-radius:8px; padding:10px 14px; display:flex; align-items:center; gap:10px;">
+            <span style="font-size:22px;">🖨️</span>
+            <div>
+              <div style="font-size:11px; color:var(--text-muted, #64748b); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Ukuran Kertas</div>
+              <div style="font-size:13.5px; font-weight:700; color:var(--text, #0f172a);">Folio / F4</div>
+            </div>
+          </div>
+          <div style="background:var(--surface, #ffffff); border:1px solid var(--border, #e2e8f0); border-radius:8px; padding:10px 14px; display:flex; align-items:center; gap:10px;">
+            <span style="font-size:22px;">📑</span>
+            <div>
+              <div style="font-size:11px; color:var(--text-muted, #64748b); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Jumlah Salinan</div>
+              <div style="font-size:13.5px; font-weight:700; color:var(--text, #0f172a);">Dicetak 3 (Tiga) Rangkap</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="font-size:13px; font-weight:700; color:var(--text, #334155); margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+          <span>✍️</span> Ketentuan Pembubuhan Meterai &amp; Tanda Tangan:
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <!-- Rangkap 1 -->
+          <div style="background:var(--surface, #ffffff); border:1px solid var(--border, #cbd5e1); border-left:4px solid #2563eb; border-radius:6px; padding:10px 14px; font-size:13px; line-height:1.5;">
+            <div style="margin-bottom:2px;">
+              <span style="background:#dbeafe; color:#1d4ed8; font-weight:700; font-size:11px; padding:2px 8px; border-radius:4px; text-transform:uppercase; letter-spacing:0.3px;">Dokumen Rangkap ke-1</span>
+            </div>
+            <div style="color:var(--text, #334155); margin-top:4px;">
+              Bubuhkan <strong>Meterai (Rp 10.000)</strong> pada kolom tanda tangan <strong>Pihak Kesatu</strong>.
+            </div>
+          </div>
+
+          <!-- Rangkap 2 -->
+          <div style="background:var(--surface, #ffffff); border:1px solid var(--border, #cbd5e1); border-left:4px solid #16a34a; border-radius:6px; padding:10px 14px; font-size:13px; line-height:1.5;">
+            <div style="margin-bottom:2px;">
+              <span style="background:#dcfce7; color:#15803d; font-weight:700; font-size:11px; padding:2px 8px; border-radius:4px; text-transform:uppercase; letter-spacing:0.3px;">Dokumen Rangkap ke-2</span>
+            </div>
+            <div style="color:var(--text, #334155); margin-top:4px;">
+              Bubuhkan <strong>Meterai (Rp 10.000)</strong> pada kolom tanda tangan <strong>Pihak Kedua</strong> lalu ditandatangani.
+            </div>
+          </div>
+
+          <!-- Rangkap 3 -->
+          <div style="background:var(--surface, #ffffff); border:1px solid var(--border, #cbd5e1); border-left:4px solid #64748b; border-radius:6px; padding:10px 14px; font-size:13px; line-height:1.5;">
+            <div style="margin-bottom:2px;">
+              <span style="background:#f1f5f9; color:#475569; font-weight:700; font-size:11px; padding:2px 8px; border-radius:4px; text-transform:uppercase; letter-spacing:0.3px;">Dokumen Rangkap ke-3</span>
+            </div>
+            <div style="color:var(--text, #334155); margin-top:4px;">
+              <strong>Tidak perlu diberi Meterai</strong>, langsung ditandatangani Saudara sebagai <strong>Pihak Kedua</strong>.
+            </div>
+          </div>
+        </div>
       </div>
     </div>`;
   document.getElementById('modalOverlay').style.display = 'flex';
