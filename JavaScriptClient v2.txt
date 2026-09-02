@@ -315,8 +315,13 @@ function terapkanBatasanPeran_() {
     
     rpc('getMenuAksesKontrak', [SESSION.token])
       .then(res => {
-        if (res && res.success && (res.eligible || res.isEligibleKontrak || res.isAtasanLangsung || res.isAdmin) && navKontrak) {
-          navKontrak.style.display = 'flex';
+        const canAccess = res && res.success && (
+          (res.eligible && res.diizinkan) || 
+          res.isAtasanLangsung || 
+          res.isAdmin
+        );
+        if (navKontrak) {
+          navKontrak.style.display = canAccess ? 'flex' : 'none';
         }
       })
       .catch(err => {
