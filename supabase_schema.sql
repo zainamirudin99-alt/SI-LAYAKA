@@ -657,4 +657,19 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- ============================================================
+-- 21. TAMBAHAN ALUR EVALUASI KONTRAK TENAGA KEPENDIDIKAN (TKK)
+-- ============================================================
+ALTER TABLE user_roles ADD COLUMN IF NOT EXISTS status_kepegawaian TEXT;
 
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS atasan_nip TEXT;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS atasan_nama TEXT;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS evaluasi_skor NUMERIC;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS evaluasi_rekomendasi TEXT;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS evaluasi_data JSONB DEFAULT '{}';
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS evaluasi_doc_url TEXT;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS evaluasi_gdrive_folder_id TEXT;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS evaluasi_gdrive_file_id TEXT;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS evaluasi_dibuat_pada TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_usulan_kontrak_atasan_nip ON usulan_kontrak(atasan_nip);

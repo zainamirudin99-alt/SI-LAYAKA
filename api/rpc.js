@@ -104,6 +104,7 @@ const CONFIG = {
   FOLDER_PENSIUN_OUTPUT:  '10Cu3SmYJyy8lcLX2-KpIjB5qVEU1ynPu',
   FOLDER_PENSIUN_LAMPIRAN: '1ko75RjljybXg6tLqpXdOH1Im8rjlUFTd',
   FOLDER_KONTRAK_ROOT:    '1uCTUJ2qfrBeyjFEwsufFKuZuQO1MaYQi',
+  FOLDER_EVALUASI_TKK_ROOT: '1i6ePepJQzOm2HxVzevvEYWF5L6xR5Bue',
   SEED_ADMIN_UNIT_ES_II: 'Direktorat Sumber Daya Manusia',
   PROFIL_NORMAL_FIELDS:  ['nama_lengkap','tgl_lhr','golongan','status_kepegawaian','status_bekerja','jabatan','tmt_pensiun_bup'],
   PENSIUN_DASHBOARD_AMBANG_TAHUN: 1,
@@ -122,10 +123,11 @@ const CONFIG = {
   MASA_KERJA_MINIMAL: {dosen:2,tendik_jabatan_fungsional:2,tendik_non_jabatan_fungsional:4},
   JENIS_PENSIUN_LIST: ['BUP','Meninggal','Diberhentikan','Pengunduran Diri','Uzur'],
   USULAN_PENSIUN_DOKUMEN_TAMBAHAN: {'BUP':[],'Meninggal':['Surat Bukti Kematian'],'Uzur':['Bukti Tes Kesehatan'],'Pengunduran Diri':['Surat Pernyataan Pengunduran Diri','Surat Pengantar Pimpinan Unit']},
-  KONTRAK_JENIS_PEG_ELIGIBLE: ['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','KDRP'],
+  KONTRAK_JENIS_PEG_ELIGIBLE: ['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','KDRP','Tenaga Kontrak Penghargaan-KDRP'],
+  STATUS_KONTRAK_TKK_LIST: ['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan-KDRP'],
   KONTRAK_UPAH_TIER: {tier1:2903600,tier2:3026400},
   ROLE_LIST: ['normal','user','admin','super_admin'],
-  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER','SK Pensiun BUP Pegawai Undip Non ASN','SK Pensiun Meninggal Pegawai Undip Non ASN','SK Pensiun Uzur Pegawai Undip Non ASN','SK Pensiun Undur Diri Pegawai Undip Non ASN'],'Kontrak Tendik':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','KDRP','Tenaga Profesional'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan'],'Buat SK dan Surat':['SK CPTU','SK PTU 100%','SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','Surat PLT','Surat PLH','SK Tutam Struktural','SK Tutam Dekan Wadek']},
+  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER','SK Pensiun BUP Pegawai Undip Non ASN','SK Pensiun Meninggal Pegawai Undip Non ASN','SK Pensiun Uzur Pegawai Undip Non ASN','SK Pensiun Undur Diri Pegawai Undip Non ASN'],'Kontrak Tendik':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','KDRP','Tenaga Profesional','Formulir Evaluasi'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan'],'Kontrak':['Formulir Evaluasi','Perjanjian Kerja'],'Buat SK dan Surat':['SK CPTU','SK PTU 100%','SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','Surat PLT','Surat PLH','SK Tutam Struktural','SK Tutam Dekan Wadek']},
   USULAN_KP_KATA_KUNCI_PNS: ['pns'],
   USULAN_KP_NOTIF_SIASN: 'Siap diusulkan ke-SIASN',
   USULAN_KP_NOTIF_SK:    'Siap Dibuat SK',
@@ -292,8 +294,8 @@ async function findEmployeeByNip(inputNip) {
 
 async function getUserRole(nip) {
   const db = getDb();
-  const { data } = await db.from('user_roles').select('role,sub_role').eq('nip', nip).maybeSingle();
-  return { role: data?.role || 'normal', sub_role: data?.sub_role || null };
+  const { data } = await db.from('user_roles').select('role,sub_role,status_kepegawaian').eq('nip', nip).maybeSingle();
+  return { role: data?.role || 'normal', sub_role: data?.sub_role || null, status_kepegawaian: data?.status_kepegawaian || null };
 }
 async function getUserSubRole(nip) {
   const db = getDb();
@@ -691,6 +693,179 @@ function createDefaultSkDocxBuffer(jenis_sk, dataCtx) {
   return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
 
+function buildEvaluasiTkkDataContext(usulan, evalData, empData, atasanEmp) {
+  const now = new Date();
+  const tahunEvaluasi = Number((evalData && evalData.tahun_evaluasi) || (usulan && usulan.tahun) || now.getFullYear());
+  const tglBuat = (evalData && evalData.tgl_buat) || formatTanggalIndonesia(now);
+
+  const ed = evalData || {};
+  const p1 = Math.max(1, Math.min(3, Number(ed.orientasi_pelayanan || 1)));
+  const p2 = Math.max(1, Math.min(3, Number(ed.inisiatif_kerja || 1)));
+  const p3 = Math.max(1, Math.min(3, Number(ed.komitmen || 1)));
+  const p4 = Math.max(1, Math.min(3, Number(ed.kerjasama || 1)));
+  const p5 = Math.max(1, Math.min(3, Number(ed.kehadiran || 1)));
+  const p6 = Math.max(1, Math.min(3, Number(ed.disiplin || 1)));
+  const p7 = Math.max(1, Math.min(3, Number(ed.hasil_kerja || 1)));
+
+  const totalSkor = p1 + p2 + p3 + p4 + p5 + p6 + p7;
+  const isExtend = totalSkor > 10.5; // (>= 11)
+  const totalTahunPerpanjangan = tahunEvaluasi + 1;
+  const rekomendasi = isExtend
+    ? `Diperpanjang Kontrak s.d. 31 Desember ${totalTahunPerpanjangan}`
+    : 'Tidak Diperpanjang';
+
+  const emp = empData || {};
+  const u = usulan || {};
+  const atasan = atasanEmp || {};
+
+  const namaPemohon = emp.nama_lengkap || emp.nama || u.nama || '';
+  const nipPemohon = emp.nip || u.nip || '';
+  const namaAtasan = atasan.nama_lengkap || atasan.nama || u.atasan_nama || '';
+  const nipAtasan = atasan.nip || u.atasan_nip || '';
+
+  return {
+    nomor_surat: ed.nomor_surat || u.nomor_surat || '',
+    tgl_buat: tglBuat,
+    status_kepegawaian: ed.status_kepegawaian || u.status_kepegawaian || emp.status_kepegawaian || 'Tenaga Profesional',
+    tahun_evaluasi: String(tahunEvaluasi),
+    bulan_terakhir_kontrak: ed.bulan_terakhir_kontrak || 'Desember',
+    nama_lengkap: namaPemohon,
+    nama: namaPemohon,
+    nip: nipPemohon,
+    jabatan: ed.jabatan || emp.jabatan || u.jabatan || 'Tenaga Kependidikan',
+    unit_es_ii: ed.unit_es_ii || emp.unit_es_ii || u.unit || '',
+    bulan_awal_kontrak: ed.bulan_awal_kontrak || 'Januari',
+    orientasi_pelayanan: p1,
+    inisiatif_kerja: p2,
+    komitmen: p3,
+    kerjasama: p4,
+    kehadiran: p5,
+    disiplin: p6,
+    hasil_kerja: p7,
+    total_skor: totalSkor,
+    atasan_langsung: namaAtasan,
+    nip_atasan_langsung: nipAtasan,
+    total_tahun_perpanjangan: String(totalTahunPerpanjangan),
+    rekomendasi: rekomendasi,
+    ttd: ed.ttd || ''
+  };
+}
+
+function generateEvaluasiTkkDocxFallback(dataCtx) {
+  const PizZip = require('pizzip');
+  const zip = new PizZip();
+
+  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Default Extension="png" ContentType="image/png"/>
+  <Default Extension="jpg" ContentType="image/jpeg"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
+
+  const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+  const docRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+</Relationships>`;
+
+  const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+
+  const kriteria = [
+    { no: '1', nama: 'Orientasi Pelayanan', skor: dataCtx.orientasi_pelayanan || 1 },
+    { no: '2', nama: 'Inisiatif Kerja', skor: dataCtx.inisiatif_kerja || 1 },
+    { no: '3', nama: 'Komitmen', skor: dataCtx.komitmen || 1 },
+    { no: '4', nama: 'Kerjasama', skor: dataCtx.kerjasama || 1 },
+    { no: '5', nama: 'Kehadiran', skor: dataCtx.kehadiran || 1 },
+    { no: '6', nama: 'Disiplin', skor: dataCtx.disiplin || 1 },
+    { no: '7', nama: 'Kesesuaian Hasil Kerja dengan Tupoksi', skor: dataCtx.hasil_kerja || 1 }
+  ];
+
+  let kriteriaRows = '';
+  kriteria.forEach(k => {
+    kriteriaRows += `<w:tr>
+      <w:tc><w:tcPr><w:tcW w:w="800" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${k.no}</w:t></w:r></w:p></w:tc>
+      <w:tc><w:tcPr><w:tcW w:w="5600" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${esc(k.nama)}</w:t></w:r></w:p></w:tc>
+      <w:tc><w:tcPr><w:tcW w:w="2600" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>${k.skor} / 3</w:t></w:r></w:p></w:tc>
+    </w:tr>`;
+  });
+
+  const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="28"/></w:rPr><w:t>FORMULIR PENILAIAN / EVALUASI KINERJA TKK</w:t></w:r></w:p>
+    <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>Tahun Evaluasi: ${esc(dataCtx.tahun_evaluasi)}</w:t></w:r></w:p>
+    <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="20"/></w:rPr><w:t>Nomor: ${esc(dataCtx.nomor_surat || '-')}</w:t></w:r></w:p>
+    <w:p/>
+    <w:tbl>
+      <w:tblPr><w:tblW w:w="9000" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/><w:left w:val="none"/><w:right w:val="none"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="EEEEEE"/><w:insideV w:val="none"/></w:tblBorders></w:tblPr>
+      <w:tr>
+        <w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>Nama Pegawai</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="300" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>:</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="5700" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>${esc(dataCtx.nama_lengkap)}</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>NIP</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="300" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>:</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="5700" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${esc(dataCtx.nip)}</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>Jabatan</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="300" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>:</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="5700" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${esc(dataCtx.jabatan)}</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>Unit Kerja</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="300" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>:</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="5700" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${esc(dataCtx.unit_es_ii)}</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>Status Kepegawaian</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="300" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>:</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="5700" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${esc(dataCtx.status_kepegawaian)}</w:t></w:r></w:p></w:tc>
+      </w:tr>
+    </w:tbl>
+    <w:p/>
+    <w:p><w:r><w:rPr><w:b/><w:sz w:val="24"/></w:rPr><w:t>A. HASIL EVALUASI 7 KRITERIA KINERJA</w:t></w:r></w:p>
+    <w:tbl>
+      <w:tblPr><w:tblW w:w="9000" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="6" w:space="0" w:color="444444"/><w:bottom w:val="single" w:sz="6" w:space="0" w:color="444444"/><w:left w:val="single" w:sz="6" w:space="0" w:color="444444"/><w:right w:val="single" w:sz="6" w:space="0" w:color="444444"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/></w:tblBorders></w:tblPr>
+      <w:tr>
+        <w:tc><w:tcPr><w:tcW w:w="800" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F1F5F9"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>NO</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="5600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F1F5F9"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>KRITERIA PENILAIAN</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="2600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F1F5F9"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>SKOR (1 - 3)</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      ${kriteriaRows}
+      <w:tr>
+        <w:tc><w:tcPr><w:tcW w:w="6400" w:type="dxa"/><w:gridSpan w:val="2"/><w:shd w:val="clear" w:color="auto" w:fill="F8FAFC"/></w:tcPr><w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>TOTAL SKOR (MAKSIMAL 21):</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="2600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F8FAFC"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="24"/><w:color w:val="1E3A8A"/></w:rPr><w:t>${dataCtx.total_skor} / 21</w:t></w:r></w:p></w:tc>
+      </w:tr>
+    </w:tbl>
+    <w:p/>
+    <w:p><w:r><w:rPr><w:b/><w:sz w:val="24"/></w:rPr><w:t>B. REKOMENDASI ATASAN LANGSUNG</w:t></w:r></w:p>
+    <w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="${dataCtx.total_skor > 10.5 ? '15803D' : 'B91C1C'}"/></w:rPr><w:t>${esc(dataCtx.rekomendasi)}</w:t></w:r></w:p>
+    <w:p/>
+    <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>Semarang, ${esc(dataCtx.tgl_buat)}</w:t></w:r></w:p>
+    <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>Atasan Langsung,</w:t></w:r></w:p>
+    <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:t>{{ttd}}</w:t></w:r></w:p>
+    <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:b/><w:u w:val="single"/><w:sz w:val="22"/></w:rPr><w:t>${esc(dataCtx.atasan_langsung)}</w:t></w:r></w:p>
+    <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>NIP: ${esc(dataCtx.nip_atasan_langsung)}</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+
+  zip.file('[Content_Types].xml', contentTypesXml);
+  zip.file('_rels/.rels', relsXml);
+  zip.file('word/_rels/document.xml.rels', docRelsXml);
+  zip.file('word/document.xml', docXml);
+
+  injectDocxImage(zip, dataCtx);
+
+  return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
+}
+
 function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
   const PizZip = require('pizzip');
   const Docxtemplater = require('docxtemplater');
@@ -875,24 +1050,35 @@ function createDocxInlineImageXml(relId, widthPx = 120, heightPx = 160) {
 function injectDocxImage(zip, dataCtx) {
   if (!zip || !dataCtx) return;
 
+  // 1. Deteksi dan proses Foto Pegawai ({{foto}}, {{pas_foto}}, dll.)
   let photoDataUrl = '';
-  let photoKey = '';
   for (const [k, v] of Object.entries(dataCtx)) {
     if (!v) continue;
     const kLower = String(k).toLowerCase();
     const vStr = String(v).trim();
-    if (kLower.includes('foto') || kLower.includes('photo') || kLower.includes('pas_foto') || vStr.startsWith('data:image/') || vStr.includes('base64,') || /^[a-zA-Z0-9+/=]{100,}$/.test(vStr)) {
+    if (kLower.includes('foto') || kLower.includes('photo') || kLower.includes('pas_foto')) {
       if (vStr.startsWith('data:') || vStr.includes('base64,')) {
         photoDataUrl = vStr.startsWith('data:') ? vStr : `data:image/jpeg;base64,${vStr}`;
-        photoKey = k;
         break;
       }
     }
   }
 
-  const photoKeys = [photoKey, 'foto', 'pas_foto', 'photo', 'pasfoto', 'foto_pegawai', 'url_foto', 'FOTO', 'PAS_FOTO', 'PHOTO', 'FOTO_PEGAWAI'].filter(Boolean);
+  // 2. Deteksi dan proses Tanda Tangan / Signature ({{ttd}}, {{tanda_tangan}}, {{signature}})
+  let ttdDataUrl = '';
+  for (const [k, v] of Object.entries(dataCtx)) {
+    if (!v) continue;
+    const kLower = String(k).toLowerCase();
+    const vStr = String(v).trim();
+    if (kLower === 'ttd' || kLower === 'tanda_tangan' || kLower === 'signature' || kLower.includes('ttd_') || kLower.includes('signature_')) {
+      if (vStr.startsWith('data:') || vStr.includes('base64,')) {
+        ttdDataUrl = vStr.startsWith('data:') ? vStr : `data:image/png;base64,${vStr}`;
+        break;
+      }
+    }
+  }
 
-  let imageXml = '';
+  let photoXml = '';
   if (photoDataUrl) {
     try {
       const cleanDataUrl = photoDataUrl.replace(/[\r\n\s]+/g, '');
@@ -900,9 +1086,7 @@ function injectDocxImage(zip, dataCtx) {
       if (matches) {
         let ext = matches[1].toLowerCase();
         if (ext === 'jpeg') ext = 'jpg';
-        const base64Data = matches[2];
-        const imageBuffer = Buffer.from(base64Data, 'base64');
-
+        const imageBuffer = Buffer.from(matches[2], 'base64');
         const imageFileName = `word/media/foto_pegawai.${ext}`;
         zip.file(imageFileName, imageBuffer);
 
@@ -927,12 +1111,56 @@ function injectDocxImage(zip, dataCtx) {
           }
         }
 
-        imageXml = createDocxInlineImageXml('rIdFotoPegawai99', 120, 160);
+        photoXml = createDocxInlineImageXml('rIdFotoPegawai99', 120, 160);
       }
     } catch (errImg) {
-      console.warn('[injectDocxImage] Error embedding image:', errImg);
+      console.warn('[injectDocxImage] Error embedding photo:', errImg);
     }
   }
+
+  let ttdXml = '';
+  if (ttdDataUrl) {
+    try {
+      const cleanDataUrl = ttdDataUrl.replace(/[\r\n\s]+/g, '');
+      const matches = cleanDataUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+      if (matches) {
+        let ext = matches[1].toLowerCase();
+        if (ext === 'jpeg') ext = 'jpg';
+        const imageBuffer = Buffer.from(matches[2], 'base64');
+        const imageFileName = `word/media/ttd_atasan.${ext}`;
+        zip.file(imageFileName, imageBuffer);
+
+        const contentTypesFile = zip.file('[Content_Types].xml');
+        if (contentTypesFile) {
+          let ctXml = contentTypesFile.asText();
+          const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+          if (!ctXml.includes(`Extension="${ext}"`)) {
+            ctXml = ctXml.replace('</Types>', `<Default Extension="${ext}" ContentType="${mimeType}"/></Types>`);
+            zip.file('[Content_Types].xml', ctXml);
+          }
+        }
+
+        const relsFile = zip.file('word/_rels/document.xml.rels');
+        if (relsFile) {
+          let relsXml = relsFile.asText();
+          const relId = 'rIdTtdAtasan99';
+          if (!relsXml.includes(relId)) {
+            const newRel = `<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/ttd_atasan.${ext}"/>`;
+            relsXml = relsXml.replace('</Relationships>', `${newRel}</Relationships>`);
+            zip.file('word/_rels/document.xml.rels', relsXml);
+          }
+        }
+
+        // TTD aspect: width 150px, height 70px
+        ttdXml = createDocxInlineImageXml('rIdTtdAtasan99', 150, 70);
+      }
+    } catch (errTtd) {
+      console.warn('[injectDocxImage] Error embedding signature:', errTtd);
+    }
+  }
+
+  const photoKeys = ['foto', 'pas_foto', 'photo', 'pasfoto', 'foto_pegawai', 'url_foto', 'FOTO', 'PAS_FOTO', 'PHOTO', 'FOTO_PEGAWAI'];
+  const ttdKeys = ['ttd', 'tanda_tangan', 'signature', 'TTD', 'TANDA_TANGAN', 'SIGNATURE', 'ttd_atasan', 'ttd_penilai'];
 
   // Pindai dan perbarui SELURUH berkas XML di dalam folder word/ (document.xml, header, footer, dsb.)
   const xmlFileNames = Object.keys(zip.files).filter(fn => fn.startsWith('word/') && fn.endsWith('.xml'));
@@ -941,16 +1169,24 @@ function injectDocxImage(zip, dataCtx) {
     if (!f) continue;
     let xml = cleanWordXmlParagraphBraces(f.asText());
 
-    for (const k of photoKeys) {
-      const regRunDouble = new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\{\\s*${k}\\s*\\}\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi');
-      const regRunSingle = new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\s*${k}\\s*\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi');
-      const regRawDouble = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
-      const regRawSingle = new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi');
+    if (photoXml) {
+      for (const k of photoKeys) {
+        const regRunDouble = new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\{\\s*${k}\\s*\\}\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi');
+        const regRunSingle = new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\s*${k}\\s*\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi');
+        xml = xml.replace(regRunDouble, photoXml).replace(regRunSingle, photoXml)
+                 .replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi'), photoXml)
+                 .replace(new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi'), photoXml);
+      }
+    }
 
-      xml = xml.replace(regRunDouble, imageXml);
-      xml = xml.replace(regRunSingle, imageXml);
-      xml = xml.replace(regRawDouble, imageXml);
-      xml = xml.replace(regRawSingle, imageXml);
+    if (ttdXml) {
+      for (const k of ttdKeys) {
+        const regRunDouble = new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\{\\s*${k}\\s*\\}\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi');
+        const regRunSingle = new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\s*${k}\\s*\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi');
+        xml = xml.replace(regRunDouble, ttdXml).replace(regRunSingle, ttdXml)
+                 .replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi'), ttdXml)
+                 .replace(new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi'), ttdXml);
+      }
     }
 
     zip.file(fileName, xml);
@@ -2312,7 +2548,7 @@ const methods = {
     while (true) {
       const { data, error } = await db
         .from('user_roles')
-        .select('nip,nama,role,sub_role')
+        .select('nip,nama,role,sub_role,status_kepegawaian')
         .range(pageR * 1000, (pageR + 1) * 1000 - 1);
       if (error) throw error;
       if (!data || data.length === 0) break;
@@ -2323,7 +2559,7 @@ const methods = {
 
     const rolesMap = {};
     (roles || []).forEach(r => {
-      rolesMap[r.nip] = { role: r.role, sub_role: r.sub_role, nama: r.nama };
+      rolesMap[r.nip] = { role: r.role, sub_role: r.sub_role, nama: r.nama, status_kepegawaian: r.status_kepegawaian };
     });
 
     const empNips = new Set();
@@ -2334,7 +2570,8 @@ const methods = {
         nama: e.nama_lengkap || e.nama || '',
         unitEsIi: e.unit_es_ii || '',
         role: (rolesMap[e.nip] && rolesMap[e.nip].role) || 'normal',
-        sub_role: (rolesMap[e.nip] && rolesMap[e.nip].sub_role) || null
+        sub_role: (rolesMap[e.nip] && rolesMap[e.nip].sub_role) || null,
+        status_kepegawaian: (rolesMap[e.nip] && rolesMap[e.nip].status_kepegawaian) || e.status_kepegawaian || ''
       };
     });
 
@@ -2346,7 +2583,8 @@ const methods = {
           nama: r.nama || r.nip,
           unitEsIi: 'Terdaftar Mandiri',
           role: r.role || 'normal',
-          sub_role: r.sub_role || null
+          sub_role: r.sub_role || null,
+          status_kepegawaian: r.status_kepegawaian || ''
         });
       }
     });
@@ -2356,16 +2594,16 @@ const methods = {
 
   async searchUserRolesForAdmin(args) {
     const [token, query] = extractArgs(args);
-    requireRole(token, ['super_admin']);
+    requireRole(token, ['super_admin', 'admin']);
     const db = getDb();
     const q = String(query || '').trim();
 
-    const { data: roles, error: rolesErr } = await db.from('user_roles').select('nip,role,sub_role,nama');
+    const { data: roles, error: rolesErr } = await db.from('user_roles').select('nip,role,sub_role,nama,status_kepegawaian');
     if (rolesErr) throw rolesErr;
 
     const rolesMap = {};
     (roles || []).forEach(r => {
-      rolesMap[r.nip] = { role: r.role, sub_role: r.sub_role, nama: r.nama };
+      rolesMap[r.nip] = { role: r.role, sub_role: r.sub_role, nama: r.nama, status_kepegawaian: r.status_kepegawaian };
     });
 
     let emps = [];
@@ -2374,14 +2612,14 @@ const methods = {
       
       if (customRoleNips.length > 0) {
         const { data: customEmps } = await db.from('data_utama')
-          .select('nip,nama_lengkap,nama,unit_es_ii')
+          .select('nip,nama_lengkap,nama,unit_es_ii,status_kepegawaian')
           .in('nip', customRoleNips);
         if (customEmps) emps.push(...customEmps);
       }
 
       const existingNips = new Set(emps.map(e => e.nip));
       const { data: defaultEmps } = await db.from('data_utama')
-        .select('nip,nama_lengkap,nama,unit_es_ii')
+        .select('nip,nama_lengkap,nama,unit_es_ii,status_kepegawaian')
         .order('nama_lengkap')
         .limit(30);
 
@@ -2393,7 +2631,7 @@ const methods = {
       });
     } else {
       const { data: searchedEmps, error: searchErr } = await db.from('data_utama')
-        .select('nip,nama_lengkap,nama,unit_es_ii')
+        .select('nip,nama_lengkap,nama,unit_es_ii,status_kepegawaian')
         .or(`nama_lengkap.ilike.%${q}%,nama.ilike.%${q}%,nip.ilike.%${q}%`)
         .order('nama_lengkap')
         .limit(50);
@@ -2411,7 +2649,8 @@ const methods = {
               nip: r.nip,
               nama_lengkap: r.nama || r.nip,
               nama: r.nama || r.nip,
-              unit_es_ii: 'Terdaftar Mandiri'
+              unit_es_ii: 'Terdaftar Mandiri',
+              status_kepegawaian: r.status_kepegawaian || ''
             });
             empNips.add(r.nip);
           }
@@ -2424,7 +2663,8 @@ const methods = {
       nama: e.nama_lengkap || e.nama || '',
       unitEsIi: e.unit_es_ii || '',
       role: (rolesMap[e.nip] && rolesMap[e.nip].role) || 'normal',
-      sub_role: (rolesMap[e.nip] && rolesMap[e.nip].sub_role) || null
+      sub_role: (rolesMap[e.nip] && rolesMap[e.nip].sub_role) || null,
+      status_kepegawaian: (rolesMap[e.nip] && rolesMap[e.nip].status_kepegawaian) || e.status_kepegawaian || ''
     }));
 
     return { success: true, daftar };
@@ -2449,6 +2689,27 @@ const methods = {
     const { error } = await db.from('user_roles').upsert({ nip: targetNip, sub_role: subRole || null, diubah_oleh: caller.nip, tanggal_diubah: new Date().toISOString() }, { onConflict: 'nip' });
     if (error) throw error;
     return { success: true, message: 'Sub-role berhasil disimpan.' };
+  },
+
+  async setUserStatusKepegawaian(args) {
+    const [token, targetNip, statusKepegawaian] = extractArgs(args);
+    const caller = requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+    const valStatus = String(statusKepegawaian || '').trim();
+
+    const { error: errRole } = await db.from('user_roles').upsert({
+      nip: targetNip,
+      status_kepegawaian: valStatus || null,
+      diubah_oleh: caller.nip,
+      tanggal_diubah: new Date().toISOString()
+    }, { onConflict: 'nip' });
+    if (errRole) throw errRole;
+
+    try {
+      await db.from('data_utama').update({ status_kepegawaian: valStatus || null }).eq('nip', targetNip);
+    } catch (_) {}
+
+    return { success: true, message: `Status kepegawaian berhasil diset menjadi "${valStatus || 'Default'}".` };
   },
 
   // ---- TEMPLATES ----
@@ -6886,6 +7147,442 @@ const methods = {
       await db.from('usulan_kontrak').update({ form_data: updatedFormData }).eq('id', usulanId);
     }
     return { success: true, message: 'Periode kontrak berhasil disimpan.' };
+  },
+
+  async searchAtasanLangsung(args) {
+    const [token, query] = extractArgs(args);
+    verifyToken(token);
+    const db = getDb();
+    const q = String(query || '').trim();
+    if (!q || q.length < 2) return { success: true, data: [] };
+
+    const { data, error } = await db.from('data_utama')
+      .select('nip, nama_lengkap, nama, jabatan, unit_es_ii')
+      .or(`nip.ilike.%${q}%,nama_lengkap.ilike.%${q}%,nama.ilike.%${q}%`)
+      .limit(20);
+    if (error) throw error;
+
+    const list = (data || []).map(d => ({
+      nip: d.nip,
+      nama: d.nama_lengkap || d.nama || d.nip,
+      jabatan: d.jabatan || '',
+      unit: d.unit_es_ii || ''
+    }));
+    return { success: true, data: list };
+  },
+
+  async getMenuAksesKontrak(args) {
+    const [token] = extractArgs(args);
+    const decoded = verifyToken(token);
+    const db = getDb();
+
+    const { role, status_kepegawaian } = await getUserRole(decoded.nip);
+    const emp = await findEmployeeByNip(decoded.nip);
+    const statusKep = status_kepegawaian || emp?.status_kepegawaian || '';
+    const jenisPeg = emp?.jenis_peg || '';
+
+    const eligibleList = ['Tenaga Profesional', 'Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan', 'KDRP', 'Tenaga Kontrak Penghargaan-KDRP'];
+    const isEligibleKontrak = eligibleList.some(k => 
+      k.toLowerCase() === statusKep.toLowerCase() || 
+      statusKep.toLowerCase().includes(k.toLowerCase()) ||
+      jenisPeg.toLowerCase().includes(k.toLowerCase())
+    );
+
+    const isDosen = /dosen/i.test(jenisPeg) || /dosen/i.test(statusKep);
+    const isTendik = !isDosen;
+
+    let countUsulanAtasan = 0;
+    try {
+      const { count, error: cErr } = await db.from('usulan_kontrak')
+        .select('*', { count: 'exact', head: true })
+        .eq('atasan_nip', decoded.nip);
+      if (!cErr && typeof count === 'number') countUsulanAtasan = count;
+    } catch (_) {}
+
+    return {
+      success: true,
+      role: role || decoded.role || 'normal',
+      status_kepegawaian: statusKep,
+      jenis_pegawai: isDosen ? 'Dosen' : 'Tenaga Kependidikan',
+      isDosen,
+      isTendik,
+      isEligibleKontrak,
+      isAtasanLangsung: countUsulanAtasan > 0,
+      countUsulanAtasan,
+      isAdmin: ['admin', 'super_admin'].includes(role || decoded.role)
+    };
+  },
+
+  async ajukanUsulanKontrakTendik(args) {
+    const [token, payload] = extractArgs(args);
+    const decoded = verifyToken(token);
+    const db = getDb();
+
+    const {
+      nip, nama, unit, email, tahun, jenis_usulan, evaluasi_kinerja,
+      layanan, sub_menu, form_data,
+      atasan_nip,
+      ktpBase64, kkBase64, pasFotoBase64, ijazahBase64,
+      suratPengantarBase64, suratLamaranBase64, simAbBase64, strAktifBase64, ketSehatBase64
+    } = payload || {};
+
+    const targetNip = String(nip || decoded.nip || '').trim();
+    const targetNama = String(nama || decoded.nama || '').trim();
+    if (!targetNip || !targetNama) return { success: false, message: 'Data pegawai (NIP/Nama) wajib diisi.' };
+    if (!atasan_nip || !String(atasan_nip).trim()) return { success: false, message: 'Atasan Langsung wajib dipilih.' };
+    if (!email) return { success: false, message: 'Email wajib diisi.' };
+    if (!tahun) return { success: false, message: 'Tahun kontrak wajib diisi.' };
+
+    const atasanEmp = await findEmployeeByNip(atasan_nip);
+    if (!atasanEmp) return { success: false, message: 'Atasan Langsung dengan NIP tersebut tidak ditemukan di database.' };
+    const atasanNama = atasanEmp.nama_lengkap || atasanEmp.nama || atasanEmp.nip;
+
+    const { status_kepegawaian: roleStatus } = await getUserRole(targetNip);
+    const emp = await findEmployeeByNip(targetNip);
+    const effectiveStatus = roleStatus || emp?.status_kepegawaian || 'Tenaga Profesional';
+
+    const shortId = uuidv4();
+    let ktpUrl = '', kkUrl = '', pasFotoUrl = '', ijazahUrl = '', pengantarUrl = '', lamaranUrl = '', simUrl = '', strUrl = '', sehatUrl = '';
+
+    try {
+      if (ktpBase64) ktpUrl = await uploadLampiran(ktpBase64, `KTP-${targetNip}`, 'kontrak-tkk');
+      if (kkBase64) kkUrl = await uploadLampiran(kkBase64, `KK-${targetNip}`, 'kontrak-tkk');
+      if (pasFotoBase64) pasFotoUrl = await uploadLampiran(pasFotoBase64, `FOTO-${targetNip}`, 'kontrak-tkk');
+      if (ijazahBase64) ijazahUrl = await uploadLampiran(ijazahBase64, `IJAZAH-${targetNip}`, 'kontrak-tkk');
+      if (suratPengantarBase64) pengantarUrl = await uploadLampiran(suratPengantarBase64, `PENGANTAR-${targetNip}`, 'kontrak-tkk');
+      if (suratLamaranBase64) lamaranUrl = await uploadLampiran(suratLamaranBase64, `LAMARAN-${targetNip}`, 'kontrak-tkk');
+      if (simAbBase64) simUrl = await uploadLampiran(simAbBase64, `SIM-${targetNip}`, 'kontrak-tkk');
+      if (strAktifBase64) strUrl = await uploadLampiran(strAktifBase64, `STR-${targetNip}`, 'kontrak-tkk');
+      if (ketSehatBase64) sehatUrl = await uploadLampiran(ketSehatBase64, `SEHAT-${targetNip}`, 'kontrak-tkk');
+    } catch (upErr) {
+      console.warn('[ajukanUsulanKontrakTendik] Upload lampiran notice:', upErr.message);
+    }
+
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (gasUrl) {
+      try {
+        fetch(gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            method: 'ajukanUsulanKontrakDrive',
+            params: [shortId, Object.assign({}, payload, { atasan_nip, atasan_nama: atasanNama })],
+            remoteSession: { id: shortId, data: { nip: targetNip, nama: targetNama } }
+          })
+        }).catch(e => console.warn('[GAS Bridge] Notice:', e.message));
+      } catch (_) {}
+    }
+
+    const newRecord = {
+      nip: targetNip,
+      nama: targetNama,
+      unit: String(unit || emp?.unit_es_ii || '').trim(),
+      email: String(email || '').trim(),
+      tahun: String(tahun || new Date().getFullYear()).trim(),
+      jenis_usulan: String(jenis_usulan || 'Perpanjangan Kontrak').trim(),
+      evaluasi_kinerja: String(evaluasi_kinerja || '').trim(),
+      layanan: 'Kontrak Tendik',
+      sub_menu: String(sub_menu || 'Tenaga Kependidikan').trim(),
+      status_kepegawaian: effectiveStatus,
+      jenis_pegawai: 'Tenaga Kependidikan',
+      atasan_nip: String(atasan_nip).trim(),
+      atasan_nama: atasanNama,
+      status: 'submitted_to_atasan',
+      form_data: Object.assign({}, form_data || {}, {
+        atasan_nip: String(atasan_nip).trim(),
+        atasan_nama: atasanNama,
+        status_kepegawaian: effectiveStatus
+      }),
+      ktp_url: ktpUrl,
+      kk_url: kkUrl,
+      pas_foto_url: pasFotoUrl,
+      ijazah_transkrip_url: ijazahUrl,
+      surat_pengantar_url: pengantarUrl,
+      surat_lamaran_url: lamaranUrl,
+      sim_ab_url: simUrl,
+      str_aktif_url: strUrl,
+      keterangan_sehat_url: sehatUrl,
+      diajukan_oleh_nip: decoded.nip,
+      nama_pengaju: decoded.nama,
+      tanggal_diajukan: new Date().toISOString()
+    };
+
+    const { data: inserted, error: insErr } = await db.from('usulan_kontrak').insert(newRecord).select().single();
+    if (insErr) throw insErr;
+
+    return {
+      success: true,
+      message: `Usulan Kontrak Tenaga Kependidikan berhasil diajukan dan diteruskan ke Atasan Langsung (${atasanNama}).`,
+      id: inserted?.id
+    };
+  },
+
+  async getUsulanKontrakAtasanLangsung(args) {
+    const [token] = extractArgs(args);
+    const decoded = verifyToken(token);
+    const db = getDb();
+
+    const { data, error } = await db.from('usulan_kontrak')
+      .select('*')
+      .eq('atasan_nip', decoded.nip)
+      .order('tanggal_diajukan', { ascending: false });
+    if (error) throw error;
+
+    const list = (data || []).map(u => ({
+      id: u.id,
+      nip: u.nip,
+      nama: u.nama,
+      unit: u.unit,
+      email: u.email,
+      tahun: u.tahun,
+      status: u.status,
+      status_kepegawaian: u.status_kepegawaian || u.form_data?.status_kepegawaian || '',
+      jenis_pegawai: u.jenis_pegawai || 'Tenaga Kependidikan',
+      tanggal_diajukan: formatTanggalIndonesia(u.tanggal_diajukan),
+      evaluasi_skor: u.evaluasi_skor,
+      evaluasi_rekomendasi: u.evaluasi_rekomendasi,
+      evaluasi_doc_url: u.evaluasi_doc_url,
+      atasan_nip: u.atasan_nip,
+      atasan_nama: u.atasan_nama,
+      form_data: u.form_data || {}
+    }));
+
+    return { success: true, list };
+  },
+
+  async getDetailEvaluasiKontrak(args) {
+    const [token, usulanId] = extractArgs(args);
+    const decoded = verifyToken(token);
+    const db = getDb();
+
+    const { data, error } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
+    if (error) throw error;
+    if (!data) return { success: false, message: 'Usulan tidak ditemukan.' };
+
+    if (data.atasan_nip !== decoded.nip && !['admin', 'super_admin'].includes(decoded.role)) {
+      throw new Error('Anda tidak memiliki hak akses untuk mengevaluasi usulan ini.');
+    }
+
+    if (data.status === 'submitted_to_atasan') {
+      try {
+        await db.from('usulan_kontrak').update({ status: 'under_atasan_review' }).eq('id', usulanId);
+        data.status = 'under_atasan_review';
+      } catch (_) {}
+    }
+
+    const emp = await findEmployeeByNip(data.nip);
+    const atasanEmp = await findEmployeeByNip(data.atasan_nip || decoded.nip);
+
+    return {
+      success: true,
+      usulan: data,
+      pegawai: emp,
+      atasan: atasanEmp
+    };
+  },
+
+  async simpanDanGenerateEvaluasiTkk(args) {
+    const [token, usulanId, evalPayload, isPreviewOnly] = extractArgs(args);
+    const decoded = verifyToken(token);
+    const db = getDb();
+
+    const { data: usulan, error: uErr } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
+    if (uErr) throw uErr;
+    if (!usulan) return { success: false, message: 'Usulan kontrak tidak ditemukan.' };
+
+    if (usulan.atasan_nip !== decoded.nip && !['admin', 'super_admin'].includes(decoded.role)) {
+      throw new Error('Anda tidak berwenang mengisi formulir evaluasi usulan ini.');
+    }
+
+    const empData = (await findEmployeeByNip(usulan.nip)) || {};
+    const atasanEmp = (await findEmployeeByNip(usulan.atasan_nip || decoded.nip)) || {
+      nip: decoded.nip,
+      nama: decoded.nama,
+      nama_lengkap: decoded.nama
+    };
+
+    const ed = evalPayload || {};
+    const p1 = Number(ed.orientasi_pelayanan || 0);
+    const p2 = Number(ed.inisiatif_kerja || 0);
+    const p3 = Number(ed.komitmen || 0);
+    const p4 = Number(ed.kerjasama || 0);
+    const p5 = Number(ed.kehadiran || 0);
+    const p6 = Number(ed.disiplin || 0);
+    const p7 = Number(ed.hasil_kerja || 0);
+
+    if (!isPreviewOnly) {
+      if ([p1, p2, p3, p4, p5, p6, p7].some(v => v < 1 || v > 3)) {
+        return { success: false, message: 'Semua 7 kriteria penilaian wajib diisi dengan skor 1 s.d. 3.' };
+      }
+      if (!ed.ttd || !String(ed.ttd).trim()) {
+        return { success: false, message: 'Tanda tangan atasan langsung pada signature pad wajib diisi.' };
+      }
+    }
+
+    const totalSkor = p1 + p2 + p3 + p4 + p5 + p6 + p7;
+    const isExtend = totalSkor > 10.5; // (>= 11)
+    const newStatus = isExtend ? 'evaluated_extend' : 'evaluated_not_extend';
+
+    const dataCtx = buildEvaluasiTkkDataContext(usulan, ed, empData, atasanEmp);
+
+    // Cari template kustom di database tabel templates
+    let renderedBuffer = null;
+    let usedCustomTemplate = false;
+    try {
+      const { data: tmplList } = await db.from('templates')
+        .select('*')
+        .ilike('layanan', '%Kontrak%')
+        .ilike('sub_menu', '%Evaluasi%')
+        .limit(1);
+
+      if (tmplList && tmplList.length > 0 && tmplList[0].tipe === 'docx') {
+        const tmplBuf = await downloadTemplateBuffer(tmplList[0].file_id);
+        renderedBuffer = docxRenderTemplate(tmplBuf, dataCtx);
+        usedCustomTemplate = true;
+      }
+    } catch (tmplE) {
+      console.warn('[simpanDanGenerateEvaluasiTkk] Custom template fetch warning:', tmplE.message);
+    }
+
+    if (!renderedBuffer) {
+      renderedBuffer = generateEvaluasiTkkDocxFallback(dataCtx);
+    }
+
+    if (isPreviewOnly) {
+      return {
+        success: true,
+        isPreview: true,
+        base64: renderedBuffer.toString('base64'),
+        fileName: `Preview_Evaluasi_${usulan.nama}_${usulan.nip}.docx`,
+        totalSkor,
+        rekomendasi: dataCtx.rekomendasi,
+        status: newStatus
+      };
+    }
+
+    // Upload dokumen hasil evaluasi ke Supabase Storage
+    const fileNameSafe = `Formulir_Evaluasi_TKK_${String(usulan.nama).replace(/[^a-zA-Z0-9_-]/g, '_')}_${usulan.nip}.docx`;
+    const docB64 = renderedBuffer.toString('base64');
+    const docDataUrl = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${docB64}`;
+    let evalDocUrl = '';
+    try {
+      evalDocUrl = await uploadLampiran(docDataUrl, fileNameSafe, 'evaluasi-tkk');
+    } catch (eUp) {
+      console.warn('[simpanDanGenerateEvaluasiTkk] Supabase upload warning:', eUp.message);
+    }
+
+    // Upload & simpan ke Google Drive folder root (1i6ePepJQzOm2HxVzevvEYWF5L6xR5Bue)
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    let gdriveFolderId = '', gdriveFileId = '';
+    if (gasUrl) {
+      try {
+        const shortId = uuidv4();
+        const gasResp = await fetch(gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            method: 'simpanEvaluasiTkkDrive',
+            params: [shortId, {
+              rootFolderId: CONFIG.FOLDER_EVALUASI_TKK_ROOT,
+              namaPegawai: usulan.nama,
+              nipPegawai: usulan.nip,
+              fileName: fileNameSafe,
+              fileBase64: docB64
+            }],
+            remoteSession: { id: shortId, data: { nip: decoded.nip, nama: decoded.nama } }
+          })
+        });
+        const gasJson = await gasResp.json();
+        if (gasJson && gasJson.success) {
+          gdriveFolderId = gasJson.folderId || '';
+          gdriveFileId = gasJson.fileId || '';
+          if (gasJson.fileUrl) evalDocUrl = gasJson.fileUrl;
+        }
+      } catch (gErr) {
+        console.warn('[simpanDanGenerateEvaluasiTkk] GAS Drive upload notice:', gErr.message);
+      }
+    }
+
+    // Update usulan_kontrak status & evaluasi data
+    const updatePayload = {
+      evaluasi_skor: totalSkor,
+      evaluasi_rekomendasi: dataCtx.rekomendasi,
+      evaluasi_data: Object.assign({}, ed, { total_skor: totalSkor, rekomendasi: dataCtx.rekomendasi }),
+      evaluasi_doc_url: evalDocUrl,
+      evaluasi_gdrive_folder_id: gdriveFolderId || CONFIG.FOLDER_EVALUASI_TKK_ROOT,
+      evaluasi_gdrive_file_id: gdriveFileId || null,
+      evaluasi_dibuat_pada: new Date().toISOString(),
+      status: newStatus
+    };
+
+    const { error: updErr } = await db.from('usulan_kontrak').update(updatePayload).eq('id', usulanId);
+    if (updErr) throw updErr;
+
+    return {
+      success: true,
+      message: `Formulir Evaluasi Kinerja berhasil disimpan & digenerate. Status usulan: "${newStatus}". Rekomendasi: "${dataCtx.rekomendasi}".`,
+      base64: docB64,
+      docUrl: evalDocUrl,
+      totalSkor,
+      rekomendasi: dataCtx.rekomendasi,
+      status: newStatus
+    };
+  },
+
+  async validasiUsulanKontrakTendik(args) {
+    const [token, usulanId, setuju] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+
+    const { data: usulan, error: fErr } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
+    if (fErr) throw fErr;
+    if (!usulan) return { success: false, message: 'Usulan tidak ditemukan.' };
+
+    let targetStatus = '';
+    if (setuju === false || setuju === 'tolak') {
+      targetStatus = 'Ditolak';
+    } else if (usulan.status === 'evaluated_extend' || Number(usulan.evaluasi_skor) > 10.5) {
+      targetStatus = 'validated_by_admin';
+    } else {
+      targetStatus = 'closed_not_extended';
+    }
+
+    const { error: uErr } = await db.from('usulan_kontrak').update({
+      status: targetStatus,
+      diproses_oleh_nip: decoded.nip
+    }).eq('id', usulanId);
+    if (uErr) throw uErr;
+
+    return {
+      success: true,
+      message: `Usulan Tenaga Kependidikan berhasil divalidasi dengan status "${targetStatus}".`,
+      status: targetStatus
+    };
+  },
+
+  async generatePerjanjianMandiriTendik(args) {
+    const [token, templateRef, usulanId, customFormData] = extractArgs(args);
+    const decoded = verifyToken(token);
+    const db = getDb();
+
+    const { data: usulan, error: fErr } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
+    if (fErr) throw fErr;
+    if (!usulan) return { success: false, message: 'Usulan tidak ditemukan.' };
+
+    if (usulan.status !== 'validated_by_admin' && usulan.status !== 'Disetujui' && !['admin', 'super_admin'].includes(decoded.role)) {
+      return { success: false, message: 'Perjanjian kerja hanya dapat digenerate setelah usulan divalidasi oleh Admin (status: validated_by_admin).' };
+    }
+
+    // Call existing generateKontrakFromUsulanVercel
+    const genRes = await methods.generateKontrakFromUsulanVercel([token, templateRef, usulanId, customFormData]);
+    if (genRes && genRes.success) {
+      await db.from('usulan_kontrak').update({
+        status: 'contract_generated',
+        perjanjian_dibuat: true,
+        diproses_oleh_nip: decoded.nip
+      }).eq('id', usulanId);
+    }
+    return genRes;
   },
 
   async generateKontrakFromUsulanVercel(args) {

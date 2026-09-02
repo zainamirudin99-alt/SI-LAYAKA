@@ -312,15 +312,14 @@ function terapkanBatasanPeran_() {
     if (navProfil) navProfil.style.display = 'flex';
     viewAktif = 'profil-saya';
     judulAktif = 'Profil Saya';
-    // Kontrak HANYA muncul kalau status kepegawaian sendiri termasuk
-    // kategori eligible DAN admin sudah mengizinkan akses mandiri --
-    // dicek async ke server, tidak diasumsikan dari data di klien.
-    google.script.run
-      .withSuccessHandler(res => {
-        if (res.success && res.eligible && res.diizinkan && navKontrak) navKontrak.style.display = 'flex';
+    
+    rpc('getMenuAksesKontrak', [SESSION.token])
+      .then(res => {
+        if (res && res.success && (res.eligible || res.isAtasanLangsung || res.isAdmin) && navKontrak) {
+          navKontrak.style.display = 'flex';
+        }
       })
-      .withFailureHandler(() => {})
-      .getStatusAksesKontrakSaya(SESSION.token);
+      .catch(() => {});
   } else {
     if (navKP) navKP.style.display = 'flex';
     if (navPensiun) navPensiun.style.display = 'flex';
@@ -554,6 +553,20 @@ function renderPeranAkunList(daftar) {
       `;
     }
 
+    const currentStatusKep = p.status_kepegawaian || '';
+    const statusKepSelectHtml = `
+      <select class="field-input status-kep-select" style="min-height:36px; padding:6px 10px; font-size:12.5px; margin-left:8px;" data-nip="${escapeHtml(p.nip)}">
+        <option value="" ${!currentStatusKep ? 'selected' : ''}>-- Status Kepegawaian --</option>
+        <option value="Tenaga Profesional" ${currentStatusKep === 'Tenaga Profesional' ? 'selected' : ''}>Tenaga Profesional</option>
+        <option value="Kontrak Penuh Waktu" ${currentStatusKep === 'Kontrak Penuh Waktu' ? 'selected' : ''}>Kontrak Penuh Waktu</option>
+        <option value="Kontrak Paruh Waktu" ${currentStatusKep === 'Kontrak Paruh Waktu' ? 'selected' : ''}>Kontrak Paruh Waktu</option>
+        <option value="Tenaga Kontrak Penghargaan-KDRP" ${currentStatusKep === 'Tenaga Kontrak Penghargaan-KDRP' ? 'selected' : ''}>Tenaga Kontrak Penghargaan-KDRP</option>
+        <option value="Pegawai Tetap Undip Non ASN" ${currentStatusKep === 'Pegawai Tetap Undip Non ASN' ? 'selected' : ''}>Pegawai Tetap Undip Non ASN</option>
+        <option value="PNS" ${currentStatusKep === 'PNS' ? 'selected' : ''}>PNS</option>
+        <option value="PPPK" ${currentStatusKep === 'PPPK' ? 'selected' : ''}>PPPK</option>
+      </select>
+    `;
+
     return `
     <div class="ce-dashboard-list-item" style="cursor:default; flex-wrap:wrap;">
       <div style="flex: 1; min-width: 250px;">
@@ -561,7 +574,8 @@ function renderPeranAkunList(daftar) {
         <div class="cdli-meta">NIP ${escapeHtml(p.nip)} &middot; ${escapeHtml(p.unitEsIi || '-')}</div>
         <div class="cdli-meta" style="margin-top:4px;">
           Peran: <strong style="color:#2563eb;">${escapeHtml(p.role)}</strong> &middot; 
-          Sub-Role: <strong style="color:#d97706;">${escapeHtml(p.sub_role ? (p.sub_role.toUpperCase().replace(/_/g, ' ')) : 'Tidak ada')}</strong>
+          Sub-Role: <strong style="color:#d97706;">${escapeHtml(p.sub_role ? (p.sub_role.toUpperCase().replace(/_/g, ' ')) : 'Tidak ada')}</strong> &middot;
+          Status Kepegawaian: <strong style="color:#059669;">${escapeHtml(currentStatusKep || 'Belum Diatur')}</strong>
         </div>
       </div>
       ${isSeedSuperAdmin
@@ -574,7 +588,8 @@ function renderPeranAkunList(daftar) {
               <option value="super_admin" ${p.role === 'super_admin' ? 'selected' : ''}>super_admin</option>
             </select>
             ${subRoleSelectHtml}
-            <button type="button" class="btn btn-outline kp-small-btn" data-action="simpan-peran" data-nip="${escapeHtml(p.nip)}">Simpan Peran &amp; Sub-role</button>
+            ${statusKepSelectHtml}
+            <button type="button" class="btn btn-outline kp-small-btn" data-action="simpan-peran" data-nip="${escapeHtml(p.nip)}">Simpan Pengaturan Akun</button>
           </div>`
       }
     </div>
@@ -582,49 +597,44 @@ function renderPeranAkunList(daftar) {
   }).join('');
 
   el.querySelectorAll('[data-action="simpan-peran"]').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const nip = btn.getAttribute('data-nip');
       const roleSelect = el.querySelector(`.role-select[data-nip="${nip}"]`);
       const subRoleSelect = el.querySelector(`.sub-role-select[data-nip="${nip}"]`);
+      const statusKepSelect = el.querySelector(`.status-kep-select[data-nip="${nip}"]`);
+      
       const newRole = roleSelect.value;
       const newSubRole = subRoleSelect ? subRoleSelect.value : null;
+      const newStatusKep = statusKepSelect ? statusKepSelect.value : null;
 
       btn.disabled = true;
       btn.textContent = 'Menyimpan...';
 
       const searchQ = val('peranAkun_search');
 
-      google.script.run
-        .withSuccessHandler(res => {
-          if (!res.success) {
-            showToast('error', res.message);
-            btn.disabled = false;
-            btn.textContent = 'Simpan Peran & Sub-role';
-            return;
-          }
-
-          if (newRole === 'admin' || newRole === 'super_admin') {
-            google.script.run
-              .withSuccessHandler(resSub => {
-                showToast('success', 'Peran dan Sub-role berhasil disimpan.');
-                loadPeranAkunList(searchQ);
-              })
-              .withFailureHandler(err => {
-                showToast('error', 'Gagal menyimpan sub-role: ' + (err.message || err));
-                loadPeranAkunList(searchQ);
-              })
-              .setUserSubRole(SESSION.token, nip, newSubRole);
-          } else {
-            showToast('success', 'Peran berhasil disimpan.');
-            loadPeranAkunList(searchQ);
-          }
-        })
-        .withFailureHandler(err => {
-          showToast('error', 'Gagal menyimpan peran: ' + (err.message || err));
+      try {
+        const resRole = await rpc('ubahPeranAkun', [SESSION.token, nip, newRole]);
+        if (!resRole || !resRole.success) {
+          showToast('error', resRole?.message || 'Gagal mengubah peran.');
           btn.disabled = false;
-          btn.textContent = 'Simpan Peran & Sub-role';
-        })
-        .ubahPeranAkun(SESSION.token, nip, newRole);
+          btn.textContent = 'Simpan Pengaturan Akun';
+          return;
+        }
+
+        if (newRole === 'admin' || newRole === 'super_admin') {
+          await rpc('setUserSubRole', [SESSION.token, nip, newSubRole]);
+        }
+        if (newStatusKep) {
+          await rpc('setUserStatusKepegawaian', [SESSION.token, nip, newStatusKep]);
+        }
+
+        showToast('success', 'Pengaturan akun & status kepegawaian berhasil disimpan.');
+        loadPeranAkunList(searchQ);
+      } catch (err) {
+        showToast('error', 'Gagal menyimpan: ' + (err.message || err));
+        btn.disabled = false;
+        btn.textContent = 'Simpan Pengaturan Akun';
+      }
     });
   });
 }
@@ -8000,6 +8010,9 @@ function openKontrakResultModal(res) {
 
 /* ------------------------- KONTRAK USER PROPOSAL & ADMIN REVIEW ------------------------- */
 
+let KONTRAK_AKSES_INFO = null;
+let atasanSearchTimer = null;
+
 function initKontrakTabs() {
   const tabs = document.querySelectorAll('[data-kontrak-tab]');
   tabs.forEach(tab => {
@@ -8007,47 +8020,97 @@ function initKontrakTabs() {
       tabs.forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       const target = tab.getAttribute('data-kontrak-tab');
+      
+      const adminDirectSec = document.getElementById('kontrakAdminDirectSection');
+      const adminReviewSec = document.getElementById('kontrakAdminReviewSection');
+      const atasanReviewSec = document.getElementById('kontrakAtasanReviewSection');
+      const userPropSec = document.getElementById('kontrakUserProposalSection');
+      const userStatusState = document.getElementById('kontrakUserStatusState');
+      const userFormState = document.getElementById('kontrakUserFormState');
+
+      if (adminDirectSec) adminDirectSec.style.display = 'none';
+      if (adminReviewSec) adminReviewSec.style.display = 'none';
+      if (atasanReviewSec) atasanReviewSec.style.display = 'none';
+      if (userPropSec) userPropSec.style.display = 'none';
+
       if (target === 'buat') {
-        document.getElementById('kontrakAdminDirectSection').style.display = 'block';
-        document.getElementById('kontrakAdminReviewSection').style.display = 'none';
-      } else {
-        document.getElementById('kontrakAdminDirectSection').style.display = 'none';
-        document.getElementById('kontrakAdminReviewSection').style.display = 'block';
+        if (adminDirectSec) adminDirectSec.style.display = 'block';
+      } else if (target === 'review') {
+        if (adminReviewSec) adminReviewSec.style.display = 'block';
         loadKontrakReviewUnits();
+      } else if (target === 'atasan') {
+        if (atasanReviewSec) atasanReviewSec.style.display = 'block';
+        loadKontrakAtasanReviewList();
+      } else if (target === 'user-status') {
+        if (userPropSec) userPropSec.style.display = 'block';
+        if (userStatusState) userStatusState.style.display = 'block';
+        if (userFormState) userFormState.style.display = 'none';
+        loadUsulanKontrakSaya();
+      } else if (target === 'user-form') {
+        if (userPropSec) userPropSec.style.display = 'block';
+        if (userStatusState) userStatusState.style.display = 'none';
+        if (userFormState) userFormState.style.display = 'block';
+        populateKontrakUserFormProfile();
+        toggleEvaluasiKinerjaUser();
+        onKontrakUserLayananChange();
       }
     });
   });
 }
 
-function initKontrakViewForUser() {
-  const role = SESSION.user.role || 'normal';
+async function initKontrakViewForUser() {
+  const role = (SESSION.user && SESSION.user.role) || 'normal';
   const isAdmin = (role === 'admin' || role === 'super_admin');
   
   const adminTabs = document.getElementById('kontrakAdminTabs');
-  const adminDirectSec = document.getElementById('kontrakAdminDirectSection');
-  const adminReviewSec = document.getElementById('kontrakAdminReviewSection');
-  const userPropSec = document.getElementById('kontrakUserProposalSection');
+  const btnAdminBuat = document.getElementById('tabBtnKontrakAdminBuat');
+  const btnAdminReview = document.getElementById('tabBtnKontrakAdminReview');
+  const btnAtasan = document.getElementById('tabBtnKontrakAtasan');
+  const btnUserStatus = document.getElementById('tabBtnKontrakUserStatus');
+  const btnUserForm = document.getElementById('tabBtnKontrakUserForm');
+
+  // Request menu access details from backend
+  try {
+    const resAkses = await rpc('getMenuAksesKontrak', [SESSION.token]);
+    if (resAkses && resAkses.success) {
+      KONTRAK_AKSES_INFO = resAkses;
+    }
+  } catch (errAkses) {
+    console.warn('[initKontrakViewForUser] notice:', errAkses.message);
+  }
+
+  const isAtasan = !!(KONTRAK_AKSES_INFO && KONTRAK_AKSES_INFO.isAtasanLangsung);
+  const countAtasan = (KONTRAK_AKSES_INFO && KONTRAK_AKSES_INFO.countUsulanAtasan) || 0;
+
+  if (adminTabs) adminTabs.style.display = 'flex';
+
+  if (btnAdminBuat) btnAdminBuat.style.display = isAdmin ? 'inline-block' : 'none';
+  if (btnAdminReview) btnAdminReview.style.display = isAdmin ? 'inline-block' : 'none';
   
+  if (btnAtasan) {
+    if (isAtasan || isAdmin) {
+      btnAtasan.style.display = 'inline-block';
+      const badge = document.getElementById('kontrakAtasanBadge');
+      if (badge) {
+        badge.textContent = countAtasan;
+        badge.style.display = countAtasan > 0 ? 'inline-block' : 'none';
+      }
+    } else {
+      btnAtasan.style.display = 'none';
+    }
+  }
+
+  if (btnUserStatus) btnUserStatus.style.display = 'inline-block';
+  if (btnUserForm) btnUserForm.style.display = 'inline-block';
+
+  // Default active tab selection
   if (isAdmin) {
-    if (adminTabs) adminTabs.style.display = 'flex';
-    if (adminDirectSec) adminDirectSec.style.display = 'block';
-    if (adminReviewSec) adminReviewSec.style.display = 'none';
-    if (userPropSec) userPropSec.style.display = 'none';
-    
-    // Set active tab to 'buat'
-    const tabs = document.querySelectorAll('[data-kontrak-tab]');
-    tabs.forEach(t => {
-      if (t.getAttribute('data-kontrak-tab') === 'buat') t.classList.add('active');
-      else t.classList.remove('active');
-    });
-    
+    if (btnAdminBuat) btnAdminBuat.click();
     loadKontrakReviewBadge();
+  } else if (isAtasan && countAtasan > 0) {
+    if (btnAtasan) btnAtasan.click();
   } else {
-    if (adminTabs) adminTabs.style.display = 'none';
-    if (adminDirectSec) adminDirectSec.style.display = 'none';
-    if (adminReviewSec) adminReviewSec.style.display = 'none';
-    if (userPropSec) userPropSec.style.display = 'block';
-    
+    if (btnUserStatus) btnUserStatus.click();
     loadUsulanKontrakSaya();
   }
 }
@@ -8063,6 +8126,15 @@ function toggleEvaluasiKinerjaUser() {
 function onKontrakUserLayananChange() {
   const layanan = document.getElementById('kontrakUser_layanan').value;
   const subMenuSelect = document.getElementById('kontrakUser_subMenu');
+  const atasanWrap = document.getElementById('kontrakUser_atasanWrap');
+
+  if (atasanWrap) {
+    atasanWrap.style.display = (layanan === 'Kontrak Tendik') ? 'block' : 'none';
+    if (layanan === 'Kontrak Tendik') {
+      bindAtasanLangsungSearch();
+    }
+  }
+  
   if (!subMenuSelect) return;
   
   if (!layanan) {
@@ -8071,10 +8143,59 @@ function onKontrakUserLayananChange() {
   }
   
   const list = (layanan === 'Kontrak Tendik') 
-    ? (kontrakFormOptionsCache.subMenuTendik || []) 
-    : (kontrakFormOptionsCache.subMenuDosen || []);
+    ? (kontrakFormOptionsCache.subMenuTendik || ['Tenaga Profesional', 'Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'KDRP', 'Tenaga Kontrak Penghargaan-KDRP']) 
+    : (kontrakFormOptionsCache.subMenuDosen || ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan']);
     
   subMenuSelect.innerHTML = list.map(item => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join('');
+}
+
+function bindAtasanLangsungSearch() {
+  const input = document.getElementById('kontrakUser_atasanSearch');
+  const listEl = document.getElementById('kontrakUser_atasanSearchList');
+  if (!input || !listEl || input._bound) return;
+  input._bound = true;
+
+  input.addEventListener('input', e => {
+    clearTimeout(atasanSearchTimer);
+    const q = e.target.value.trim();
+    if (q.length < 2) {
+      listEl.style.display = 'none';
+      listEl.innerHTML = '';
+      return;
+    }
+    atasanSearchTimer = setTimeout(async () => {
+      try {
+        const res = await rpc('searchAtasanLangsung', [SESSION.token, q]);
+        if (res && res.success && res.data && res.data.length > 0) {
+          listEl.innerHTML = res.data.map(at => `
+            <div class="autocomplete-item" style="padding:10px; cursor:pointer; border-bottom:1px solid #eee;" onclick="pilihAtasanLangsung('${escapeHtml(at.nip)}', '${escapeHtml(at.nama)}', '${escapeHtml(at.unit)}')">
+              <strong>${escapeHtml(at.nama)}</strong>
+              <div style="font-size:12px; color:#666;">NIP: ${escapeHtml(at.nip)} &bull; ${escapeHtml(at.unit)}</div>
+            </div>
+          `).join('');
+          listEl.style.display = 'block';
+        } else {
+          listEl.innerHTML = '<div style="padding:10px; color:#999; font-size:12px;">Tidak ditemukan pegawai dengan NIP/Nama tersebut.</div>';
+          listEl.style.display = 'block';
+        }
+      } catch (err) {
+        console.warn('searchAtasanLangsung error:', err);
+      }
+    }, 250);
+  });
+}
+
+function pilihAtasanLangsung(nip, nama, unit) {
+  document.getElementById('kontrakUser_atasanNip').value = nip;
+  document.getElementById('kontrakUser_atasanNama').value = nama;
+  document.getElementById('kontrakUser_atasanSearch').value = `${nama} (${nip})`;
+  document.getElementById('kontrakUser_atasanSearchList').style.display = 'none';
+  
+  const selDiv = document.getElementById('kontrakUser_atasanSelected');
+  if (selDiv) {
+    selDiv.innerHTML = `✅ Atasan Langsung Terpilih: <strong>${escapeHtml(nama)}</strong> (NIP: ${escapeHtml(nip)}) - ${escapeHtml(unit)}`;
+    selDiv.style.display = 'block';
+  }
 }
 
 // Check medical keywords
@@ -8108,6 +8229,13 @@ async function submitUsulanKontrak(e) {
     const evaluasi_kinerja = (jenis_usulan === 'Perpanjangan') ? document.getElementById('kontrakUser_evaluasiKinerja').value : '';
     const layanan = document.getElementById('kontrakUser_layanan').value;
     const sub_menu = document.getElementById('kontrakUser_subMenu').value;
+    const atasan_nip = document.getElementById('kontrakUser_atasanNip') ? document.getElementById('kontrakUser_atasanNip').value : '';
+
+    if (layanan === 'Kontrak Tendik' && !atasan_nip) {
+      setBtnLoading(btn, false, 'Ajukan Usulan');
+      showToast('error', 'Silakan cari dan pilih Atasan Langsung penilai evaluasi kinerja Anda terlebih dahulu.');
+      return;
+    }
     
     // File elements
     const ktpInput = document.getElementById('kontrakUser_file_ktp');
@@ -8121,9 +8249,9 @@ async function submitUsulanKontrak(e) {
     const strInput = document.getElementById('kontrakUser_file_str');
     
     const payload = {
-      nip, nama, unit, email, tahun, jenis_usulan, evaluasi_kinerja, layanan, sub_menu,
+      nip, nama, unit, email, tahun, jenis_usulan, evaluasi_kinerja, layanan, sub_menu, atasan_nip,
       form_data: {
-        nip, nama_lengkap: nama, unit_es_ii: unit, jabatan: document.getElementById('kontrakUser_jabatan').value, email
+        nip, nama_lengkap: nama, unit_es_ii: unit, jabatan: document.getElementById('kontrakUser_jabatan').value, email, atasan_nip
       }
     };
     
@@ -8165,40 +8293,20 @@ async function submitUsulanKontrak(e) {
       payload.strAktifNama = strInput.files[0].name;
     }
 
-    try {
-      const res = await rpc('ajukanUsulanKontrak', [SESSION.token, payload]);
-      setBtnLoading(btn, false, 'Ajukan Usulan');
-      if (res && res.success) {
-        showToast('success', res.message || 'Usulan berhasil diajukan.');
-        loadUsulanKontrakSaya();
-      } else {
-        showToast('error', res?.message || 'Gagal mengajukan usulan.');
-      }
-    } catch (rpcErr) {
-      if (typeof google !== 'undefined' && google.script && google.script.run) {
-        google.script.run
-          .withSuccessHandler(res => {
-            setBtnLoading(btn, false, 'Ajukan Usulan');
-            if (res.success) {
-              showToast('success', res.message);
-              loadUsulanKontrakSaya();
-            } else {
-              showToast('error', res.message);
-            }
-          })
-          .withFailureHandler(err => {
-            setBtnLoading(btn, false, 'Ajukan Usulan');
-            showToast('error', 'Gagal mengajukan usulan: ' + (err.message || err));
-          })
-          .ajukanUsulanKontrak(SESSION.token, payload);
-      } else {
-        setBtnLoading(btn, false, 'Ajukan Usulan');
-        showToast('error', 'Gagal mengajukan usulan: ' + (rpcErr.message || rpcErr));
-      }
+    const rpcMethod = (layanan === 'Kontrak Tendik') ? 'ajukanUsulanKontrakTendik' : 'ajukanUsulanKontrak';
+    const res = await rpc(rpcMethod, [SESSION.token, payload]);
+    setBtnLoading(btn, false, 'Ajukan Usulan');
+    if (res && res.success) {
+      showToast('success', res.message);
+      const tabStatus = document.getElementById('tabBtnKontrakUserStatus');
+      if (tabStatus) tabStatus.click();
+      else loadUsulanKontrakSaya();
+    } else {
+      showToast('error', res?.message || 'Gagal mengajukan usulan kontrak.');
     }
   } catch (err) {
     setBtnLoading(btn, false, 'Ajukan Usulan');
-    showToast('error', 'Gagal memproses file: ' + err.message);
+    showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
   }
 }
 
@@ -8394,17 +8502,28 @@ function handleUsulanKontrakSayaResult(res) {
     statusState.style.display = 'block';
     const card = document.getElementById('kontrakUserStatusCard');
     
-    let statusBadge = `<span class="badge" style="background:#ff9800; color:#fff; padding:3px 8px; border-radius:4px;">Diajukan</span>`;
-    if (res.usulan.status === 'Disetujui') {
-      statusBadge = `<span class="badge" style="background:#4caf50; color:#fff; padding:3px 8px; border-radius:4px;">Disetujui (Siap Generate)</span>`;
-    } else if (res.usulan.status === 'Selesai' || res.usulan.perjanjian_dibuat) {
-      statusBadge = `<span class="badge" style="background:#2196f3; color:#fff; padding:3px 8px; border-radius:4px;">Selesai (Perjanjian Dibuat)</span>`;
+    let statusBadge = `<span class="badge" style="background:#ff9800; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">Diajukan</span>`;
+    const st = res.usulan.status;
+    if (st === 'submitted_to_atasan') {
+      statusBadge = `<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">⏳ Menunggu Evaluasi Atasan Langsung</span>`;
+    } else if (st === 'under_atasan_review') {
+      statusBadge = `<span class="badge" style="background:#3b82f6; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">🔍 Sedang Ditinjau Atasan Langsung</span>`;
+    } else if (st === 'evaluated_extend') {
+      statusBadge = `<span class="badge" style="background:#8b5cf6; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">📋 Dievaluasi Atasan (Rekomendasi Diperpanjang) - Menunggu Validasi Admin</span>`;
+    } else if (st === 'evaluated_not_extend') {
+      statusBadge = `<span class="badge" style="background:#ef4444; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">❌ Evaluasi Selesai (Rekomendasi Tidak Diperpanjang)</span>`;
+    } else if (st === 'validated_by_admin' || st === 'Disetujui') {
+      statusBadge = `<span class="badge" style="background:#10b981; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">✅ Divalidasi Admin (Siap Buat Dokumen Perjanjian)</span>`;
+    } else if (st === 'contract_generated' || st === 'Selesai' || !!res.usulan.perjanjian_dibuat) {
+      statusBadge = `<span class="badge" style="background:#2563eb; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">🎉 Perjanjian Kerja Selesai Dibuat</span>`;
+    } else if (st === 'closed_not_extended' || st === 'Ditolak') {
+      statusBadge = `<span class="badge" style="background:#64748b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">🚫 Selesai (Tidak Diperpanjang)</span>`;
     }
     
     let generateBtnHtml = '';
     let readOnlyCardHtml = '';
 
-    const isApprovedOrCompleted = (res.usulan.status === 'Disetujui' || res.usulan.status === 'Selesai' || !!res.usulan.perjanjian_dibuat);
+    const isApprovedOrCompleted = (st === 'validated_by_admin' || st === 'Disetujui' || st === 'Selesai' || st === 'contract_generated' || !!res.usulan.perjanjian_dibuat);
     if (isApprovedOrCompleted) {
       const u = res.usulan;
       const fd = u.form_data || {};
@@ -8455,7 +8574,7 @@ function handleUsulanKontrakSayaResult(res) {
               <input type="text" value="${escapeHtml(besaranUpahStr)}" readonly disabled class="field-input-dark" />
             </div>` : '';
 
-      const isAlreadySelesai = (res.usulan.status === 'Selesai' || !!res.usulan.perjanjian_dibuat);
+      const isAlreadySelesai = (res.usulan.status === 'Selesai' || res.usulan.status === 'contract_generated' || !!res.usulan.perjanjian_dibuat);
       const genBtnText = isAlreadySelesai ? '🔄 Generate Ulang Dokumen Perjanjian Kerja' : '🚀 Buat Dokumen Perjanjian Kerja Final';
 
       readOnlyCardHtml = `
@@ -8579,13 +8698,31 @@ function handleUsulanKontrakSayaResult(res) {
 
     const nipVal = SESSION.user?.nip || res.usulan.nip || '';
     const namaVal = SESSION.user?.nama || SESSION.user?.nama_lengkap || res.usulan.nama || '';
+
+    const evaluasiInfoHtml = res.usulan.evaluasi_skor ? `
+      <div style="background:var(--surface-alt); border:2px solid var(--primary); border-radius:10px; padding:16px; margin-top:16px; margin-bottom:16px;">
+        <div style="font-weight:700; color:var(--primary); font-size:15px; margin-bottom:8px;">
+          📋 Hasil Evaluasi Kinerja (Atasan Langsung: ${escapeHtml(res.usulan.atasan_nama || res.usulan.atasan_nip || '-')})
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px; font-size:13.5px;">
+          <div><strong>Total Skor (7 Kriteria):</strong> <span style="font-size:16px; font-weight:800; color:var(--primary);">${escapeHtml(res.usulan.evaluasi_skor)} / 21</span></div>
+          <div><strong>Rekomendasi:</strong> <span style="font-weight:700; color:${res.usulan.evaluasi_skor > 10 ? '#16a34a' : '#dc2626'};">${escapeHtml(res.usulan.evaluasi_rekomendasi || '-')}</span></div>
+        </div>
+        ${res.usulan.evaluasi_doc_url ? `
+          <div style="margin-top:12px;">
+            <a href="${res.usulan.evaluasi_doc_url}" target="_blank" class="btn btn-outline kp-small-btn" style="color:var(--primary); border-color:var(--primary); font-weight:600;">
+              📥 Unduh Dokumen Formulir Evaluasi (.docx)
+            </a>
+          </div>` : ''}
+      </div>
+    ` : '';
     
     card.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:10px; margin-bottom:14px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:10px; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
         <div><strong>Tahun Kontrak:</strong> ${escapeHtml(res.usulan.tahun)}</div>
         <div>${statusBadge}</div>
       </div>
-      <div class="grid-2" style="font-size:14px; gap:10px; margin-bottom:20px;">
+      <div class="grid-2" style="font-size:14px; gap:10px; margin-bottom:16px;">
         <div><strong>NIP:</strong> ${escapeHtml(nipVal)}</div>
         <div><strong>Nama:</strong> ${escapeHtml(namaVal)}</div>
         <div><strong>Jenis Usulan:</strong> ${escapeHtml(res.usulan.jenis_usulan)}</div>
@@ -8593,6 +8730,8 @@ function handleUsulanKontrakSayaResult(res) {
         <div><strong>Kategori:</strong> ${escapeHtml(res.usulan.layanan)}</div>
         <div><strong>Jenis Kontrak:</strong> ${escapeHtml(res.usulan.sub_menu)}</div>
       </div>
+
+      ${evaluasiInfoHtml}
       
       <h4 style="border-bottom:1px solid #eee; padding-bottom:6px; margin-bottom:10px;">Status Persetujuan Lampiran</h4>
       <div class="ce-dashboard-list" style="gap:8px;">
@@ -8648,7 +8787,342 @@ async function previewKontrakUserSelf(usulanId) {
       showToast('error', res.message || 'Gagal preview Kontrak.');
       return;
     }
-  } catch (err) {}
+  } catch (err) {
+    showToast('error', 'Gagal membuat preview: ' + (err.message || err));
+  }
+}
+
+/* ------------------------- ATASAN LANGSUNG REVIEW & EVALUASI TKK ------------------------- */
+
+let activeEvaluasiUsulanId = null;
+let activeEvaluasiDetail = null;
+let evalTkkCanvas = null;
+let evalTkkCtx = null;
+let evalTkkIsDrawing = false;
+let evalTkkHasDrawn = false;
+
+async function loadKontrakAtasanReviewList() {
+  const el = document.getElementById('kontrakAtasanReviewList');
+  if (!el) return;
+  el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat daftar usulan bawahan...</div>';
+
+  try {
+    const res = await rpc('getUsulanKontrakAtasanLangsung', [SESSION.token]);
+    if (res && res.success) {
+      renderKontrakAtasanReviewList(res.daftar || []);
+      const badge = document.getElementById('kontrakAtasanBadge');
+      if (badge) {
+        const pendingCount = (res.daftar || []).filter(u => u.status === 'submitted_to_atasan' || u.status === 'under_atasan_review').length;
+        badge.textContent = pendingCount;
+        badge.style.display = pendingCount > 0 ? 'inline-block' : 'none';
+      }
+    } else {
+      el.innerHTML = `<div class="ce-dashboard-card cdc-empty">${escapeHtml(res?.message || 'Gagal memuat usulan.')}</div>`;
+    }
+  } catch (err) {
+    el.innerHTML = `<div class="ce-dashboard-card cdc-empty">Terjadi kesalahan: ${escapeHtml(err.message || err)}</div>`;
+  }
+}
+
+function renderKontrakAtasanReviewList(daftar) {
+  const el = document.getElementById('kontrakAtasanReviewList');
+  if (!el) return;
+  if (!daftar.length) {
+    el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Belum ada usulan perpanjangan kontrak dari pegawai/bawahan yang memerlukan penilaian Anda.</div>';
+    return;
+  }
+
+  el.innerHTML = daftar.map(u => {
+    let badgeHtml = `<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">⏳ Belum Dinilai</span>`;
+    let actionBtnText = '✍️ Lakukan Penilaian Kinerja';
+    let actionBtnClass = 'btn btn-primary';
+
+    if (u.status === 'under_atasan_review') {
+      badgeHtml = `<span class="badge" style="background:#3b82f6; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">🔍 Sedang Ditinjau</span>`;
+    } else if (u.status === 'evaluated_extend') {
+      badgeHtml = `<span class="badge" style="background:#8b5cf6; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">✅ Selesai Dinilai (Diperpanjang)</span>`;
+      actionBtnText = '🔄 Ubah / Buka Penilaian';
+      actionBtnClass = 'btn btn-outline';
+    } else if (u.status === 'evaluated_not_extend') {
+      badgeHtml = `<span class="badge" style="background:#ef4444; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">❌ Selesai Dinilai (Tidak Diperpanjang)</span>`;
+      actionBtnText = '🔄 Ubah / Buka Penilaian';
+      actionBtnClass = 'btn btn-outline';
+    } else if (u.status === 'validated_by_admin' || u.status === 'contract_generated' || u.status === 'Disetujui' || u.status === 'Selesai') {
+      badgeHtml = `<span class="badge" style="background:#10b981; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">🎉 Divalidasi Admin</span>`;
+      actionBtnText = '👁️ Lihat Formulir Evaluasi';
+      actionBtnClass = 'btn btn-secondary';
+    }
+
+    return `
+      <div class="ce-dashboard-list-item" style="cursor:default; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px;">
+        <div style="flex:1; min-width:260px;">
+          <div class="cdli-name" style="font-size:15px; font-weight:700;">${escapeHtml(u.nama || '-')}</div>
+          <div class="cdli-meta" style="font-size:12.5px; color:#666; margin-top:3px;">
+            NIP: <strong>${escapeHtml(u.nip || '-')}</strong> &bull; Unit: ${escapeHtml(u.unit || '-')} &bull; Kategori: ${escapeHtml(u.sub_menu || u.layanan || 'Tendik')}
+          </div>
+          <div style="font-size:12px; color:#888; margin-top:4px;">
+            Diajukan: ${escapeHtml(u.tanggal_diajukan || '-')} &bull; Status: ${badgeHtml}
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button type="button" class="${actionBtnClass} kp-small-btn" onclick="openModalEvaluasiTkk('${u.id}')" style="font-weight:600;">
+            ${actionBtnText}
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function openModalEvaluasiTkk(usulanId) {
+  activeEvaluasiUsulanId = usulanId;
+  const modal = document.getElementById('modalEvaluasiTkk');
+  const infoEl = document.getElementById('evalTkkPegawaiInfo');
+  const nomorSuratEl = document.getElementById('evalTkk_nomorSurat');
+  const tahunEl = document.getElementById('evalTkk_tahunEvaluasi');
+  
+  if (!modal || !infoEl) return;
+  modal.style.display = 'flex';
+  infoEl.innerHTML = '<div style="text-align:center; padding:10px;">Memuat data pegawai...</div>';
+
+  try {
+    const res = await rpc('getDetailEvaluasiKontrak', [SESSION.token, usulanId]);
+    if (!res || !res.success) {
+      showToast('error', res?.message || 'Gagal memuat detail evaluasi.');
+      tutupModalEvaluasiTkk();
+      return;
+    }
+
+    activeEvaluasiDetail = res.data;
+    const u = res.data;
+    const at = res.atasan_info || {};
+
+    infoEl.innerHTML = `
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; font-size:13px;">
+        <div><strong>Nama Pegawai:</strong> ${escapeHtml(u.nama || '-')}</div>
+        <div><strong>NIP Pegawai:</strong> ${escapeHtml(u.nip || '-')}</div>
+        <div><strong>Unit Kerja:</strong> ${escapeHtml(u.unit || '-')}</div>
+        <div><strong>Jabatan:</strong> ${escapeHtml(u.jabatan || u.form_data?.jabatan || '-')}</div>
+        <div><strong>Pendidikan / Jurusan:</strong> ${escapeHtml(u.pendidikan || u.form_data?.pendidikan || '-')}, ${escapeHtml(u.jurusan || u.form_data?.jurusan || '-')}</div>
+        <div><strong>Atasan Langsung:</strong> ${escapeHtml(at.nama || SESSION.user?.nama || '-')} (NIP: ${escapeHtml(at.nip || SESSION.user?.nip || '-')})</div>
+      </div>
+    `;
+
+    if (tahunEl) {
+      tahunEl.value = u.tahun || new Date().getFullYear();
+    }
+    if (nomorSuratEl) {
+      nomorSuratEl.value = u.evaluasi_nomor_surat || u.nomor_surat || '';
+    }
+
+    // Fill existing criteria scores if available
+    const scores = u.evaluasi_kriteria || [2, 2, 2, 2, 2, 2, 2];
+    for (let i = 1; i <= 7; i++) {
+      const val = scores[i - 1] || 2;
+      const r = document.querySelector(`input[name="eval_p${i}"][value="${val}"]`);
+      if (r) r.checked = true;
+    }
+
+    hitungTotalSkorEvaluasiTkk();
+    setTimeout(() => initEvalTkkSignaturePad(), 100);
+  } catch (err) {
+    showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
+    tutupModalEvaluasiTkk();
+  }
+}
+
+function tutupModalEvaluasiTkk() {
+  const modal = document.getElementById('modalEvaluasiTkk');
+  if (modal) modal.style.display = 'none';
+  activeEvaluasiUsulanId = null;
+  activeEvaluasiDetail = null;
+}
+
+function hitungTotalSkorEvaluasiTkk() {
+  let total = 0;
+  for (let i = 1; i <= 7; i++) {
+    const selected = document.querySelector(`input[name="eval_p${i}"]:checked`);
+    total += selected ? parseInt(selected.value, 10) : 2;
+  }
+
+  const skorDisplay = document.getElementById('evalTkk_totalSkorDisplay');
+  const rekDisplay = document.getElementById('evalTkk_rekomendasiDisplay');
+  const tahun = parseInt(document.getElementById('evalTkk_tahunEvaluasi')?.value || new Date().getFullYear(), 10);
+  const nextTahun = tahun + 1;
+
+  if (skorDisplay) {
+    skorDisplay.textContent = `${total} / 21`;
+  }
+
+  if (rekDisplay) {
+    if (total > 10.5) {
+      rekDisplay.textContent = `Diperpanjang Kontrak s.d. 31 Desember ${nextTahun}`;
+      rekDisplay.style.color = '#16a34a';
+    } else {
+      rekDisplay.textContent = 'Tidak Diperpanjang';
+      rekDisplay.style.color = '#dc2626';
+    }
+  }
+
+  return total;
+}
+
+function initEvalTkkSignaturePad() {
+  evalTkkCanvas = document.getElementById('evalTkkSignaturePad');
+  if (!evalTkkCanvas) return;
+  evalTkkCtx = evalTkkCanvas.getContext('2d');
+  evalTkkCtx.strokeStyle = '#0f172a';
+  evalTkkCtx.lineWidth = 2.5;
+  evalTkkCtx.lineCap = 'round';
+  evalTkkCtx.lineJoin = 'round';
+
+  evalTkkHasDrawn = false;
+  clearEvalTkkSignature();
+
+  if (evalTkkCanvas._boundEvents) return;
+  evalTkkCanvas._boundEvents = true;
+
+  function getPos(e) {
+    const rect = evalTkkCanvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: (clientX - rect.left) * (evalTkkCanvas.width / rect.width),
+      y: (clientY - rect.top) * (evalTkkCanvas.height / rect.height)
+    };
+  }
+
+  function startDraw(e) {
+    evalTkkIsDrawing = true;
+    evalTkkHasDrawn = true;
+    const pos = getPos(e);
+    evalTkkCtx.beginPath();
+    evalTkkCtx.moveTo(pos.x, pos.y);
+    if (e.cancelable && e.type.startsWith('touch')) e.preventDefault();
+  }
+
+  function draw(e) {
+    if (!evalTkkIsDrawing) return;
+    const pos = getPos(e);
+    evalTkkCtx.lineTo(pos.x, pos.y);
+    evalTkkCtx.stroke();
+    if (e.cancelable && e.type.startsWith('touch')) e.preventDefault();
+  }
+
+  function stopDraw() {
+    evalTkkIsDrawing = false;
+  }
+
+  evalTkkCanvas.addEventListener('mousedown', startDraw);
+  evalTkkCanvas.addEventListener('mousemove', draw);
+  window.addEventListener('mouseup', stopDraw);
+
+  evalTkkCanvas.addEventListener('touchstart', startDraw, { passive: false });
+  evalTkkCanvas.addEventListener('touchmove', draw, { passive: false });
+  evalTkkCanvas.addEventListener('touchend', stopDraw);
+}
+
+function clearEvalTkkSignature() {
+  if (!evalTkkCanvas || !evalTkkCtx) return;
+  evalTkkCtx.clearRect(0, 0, evalTkkCanvas.width, evalTkkCanvas.height);
+  evalTkkHasDrawn = false;
+}
+
+function collectEvaluasiTkkPayload() {
+  const kriteria = [];
+  for (let i = 1; i <= 7; i++) {
+    const selected = document.querySelector(`input[name="eval_p${i}"]:checked`);
+    kriteria.push(selected ? parseInt(selected.value, 10) : 2);
+  }
+
+  const totalSkor = hitungTotalSkorEvaluasiTkk();
+  const nomorSurat = (document.getElementById('evalTkk_nomorSurat')?.value || '').trim();
+  const tahun = (document.getElementById('evalTkk_tahunEvaluasi')?.value || '').trim();
+
+  let ttdBase64 = '';
+  if (evalTkkCanvas && evalTkkHasDrawn) {
+    ttdBase64 = evalTkkCanvas.toDataURL('image/png');
+  }
+
+  return {
+    kriteria,
+    total_skor: totalSkor,
+    nomor_surat: nomorSurat,
+    tahun: tahun,
+    ttd_base64: ttdBase64
+  };
+}
+
+async function previewDocxEvaluasiTkk() {
+  if (!activeEvaluasiUsulanId) return;
+  const payload = collectEvaluasiTkkPayload();
+  showToast('info', 'Membuat preview dokumen formulir evaluasi...');
+
+  try {
+    const res = await rpc('simpanDanGenerateEvaluasiTkk', [SESSION.token, activeEvaluasiUsulanId, payload, true]);
+    if (res && res.success) {
+      showToast('success', 'Preview berhasil dibuat.');
+      if (res.base64) {
+        downloadBase64File_(res.base64, res.fileName || 'Formulir_Evaluasi_Preview.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      } else if (res.docUrl) {
+        window.open(res.docUrl, '_blank');
+      }
+    } else {
+      showToast('error', res?.message || 'Gagal membuat preview formulir evaluasi.');
+    }
+  } catch (err) {
+    showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
+  }
+}
+
+async function simpanEvaluasiTkkFinal() {
+  if (!activeEvaluasiUsulanId) return;
+  const btn = document.getElementById('btnSimpanEvaluasiTkk');
+  const payload = collectEvaluasiTkkPayload();
+
+  if (!payload.ttd_base64) {
+    showToast('error', 'Silakan bubuhkan tanda tangan Atasan Langsung pada kotak signature pad terlebih dahulu.');
+    return;
+  }
+
+  setBtnLoading(btn, true, 'Menyimpan & Menggenerate...');
+
+  try {
+    const res = await rpc('simpanDanGenerateEvaluasiTkk', [SESSION.token, activeEvaluasiUsulanId, payload, false]);
+    setBtnLoading(btn, false, '💾 Simpan & Generate Dokumen (.docx)');
+    if (res && res.success) {
+      showToast('success', res.message || 'Evaluasi kinerja berhasil disimpan & dokumen tergenerate.');
+      tutupModalEvaluasiTkk();
+      loadKontrakAtasanReviewList();
+    } else {
+      showToast('error', res?.message || 'Gagal menyimpan evaluasi.');
+    }
+  } catch (err) {
+    setBtnLoading(btn, false, '💾 Simpan & Generate Dokumen (.docx)');
+    showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
+  }
+}
+
+async function adminValidasiUsulanTendik(usulanId, isExtend) {
+  const confirmMsg = isExtend 
+    ? 'Apakah Anda yakin ingin memvalidasi usulan ini untuk DIPERPANJANG? Pegawai akan dapat membuat perjanjian kerja.' 
+    : 'Apakah Anda yakin ingin menyelesaikan usulan ini sebagai TIDAK DIPERPANJANG?';
+  
+  if (!confirm(confirmMsg)) return;
+
+  showToast('info', 'Memproses validasi usulan...');
+  try {
+    const res = await rpc('validasiUsulanKontrakTendik', [SESSION.token, usulanId, isExtend]);
+    if (res && res.success) {
+      showToast('success', res.message);
+      viewKontrakReviewDetail(usulanId);
+    } else {
+      showToast('error', res?.message || 'Gagal memvalidasi usulan.');
+    }
+  } catch (err) {
+    showToast('error', 'Gagal: ' + (err.message || err));
+  }
+}
 
   if (typeof google !== 'undefined' && google.script && google.script.run) {
     google.script.run
@@ -8965,6 +9439,42 @@ function renderKontrakReviewDetailContent_(u) {
     </div>
   `;
 
+    const isTendik = (u.layanan === 'Kontrak Tendik');
+    const tendikEvalCardHtml = isTendik ? `
+      <div style="margin-top:20px; padding:18px; background:var(--surface-alt); border:2px solid var(--primary); border-radius:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+          <h4 style="margin:0; color:var(--primary);">👔 Penilaian Evaluasi Kinerja (Atasan Langsung)</h4>
+          <div>
+            ${u.status === 'evaluated_extend' ? '<span class="badge" style="background:#8b5cf6; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Sudah Dinilai (Rekomendasi Diperpanjang)</span>' : ''}
+            ${u.status === 'evaluated_not_extend' ? '<span class="badge" style="background:#ef4444; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Sudah Dinilai (Tidak Diperpanjang)</span>' : ''}
+            ${u.status === 'submitted_to_atasan' || u.status === 'under_atasan_review' ? '<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Menunggu Penilaian Atasan</span>' : ''}
+            ${u.status === 'validated_by_admin' ? '<span class="badge" style="background:#10b981; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Tervalidasi Admin</span>' : ''}
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; font-size:13.5px; margin-bottom:14px;">
+          <div><strong>Atasan Langsung:</strong> ${escapeHtml(u.atasan_nama || u.atasan_nip || '-')} (NIP: ${escapeHtml(u.atasan_nip || '-')})</div>
+          <div><strong>Total Skor (7 Kriteria):</strong> <strong style="color:var(--primary); font-size:16px;">${escapeHtml(u.evaluasi_skor || '-')} / 21</strong></div>
+          <div><strong>Rekomendasi:</strong> <strong style="color:${(u.evaluasi_skor || 0) > 10 ? '#16a34a' : '#dc2626'};">${escapeHtml(u.evaluasi_rekomendasi || '-')}</strong></div>
+          <div><strong>Nomor Surat Evaluasi:</strong> ${escapeHtml(u.evaluasi_nomor_surat || '-')}</div>
+        </div>
+        ${u.evaluasi_doc_url ? `
+          <div style="margin-bottom:14px;">
+            <a href="${u.evaluasi_doc_url}" target="_blank" class="btn btn-outline kp-small-btn" style="color:var(--primary); border-color:var(--primary); font-weight:700;">
+              📥 Unduh Formulir Evaluasi Kinerja (.docx)
+            </a>
+          </div>` : ''}
+        
+        <div style="display:flex; gap:10px; flex-wrap:wrap; border-top:1px solid var(--border); padding-top:12px;">
+          <button type="button" class="btn btn-primary" style="background:#10b981; border-color:#10b981; font-weight:700;" onclick="adminValidasiUsulanTendik('${u.id}', true)">
+            ✅ Validasi &amp; Setujui Usulan Tendik (Dapat Buat Perjanjian)
+          </button>
+          <button type="button" class="btn btn-outline" style="color:#ef4444; border-color:#ef4444; font-weight:600;" onclick="adminValidasiUsulanTendik('${u.id}', false)">
+            ❌ Tutup Usulan (Tidak Diperpanjang)
+          </button>
+        </div>
+      </div>
+    ` : '';
+
   el.innerHTML = `
     <div class="grid-2" style="font-size:14px; gap:10px; margin-bottom:20px; border:1px solid #ddd; padding:16px; border-radius:8px; background:var(--surface);">
       <div><strong>NIP:</strong> ${escapeHtml(u.nip || '-')}</div>
@@ -8976,10 +9486,12 @@ function renderKontrakReviewDetailContent_(u) {
       <div><strong>Evaluasi Kinerja:</strong> ${escapeHtml(u.evaluasi_kinerja || '-')}</div>
       <div><strong>Kategori:</strong> ${escapeHtml(u.layanan || '-')}</div>
       <div><strong>Jenis Kontrak:</strong> ${escapeHtml(u.sub_menu || '-')}</div>
-      <div><strong>Status Usulan:</strong> <strong style="color:${u.status === 'Selesai' ? '#2196f3' : (u.status === 'Disetujui' ? '#4caf50' : (u.status === 'Ditolak' ? '#f44336' : '#ff9800'))}">${escapeHtml(u.status || 'Diajukan')}</strong></div>
+      <div><strong>Status Usulan:</strong> <strong style="color:${u.status === 'Selesai' ? '#2196f3' : (u.status === 'Disetujui' || u.status === 'validated_by_admin' ? '#4caf50' : (u.status === 'Ditolak' || u.status === 'closed_not_extended' ? '#f44336' : '#ff9800'))}">${escapeHtml(u.status || 'Diajukan')}</strong></div>
     </div>
+
+    ${tendikEvalCardHtml}
     
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
       <h4 style="margin:0;">Persetujuan File Lampiran Pegawai</h4>
       <div>${approveAllBtnHtml}</div>
     </div>
