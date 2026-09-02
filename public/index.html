@@ -13104,7 +13104,7 @@ function openEvaluasiResultModal(res, isPreview = false) {
   }
   if (res.base64) {
     buttonsHtml += `
-      <button type="button" class="btn btn-primary" style="padding:10px 22px; font-weight:700; font-size:13.5px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" onclick="downloadBase64File_('${res.base64}', '${escapeHtml(fileName)}')">
+      <button type="button" class="btn btn-primary" style="padding:10px 22px; font-weight:700; font-size:13.5px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" onclick="downloadBase64File_('${res.base64}', '${escHtml(fileName)}')">
         📥 Unduh Dokumen Word (.docx)
       </button>
     `;
@@ -13133,8 +13133,8 @@ function openEvaluasiResultModal(res, isPreview = false) {
 
       <div style="background:var(--surface-alt, #f8fafc); border:1px solid var(--border, #e2e8f0); border-radius:10px; padding:14px 18px; margin-bottom:18px; font-size:13px;">
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px;">
-          <div><strong>Total Skor Kinerja:</strong> <span style="color:#2563eb; font-weight:700;">${escapeHtml(String(res.totalSkor || '-'))} / 21</span></div>
-          <div><strong>Rekomendasi Atasan:</strong> <span style="font-weight:700; color:${res.status === 'evaluated_extend' || Number(res.totalSkor) >= 11 ? '#16a34a' : '#dc2626'};">${escapeHtml(res.rekomendasi || '-')}</span></div>
+          <div><strong>Total Skor Kinerja:</strong> <span style="color:#2563eb; font-weight:700;">${escHtml(String(res.totalSkor || '-'))} / 21</span></div>
+          <div><strong>Rekomendasi Atasan:</strong> <span style="font-weight:700; color:${res.status === 'evaluated_extend' || Number(res.totalSkor) >= 11 ? '#16a34a' : '#dc2626'};">${escHtml(res.rekomendasi || '-')}</span></div>
         </div>
       </div>
 
