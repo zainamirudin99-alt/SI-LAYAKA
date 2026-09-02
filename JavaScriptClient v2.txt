@@ -7973,19 +7973,27 @@ async function runKontrakPreviewGenerate(mode) {
   }
 }
 
-/** REF (konfirmasi Titto): hasil generate Kontrak SELALU 2 file (Google Docs & PDF) -- tampilkan tautan keduanya. */
+/** REF: hasil generate Kontrak: akun Normal = PDF, akun Admin/Super Admin = sesuai template (GDocs/DOCX). */
 function openKontrakResultModal(res) {
+  const role = (SESSION.user && SESSION.user.role) || 'normal';
+  const isAdmin = (role === 'admin' || role === 'super_admin');
+
   document.getElementById('modalTitle').textContent = '📄 Dokumen Perjanjian Kerja / Kontrak Siap';
   let linksHtml = '';
   const url = res.pdfUrl || res.pdfDownloadUrl || res.docViewUrl || res.viewUrl || '';
   const fileName = res.fileName || 'Dokumen_Kontrak';
 
-  if (res.outputType === 'pdf' || (url && url.includes('.pdf'))) {
-    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:12px 24px; font-weight:700; font-size:14px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" href="${url}" target="_blank" rel="noopener">📥 Unduh / Buka Dokumen PDF (${escapeHtml(fileName)})</a>`;
-  } else if (res.isDocx && res.docViewUrl) {
-    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:12px 24px; font-weight:700; font-size:14px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" href="${res.docViewUrl}" download="${escapeHtml(fileName)}.docx">📥 Unduh Dokumen DOCX (${escapeHtml(fileName)})</a>`;
+  // 1. Akun Normal User: SELALU menghasilkan & mengunduh PDF
+  // 2. Akun Admin & Super Admin: Sesuai format template (Google Docs atau DOCX Word)
+  if (!isAdmin || res.outputType === 'pdf') {
+    const pdfLink = res.pdfUrl || res.pdfDownloadUrl || res.viewUrl || url;
+    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:12px 24px; font-weight:700; font-size:14px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" href="${pdfLink}" target="_blank" rel="noopener">📥 Unduh / Buka Dokumen PDF (${escapeHtml(fileName)})</a>`;
+  } else if (res.isDocx || res.outputType === 'docx') {
+    const docxLink = res.docViewUrl || res.viewUrl || url;
+    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:12px 24px; font-weight:700; font-size:14px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" href="${docxLink}" download="${escapeHtml(fileName)}.docx">📥 Unduh Dokumen MS Word (.docx) (${escapeHtml(fileName)})</a>`;
   } else {
-    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:12px 24px; font-weight:700; font-size:14px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" href="${url}" target="_blank" rel="noopener">📄 Buka Google Docs (${escapeHtml(fileName)})</a>`;
+    const gdocsLink = res.docViewUrl || res.viewUrl || url;
+    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:12px 24px; font-weight:700; font-size:14px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" href="${gdocsLink}" target="_blank" rel="noopener">📄 Buka File Google Docs (${escapeHtml(fileName)}) ↗</a>`;
   }
 
   document.getElementById('modalBody').innerHTML = `
@@ -8064,20 +8072,36 @@ function openKontrakResultModal(res) {
   document.getElementById('modalOverlay').style.display = 'flex';
 
   // Otomatis buka di tab baru atau trigger download file
-  if (url && !res.isDocx) {
-    try {
-      const win = window.open(url, '_blank');
-      if (!win) showToast('info', 'Harap izinkan pop-up di browser Anda untuk membuka file secara otomatis.');
-    } catch (_) {}
-  } else if (res.isDocx && res.docViewUrl) {
-    try {
-      const a = document.createElement('a');
-      a.href = res.docViewUrl;
-      a.download = `${fileName}.docx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch (_) {}
+  if (!isAdmin) {
+    const pdfTarget = res.pdfUrl || res.pdfDownloadUrl || res.viewUrl || url;
+    if (pdfTarget) {
+      try {
+        const win = window.open(pdfTarget, '_blank');
+        if (!win) showToast('info', 'Harap izinkan pop-up di browser Anda untuk membuka file secara otomatis.');
+      } catch (_) {}
+    }
+  } else {
+    if (res.isDocx || res.outputType === 'docx') {
+      const docxTarget = res.docViewUrl || res.viewUrl || url;
+      if (docxTarget) {
+        try {
+          const a = document.createElement('a');
+          a.href = docxTarget;
+          a.download = `${fileName}.docx`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        } catch (_) {}
+      }
+    } else {
+      const gdocsTarget = res.docViewUrl || res.viewUrl || url;
+      if (gdocsTarget) {
+        try {
+          const win = window.open(gdocsTarget, '_blank');
+          if (!win) showToast('info', 'Harap izinkan pop-up di browser Anda untuk membuka file secara otomatis.');
+        } catch (_) {}
+      }
+    }
   }
 }
 

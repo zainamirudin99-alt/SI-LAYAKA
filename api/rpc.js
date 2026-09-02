@@ -7747,7 +7747,12 @@ const methods = {
       const gasResult = await response.json();
       if (!gasResult.success) return gasResult;
 
-      const resViewUrl = gasResult.pdfViewUrl || gasResult.viewUrl || gasResult.docViewUrl || (gasResult.pdfFileId ? `https://drive.google.com/file/d/${gasResult.pdfFileId}/preview` : (gasResult.fileId ? `https://drive.google.com/file/d/${gasResult.fileId}/preview` : ''));
+      const isNormalOrUser = ['normal', 'user'].includes(role);
+
+      const pdfExportUrl = gasResult.pdfViewUrl || gasResult.pdfDownloadUrl || (gasResult.pdfFileId ? `https://drive.google.com/file/d/${gasResult.pdfFileId}/view` : `https://docs.google.com/document/d/${gasResult.docFileId || gasResult.fileId}/export?format=pdf`);
+      const gdocsViewUrl = gasResult.docViewUrl || gasResult.viewUrl || (gasResult.docFileId ? `https://docs.google.com/document/d/${gasResult.docFileId}/edit` : gasResult.viewUrl);
+
+      const resViewUrl = isNormalOrUser ? pdfExportUrl : gdocsViewUrl;
       const resFileId = gasResult.pdfFileId || gasResult.fileId || gasResult.docFileId || '';
 
       await db.from('usulan_kontrak').update({ perjanjian_dibuat: true, diproses_oleh_nip: decoded.nip, status: 'Selesai' }).eq('id', usulanId);
@@ -7755,12 +7760,17 @@ const methods = {
         success: true,
         fileId: resFileId,
         viewUrl: resViewUrl,
-        pdfUrl: gasResult.pdfViewUrl || resViewUrl,
-        pdfViewUrl: gasResult.pdfViewUrl || resViewUrl,
+        pdfUrl: pdfExportUrl,
+        pdfViewUrl: pdfExportUrl,
+        docViewUrl: gdocsViewUrl,
         fileName: gasResult.fileName || gasResult.pdfFileName || `Kontrak_${usulan.nama}_${usulan.tahun}`,
         message: gasResult.message || 'Kontrak berhasil digenerate.',
-        outputType: gasResult.outputType || 'pdf'
-      }, gasResult);
+        outputType: isNormalOrUser ? 'pdf' : (gasResult.outputType || 'gdocs')
+      }, gasResult, {
+        outputType: isNormalOrUser ? 'pdf' : (gasResult.outputType || 'gdocs'),
+        viewUrl: resViewUrl,
+        pdfUrl: pdfExportUrl
+      });
     } catch (err) {
       return { success: false, message: 'Gagal generate kontrak: ' + err.message };
     }
