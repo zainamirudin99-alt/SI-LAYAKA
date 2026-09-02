@@ -2640,14 +2640,14 @@
         <div class="view-panel" id="view-kontrak" style="display:none;">
           <!-- Kontrak Navigation Tabs -->
           <div id="kontrakAdminTabs" class="ce-tabs" style="display:none; margin-bottom: 20px; flex-wrap:wrap; gap:8px;">
-            <button type="button" class="tab-btn active" id="tabBtnKontrakAdminBuat" data-kontrak-tab="buat">Buat Kontrak (Admin)</button>
-            <button type="button" class="tab-btn" id="tabBtnKontrakAdminReview" data-kontrak-tab="review">Review Usulan Unit <span id="kontrakReviewBadge" class="badge-count" style="display:none; background:#ff4444; color:#fff; border-radius:10px; padding:2px 6px; font-size:11px; margin-left:4px;">0</span></button>
+            <button type="button" class="tab-btn" id="tabBtnKontrakAdminBuat" data-kontrak-tab="buat" style="display:none;">Buat Kontrak (Admin)</button>
+            <button type="button" class="tab-btn" id="tabBtnKontrakAdminReview" data-kontrak-tab="review" style="display:none;">Review Usulan Unit <span id="kontrakReviewBadge" class="badge-count" style="display:none; background:#ff4444; color:#fff; border-radius:10px; padding:2px 6px; font-size:11px; margin-left:4px;">0</span></button>
             <button type="button" class="tab-btn" id="tabBtnKontrakAtasan" data-kontrak-tab="atasan" style="display:none;">👔 Review Usulan Bawahan (Atasan Langsung) <span id="kontrakAtasanBadge" class="badge-count" style="display:none; background:#3b82f6; color:#fff; border-radius:10px; padding:2px 6px; font-size:11px; margin-left:4px;">0</span></button>
             <button type="button" class="tab-btn" id="tabBtnKontrakUserStatus" data-kontrak-tab="user-status" style="display:none;">Usulan Kontrak Saya</button>
           </div>
 
           <!-- SECTION: ADMIN DIRECT GENERATION -->
-          <div id="kontrakAdminDirectSection" class="card kp-panel">
+          <div id="kontrakAdminDirectSection" class="card kp-panel" style="display:none;">
             <!-- STATE 1: Tenaga Kependidikan / Dosen -->
             <div id="kontrakPilihKategoriState">
               <div class="helper-text" style="margin-bottom:14px;">Pilih kategori pegawai untuk membuat dokumen Kontrak/Perjanjian Kerja.</div>
@@ -11880,49 +11880,57 @@ async function initKontrakViewForUser() {
   const btnAdminReview = document.getElementById('tabBtnKontrakAdminReview');
   const btnAtasan = document.getElementById('tabBtnKontrakAtasan');
   const btnUserStatus = document.getElementById('tabBtnKontrakUserStatus');
+  const adminDirectSec = document.getElementById('kontrakAdminDirectSection');
+  const userPropSec = document.getElementById('kontrakUserProposalSection');
 
-  // Request menu access details from backend
+  if (adminTabs) adminTabs.style.display = 'flex';
+
+  // Set synchronously based on known session role to prevent UI flicker
+  if (btnAdminBuat) btnAdminBuat.style.display = isAdmin ? 'inline-block' : 'none';
+  if (btnAdminReview) btnAdminReview.style.display = isAdmin ? 'inline-block' : 'none';
+  if (btnUserStatus) btnUserStatus.style.display = 'inline-block';
+
+  if (!isAdmin) {
+    if (adminDirectSec) adminDirectSec.style.display = 'none';
+    if (userPropSec) userPropSec.style.display = 'block';
+    
+    document.querySelectorAll('#kontrakAdminTabs .tab-btn').forEach(t => t.classList.remove('active'));
+    if (btnUserStatus) btnUserStatus.classList.add('active');
+    
+    loadUsulanKontrakSaya();
+  } else {
+    if (adminDirectSec) adminDirectSec.style.display = 'block';
+    if (userPropSec) userPropSec.style.display = 'none';
+    
+    document.querySelectorAll('#kontrakAdminTabs .tab-btn').forEach(t => t.classList.remove('active'));
+    if (btnAdminBuat) btnAdminBuat.classList.add('active');
+    
+    loadKontrakReviewBadge();
+  }
+
+  // Request menu access details from backend (for Atasan Langsung role/badge)
   try {
     const resAkses = await rpc('getMenuAksesKontrak', [SESSION.token]);
     if (resAkses && resAkses.success) {
       KONTRAK_AKSES_INFO = resAkses;
+      const isAtasan = !!resAkses.isAtasanLangsung;
+      const countAtasan = resAkses.countUsulanAtasan || 0;
+
+      if (btnAtasan) {
+        if (isAtasan || isAdmin) {
+          btnAtasan.style.display = 'inline-block';
+          const badge = document.getElementById('kontrakAtasanBadge');
+          if (badge) {
+            badge.textContent = countAtasan;
+            badge.style.display = countAtasan > 0 ? 'inline-block' : 'none';
+          }
+        } else {
+          btnAtasan.style.display = 'none';
+        }
+      }
     }
   } catch (errAkses) {
     console.warn('[initKontrakViewForUser] notice:', errAkses.message);
-  }
-
-  const isAtasan = !!(KONTRAK_AKSES_INFO && KONTRAK_AKSES_INFO.isAtasanLangsung);
-  const countAtasan = (KONTRAK_AKSES_INFO && KONTRAK_AKSES_INFO.countUsulanAtasan) || 0;
-
-  if (adminTabs) adminTabs.style.display = 'flex';
-
-  if (btnAdminBuat) btnAdminBuat.style.display = isAdmin ? 'inline-block' : 'none';
-  if (btnAdminReview) btnAdminReview.style.display = isAdmin ? 'inline-block' : 'none';
-  
-  if (btnAtasan) {
-    if (isAtasan || isAdmin) {
-      btnAtasan.style.display = 'inline-block';
-      const badge = document.getElementById('kontrakAtasanBadge');
-      if (badge) {
-        badge.textContent = countAtasan;
-        badge.style.display = countAtasan > 0 ? 'inline-block' : 'none';
-      }
-    } else {
-      btnAtasan.style.display = 'none';
-    }
-  }
-
-  if (btnUserStatus) btnUserStatus.style.display = 'inline-block';
-
-  // Default active tab selection
-  if (isAdmin) {
-    if (btnAdminBuat) btnAdminBuat.click();
-    loadKontrakReviewBadge();
-  } else if (isAtasan && countAtasan > 0) {
-    if (btnAtasan) btnAtasan.click();
-  } else {
-    if (btnUserStatus) btnUserStatus.click();
-    loadUsulanKontrakSaya();
   }
 }
 
