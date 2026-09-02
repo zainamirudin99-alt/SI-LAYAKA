@@ -7317,16 +7317,15 @@ const methods = {
       jenis_usulan: String(jenis_usulan || 'Perpanjangan Kontrak').trim(),
       evaluasi_kinerja: String(evaluasi_kinerja || '').trim(),
       layanan: 'Kontrak Tendik',
-      sub_menu: String(sub_menu || 'Tenaga Kependidikan').trim(),
-      status_kepegawaian: effectiveStatus,
-      jenis_pegawai: 'Tenaga Kependidikan',
+      sub_menu: String(sub_menu || effectiveStatus || 'Tenaga Profesional').trim(),
       atasan_nip: String(atasan_nip).trim(),
       atasan_nama: atasanNama,
       status: 'submitted_to_atasan',
       form_data: Object.assign({}, form_data || {}, {
         atasan_nip: String(atasan_nip).trim(),
         atasan_nama: atasanNama,
-        status_kepegawaian: effectiveStatus
+        status_kepegawaian: effectiveStatus,
+        jenis_pegawai: 'Tenaga Kependidikan'
       }),
       ktp_url: ktpUrl,
       kk_url: kkUrl,
