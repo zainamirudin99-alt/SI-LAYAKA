@@ -2643,8 +2643,7 @@
             <button type="button" class="tab-btn active" id="tabBtnKontrakAdminBuat" data-kontrak-tab="buat">Buat Kontrak (Admin)</button>
             <button type="button" class="tab-btn" id="tabBtnKontrakAdminReview" data-kontrak-tab="review">Review Usulan Unit <span id="kontrakReviewBadge" class="badge-count" style="display:none; background:#ff4444; color:#fff; border-radius:10px; padding:2px 6px; font-size:11px; margin-left:4px;">0</span></button>
             <button type="button" class="tab-btn" id="tabBtnKontrakAtasan" data-kontrak-tab="atasan" style="display:none;">👔 Review Usulan Bawahan (Atasan Langsung) <span id="kontrakAtasanBadge" class="badge-count" style="display:none; background:#3b82f6; color:#fff; border-radius:10px; padding:2px 6px; font-size:11px; margin-left:4px;">0</span></button>
-            <button type="button" class="tab-btn" id="tabBtnKontrakUserStatus" data-kontrak-tab="user-status" style="display:none;">Status Usulan Saya</button>
-            <button type="button" class="tab-btn" id="tabBtnKontrakUserForm" data-kontrak-tab="user-form" style="display:none;">➕ Ajukan Usulan Kontrak</button>
+            <button type="button" class="tab-btn" id="tabBtnKontrakUserStatus" data-kontrak-tab="user-status" style="display:none;">Usulan Kontrak Saya</button>
           </div>
 
           <!-- SECTION: ADMIN DIRECT GENERATION -->
@@ -2837,11 +2836,15 @@
           <div id="kontrakUserProposalSection" class="card kp-panel" style="display:none;">
              <!-- State: Status Usulan Aktif -->
              <div id="kontrakUserStatusState" style="display:none;">
-               <h3>Status Usulan Kontrak Anda</h3>
+               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                 <h3 style="margin:0;">Status Usulan Kontrak Anda</h3>
+                 <button type="button" class="btn btn-outline kp-small-btn" onclick="openKontrakUserNewForm()">➕ Buat Pengajuan Usulan Baru</button>
+               </div>
                <div class="proposal-status-card" id="kontrakUserStatusCard" style="margin-top:14px; border:1px solid #ddd; padding:18px; border-radius:8px;"></div>
              </div>
              <!-- State: Form Pengajuan Usulan -->
              <div id="kontrakUserFormState" style="display:none;">
+               <button type="button" class="ce-dashboard-back" id="btnBackToKontrakStatus" onclick="backToKontrakUserStatus()" style="display:none; margin-bottom:14px;">&larr; Kembali ke Status Usulan</button>
                <h3>Pengajuan Usulan Kontrak Baru / Perpanjangan</h3>
                <form id="kontrakUserForm" onsubmit="submitUsulanKontrak(event)" style="margin-top:14px;">
                  <div class="grid-2 kp-grid">
@@ -4372,7 +4375,7 @@ function renderPeranAkunList(daftar) {
         <option value="Tenaga Profesional" ${currentStatusKep === 'Tenaga Profesional' ? 'selected' : ''}>Tenaga Profesional</option>
         <option value="Kontrak Penuh Waktu" ${currentStatusKep === 'Kontrak Penuh Waktu' ? 'selected' : ''}>Kontrak Penuh Waktu</option>
         <option value="Kontrak Paruh Waktu" ${currentStatusKep === 'Kontrak Paruh Waktu' ? 'selected' : ''}>Kontrak Paruh Waktu</option>
-        <option value="Tenaga Kontrak Penghargaan-KDRP" ${currentStatusKep === 'Tenaga Kontrak Penghargaan-KDRP' ? 'selected' : ''}>Tenaga Kontrak Penghargaan-KDRP</option>
+        <option value="Tenaga Kontrak Penghargaan" ${currentStatusKep === 'Tenaga Kontrak Penghargaan' ? 'selected' : ''}>Tenaga Kontrak Penghargaan</option>
         <option value="Pegawai Tetap Undip Non ASN" ${currentStatusKep === 'Pegawai Tetap Undip Non ASN' ? 'selected' : ''}>Pegawai Tetap Undip Non ASN</option>
         <option value="PNS" ${currentStatusKep === 'PNS' ? 'selected' : ''}>PNS</option>
         <option value="PPPK" ${currentStatusKep === 'PPPK' ? 'selected' : ''}>PPPK</option>
@@ -11855,16 +11858,7 @@ function initKontrakTabs() {
         loadKontrakAtasanReviewList();
       } else if (target === 'user-status') {
         if (userPropSec) userPropSec.style.display = 'block';
-        if (userStatusState) userStatusState.style.display = 'block';
-        if (userFormState) userFormState.style.display = 'none';
         loadUsulanKontrakSaya();
-      } else if (target === 'user-form') {
-        if (userPropSec) userPropSec.style.display = 'block';
-        if (userStatusState) userStatusState.style.display = 'none';
-        if (userFormState) userFormState.style.display = 'block';
-        populateKontrakUserFormProfile();
-        toggleEvaluasiKinerjaUser();
-        onKontrakUserLayananChange();
       }
     });
   });
@@ -11879,7 +11873,6 @@ async function initKontrakViewForUser() {
   const btnAdminReview = document.getElementById('tabBtnKontrakAdminReview');
   const btnAtasan = document.getElementById('tabBtnKontrakAtasan');
   const btnUserStatus = document.getElementById('tabBtnKontrakUserStatus');
-  const btnUserForm = document.getElementById('tabBtnKontrakUserForm');
 
   // Request menu access details from backend
   try {
@@ -11913,7 +11906,6 @@ async function initKontrakViewForUser() {
   }
 
   if (btnUserStatus) btnUserStatus.style.display = 'inline-block';
-  if (btnUserForm) btnUserForm.style.display = 'inline-block';
 
   // Default active tab selection
   if (isAdmin) {
@@ -11925,6 +11917,28 @@ async function initKontrakViewForUser() {
     if (btnUserStatus) btnUserStatus.click();
     loadUsulanKontrakSaya();
   }
+}
+
+function openKontrakUserNewForm() {
+  const statusState = document.getElementById('kontrakUserStatusState');
+  const formState = document.getElementById('kontrakUserFormState');
+  const btnBack = document.getElementById('btnBackToKontrakStatus');
+  if (statusState) statusState.style.display = 'none';
+  if (formState) formState.style.display = 'block';
+  if (btnBack) btnBack.style.display = 'inline-block';
+  populateKontrakUserFormProfile();
+  toggleEvaluasiKinerjaUser();
+  onKontrakUserLayananChange();
+}
+
+function backToKontrakUserStatus() {
+  const statusState = document.getElementById('kontrakUserStatusState');
+  const formState = document.getElementById('kontrakUserFormState');
+  const btnBack = document.getElementById('btnBackToKontrakStatus');
+  if (statusState) statusState.style.display = 'block';
+  if (formState) formState.style.display = 'none';
+  if (btnBack) btnBack.style.display = 'none';
+  loadUsulanKontrakSaya();
 }
 
 function toggleEvaluasiKinerjaUser() {
@@ -11955,7 +11969,7 @@ function onKontrakUserLayananChange() {
   }
   
   const list = (layanan === 'Kontrak Tendik') 
-    ? (kontrakFormOptionsCache.subMenuTendik || ['Tenaga Profesional', 'Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'KDRP', 'Tenaga Kontrak Penghargaan-KDRP']) 
+    ? (kontrakFormOptionsCache.subMenuTendik || ['Tenaga Profesional', 'Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan']) 
     : (kontrakFormOptionsCache.subMenuDosen || ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan']);
     
   subMenuSelect.innerHTML = list.map(item => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join('');

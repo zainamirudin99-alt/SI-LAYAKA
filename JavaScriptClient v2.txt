@@ -560,7 +560,7 @@ function renderPeranAkunList(daftar) {
         <option value="Tenaga Profesional" ${currentStatusKep === 'Tenaga Profesional' ? 'selected' : ''}>Tenaga Profesional</option>
         <option value="Kontrak Penuh Waktu" ${currentStatusKep === 'Kontrak Penuh Waktu' ? 'selected' : ''}>Kontrak Penuh Waktu</option>
         <option value="Kontrak Paruh Waktu" ${currentStatusKep === 'Kontrak Paruh Waktu' ? 'selected' : ''}>Kontrak Paruh Waktu</option>
-        <option value="Tenaga Kontrak Penghargaan-KDRP" ${currentStatusKep === 'Tenaga Kontrak Penghargaan-KDRP' ? 'selected' : ''}>Tenaga Kontrak Penghargaan-KDRP</option>
+        <option value="Tenaga Kontrak Penghargaan" ${currentStatusKep === 'Tenaga Kontrak Penghargaan' ? 'selected' : ''}>Tenaga Kontrak Penghargaan</option>
         <option value="Pegawai Tetap Undip Non ASN" ${currentStatusKep === 'Pegawai Tetap Undip Non ASN' ? 'selected' : ''}>Pegawai Tetap Undip Non ASN</option>
         <option value="PNS" ${currentStatusKep === 'PNS' ? 'selected' : ''}>PNS</option>
         <option value="PPPK" ${currentStatusKep === 'PPPK' ? 'selected' : ''}>PPPK</option>
@@ -8043,16 +8043,7 @@ function initKontrakTabs() {
         loadKontrakAtasanReviewList();
       } else if (target === 'user-status') {
         if (userPropSec) userPropSec.style.display = 'block';
-        if (userStatusState) userStatusState.style.display = 'block';
-        if (userFormState) userFormState.style.display = 'none';
         loadUsulanKontrakSaya();
-      } else if (target === 'user-form') {
-        if (userPropSec) userPropSec.style.display = 'block';
-        if (userStatusState) userStatusState.style.display = 'none';
-        if (userFormState) userFormState.style.display = 'block';
-        populateKontrakUserFormProfile();
-        toggleEvaluasiKinerjaUser();
-        onKontrakUserLayananChange();
       }
     });
   });
@@ -8067,7 +8058,6 @@ async function initKontrakViewForUser() {
   const btnAdminReview = document.getElementById('tabBtnKontrakAdminReview');
   const btnAtasan = document.getElementById('tabBtnKontrakAtasan');
   const btnUserStatus = document.getElementById('tabBtnKontrakUserStatus');
-  const btnUserForm = document.getElementById('tabBtnKontrakUserForm');
 
   // Request menu access details from backend
   try {
@@ -8101,7 +8091,6 @@ async function initKontrakViewForUser() {
   }
 
   if (btnUserStatus) btnUserStatus.style.display = 'inline-block';
-  if (btnUserForm) btnUserForm.style.display = 'inline-block';
 
   // Default active tab selection
   if (isAdmin) {
@@ -8113,6 +8102,28 @@ async function initKontrakViewForUser() {
     if (btnUserStatus) btnUserStatus.click();
     loadUsulanKontrakSaya();
   }
+}
+
+function openKontrakUserNewForm() {
+  const statusState = document.getElementById('kontrakUserStatusState');
+  const formState = document.getElementById('kontrakUserFormState');
+  const btnBack = document.getElementById('btnBackToKontrakStatus');
+  if (statusState) statusState.style.display = 'none';
+  if (formState) formState.style.display = 'block';
+  if (btnBack) btnBack.style.display = 'inline-block';
+  populateKontrakUserFormProfile();
+  toggleEvaluasiKinerjaUser();
+  onKontrakUserLayananChange();
+}
+
+function backToKontrakUserStatus() {
+  const statusState = document.getElementById('kontrakUserStatusState');
+  const formState = document.getElementById('kontrakUserFormState');
+  const btnBack = document.getElementById('btnBackToKontrakStatus');
+  if (statusState) statusState.style.display = 'block';
+  if (formState) formState.style.display = 'none';
+  if (btnBack) btnBack.style.display = 'none';
+  loadUsulanKontrakSaya();
 }
 
 function toggleEvaluasiKinerjaUser() {
@@ -8143,7 +8154,7 @@ function onKontrakUserLayananChange() {
   }
   
   const list = (layanan === 'Kontrak Tendik') 
-    ? (kontrakFormOptionsCache.subMenuTendik || ['Tenaga Profesional', 'Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'KDRP', 'Tenaga Kontrak Penghargaan-KDRP']) 
+    ? (kontrakFormOptionsCache.subMenuTendik || ['Tenaga Profesional', 'Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan']) 
     : (kontrakFormOptionsCache.subMenuDosen || ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan']);
     
   subMenuSelect.innerHTML = list.map(item => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join('');

@@ -123,11 +123,11 @@ const CONFIG = {
   MASA_KERJA_MINIMAL: {dosen:2,tendik_jabatan_fungsional:2,tendik_non_jabatan_fungsional:4},
   JENIS_PENSIUN_LIST: ['BUP','Meninggal','Diberhentikan','Pengunduran Diri','Uzur'],
   USULAN_PENSIUN_DOKUMEN_TAMBAHAN: {'BUP':[],'Meninggal':['Surat Bukti Kematian'],'Uzur':['Bukti Tes Kesehatan'],'Pengunduran Diri':['Surat Pernyataan Pengunduran Diri','Surat Pengantar Pimpinan Unit']},
-  KONTRAK_JENIS_PEG_ELIGIBLE: ['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','KDRP','Tenaga Kontrak Penghargaan-KDRP'],
-  STATUS_KONTRAK_TKK_LIST: ['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan-KDRP'],
+  KONTRAK_JENIS_PEG_ELIGIBLE: ['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan'],
+  STATUS_KONTRAK_TKK_LIST: ['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan'],
   KONTRAK_UPAH_TIER: {tier1:2903600,tier2:3026400},
   ROLE_LIST: ['normal','user','admin','super_admin'],
-  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER','SK Pensiun BUP Pegawai Undip Non ASN','SK Pensiun Meninggal Pegawai Undip Non ASN','SK Pensiun Uzur Pegawai Undip Non ASN','SK Pensiun Undur Diri Pegawai Undip Non ASN'],'Kontrak Tendik':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','KDRP','Tenaga Profesional','Formulir Evaluasi'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan'],'Kontrak':['Formulir Evaluasi','Perjanjian Kerja'],'Buat SK dan Surat':['SK CPTU','SK PTU 100%','SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','Surat PLT','Surat PLH','SK Tutam Struktural','SK Tutam Dekan Wadek']},
+  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER','SK Pensiun BUP Pegawai Undip Non ASN','SK Pensiun Meninggal Pegawai Undip Non ASN','SK Pensiun Uzur Pegawai Undip Non ASN','SK Pensiun Undur Diri Pegawai Undip Non ASN'],'Kontrak Tendik':['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','Formulir Evaluasi'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan'],'Kontrak':['Formulir Evaluasi','Perjanjian Kerja'],'Buat SK dan Surat':['SK CPTU','SK PTU 100%','SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','Surat PLT','Surat PLH','SK Tutam Struktural','SK Tutam Dekan Wadek']},
   USULAN_KP_KATA_KUNCI_PNS: ['pns'],
   USULAN_KP_NOTIF_SIASN: 'Siap diusulkan ke-SIASN',
   USULAN_KP_NOTIF_SK:    'Siap Dibuat SK',
@@ -3810,7 +3810,7 @@ const methods = {
     const statusKep = String((emp && emp.status_kepegawaian) || '').trim();
     const jenisPeg = String((emp && emp.jenis_peg) || '').trim();
     const eligibleList = CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE || [
-      'Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','KDRP'
+      'Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan'
     ];
 
     let kategoriCocok = eligibleList.find(j => 
@@ -3824,7 +3824,7 @@ const methods = {
       if (!statusKep && !jenisPeg) {
         // User baru terdaftar atau belum terisi status/jenis peg di data utama
         kategoriCocok = 'Tenaga Profesional';
-      } else if (/non[\s-]?asn|kontrak|profesional|kdrp|pegawai|tenaga/i.test(statusKep + ' ' + jenisPeg)) {
+      } else if (/non[\s-]?asn|kontrak|profesional|pegawai|tenaga/i.test(statusKep + ' ' + jenisPeg)) {
         kategoriCocok = 'Tenaga Profesional';
       }
     }
@@ -3859,7 +3859,7 @@ const methods = {
     requireRole(token, ['admin','super_admin']);
     const db = getDb();
     const eligibleList = CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE || [
-      'Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','KDRP'
+      'Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan'
     ];
     const peta = { ...MEMORY_AKSES_KONTRAK_MANDIRI };
     try {
@@ -7181,7 +7181,7 @@ const methods = {
     const statusKep = status_kepegawaian || emp?.status_kepegawaian || '';
     const jenisPeg = emp?.jenis_peg || '';
 
-    const eligibleList = ['Tenaga Profesional', 'Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan', 'KDRP', 'Tenaga Kontrak Penghargaan-KDRP'];
+    const eligibleList = ['Tenaga Profesional', 'Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan'];
     const isEligibleKontrak = eligibleList.some(k => 
       k.toLowerCase() === statusKep.toLowerCase() || 
       statusKep.toLowerCase().includes(k.toLowerCase()) ||
