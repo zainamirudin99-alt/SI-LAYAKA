@@ -185,12 +185,12 @@ END $$;
 
 -- ============================================================
 -- 7. STORAGE BUCKET untuk lampiran file usulan
---    (Buat lewat Supabase Dashboard: Storage -> New Bucket)
---    Nama: lampiran-usulan, Private (public=false)
+--    Nama: lampiran-usulan, Public (public=true) agar dapat
+--    diakses/diunduh oleh pegawai, atasan langsung, dan admin
 -- ============================================================
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('lampiran-usulan', 'lampiran-usulan', false)
-ON CONFLICT (id) DO NOTHING;
+VALUES ('lampiran-usulan', 'lampiran-usulan', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
 
 -- ============================================================
 -- 8. TAMBAHAN UNTUK ALUR SK KENAIKAN PANGKAT (NON-ASN)
