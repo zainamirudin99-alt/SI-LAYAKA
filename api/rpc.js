@@ -6659,8 +6659,8 @@ const methods = {
         });
 
         const loopDiLuarTabel = new Set();
-        (teksParagrafSaja.match(/\{\{[#/^]\w+\}\}/g) || []).forEach(m => loopDiLuarTabel.add(m));
-        (teksParagrafSaja.match(/(?<!\{)\{[#/]\w+\}(?!\})/g) || []).forEach(m => loopDiLuarTabel.add(m));
+        (teksParagrafSaja.match(/\{\{[#\/\^]\w+\}\}/g) || []).forEach(m => loopDiLuarTabel.add(m));
+        (teksParagrafSaja.match(/(?<!\{)\{[#\/]\w+\}(?!\})/g) || []).forEach(m => loopDiLuarTabel.add(m));
         if (loopDiLuarTabel.size > 0) {
           issues.push({
             type: 'loop_di_luar_tabel',
