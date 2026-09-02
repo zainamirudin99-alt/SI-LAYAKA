@@ -8953,10 +8953,11 @@ async function loadKontrakAtasanReviewList() {
   try {
     const res = await rpc('getUsulanKontrakAtasanLangsung', [SESSION.token]);
     if (res && res.success) {
-      renderKontrakAtasanReviewList(res.daftar || []);
+      const daftar = res.daftar || res.list || [];
+      renderKontrakAtasanReviewList(daftar);
       const badge = document.getElementById('kontrakAtasanBadge');
       if (badge) {
-        const pendingCount = (res.daftar || []).filter(u => u.status === 'submitted_to_atasan' || u.status === 'under_atasan_review').length;
+        const pendingCount = daftar.filter(u => u.status === 'submitted_to_atasan' || u.status === 'under_atasan_review').length;
         badge.textContent = pendingCount;
         badge.style.display = pendingCount > 0 ? 'inline-block' : 'none';
       }
@@ -9037,12 +9038,30 @@ async function openModalEvaluasiTkk(usulanId) {
       return;
     }
 
-    activeEvaluasiDetail = res.data;
-    const u = res.data;
-    const at = res.atasan_info || {};
+    activeEvaluasiDetail = res.data || res.usulan;
+    const u = res.data || res.usulan;
+    const at = res.atasan_info || res.atasan || {};
+
+    const LAMP_KEYS = [
+      { key: 'ktp_url', label: 'KTP' },
+      { key: 'kk_url', label: 'Kartu Keluarga' },
+      { key: 'pas_foto_url', label: 'Pas Foto' },
+      { key: 'ijazah_transkrip_url', label: 'Ijazah & Transkrip' },
+      { key: 'surat_pengantar_url', label: 'Surat Pengantar Unit' },
+      { key: 'surat_lamaran_url', label: 'Surat Lamaran' },
+      { key: 'keterangan_sehat_url', label: 'Surat Keterangan Sehat' },
+      { key: 'sim_ab_url', label: 'SIM' },
+      { key: 'str_aktif_url', label: 'STR Aktif' }
+    ];
+
+    const filesHtml = LAMP_KEYS.filter(f => u[f.key]).map(f => `
+      <a href="${escapeHtml(u[f.key])}" target="_blank" rel="noopener" style="text-decoration:none; display:inline-flex; align-items:center; gap:4px; background:#fff; border:1px solid #cbd5e1; padding:4px 10px; border-radius:6px; font-size:12px; color:#2563eb; font-weight:600;">
+        📄 ${escapeHtml(f.label)} ↗
+      </a>
+    `).join('');
 
     infoEl.innerHTML = `
-      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; font-size:13px;">
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; font-size:13px; margin-bottom:12px;">
         <div><strong>Nama Pegawai:</strong> ${escapeHtml(u.nama || '-')}</div>
         <div><strong>NIP Pegawai:</strong> ${escapeHtml(u.nip || '-')}</div>
         <div><strong>Unit Kerja:</strong> ${escapeHtml(u.unit || '-')}</div>
@@ -9050,6 +9069,12 @@ async function openModalEvaluasiTkk(usulanId) {
         <div><strong>Pendidikan / Jurusan:</strong> ${escapeHtml(u.pendidikan || u.form_data?.pendidikan || '-')}, ${escapeHtml(u.jurusan || u.form_data?.jurusan || '-')}</div>
         <div><strong>Atasan Langsung:</strong> ${escapeHtml(at.nama || SESSION.user?.nama || '-')} (NIP: ${escapeHtml(at.nip || SESSION.user?.nip || '-')})</div>
       </div>
+      ${filesHtml ? `
+        <div style="border-top:1px solid #e2e8f0; padding-top:10px; margin-top:10px;">
+          <div style="font-size:12px; font-weight:700; color:#475569; margin-bottom:6px;">📎 Berkas Lampiran Usulan Pegawai:</div>
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">${filesHtml}</div>
+        </div>
+      ` : ''}
     `;
 
     if (tahunEl) {
@@ -9060,7 +9085,16 @@ async function openModalEvaluasiTkk(usulanId) {
     }
 
     // Fill existing criteria scores if available
-    const scores = u.evaluasi_kriteria || [2, 2, 2, 2, 2, 2, 2];
+    const scores = u.evaluasi_kriteria || (u.evaluasi_data ? [
+      u.evaluasi_data.orientasi_pelayanan,
+      u.evaluasi_data.inisiatif_kerja,
+      u.evaluasi_data.komitmen,
+      u.evaluasi_data.kerjasama,
+      u.evaluasi_data.kehadiran,
+      u.evaluasi_data.disiplin,
+      u.evaluasi_data.hasil_kerja
+    ] : [2, 2, 2, 2, 2, 2, 2]);
+
     for (let i = 1; i <= 7; i++) {
       const val = scores[i - 1] || 2;
       const r = document.querySelector(`input[name="eval_p${i}"][value="${val}"]`);

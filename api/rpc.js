@@ -7223,9 +7223,10 @@ const methods = {
 
     let countUsulanAtasan = 0;
     try {
+      const cleanNip = String(decoded.nip || '').trim();
       const { count, error: cErr } = await db.from('usulan_kontrak')
         .select('*', { count: 'exact', head: true })
-        .eq('atasan_nip', decoded.nip);
+        .or(`atasan_nip.eq.${cleanNip},atasan_nip.ilike.%${cleanNip}%`);
       if (!cErr && typeof count === 'number') countUsulanAtasan = count;
     } catch (_) {}
 
@@ -7254,19 +7255,17 @@ const methods = {
     const db = getDb();
 
     const {
-      nip, nama, unit, email, tahun, jenis_usulan, evaluasi_kinerja,
-      layanan, sub_menu, form_data,
-      atasan_nip,
-      ktpBase64, kkBase64, pasFotoBase64, ijazahBase64,
-      suratPengantarBase64, suratLamaranBase64, simAbBase64, strAktifBase64, ketSehatBase64
+      nip, nama, unit, email, tahun, jenis_usulan, evaluasi_kinerja, layanan, sub_menu, atasan_nip, form_data,
+      ktpBase64, kkBase64, pasFotoBase64, ijazahBase64, suratPengantarBase64, suratLamaranBase64,
+      simAbBase64, strAktifBase64, ketSehatBase64
     } = payload || {};
 
-    const targetNip = String(nip || decoded.nip || '').trim();
-    const targetNama = String(nama || decoded.nama || '').trim();
-    if (!targetNip || !targetNama) return { success: false, message: 'Data pegawai (NIP/Nama) wajib diisi.' };
-    if (!atasan_nip || !String(atasan_nip).trim()) return { success: false, message: 'Atasan Langsung wajib dipilih.' };
-    if (!email) return { success: false, message: 'Email wajib diisi.' };
-    if (!tahun) return { success: false, message: 'Tahun kontrak wajib diisi.' };
+    const targetNip = String(nip || decoded.nip).trim();
+    const targetNama = String(nama || decoded.nama).trim();
+
+    if (!atasan_nip || !String(atasan_nip).trim()) {
+      return { success: false, message: 'Atasan Langsung wajib dipilih untuk pengajuan usulan Tenaga Kependidikan.' };
+    }
 
     const atasanEmp = await findEmployeeByNip(atasan_nip);
     if (!atasanEmp) return { success: false, message: 'Atasan Langsung dengan NIP tersebut tidak ditemukan di database.' };
@@ -7364,10 +7363,13 @@ const methods = {
     const decoded = verifyToken(token);
     const db = getDb();
 
-    const { data, error } = await db.from('usulan_kontrak')
-      .select('*')
-      .eq('atasan_nip', decoded.nip)
-      .order('tanggal_diajukan', { ascending: false });
+    const cleanNip = String(decoded.nip || '').trim();
+    let query = db.from('usulan_kontrak').select('*');
+    if (!['admin', 'super_admin'].includes(decoded.role)) {
+      query = query.or(`atasan_nip.eq.${cleanNip},atasan_nip.ilike.%${cleanNip}%`);
+    }
+
+    const { data, error } = await query.order('tanggal_diajukan', { ascending: false });
     if (error) throw error;
 
     const list = (data || []).map(u => ({
@@ -7378,8 +7380,8 @@ const methods = {
       email: u.email,
       tahun: u.tahun,
       status: u.status,
-      status_kepegawaian: u.status_kepegawaian || u.form_data?.status_kepegawaian || '',
-      jenis_pegawai: u.jenis_pegawai || 'Tenaga Kependidikan',
+      status_kepegawaian: u.form_data?.status_kepegawaian || u.sub_menu || '',
+      jenis_pegawai: u.form_data?.jenis_pegawai || 'Tenaga Kependidikan',
       tanggal_diajukan: formatTanggalIndonesia(u.tanggal_diajukan),
       evaluasi_skor: u.evaluasi_skor,
       evaluasi_rekomendasi: u.evaluasi_rekomendasi,
@@ -7389,7 +7391,7 @@ const methods = {
       form_data: u.form_data || {}
     }));
 
-    return { success: true, list };
+    return { success: true, list, daftar: list };
   },
 
   async getDetailEvaluasiKontrak(args) {
@@ -7401,7 +7403,8 @@ const methods = {
     if (error) throw error;
     if (!data) return { success: false, message: 'Usulan tidak ditemukan.' };
 
-    if (data.atasan_nip !== decoded.nip && !['admin', 'super_admin'].includes(decoded.role)) {
+    const cleanNip = String(decoded.nip || '').trim();
+    if (data.atasan_nip !== cleanNip && !String(data.atasan_nip).includes(cleanNip) && !['admin', 'super_admin'].includes(decoded.role)) {
       throw new Error('Anda tidak memiliki hak akses untuk mengevaluasi usulan ini.');
     }
 
@@ -7413,11 +7416,12 @@ const methods = {
     }
 
     const emp = await findEmployeeByNip(data.nip);
-    const atasanEmp = await findEmployeeByNip(data.atasan_nip || decoded.nip);
+    const atasanEmp = await findEmployeeByNip(data.atasan_nip || cleanNip);
 
     return {
       success: true,
       usulan: data,
+      data: data,
       pegawai: emp,
       atasan: atasanEmp
     };
