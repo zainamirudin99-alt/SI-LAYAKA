@@ -12936,29 +12936,6 @@ async function adminValidasiUsulanTendik(usulanId, isExtend) {
   }
 }
 
-  if (typeof google !== 'undefined' && google.script && google.script.run) {
-    google.script.run
-      .withSuccessHandler(res => {
-        if (res.success) {
-          showToast('success', res.message || 'Preview dokumen berhasil dibuat.');
-          const viewUrl = res.pdfUrl || res.pdfViewUrl || res.viewUrl || res.docViewUrl;
-          if (res.base64) {
-            const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
-            openPreviewModal(blobUrl);
-          } else if (viewUrl) {
-            openPreviewModal(viewUrl);
-          } else {
-            showToast('error', 'URL preview dokumen tidak ditemukan.');
-          }
-        } else {
-          showToast('error', res.message);
-        }
-      })
-      .withFailureHandler(err => showToast('error', 'Gagal preview Kontrak: ' + (err.message || err)))
-      .generateKontrakFromUsulanVercel(SESSION.token, templateRef, usulanId, customFormData);
-  }
-}
-
 async function generateKontrakUserSelf(usulanId) {
   const selectEl = document.getElementById(`usulan_templateSelect_${usulanId}`);
   const templateRef = selectEl ? selectEl.value : '';
