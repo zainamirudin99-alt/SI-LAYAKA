@@ -7277,18 +7277,26 @@ const methods = {
     const effectiveStatus = roleStatus || emp?.status_kepegawaian || 'Tenaga Profesional';
 
     const shortId = uuidv4();
-    let ktpUrl = '', kkUrl = '', pasFotoUrl = '', ijazahUrl = '', pengantarUrl = '', lamaranUrl = '', simUrl = '', strUrl = '', sehatUrl = '';
+    let ktpUrl = payload.ktp_url || '',
+        kkUrl = payload.kk_url || '',
+        pasFotoUrl = payload.pas_foto_url || '',
+        ijazahUrl = payload.ijazah_transkrip_url || '',
+        pengantarUrl = payload.surat_pengantar_url || '',
+        lamaranUrl = payload.surat_lamaran_url || '',
+        simUrl = payload.sim_ab_url || '',
+        strUrl = payload.str_aktif_url || '',
+        sehatUrl = payload.keterangan_sehat_url || '';
 
     try {
-      if (ktpBase64) ktpUrl = await uploadLampiran(ktpBase64, `KTP-${targetNip}`, 'kontrak-tkk');
-      if (kkBase64) kkUrl = await uploadLampiran(kkBase64, `KK-${targetNip}`, 'kontrak-tkk');
-      if (pasFotoBase64) pasFotoUrl = await uploadLampiran(pasFotoBase64, `FOTO-${targetNip}`, 'kontrak-tkk');
-      if (ijazahBase64) ijazahUrl = await uploadLampiran(ijazahBase64, `IJAZAH-${targetNip}`, 'kontrak-tkk');
-      if (suratPengantarBase64) pengantarUrl = await uploadLampiran(suratPengantarBase64, `PENGANTAR-${targetNip}`, 'kontrak-tkk');
-      if (suratLamaranBase64) lamaranUrl = await uploadLampiran(suratLamaranBase64, `LAMARAN-${targetNip}`, 'kontrak-tkk');
-      if (simAbBase64) simUrl = await uploadLampiran(simAbBase64, `SIM-${targetNip}`, 'kontrak-tkk');
-      if (strAktifBase64) strUrl = await uploadLampiran(strAktifBase64, `STR-${targetNip}`, 'kontrak-tkk');
-      if (ketSehatBase64) sehatUrl = await uploadLampiran(ketSehatBase64, `SEHAT-${targetNip}`, 'kontrak-tkk');
+      if (!ktpUrl && ktpBase64) ktpUrl = await uploadLampiran(ktpBase64, `KTP-${targetNip}`, 'kontrak-tkk');
+      if (!kkUrl && kkBase64) kkUrl = await uploadLampiran(kkBase64, `KK-${targetNip}`, 'kontrak-tkk');
+      if (!pasFotoUrl && pasFotoBase64) pasFotoUrl = await uploadLampiran(pasFotoBase64, `FOTO-${targetNip}`, 'kontrak-tkk');
+      if (!ijazahUrl && ijazahBase64) ijazahUrl = await uploadLampiran(ijazahBase64, `IJAZAH-${targetNip}`, 'kontrak-tkk');
+      if (!pengantarUrl && suratPengantarBase64) pengantarUrl = await uploadLampiran(suratPengantarBase64, `PENGANTAR-${targetNip}`, 'kontrak-tkk');
+      if (!lamaranUrl && suratLamaranBase64) lamaranUrl = await uploadLampiran(suratLamaranBase64, `LAMARAN-${targetNip}`, 'kontrak-tkk');
+      if (!simUrl && simAbBase64) simUrl = await uploadLampiran(simAbBase64, `SIM-${targetNip}`, 'kontrak-tkk');
+      if (!strUrl && strAktifBase64) strUrl = await uploadLampiran(strAktifBase64, `STR-${targetNip}`, 'kontrak-tkk');
+      if (!sehatUrl && ketSehatBase64) sehatUrl = await uploadLampiran(ketSehatBase64, `SEHAT-${targetNip}`, 'kontrak-tkk');
     } catch (upErr) {
       console.warn('[ajukanUsulanKontrakTendik] Upload lampiran notice:', upErr.message);
     }
@@ -8631,6 +8639,32 @@ const methods = {
     const db = getDb();
 
     const safeFolder = folder || 'pmk';
+    const safeName = String(filename || 'document.pdf').replace(/[^a-zA-Z0-9._-]/g, '-');
+    const path = `${safeFolder}/${Date.now()}-${uuidv4().substring(0,8)}-${safeName}`;
+
+    const { data, error } = await db.storage
+      .from('lampiran-usulan')
+      .createSignedUploadUrl(path);
+    if (error) throw error;
+
+    const { data: pubData } = db.storage
+      .from('lampiran-usulan')
+      .getPublicUrl(path);
+
+    return {
+      success: true,
+      signedUrl: data.signedUrl,
+      path,
+      publicUrl: pubData?.publicUrl || path
+    };
+  },
+
+  async getKontrakUploadUrl(args) {
+    const [token, filename, folder] = extractArgs(args);
+    verifyToken(token);
+    const db = getDb();
+
+    const safeFolder = folder || 'kontrak-tkk';
     const safeName = String(filename || 'document.pdf').replace(/[^a-zA-Z0-9._-]/g, '-');
     const path = `${safeFolder}/${Date.now()}-${uuidv4().substring(0,8)}-${safeName}`;
 

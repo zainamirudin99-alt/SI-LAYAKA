@@ -8330,10 +8330,32 @@ function fileToBase64(file) {
   });
 }
 
+async function uploadKontrakFileDirect(fileObj, folderName = 'kontrak-tkk') {
+  if (!fileObj) return '';
+  const urlRes = await rpc('getKontrakUploadUrl', [SESSION.token, fileObj.name, folderName]);
+  if (!urlRes || !urlRes.success) {
+    throw new Error(urlRes?.message || 'Gagal mendapatkan signed upload URL untuk ' + fileObj.name);
+  }
+
+  const uploadResp = await fetch(urlRes.signedUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': fileObj.type || 'application/pdf'
+    },
+    body: fileObj
+  });
+
+  if (!uploadResp.ok) {
+    throw new Error(`Gagal mengunggah file ${fileObj.name} ke storage.`);
+  }
+
+  return urlRes.publicUrl || urlRes.path;
+}
+
 async function submitUsulanKontrak(e) {
   e.preventDefault();
   const btn = document.getElementById('kontrakUser_submitBtn');
-  setBtnLoading(btn, true, 'Mengajukan...');
+  setBtnLoading(btn, true, 'Menyiapkan berkas...');
   
   try {
     const nip = document.getElementById('kontrakUser_nip').value;
@@ -8363,51 +8385,57 @@ async function submitUsulanKontrak(e) {
     const ketSehatInput = document.getElementById('kontrakUser_file_ket_sehat');
     const simInput = document.getElementById('kontrakUser_file_sim');
     const strInput = document.getElementById('kontrakUser_file_str');
-    
-    const payload = {
-      nip, nama, unit, email, tahun, jenis_usulan, evaluasi_kinerja, layanan, sub_menu, atasan_nip,
-      form_data: {
-        nip, nama_lengkap: nama, unit_es_ii: unit, jabatan: document.getElementById('kontrakUser_jabatan').value, email, atasan_nip
-      }
-    };
-    
-    // Read files
+
+    // Upload lampiran langsung ke Supabase Storage via Signed URL (Bypass Vercel 4.5MB Payload Limit)
+    let ktp_url = '', kk_url = '', pas_foto_url = '', ijazah_transkrip_url = '', surat_pengantar_url = '', surat_lamaran_url = '', keterangan_sehat_url = '', sim_ab_url = '', str_aktif_url = '';
+
     if (ktpInput && ktpInput.files.length) {
-      payload.ktpBase64 = await fileToBase64(ktpInput.files[0]);
-      payload.ktpNama = ktpInput.files[0].name;
+      setBtnLoading(btn, true, 'Mengunggah KTP...');
+      ktp_url = await uploadKontrakFileDirect(ktpInput.files[0]);
     }
     if (kkInput && kkInput.files.length) {
-      payload.kkBase64 = await fileToBase64(kkInput.files[0]);
-      payload.kkNama = kkInput.files[0].name;
+      setBtnLoading(btn, true, 'Mengunggah Kartu Keluarga...');
+      kk_url = await uploadKontrakFileDirect(kkInput.files[0]);
     }
     if (pasFotoInput && pasFotoInput.files.length) {
-      payload.pasFotoBase64 = await fileToBase64(pasFotoInput.files[0]);
-      payload.pasFotoNama = pasFotoInput.files[0].name;
+      setBtnLoading(btn, true, 'Mengunggah Pas Foto...');
+      pas_foto_url = await uploadKontrakFileDirect(pasFotoInput.files[0]);
     }
     if (ijazahInput && ijazahInput.files.length) {
-      payload.ijazahBase64 = await fileToBase64(ijazahInput.files[0]);
-      payload.ijazahNama = ijazahInput.files[0].name;
+      setBtnLoading(btn, true, 'Mengunggah Ijazah & Transkrip...');
+      ijazah_transkrip_url = await uploadKontrakFileDirect(ijazahInput.files[0]);
     }
     if (suratPengantarInput && suratPengantarInput.files.length) {
-      payload.suratPengantarBase64 = await fileToBase64(suratPengantarInput.files[0]);
-      payload.suratPengantarNama = suratPengantarInput.files[0].name;
+      setBtnLoading(btn, true, 'Mengunggah Surat Pengantar...');
+      surat_pengantar_url = await uploadKontrakFileDirect(suratPengantarInput.files[0]);
     }
     if (suratLamaranInput && suratLamaranInput.files.length) {
-      payload.suratLamaranBase64 = await fileToBase64(suratLamaranInput.files[0]);
-      payload.suratLamaranNama = suratLamaranInput.files[0].name;
+      setBtnLoading(btn, true, 'Mengunggah Surat Lamaran...');
+      surat_lamaran_url = await uploadKontrakFileDirect(suratLamaranInput.files[0]);
     }
     if (ketSehatInput && ketSehatInput.files.length) {
-      payload.ketSehatBase64 = await fileToBase64(ketSehatInput.files[0]);
-      payload.ketSehatNama = ketSehatInput.files[0].name;
+      setBtnLoading(btn, true, 'Mengunggah Surat Keterangan Sehat...');
+      keterangan_sehat_url = await uploadKontrakFileDirect(ketSehatInput.files[0]);
     }
     if (simInput && simInput.files.length) {
-      payload.simAbBase64 = await fileToBase64(simInput.files[0]);
-      payload.simAbNama = simInput.files[0].name;
+      setBtnLoading(btn, true, 'Mengunggah SIM...');
+      sim_ab_url = await uploadKontrakFileDirect(simInput.files[0]);
     }
     if (strInput && strInput.files.length) {
-      payload.strAktifBase64 = await fileToBase64(strInput.files[0]);
-      payload.strAktifNama = strInput.files[0].name;
+      setBtnLoading(btn, true, 'Mengunggah STR Aktif...');
+      str_aktif_url = await uploadKontrakFileDirect(strInput.files[0]);
     }
+
+    setBtnLoading(btn, true, 'Menyimpan Usulan...');
+
+    const payload = {
+      nip, nama, unit, email, tahun, jenis_usulan, evaluasi_kinerja, layanan, sub_menu, atasan_nip,
+      ktp_url, kk_url, pas_foto_url, ijazah_transkrip_url, surat_pengantar_url, surat_lamaran_url, keterangan_sehat_url, sim_ab_url, str_aktif_url,
+      form_data: {
+        nip, nama_lengkap: nama, unit_es_ii: unit, jabatan: document.getElementById('kontrakUser_jabatan').value, email, atasan_nip,
+        status_kepegawaian: sub_menu
+      }
+    };
 
     const rpcMethod = (layanan === 'Kontrak Tendik') ? 'ajukanUsulanKontrakTendik' : 'ajukanUsulanKontrak';
     const res = await rpc(rpcMethod, [SESSION.token, payload]);
