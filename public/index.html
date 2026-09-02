@@ -13089,15 +13089,16 @@ function openEvaluasiResultModal(res, isPreview = false) {
     ? '👁️ Pratinjau Formulir Evaluasi Kinerja Tenaga Kependidikan'
     : '🎉 Formulir Evaluasi Kinerja Berhasil Digenerate';
 
-  const gdocsUrl = res.gdocsUrl || res.viewUrl || (res.docUrl && res.docUrl.includes('docs.google.com') ? res.docUrl : '');
-  const isGdocs = !!(gdocsUrl && gdocsUrl.includes('docs.google.com'));
+  const gdocsUrl = res.gdocsUrl || (res.viewUrl && res.viewUrl.includes('docs.google.com') ? res.viewUrl : '');
+  const pdfUrl = res.pdfUrl || (res.viewUrl && res.viewUrl.includes('/file/d/') ? res.viewUrl : '');
+  const isGdocs = !!gdocsUrl;
   const fileName = res.fileName || (isPreview ? 'Preview_Formulir_Evaluasi.docx' : 'Formulir_Evaluasi_TKK.docx');
 
   let buttonsHtml = '';
-  if (isGdocs) {
+  if (pdfUrl) {
     buttonsHtml += `
-      <a href="${gdocsUrl}" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none; padding:10px 22px; font-weight:700; font-size:13.5px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);">
-        📄 Buka Dokumen Google Docs ↗
+      <a href="${pdfUrl}" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none; padding:10px 22px; font-weight:700; font-size:13.5px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);">
+        📄 Buka / Unduh Dokumen PDF ↗
       </a>
     `;
   }
@@ -13107,13 +13108,16 @@ function openEvaluasiResultModal(res, isPreview = false) {
         📥 Unduh Dokumen Word (.docx)
       </button>
     `;
-  } else if (res.docUrl && !isGdocs) {
+  }
+  if (isGdocs) {
     buttonsHtml += `
-      <a href="${res.docUrl}" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none; padding:10px 22px; font-weight:700; font-size:13.5px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);">
-        📥 Unduh / Buka Dokumen Word (.docx)
+      <a href="${gdocsUrl}" target="_blank" rel="noopener" class="btn btn-secondary" style="text-decoration:none; padding:10px 22px; font-weight:700; font-size:13.5px; border-radius:8px; display:inline-flex; align-items:center; gap:8px;">
+        📄 Buka Google Docs ↗
       </a>
     `;
   }
+
+  const iframeSrc = pdfUrl || (isGdocs ? gdocsUrl.replace('/edit', '/preview') : '');
 
   modalBody.innerHTML = `
     <div style="padding:20px 24px;">
@@ -13123,7 +13127,7 @@ function openEvaluasiResultModal(res, isPreview = false) {
           ${isPreview ? 'Dokumen Pratinjau Evaluasi Kinerja (TKK)' : 'Formulir Evaluasi Kinerja Siap Digunakan'}
         </h3>
         <p style="margin:0; color:var(--text-muted, #64748b); font-size:13px;">
-          ${isPreview ? 'Berikut pratinjau dokumen formulir evaluasi kinerja. Anda dapat membukanya atau mengunduhnya di bawah ini.' : 'Dokumen evaluasi kinerja telah berhasil dibuat dan disimpan.'}
+          ${isPreview ? 'Berikut pratinjau dokumen formulir evaluasi kinerja lengkap dengan skor dan tanda tangan digital. Anda dapat membukanya atau mengunduhnya di bawah ini.' : 'Dokumen evaluasi kinerja telah berhasil dibuat dan disimpan.'}
         </p>
       </div>
 
@@ -13138,9 +13142,9 @@ function openEvaluasiResultModal(res, isPreview = false) {
         ${buttonsHtml}
       </div>
 
-      ${isGdocs ? `
-        <div style="margin-top:14px; border:1px solid var(--border, #cbd5e1); border-radius:8px; overflow:hidden; height:450px; background:#fff;">
-          <iframe src="${gdocsUrl.replace('/edit', '/preview')}" style="width:100%; height:100%; border:none;" title="Preview Dokumen Google Docs"></iframe>
+      ${iframeSrc ? `
+        <div style="margin-top:14px; border:1px solid var(--border, #cbd5e1); border-radius:8px; overflow:hidden; height:480px; background:#fff;">
+          <iframe src="${iframeSrc}" style="width:100%; height:100%; border:none;" title="Preview Dokumen Evaluasi"></iframe>
         </div>
       ` : ''}
     </div>

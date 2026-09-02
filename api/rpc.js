@@ -7528,15 +7528,40 @@ const methods = {
       renderedBuffer = generateEvaluasiTkkDocxFallback(dataCtx);
     }
 
+    // Buat PDF via GAS converter agar pratinjau di pop-up menampilkan tanda tangan digital secara sempurna
+    let pdfUrl = '';
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (gasUrl && renderedBuffer) {
+      try {
+        const shortId = uuidv4();
+        const pdfResp = await fetch(gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            method: 'convertDocxToPdf',
+            params: [shortId, renderedBuffer.toString('base64'), `Evaluasi_${usulan.nama}_${usulan.nip}.docx`],
+            remoteSession: { id: shortId, data: { nip: decoded.nip, nama: decoded.nama, role: 'admin' } }
+          })
+        });
+        const pdfJson = await pdfResp.json();
+        if (pdfJson && pdfJson.success && (pdfJson.pdfUrl || pdfJson.viewUrl)) {
+          pdfUrl = pdfJson.pdfUrl || pdfJson.viewUrl;
+        }
+      } catch (pErr) {
+        console.warn('[simpanDanGenerateEvaluasiTkk] PDF conversion warning:', pErr.message);
+      }
+    }
+
     if (isPreviewOnly) {
       return {
         success: true,
         isPreview: true,
         base64: renderedBuffer ? renderedBuffer.toString('base64') : null,
         fileName: `Preview_Evaluasi_${usulan.nama}_${usulan.nip}.docx`,
+        pdfUrl: pdfUrl,
         gdocsUrl: gdocsViewUrl,
-        viewUrl: gdocsViewUrl,
-        docUrl: gdocsViewUrl || null,
+        viewUrl: pdfUrl || gdocsViewUrl || null,
+        docUrl: pdfUrl || gdocsViewUrl || null,
         totalSkor,
         rekomendasi: dataCtx.rekomendasi,
         status: newStatus
@@ -7547,7 +7572,7 @@ const methods = {
     const fileNameSafe = `Formulir_Evaluasi_TKK_${String(usulan.nama).replace(/[^a-zA-Z0-9_-]/g, '_')}_${usulan.nip}.docx`;
     const docB64 = renderedBuffer ? renderedBuffer.toString('base64') : '';
     const docDataUrl = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${docB64}`;
-    let evalDocUrl = gdocsViewUrl || '';
+    let evalDocUrl = pdfUrl || gdocsViewUrl || '';
     try {
       if (docB64) {
         const supUrl = await uploadLampiran(docDataUrl, fileNameSafe, 'evaluasi-tkk');

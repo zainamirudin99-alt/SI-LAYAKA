@@ -132,11 +132,67 @@ function processPhotoPlaceholderInBody_(container, dataContext) {
       Logger.log('Photo insert err for ' + tagText + ': ' + e.message);
     }
   }
+function processSignaturePlaceholderInBody_(container, dataContext) {
+  if (!container || !dataContext) return;
+
+  const ttdKeys = ['ttd', 'ttd_base64', 'tanda_tangan', 'ttd_atasan', 'signature', 'ttd_atasan_langsung', 'TTD'];
+  let ttdBase64 = '';
+  for (const k of ttdKeys) {
+    const val = dataContext[k];
+    if (val && typeof val === 'string' && (val.startsWith('data:') || val.includes('base64,') || val.length > 200)) {
+      if (!ttdBase64) ttdBase64 = val;
+      dataContext[k] = '';
+    }
+  }
+
+  const tagsToSearch = [
+    '{{ttd}}', '{{ ttd }}', '{ttd}', '{ ttd }',
+    '{{ttd_base64}}', '{{ ttd_base64 }}',
+    '{{tanda_tangan}}', '{{ tanda_tangan }}', '{tanda_tangan}',
+    '{{ttd_atasan}}', '{{ ttd_atasan }}', '{ttd_atasan}',
+    '{{signature}}', '{{ signature }}', '{signature}'
+  ];
+
+  for (const tagText of tagsToSearch) {
+    try {
+      let found = container.findText(tagText);
+      while (found) {
+        const textObj = found.getElement();
+        const parentParagraph = textObj.getParent().asParagraph();
+        if (ttdBase64) {
+          let cleanBase64 = ttdBase64.trim();
+          let contentType = 'image/png';
+          if (cleanBase64.startsWith('data:')) {
+            const matches = cleanBase64.match(/^data:([^;]+);base64,(.+)$/);
+            if (matches) {
+              contentType = matches[1];
+              cleanBase64 = matches[2];
+            } else {
+              cleanBase64 = cleanBase64.replace(/^data:[^;]+;base64,/, '');
+            }
+          }
+
+          const imageBlob = Utilities.newBlob(Utilities.base64Decode(cleanBase64), contentType, 'tanda_tangan.png');
+          const inlineImage = parentParagraph.appendInlineImage(imageBlob);
+          inlineImage.setWidth(140);
+          inlineImage.setHeight(70);
+
+          textObj.setText(' ');
+        } else {
+          textObj.setText(' ');
+        }
+        found = container.findText(tagText);
+      }
+    } catch (e) {
+      Logger.log('Signature insert err for ' + tagText + ': ' + e.message);
+    }
+  }
 }
 
 function renderDocumentBody_(body, dataContext) {
-  // 0) Sisipkan foto 3x4 (jika ada tag {{foto}} / {foto}) dan saring base64 dari teks
+  // 0) Sisipkan foto 3x4 dan tanda tangan digital (jika ada tag) dan saring base64 dari teks
   processPhotoPlaceholderInBody_(body, dataContext);
+  processSignaturePlaceholderInBody_(body, dataContext);
 
   // 1) Proses loop tabel dinamis dahulu (agar tag di dalamnya baru
   //    diproses setelah baris digandakan sesuai jumlah data). Mendukung
