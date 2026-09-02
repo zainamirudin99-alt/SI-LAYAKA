@@ -315,11 +315,13 @@ function terapkanBatasanPeran_() {
     
     rpc('getMenuAksesKontrak', [SESSION.token])
       .then(res => {
-        if (res && res.success && (res.eligible || res.isAtasanLangsung || res.isAdmin) && navKontrak) {
+        if (res && res.success && (res.eligible || res.isEligibleKontrak || res.isAtasanLangsung || res.isAdmin) && navKontrak) {
           navKontrak.style.display = 'flex';
         }
       })
-      .catch(() => {});
+      .catch(err => {
+        console.warn('getMenuAksesKontrak error:', err);
+      });
   } else {
     if (navKP) navKP.style.display = 'flex';
     if (navPensiun) navPensiun.style.display = 'flex';
@@ -391,7 +393,7 @@ function terapkanBatasanPeran_() {
   }
   const kontrakAdminTabs = document.getElementById('kontrakAdminTabs');
   if (kontrakAdminTabs) {
-    kontrakAdminTabs.style.display = (role === 'admin' || role === 'super_admin') ? 'flex' : 'none';
+    kontrakAdminTabs.style.display = 'flex';
   }
 
   // Arahkan ke view default sesuai peran.

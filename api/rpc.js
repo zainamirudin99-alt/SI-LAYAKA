@@ -7181,12 +7181,42 @@ const methods = {
     const statusKep = status_kepegawaian || emp?.status_kepegawaian || '';
     const jenisPeg = emp?.jenis_peg || '';
 
-    const eligibleList = ['Tenaga Profesional', 'Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan'];
-    const isEligibleKontrak = eligibleList.some(k => 
+    const eligibleList = CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE || ['Tenaga Profesional', 'Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan'];
+    let kategoriCocok = eligibleList.find(k => 
       k.toLowerCase() === statusKep.toLowerCase() || 
+      k.toLowerCase() === jenisPeg.toLowerCase() ||
       statusKep.toLowerCase().includes(k.toLowerCase()) ||
       jenisPeg.toLowerCase().includes(k.toLowerCase())
     );
+
+    if (!kategoriCocok) {
+      if (!statusKep && !jenisPeg) {
+        kategoriCocok = 'Tenaga Profesional';
+      } else if (/non[\s-]?asn|kontrak|profesional|pegawai|tenaga/i.test(statusKep + ' ' + jenisPeg)) {
+        kategoriCocok = 'Tenaga Profesional';
+      }
+    }
+
+    const isEligibleKontrak = !!kategoriCocok;
+
+    let diizinkan = false;
+    if (kategoriCocok) {
+      try {
+        const { data: rows } = await db.from('akses_kontrak_mandiri')
+          .select('diizinkan')
+          .eq('kategori', kategoriCocok)
+          .order('tanggal_diubah', { ascending: false })
+          .limit(1);
+
+        if (rows && rows.length > 0 && typeof rows[0].diizinkan === 'boolean') {
+          diizinkan = rows[0].diizinkan;
+        } else if (MEMORY_AKSES_KONTRAK_MANDIRI[kategoriCocok] !== undefined) {
+          diizinkan = MEMORY_AKSES_KONTRAK_MANDIRI[kategoriCocok];
+        }
+      } catch (e) {
+        diizinkan = !!MEMORY_AKSES_KONTRAK_MANDIRI[kategoriCocok];
+      }
+    }
 
     const isDosen = /dosen/i.test(jenisPeg) || /dosen/i.test(statusKep);
     const isTendik = !isDosen;
@@ -7199,6 +7229,8 @@ const methods = {
       if (!cErr && typeof count === 'number') countUsulanAtasan = count;
     } catch (_) {}
 
+    const isAdmin = ['admin', 'super_admin'].includes(role || decoded.role);
+
     return {
       success: true,
       role: role || decoded.role || 'normal',
@@ -7206,10 +7238,13 @@ const methods = {
       jenis_pegawai: isDosen ? 'Dosen' : 'Tenaga Kependidikan',
       isDosen,
       isTendik,
+      eligible: isEligibleKontrak,
       isEligibleKontrak,
+      diizinkan,
+      kategori: kategoriCocok,
       isAtasanLangsung: countUsulanAtasan > 0,
       countUsulanAtasan,
-      isAdmin: ['admin', 'super_admin'].includes(role || decoded.role)
+      isAdmin
     };
   },
 
