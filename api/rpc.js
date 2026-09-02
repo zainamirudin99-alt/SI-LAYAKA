@@ -7471,6 +7471,7 @@ const methods = {
     const newStatus = isExtend ? 'evaluated_extend' : 'evaluated_not_extend';
 
     const dataCtx = buildEvaluasiTkkDataContext(usulan, Object.assign({}, ed, { ttd: ttdSig }), empData, atasanEmp);
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
 
     // Cari template kustom di database tabel templates
     let renderedBuffer = null;
@@ -7486,7 +7487,6 @@ const methods = {
 
       if (tmplList && tmplList.length > 0 && tmplList[0].file_id) {
         const tmpl = tmplList[0];
-        const gasUrl = process.env.GOOGLE_SCRIPT_URL;
 
         // Jika template berupa Google Docs dan GAS aktif, buat salinan Google Docs
         if (tmpl.tipe === 'gdocs' && gasUrl) {
@@ -7530,7 +7530,6 @@ const methods = {
 
     // Buat PDF via GAS converter agar pratinjau di pop-up menampilkan tanda tangan digital secara sempurna
     let pdfUrl = '';
-    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
     if (gasUrl && renderedBuffer) {
       try {
         const shortId = uuidv4();
@@ -7583,7 +7582,6 @@ const methods = {
     }
 
     // Upload & simpan ke Google Drive folder root (1i6ePepJQzOm2HxVzevvEYWF5L6xR5Bue)
-    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
     let gdriveFolderId = '', gdriveFileId = '';
     if (gasUrl && docB64) {
       try {
