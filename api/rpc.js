@@ -1060,7 +1060,7 @@ function createDocxInlineImageXml(relId, widthPx = 120, heightPx = 160) {
     `</w:drawing></w:r>`;
 }
 
-function createDocxInFrontOfTextImageXml(relId, widthPx = 155, heightPx = 72, offsetXEmu = 3270000, offsetYEmu = 450000) {
+function createDocxInFrontOfTextImageXml(relId, widthPx = 155, heightPx = 72, offsetXEmu = 4410000, offsetYEmu = 550000) {
   const cx = Math.round(widthPx * 9525);
   const cy = Math.round(heightPx * 9525);
   const docPrId = Math.floor(Math.random() * 100000) + 1;
@@ -1206,8 +1206,8 @@ function injectDocxImage(zip, dataCtx) {
           }
         }
 
-        // TTD diposisikan In Front of Text tepat di kolom tanda tangan atasan (offset X 3.270.000 EMU) dan menimpa sebagian teks nama (offset Y 450.000 EMU)
-        ttdXml = createDocxInFrontOfTextImageXml('rIdTtdAtasan99', 155, 72, 3270000, 450000);
+        // TTD diposisikan In Front of Text tepat di tengah kolom tanda tangan atasan (offset X 4.410.000 EMU) dan menimpa sebagian teks nama (offset Y 550.000 EMU)
+        ttdXml = createDocxInFrontOfTextImageXml('rIdTtdAtasan99', 155, 72, 4410000, 550000);
       }
     } catch (errTtd) {
       console.warn('[injectDocxImage] Error embedding signature:', errTtd);
