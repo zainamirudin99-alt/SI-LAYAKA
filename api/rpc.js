@@ -1060,20 +1060,21 @@ function createDocxInlineImageXml(relId, widthPx = 120, heightPx = 160) {
     `</w:drawing></w:r>`;
 }
 
-function createDocxInFrontOfTextImageXml(relId, widthPx = 155, heightPx = 72, offsetXEmu = 4410000, offsetYEmu = 550000) {
+function createDocxBehindTextImageXml(relId, widthPx = 155, heightPx = 72, offsetYEmu = 480000) {
   const cx = Math.round(widthPx * 9525);
   const cy = Math.round(heightPx * 9525);
+  const halfWidthEmu = -Math.round(cx / 2);
   const docPrId = Math.floor(Math.random() * 100000) + 1;
 
   return `<w:r><w:rPr><w:noProof/></w:rPr><w:drawing>` +
-    `<wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="251658240" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1" ` +
+    `<wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="251658240" behindDoc="1" locked="0" layoutInCell="1" allowOverlap="1" ` +
     `xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
     `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ` +
     `xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" ` +
     `xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ` +
     `xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
     `<wp:simplePos x="0" y="0"/>` +
-    `<wp:positionH relativeFrom="column"><wp:posOffset>${offsetXEmu}</wp:posOffset></wp:positionH>` +
+    `<wp:positionH relativeFrom="character"><wp:posOffset>${halfWidthEmu}</wp:posOffset></wp:positionH>` +
     `<wp:positionV relativeFrom="paragraph"><wp:posOffset>${offsetYEmu}</wp:posOffset></wp:positionV>` +
     `<wp:extent cx="${cx}" cy="${cy}"/>` +
     `<wp:effectExtent l="0" t="0" r="0" b="0"/>` +
@@ -1101,6 +1102,8 @@ function createDocxInFrontOfTextImageXml(relId, widthPx = 155, heightPx = 72, of
     `</wp:anchor>` +
     `</w:drawing></w:r>`;
 }
+
+const createDocxInFrontOfTextImageXml = createDocxBehindTextImageXml;
 
 function injectDocxImage(zip, dataCtx) {
   if (!zip || !dataCtx) return;
@@ -1206,8 +1209,8 @@ function injectDocxImage(zip, dataCtx) {
           }
         }
 
-        // TTD diposisikan In Front of Text tepat di tengah kolom tanda tangan atasan (offset X 4.410.000 EMU) dan menimpa sebagian teks nama (offset Y 550.000 EMU)
-        ttdXml = createDocxInFrontOfTextImageXml('rIdTtdAtasan99', 155, 72, 4410000, 550000);
+        // TTD diposisikan Behind Text tepat di tengah karakter (center) dan menimpa di latar belakang nama penandatangan
+        ttdXml = createDocxBehindTextImageXml('rIdTtdAtasan99', 155, 72, 480000);
       }
     } catch (errTtd) {
       console.warn('[injectDocxImage] Error embedding signature:', errTtd);
