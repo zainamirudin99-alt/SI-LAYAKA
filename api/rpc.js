@@ -1022,12 +1022,12 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
 }
 
 
-function createDocxInlineImageXml(relId, widthPx = 120, heightPx = 160) {
+function createDocxInlineImageXml(relId, widthPx = 155, heightPx = 72, docName = 'Tanda Tangan Atasan') {
   const cx = Math.round(widthPx * 9525);
   const cy = Math.round(heightPx * 9525);
   const docPrId = Math.floor(Math.random() * 100000) + 1;
 
-  return `<w:r><w:drawing>` +
+  return `<w:r><w:rPr><w:noProof/></w:rPr><w:drawing>` +
     `<wp:inline distT="0" distB="0" distL="0" distR="0" ` +
     `xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
     `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ` +
@@ -1036,17 +1036,17 @@ function createDocxInlineImageXml(relId, widthPx = 120, heightPx = 160) {
     `xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
     `<wp:extent cx="${cx}" cy="${cy}"/>` +
     `<wp:effectExtent l="0" t="0" r="0" b="0"/>` +
-    `<wp:docPr id="${docPrId}" name="Foto Pegawai"/>` +
-    `<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>` +
-    `<a:graphic>` +
+    `<wp:docPr id="${docPrId}" name="${docName}"/>` +
+    `<wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr>` +
+    `<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">` +
     `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
-    `<pic:pic>` +
+    `<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
     `<pic:nvPicPr>` +
-    `<pic:cNvPr id="0" name="Foto Pegawai"/>` +
+    `<pic:cNvPr id="0" name="${docName}"/>` +
     `<pic:cNvPicPr/>` +
     `</pic:nvPicPr>` +
     `<pic:blipFill>` +
-    `<a:blip r:embed="${relId}"/>` +
+    `<a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="${relId}"/>` +
     `<a:stretch><a:fillRect/></a:stretch>` +
     `</pic:blipFill>` +
     `<pic:spPr>` +
@@ -1209,8 +1209,8 @@ function injectDocxImage(zip, dataCtx) {
           }
         }
 
-        // TTD diposisikan Behind Text tepat di tengah karakter (center) dan menimpa di latar belakang nama penandatangan
-        ttdXml = createDocxBehindTextImageXml('rIdTtdAtasan99', 155, 72, 480000);
+        // TTD dibuat In Line with Text (wp:inline) terikat paragraf w:jc center agar 100% pas dan simetris tepat di tengah
+        ttdXml = createDocxInlineImageXml('rIdTtdAtasan99', 155, 72, 'Tanda Tangan Atasan');
       }
     } catch (errTtd) {
       console.warn('[injectDocxImage] Error embedding signature:', errTtd);
