@@ -26,6 +26,7 @@ const CONFIG = {
   FOLDER_PENSIUN_OUTPUT: '10Cu3SmYJyy8lcLX2-KpIjB5qVEU1ynPu',
   FOLDER_PENSIUN_LAMPIRAN: '1ko75RjljybXg6tLqpXdOH1Im8rjlUFTd',
   FOLDER_KONTRAK_ROOT: '1uCTUJ2qfrBeyjFEwsufFKuZuQO1MaYQi',
+  FOLDER_EVALUASI_TKK_ROOT: '1i6ePepJQzOm2HxVzevvEYWF5L6xR5Bue',
 
   // Lama sesi login tersimpan di cache (detik) - 6 jam
   SESSION_TTL_SECONDS: 6 * 60 * 60,

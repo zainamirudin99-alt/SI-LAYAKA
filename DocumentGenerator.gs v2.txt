@@ -616,12 +616,22 @@ function convertDocxToPdf(sessionToken, docxBase64, fileName) {
     const pdfBlob = file.getAs('application/pdf');
     pdfBlob.setName(fileName.replace(/\.docx$/i, '') + '.pdf');
     
-    // Simpan PDF ke folder root kontrak (atau output default)
-    const outputFolder = DriveApp.getFolderById(CONFIG.FOLDER_KONTRAK_ROOT);
+    // Simpan PDF ke folder root evaluasi atau kontrak sesuai nama file
+    const isEvaluasi = fileName && fileName.toLowerCase().includes('evaluasi');
+    const folderId = isEvaluasi ? (CONFIG.FOLDER_EVALUASI_TKK_ROOT || CONFIG.FOLDER_KONTRAK_ROOT) : CONFIG.FOLDER_KONTRAK_ROOT;
+    const outputFolder = DriveApp.getFolderById(folderId);
     const pdfFile = outputFolder.createFile(pdfBlob);
     
-    // Hapus file docx sementara
-    file.setTrashed(true);
+    // Hapus file docx sementara secara permanen dari Google Drive agar tidak mengotori direktori
+    try {
+      if (typeof Drive !== 'undefined' && Drive.Files && Drive.Files.remove) {
+        Drive.Files.remove(file.getId());
+      } else {
+        file.setTrashed(true);
+      }
+    } catch (delErr) {
+      file.setTrashed(true);
+    }
     
     // Set sharing agar siapa saja yang memiliki link dapat melihat
     try {
