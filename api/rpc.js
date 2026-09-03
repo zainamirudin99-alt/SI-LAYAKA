@@ -7594,6 +7594,33 @@ const methods = {
 
       if (tmplList && tmplList.length > 0 && tmplList[0].file_id) {
         const tmpl = tmplList[0];
+
+        // Jika template berupa Google Docs dan GAS aktif, buat salinan Google Docs untuk pratinjau langsung di iframe
+        if (tmpl.tipe === 'gdocs' && gasUrl) {
+          try {
+            const shortId = uuidv4();
+            const gasResp = await fetch(gasUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                method: 'generateKontrakFromUsulan',
+                params: [shortId, tmpl.file_id, Object.assign({}, dataCtx, {
+                  namaPegawai: usulan.nama,
+                  nipPegawai: usulan.nip,
+                  fileName: `Evaluasi_${usulan.nama}_${usulan.nip}`
+                })],
+                remoteSession: { id: shortId, data: { nip: decoded.nip, nama: decoded.nama, role: 'admin' } }
+              })
+            });
+            const gasJson = await gasResp.json();
+            if (gasJson && gasJson.success) {
+              gdocsViewUrl = gasJson.viewUrl || gasJson.docViewUrl || gasJson.url || (gasJson.fileId ? `https://docs.google.com/document/d/${gasJson.fileId}/edit` : '');
+            }
+          } catch (gErr) {
+            console.warn('[simpanDanGenerateEvaluasiTkk] GAS Google Docs generation notice:', gErr.message);
+          }
+        }
+
         const tmplBuf = await downloadTemplateBuffer(tmpl.file_id);
         if (tmplBuf) {
           renderedBuffer = docxRenderTemplate(tmplBuf, dataCtx);
@@ -7608,28 +7635,7 @@ const methods = {
       renderedBuffer = generateEvaluasiTkkDocxFallback(dataCtx);
     }
 
-    // Buat PDF via GAS converter agar pratinjau di pop-up menampilkan tanda tangan digital secara sempurna
     let pdfUrl = '';
-    if (gasUrl && renderedBuffer) {
-      try {
-        const shortId = uuidv4();
-        const pdfResp = await fetch(gasUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            method: 'convertDocxToPdf',
-            params: [shortId, renderedBuffer.toString('base64'), `Evaluasi_${usulan.nama}_${usulan.nip}.docx`],
-            remoteSession: { id: shortId, data: { nip: decoded.nip, nama: decoded.nama, role: 'admin' } }
-          })
-        });
-        const pdfJson = await pdfResp.json();
-        if (pdfJson && pdfJson.success && (pdfJson.pdfUrl || pdfJson.viewUrl)) {
-          pdfUrl = pdfJson.pdfUrl || pdfJson.viewUrl;
-        }
-      } catch (pErr) {
-        console.warn('[simpanDanGenerateEvaluasiTkk] PDF conversion warning:', pErr.message);
-      }
-    }
 
     if (isPreviewOnly) {
       return {
