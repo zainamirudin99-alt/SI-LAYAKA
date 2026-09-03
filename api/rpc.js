@@ -605,32 +605,6 @@ function cleanDocxTableCellLeadingEmptyParagraphs(xml) {
   return xml;
 }
 
-function cleanDocxTtdCell_(xml) {
-  if (!xml || typeof xml !== 'string') return xml;
-
-  // 1. Bersihkan paragraf kosong sebelum tag {{ttd}} di dalam sel tabel yang sama
-  const regEmptyPBeforeTtd = /(<w:p\b[^>]*>(?:(?!<w:t\b)[^<]|<w:r\b[^>]*><w:rPr\b[^>]*\/>\s*<\/w:r>)*?<\/w:p>\s*)(<w:p\b[^>]*>(?:(?!<w:p\b)[\s\S])*?\{\{\s*ttd\s*\}\})/gi;
-  xml = xml.replace(regEmptyPBeforeTtd, '$2');
-
-  // 2. Kempiskan w:trHeight pada baris tabel yang memuat {{ttd}} agar tidak ada celah kosong berlebih
-  const regTrHeight = /(<w:tr\b[^>]*>\s*<w:trPr\b[^>]*>[\s\S]*?)<w:trHeight\b[^>]*\/>([\s\S]*?<w:tc\b[^>]*>[\s\S]*?\{\{\s*ttd\s*\}\})/gi;
-  xml = xml.replace(regTrHeight, '$1<w:trHeight w:val="0" w:hRule="auto"/>$2');
-
-  // 3. Spacing w:after negatif pada paragraf {{ttd}} agar menarik teks nama penandatangan di bawahnya sehingga menempel & menimpa sebagian teks nama
-  const regTtdParagraph = /(<w:p\b[^>]*>(?:(?!<w:p\b)[\s\S])*?<w:pPr\b[^>]*>)([\s\S]*?)(<\/w:pPr>[\s\S]*?\{\{\s*ttd\s*\}\})/gi;
-  xml = xml.replace(regTtdParagraph, (match, pPrOpen, pPrContent, pPrClose) => {
-    let newContent = pPrContent;
-    if (newContent.includes('<w:spacing')) {
-      newContent = newContent.replace(/<w:spacing\b[^>]*\/>/gi, '<w:spacing w:after="-220" w:line="240" w:lineRule="auto"/>');
-    } else {
-      newContent += '<w:spacing w:after="-220" w:line="240" w:lineRule="auto"/>';
-    }
-    return pPrOpen + newContent + pPrClose;
-  });
-
-  return xml;
-}
-
 function createDefaultSkDocxBuffer(jenis_sk, dataCtx) {
   const PizZip = require('pizzip');
   const zip = new PizZip();
@@ -907,7 +881,6 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
         content = docxCleanMassalLoops(content);
         content = cleanWordXmlParagraphBraces(content);
         content = cleanDocxTableCellLeadingEmptyParagraphs(content);
-        content = cleanDocxTtdCell_(content);
         zip.file(fileName, content);
       }
     }
@@ -1087,11 +1060,10 @@ function createDocxInlineImageXml(relId, widthPx = 120, heightPx = 160) {
     `</w:drawing></w:r>`;
 }
 
-function createDocxInFrontOfTextImageXml(relId, widthPx = 155, heightPx = 72, offsetYPt = 18) {
+function createDocxInFrontOfTextImageXml(relId, widthPx = 155, heightPx = 72, offsetXEmu = 3270000, offsetYEmu = 450000) {
   const cx = Math.round(widthPx * 9525);
   const cy = Math.round(heightPx * 9525);
   const docPrId = Math.floor(Math.random() * 100000) + 1;
-  const posOffsetY = Math.round(offsetYPt * 12700);
 
   return `<w:r><w:rPr><w:noProof/></w:rPr><w:drawing>` +
     `<wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="251658240" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1" ` +
@@ -1101,8 +1073,8 @@ function createDocxInFrontOfTextImageXml(relId, widthPx = 155, heightPx = 72, of
     `xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ` +
     `xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
     `<wp:simplePos x="0" y="0"/>` +
-    `<wp:positionH relativeFrom="column"><wp:align>center</wp:align></wp:positionH>` +
-    `<wp:positionV relativeFrom="paragraph"><wp:posOffset>${posOffsetY}</wp:posOffset></wp:positionV>` +
+    `<wp:positionH relativeFrom="column"><wp:posOffset>${offsetXEmu}</wp:posOffset></wp:positionH>` +
+    `<wp:positionV relativeFrom="paragraph"><wp:posOffset>${offsetYEmu}</wp:posOffset></wp:positionV>` +
     `<wp:extent cx="${cx}" cy="${cy}"/>` +
     `<wp:effectExtent l="0" t="0" r="0" b="0"/>` +
     `<wp:wrapNone/>` +
@@ -1234,8 +1206,8 @@ function injectDocxImage(zip, dataCtx) {
           }
         }
 
-        // TTD dibuat inline image yang terikat paragraf w:jc center dalam sel tabel agar 100% lurus, dengan spacing negatif agar menimpa teks nama
-        ttdXml = createDocxInlineImageXml('rIdTtdAtasan99', 155, 72);
+        // TTD diposisikan In Front of Text tepat di kolom tanda tangan atasan (offset X 3.270.000 EMU) dan menimpa sebagian teks nama (offset Y 450.000 EMU)
+        ttdXml = createDocxInFrontOfTextImageXml('rIdTtdAtasan99', 155, 72, 3270000, 450000);
       }
     } catch (errTtd) {
       console.warn('[injectDocxImage] Error embedding signature:', errTtd);
@@ -1251,7 +1223,6 @@ function injectDocxImage(zip, dataCtx) {
     const f = zip.file(fileName);
     if (!f) continue;
     let xml = cleanWordXmlParagraphBraces(f.asText());
-    xml = cleanDocxTtdCell_(xml);
 
     if (photoXml) {
       for (const k of photoKeys) {
