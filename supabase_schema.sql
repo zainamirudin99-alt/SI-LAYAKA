@@ -673,3 +673,36 @@ ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS evaluasi_gdrive_file_id TEXT
 ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS evaluasi_dibuat_pada TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS idx_usulan_kontrak_atasan_nip ON usulan_kontrak(atasan_nip);
+
+-- ============================================================
+-- 22. TABEL: draft_nip_non_asn & Kategori Calon Pegawai Tetap Undip NON ASN
+-- ============================================================
+CREATE TABLE IF NOT EXISTS draft_nip_non_asn (
+  nip                     TEXT PRIMARY KEY,
+  nama_lengkap            TEXT,
+  tmp_lhr                 TEXT,
+  tgl_lhr                 DATE,
+  tmt                     DATE,
+  gender                  TEXT,
+  layanan                 TEXT NOT NULL DEFAULT 'Kontrak Tendik',
+  sub_menu                TEXT NOT NULL DEFAULT 'Calon Pegawai Tetap Undip NON ASN',
+  atasan_nip              TEXT,
+  atasan_nama             TEXT,
+  status                  TEXT DEFAULT 'Draft',
+  form_data               JSONB DEFAULT '{}',
+  diajukan_oleh_nip       TEXT,
+  created_at              TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT chk_nip_h7_format CHECK (nip ~ '^H\.7\.[0-9]{18}$')
+);
+
+CREATE INDEX IF NOT EXISTS idx_draft_nip_non_asn_nip ON draft_nip_non_asn(nip);
+CREATE INDEX IF NOT EXISTS idx_draft_nip_non_asn_status ON draft_nip_non_asn(status);
+CREATE INDEX IF NOT EXISTS idx_usulan_kontrak_baru_layanan_submenu ON usulan_kontrak_baru(layanan, sub_menu);
+
+ALTER TABLE draft_nip_non_asn ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='draft_nip_non_asn' AND policyname='deny_public_draft_nip_non_asn') THEN
+    CREATE POLICY "deny_public_draft_nip_non_asn" ON draft_nip_non_asn FOR ALL TO public USING (false);
+  END IF;
+END $$;
+

@@ -45,8 +45,8 @@ const CONFIG = {
     'Kenaikan Pangkat': ['AK Konversi Tahunan', 'AK Konversi Kumulatif', 'SK KP Dosen Pegawai Tetap Undip NON ASN', 'SK KP Tendik Pegawai Tetap Undip NON ASN'],
     'Kenaikan Pangkat SK': ['SK Kenaikan Pangkat', 'SK KP Dosen Pegawai Tetap Undip NON ASN', 'SK KP Tendik Pegawai Tetap Undip NON ASN'],
     'Pensiun': ['DPCP', 'SUPER'],
-    'Kontrak Tendik': ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'KDRP', 'Tenaga Profesional', 'Formulir Evaluasi', 'Perjanjian Kerja'],
-    'Kontrak Dosen': ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan', 'Perjanjian Kerja']
+    'Kontrak Tendik': ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'KDRP', 'Tenaga Profesional', 'Formulir Evaluasi', 'Perjanjian Kerja', 'Calon Pegawai Tetap Undip NON ASN'],
+    'Kontrak Dosen': ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan', 'Perjanjian Kerja', 'Calon Pegawai Tetap Undip NON ASN']
   },
 
   // Kolom-kolom yang dianggap "tanggal" dan wajib diformat ke Indonesia

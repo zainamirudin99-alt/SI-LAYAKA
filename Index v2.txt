@@ -1292,9 +1292,10 @@
                   <label>NIP/NIK</label>
                   <input type="text" id="kontrak_nipManual" class="field-input" />
                 </div>
-                <div class="stack-field">
+                <div class="stack-field autocomplete-wrap" style="position:relative;">
                   <label>Nama Lengkap</label>
-                  <input type="text" id="kontrak_namaLengkap" class="field-input" />
+                  <input type="text" id="kontrak_namaLengkap" class="field-input" autocomplete="off" placeholder="Ketik nama lengkap..." />
+                  <div class="autocomplete-list" id="kontrak_namaSearchList" style="display:none;"></div>
                 </div>
                 <div class="stack-field">
                   <label>Tempat Lahir</label>
@@ -1333,6 +1334,19 @@
                   <label>Nomor Surat Perjanjian (opsional)</label>
                   <input type="text" id="kontrak_nomorSurat" class="field-input" placeholder="Kosongkan bila belum ada" />
                 </div>
+                <!-- ATASAN LANGSUNG SELECTOR (TENDIK & CALON NON ASN) -->
+                <div class="stack-field autocomplete-wrap grid-full" id="kontrak_atasanWrap" style="background:var(--surface-alt); border:1px solid var(--primary); border-radius:10px; padding:14px; margin-top:8px; margin-bottom:8px;">
+                  <label style="font-weight:700; color:var(--primary); display:flex; align-items:center; gap:6px;">
+                    <span>👔 Cari &amp; Pilih Atasan Langsung</span>
+                  </label>
+                  <input type="text" id="kontrak_atasanSearch" class="field-input" placeholder="Ketik NIP atau Nama Atasan Langsung..." autocomplete="off" />
+                  <input type="hidden" id="kontrak_atasanNip" />
+                  <input type="hidden" id="kontrak_atasanNama" />
+                  <div id="kontrak_atasanSearchList" class="autocomplete-list" style="display:none;"></div>
+                  <div id="kontrak_atasanSelected" style="margin-top:8px; font-weight:600; color:var(--success); display:none;"></div>
+                </div>
+                <!-- CONTAINER DINAMIS UNTUK PLACEHOLDER TEMPLATE TAMBAHAN (TTD OTOMATIS TIDAK DITAMPILKAN) -->
+                <div id="kontrak_dynamicPlaceholdersWrap" class="grid-2 kp-grid grid-full" style="display:none; margin-top:10px;"></div>
               </div>
 
               <div class="grid-2 kp-grid">
@@ -1373,7 +1387,7 @@
                     <input type="radio" name="kontrak_templateSelectType" value="docx" onchange="filterServiceTemplates('kontrak_templateSelect', 'docx')"> Microsoft Word (.docx)
                   </label>
                 </div>
-                <select id="kontrak_templateSelect" class="field-input" required></select>
+                <select id="kontrak_templateSelect" class="field-input" required onchange="onKontrakTemplateSelectChange(this.value)"></select>
               </div>
 
               <div class="actions-bar">

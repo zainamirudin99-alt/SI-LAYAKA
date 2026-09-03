@@ -127,7 +127,7 @@ const CONFIG = {
   STATUS_KONTRAK_TKK_LIST: ['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan'],
   KONTRAK_UPAH_TIER: {tier1:2903600,tier2:3026400},
   ROLE_LIST: ['normal','user','admin','super_admin'],
-  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER','SK Pensiun BUP Pegawai Undip Non ASN','SK Pensiun Meninggal Pegawai Undip Non ASN','SK Pensiun Uzur Pegawai Undip Non ASN','SK Pensiun Undur Diri Pegawai Undip Non ASN'],'Kontrak Tendik':['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','Formulir Evaluasi','Perjanjian Kerja'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','Perjanjian Kerja'],'Buat SK dan Surat':['SK CPTU','SK PTU 100%','SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','Surat PLT','Surat PLH','SK Tutam Struktural','SK Tutam Dekan Wadek']},
+  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER','SK Pensiun BUP Pegawai Undip Non ASN','SK Pensiun Meninggal Pegawai Undip Non ASN','SK Pensiun Uzur Pegawai Undip Non ASN','SK Pensiun Undur Diri Pegawai Undip Non ASN'],'Kontrak Tendik':['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','Formulir Evaluasi','Perjanjian Kerja','Calon Pegawai Tetap Undip NON ASN'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','Perjanjian Kerja','Calon Pegawai Tetap Undip NON ASN'],'Buat SK dan Surat':['SK CPTU','SK PTU 100%','SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','Surat PLT','Surat PLH','SK Tutam Struktural','SK Tutam Dekan Wadek']},
   USULAN_KP_NOTIF_SIASN: 'Siap diusulkan ke-SIASN',
   USULAN_KP_NOTIF_SK:    'Siap Dibuat SK',
   // ---- SK Kenaikan Pangkat (Non-ASN) ----
@@ -4755,6 +4755,123 @@ const methods = {
     };
   },
 
+  // ==========================================================================
+  // GENERATOR NIP #3: CALON PEGAWAI TETAP UNDIP NON ASN (TENDIK & DOSEN)
+  // Shared module: Rumus H.7. + YYYYMMDD (lahir) + YYYYMM (TMT) + Gender (1/2) + NNN (001-999)
+  // ==========================================================================
+  async generateAutoNipNonAsn(args) {
+    const [token, payload] = extractArgs(args);
+    verifyToken(token);
+    const { tglLahir, gender, tmtBulan, tmtTahun } = payload || {};
+
+    if (!tglLahir) {
+      return { success: false, message: 'Tanggal lahir wajib diisi untuk generate NIP Calon Pegawai Tetap Undip Non ASN.' };
+    }
+
+    // 1. Parsing Tanggal Lahir (YYYY, MM, DD)
+    let dLahir = new Date(tglLahir);
+    if (isNaN(dLahir.getTime())) {
+      const parts = String(tglLahir).trim().split(/[\/\-\s]+/);
+      if (parts.length >= 3) {
+        if (parts[0].length === 4) {
+          dLahir = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        } else if (parts[2].length === 4) {
+          dLahir = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+        }
+      }
+    }
+
+    if (isNaN(dLahir.getTime())) {
+      return { success: false, message: 'Format tanggal lahir tidak valid. Gunakan format YYYY-MM-DD atau DD-MM-YYYY.' };
+    }
+
+    const yyyyLahir = String(dLahir.getFullYear());
+    const mmLahir = String(dLahir.getMonth() + 1).padStart(2, '0');
+    const ddLahir = String(dLahir.getDate()).padStart(2, '0');
+
+    // 2. Parsing TMT Tahun & Bulan (YYYY, MM)
+    const now = new Date();
+    let fullYearTmt = now.getFullYear();
+    if (tmtTahun) {
+      const parsedThn = parseInt(tmtTahun, 10);
+      if (!isNaN(parsedThn) && parsedThn >= 1900) fullYearTmt = parsedThn;
+    }
+    const yyyyTmtStr = String(fullYearTmt);
+
+    let mmTmt = String(now.getMonth() + 1).padStart(2, '0');
+    if (tmtBulan) {
+      const parsedBln = parseInt(tmtBulan, 10);
+      if (!isNaN(parsedBln) && parsedBln >= 1 && parsedBln <= 12) {
+        mmTmt = String(parsedBln).padStart(2, '0');
+      }
+    }
+
+    // 3. Parsing Gender: 1 = Laki-laki, 2 = Perempuan
+    const gRaw = String(gender || '1').trim().toLowerCase();
+    const gGender = (gRaw === '2' || gRaw === 'p' || gRaw.startsWith('perem') || gRaw === 'wanita') ? '2' : '1';
+    const labelGender = gGender === '1' ? '1 (Laki-laki)' : '2 (Perempuan)';
+
+    // 4. Bangun Prefix Grup 19 Karakter: H.7. + YYYYMMDD + YYYYMM + G
+    const prefix19 = `H.7.${yyyyLahir}${mmLahir}${ddLahir}${yyyyTmtStr}${mmTmt}${gGender}`;
+
+    // 5. Cari NIP yang sudah ada di database dengan grup prefix 19 karakter ini
+    const db = getDb();
+    let maxSeqFound = 0;
+
+    try {
+      const { data: dData } = await db.from('data_utama').select('nip').like('nip', `${prefix19}%`);
+      const { data: uKontrakBaru } = await db.from('usulan_kontrak_baru').select('nip').like('nip', `${prefix19}%`);
+      const { data: uKontrak } = await db.from('usulan_kontrak').select('nip').like('nip', `${prefix19}%`);
+
+      const nipsSet = new Set();
+      const processNips = (arr) => {
+        (arr || []).forEach(r => {
+          if (r && r.nip) {
+            const clean = String(r.nip).trim();
+            if (clean.startsWith(prefix19) && clean.length === 22) {
+              nipsSet.add(clean);
+            }
+          }
+        });
+      };
+
+      processNips(dData);
+      processNips(uKontrakBaru);
+      processNips(uKontrak);
+
+      nipsSet.forEach(nip => {
+        const seq = parseInt(nip.slice(19, 22), 10);
+        if (!isNaN(seq) && seq > maxSeqFound) {
+          maxSeqFound = seq;
+        }
+      });
+    } catch (countErr) {
+      console.warn('[generateAutoNipNonAsn] Warning counting existing NIPs:', countErr.message);
+    }
+
+    const nextSeq = maxSeqFound + 1;
+    const nnnSeq = String(nextSeq).padStart(3, '0');
+    const generatedNip = `${prefix19}${nnnSeq}`;
+
+    const namaBlnLahir = BULAN_ID[parseInt(mmLahir, 10) - 1] || '';
+    const namaBlnTmt = BULAN_ID[parseInt(mmTmt, 10) - 1] || '';
+
+    return {
+      success: true,
+      nip: generatedNip,
+      rincian: {
+        prefix: 'H.7.',
+        thnLahir: yyyyLahir,
+        blnLahir: `${mmLahir} (${namaBlnLahir})`,
+        tglLahir: ddLahir,
+        thnTmt: yyyyTmtStr,
+        blnTmt: `${mmTmt} (${namaBlnTmt})`,
+        gender: labelGender,
+        nomorUrut: `${nnnSeq} (Urutan ke-${nextSeq} pada grup tgl lahir ${ddLahir}/${mmLahir}/${yyyyLahir}, TMT ${namaBlnTmt} ${yyyyTmtStr}, gender ${gGender === '1' ? 'L' : 'P'})`
+      }
+    };
+  },
+
   async deleteUsulanMasukSingle(args) {
     const [token, id] = extractArgs(args);
     requireRole(token, ['admin', 'super_admin']);
@@ -8295,14 +8412,19 @@ const methods = {
     const [token, payload] = extractArgs(args);
     const decoded = verifyToken(token);
     const db = getDb();
-    const { nip, tmp_lhr, tgl_lhr, layanan, sub_menu } = payload || {};
+    const { nip, tmp_lhr, tgl_lhr, layanan, sub_menu, nama_lengkap } = payload || {};
     const cleanNip = String(nip || '').trim();
     if (!cleanNip) return { success: false, message: 'NIP wajib diisi.' };
+
+    const isNonAsn = (sub_menu === 'Calon Pegawai Tetap Undip NON ASN');
+    const statusKep = isNonAsn ? 'Calon Pegawai Undip Non ASN' : 'Non ASN / Kontrak';
+    const jenisPeg = (layanan === 'Kontrak Dosen') ? 'Tenaga Dosen' : 'Tenaga Kependidikan';
 
     // 1. Simpan ke tabel usulan_kontrak_baru di Supabase (kolom pertama: NIP)
     try {
       await db.from('usulan_kontrak_baru').upsert({
         nip: cleanNip,
+        nama_lengkap: nama_lengkap || '',
         tmp_lhr: tmp_lhr || '',
         tgl_lhr: tgl_lhr || null,
         layanan: layanan || 'Kontrak Tendik',
@@ -8314,14 +8436,16 @@ const methods = {
       console.warn('[saveNipBaruDraft] upsert usulan_kontrak_baru warning:', eBaru.message);
     }
 
-    // 2. Simpan juga ke data_utama
+    // 2. Simpan juga ke data_utama jika belum ada
     const { data: existing } = await db.from('data_utama').select('nip').eq('nip', cleanNip).maybeSingle();
     if (!existing) {
       const { error } = await db.from('data_utama').insert({
         nip: cleanNip,
+        nama_lengkap: nama_lengkap || '',
         tmp_lhr: tmp_lhr || '',
         tgl_lhr: tgl_lhr || null,
-        status_kepegawaian: 'Non ASN / Kontrak',
+        status_kepegawaian: statusKep,
+        jenis_peg: jenisPeg,
         status_bekerja: 'Aktif Bekerja'
       });
       if (error) {

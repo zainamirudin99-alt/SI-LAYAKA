@@ -1786,6 +1786,7 @@ function filterServiceTemplates(selectId, tipe) {
     selectEl.innerHTML = `<option value="">Belum ada template ${tipe === 'docx' ? 'Word' : 'GDocs'} terdaftar</option>`;
     if (selectId === 'skNonAsn_templateSelect') onSkNonAsnFormChange();
     if (selectId === 'skKp_templateSelect') onSkKpFormChange();
+    if (selectId === 'kontrak_templateSelect') onKontrakTemplateSelectChange('');
     return;
   }
   selectEl.innerHTML = filtered.map(t => {
@@ -1794,6 +1795,7 @@ function filterServiceTemplates(selectId, tipe) {
   }).join('');
   if (selectId === 'skNonAsn_templateSelect') onSkNonAsnFormChange();
   if (selectId === 'skKp_templateSelect') onSkKpFormChange();
+  if (selectId === 'kontrak_templateSelect') onKontrakTemplateSelectChange(selectEl.value);
 }
 
 async function loadServiceTemplates(layanan, subMenu, selectId) {
@@ -6980,8 +6982,16 @@ let kontrakOriginalNip = ''; // dipakai kalau nanti perlu deteksi "berubah" (bel
 function bindKontrakForm() {
   document.getElementById('kontrakBackToKategoriBtn').addEventListener('click', () => kontrakGoToState_('kategori'));
   document.getElementById('kontrakBackToSubMenuBtn').addEventListener('click', () => kontrakGoToState_('subMenu'));
-  document.getElementById('kontrakBackToModeBtn').addEventListener('click', () => kontrakGoToState_('mode'));
+  document.getElementById('kontrakBackToModeBtn').addEventListener('click', () => {
+    if (kontrakSelectedSubMenu === 'Calon Pegawai Tetap Undip NON ASN') {
+      kontrakGoToState_('subMenu');
+    } else {
+      kontrakGoToState_('mode');
+    }
+  });
   document.getElementById('kontrakBackFromAksesBtn').addEventListener('click', () => kontrakGoToState_('kategori'));
+
+  bindAdminKontrakAutocomplete();
 
   // REF alur terkoreksi: "Kelola Akses Mandiri" khusus admin/super_admin,
   // ditempatkan menonjol di awal (sebelum pilih kategori kontrak), TERPISAH
@@ -7158,9 +7168,11 @@ function pilihKategoriKontrak(layanan) {
 
 function pilihSubMenuKontrak(subMenu) {
   kontrakSelectedSubMenu = subMenu;
-  // REF alur terkoreksi: peran 'normal' JUGA melihat pilihan Usulan
-  // Baru/Perpanjangan (tidak lagi auto-skip ke Perpanjangan) -- lihat
-  // pilihModeKontrak untuk bagaimana kedua mode ditangani utk peran ini.
+  if (subMenu === 'Calon Pegawai Tetap Undip NON ASN') {
+    // Kategori Calon Pegawai Tetap Undip NON ASN HANYA memiliki opsi "Usulan Baru"
+    pilihModeKontrak('baru');
+    return;
+  }
   kontrakGoToState_('mode');
 }
 
@@ -7267,11 +7279,17 @@ function onSelectDraftNipInPopup1(selectedNip) {
 }
 
 function openKontrakPopup1GenerateNip() {
-  document.getElementById('modalTitle').textContent = '⚡ Pop-up 1: Input Data Lahir & Generate NIP Otomatis';
+  const isNonAsn = (kontrakSelectedSubMenu === 'Calon Pegawai Tetap Undip NON ASN');
+  document.getElementById('modalTitle').textContent = isNonAsn 
+    ? '⚡ Pop-up 1: Input Data Lahir & Generate NIP Calon Pegawai Tetap Undip NON ASN'
+    : '⚡ Pop-up 1: Input Data Lahir & Generate NIP Otomatis';
 
-  const jenisPegLabel = (kontrakSelectedLayanan === 'Kontrak Dosen') ? 'Tenaga Dosen (Kode: 01)' : 'Tenaga Kependidikan / Tendik (Kode: 02)';
+  const jenisPegLabel = isNonAsn 
+    ? (kontrakSelectedLayanan === 'Kontrak Dosen' ? 'Calon Dosen Tetap Undip NON ASN' : 'Calon Tendik Tetap Undip NON ASN')
+    : ((kontrakSelectedLayanan === 'Kontrak Dosen') ? 'Tenaga Dosen (Kode: 01)' : 'Tenaga Kependidikan / Tendik (Kode: 02)');
   const subMenuLabel = kontrakSelectedSubMenu || 'Kontrak Utama';
 
+  const currYear = new Date().getFullYear();
   const currMonthStr = String(new Date().getMonth() + 1).padStart(2, '0');
   const bulanList = [
     { val: '01', label: '01 - Januari' },
@@ -7293,6 +7311,56 @@ function openKontrakPopup1GenerateNip() {
     const isSel = (b.val === currMonthStr) ? 'selected' : '';
     bulanOpts += `<option value="${b.val}" ${isSel}>${b.label}</option>`;
   });
+
+  const formGridHtml = isNonAsn ? `
+        <div style="display:grid; grid-template-columns:1fr 1fr 1.2fr 1fr 1fr; gap:10px; margin-bottom:18px;">
+          <div>
+            <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Tempat Lahir <span style="color:red;">*</span></label>
+            <input type="text" id="pop1_tmpLhr" class="field-input" placeholder="Contoh: Semarang" required />
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Tanggal Lahir <span style="color:red;">*</span></label>
+            <input type="date" id="pop1_tglLhr" class="field-input" onchange="autoCalculatePopup1Nip()" required />
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Jenis Kelamin <span style="color:red;">*</span></label>
+            <select id="pop1_gender" class="field-input" onchange="autoCalculatePopup1Nip()" required>
+              <option value="1">1 - Laki-laki</option>
+              <option value="2">2 - Perempuan</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">TMT Bulan <span style="color:red;">*</span></label>
+            <select id="pop1_tmtBulan" class="field-input" onchange="autoCalculatePopup1Nip()" required>
+              ${bulanOpts}
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">TMT Tahun <span style="color:red;">*</span></label>
+            <input type="number" id="pop1_tmtTahun" class="field-input" value="${currYear}" min="1990" max="2099" onchange="autoCalculatePopup1Nip()" required />
+          </div>
+        </div>
+  ` : `
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:18px;">
+          <div>
+            <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Tempat Lahir <span style="color:red;">*</span></label>
+            <input type="text" id="pop1_tmpLhr" class="field-input" placeholder="Contoh: Semarang" required />
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Tanggal Lahir <span style="color:red;">*</span></label>
+            <input type="date" id="pop1_tglLhr" class="field-input" onchange="autoCalculatePopup1Nip()" required />
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">TMT Bulan <span style="color:red;">*</span></label>
+            <select id="pop1_tmtBulan" class="field-input" onchange="autoCalculatePopup1Nip()" required>
+              ${bulanOpts}
+            </select>
+          </div>
+        </div>
+  `;
+
+  const nipBoxLabel = isNonAsn ? 'NIP Calon Pegawai Tetap Undip NON ASN (Format H.7. + 18 Digit):' : 'NIP Hasil Generate (17 Digit):';
+  const nipPlaceholder = isNonAsn ? 'Isi Tempat/Tanggal Lahir, Gender & TMT untuk generate NIP H.7...' : 'Isi TTL & TMT Bulan di atas untuk generate NIP...';
 
   const html = `
     <div style="padding:20px; text-align:left; font-size:13.5px;">
@@ -7323,29 +7391,14 @@ function openKontrakPopup1GenerateNip() {
       </div>
 
       <form id="popup1NipForm" onsubmit="submitKontrakPopup1Nip(event)">
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:18px;">
-          <div>
-            <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Tempat Lahir <span style="color:red;">*</span></label>
-            <input type="text" id="pop1_tmpLhr" class="field-input" placeholder="Contoh: Semarang" required />
-          </div>
-          <div>
-            <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Tanggal Lahir <span style="color:red;">*</span></label>
-            <input type="date" id="pop1_tglLhr" class="field-input" onchange="autoCalculatePopup1Nip()" required />
-          </div>
-          <div>
-            <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">TMT Bulan <span style="color:red;">*</span></label>
-            <select id="pop1_tmtBulan" class="field-input" onchange="autoCalculatePopup1Nip()" required>
-              ${bulanOpts}
-            </select>
-          </div>
-        </div>
+        ${formGridHtml}
 
         <div style="margin-bottom:18px; background:var(--surface-alt, #f1f5f9); padding:16px; border-radius:10px; border:1px solid var(--border);">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            <label style="font-size:12px; font-weight:700; color:var(--text-main);">NIP Hasil Generate (17 Digit):</label>
+            <label style="font-size:12px; font-weight:700; color:var(--text-main);">${escapeHtml(nipBoxLabel)}</label>
             <button type="button" class="btn btn-outline kp-small-btn" onclick="autoCalculatePopup1Nip()" style="font-size:11px; font-weight:700;">🔄 Hitung Ulang NIP</button>
           </div>
-          <input type="text" id="pop1_nipGenerated" class="field-input" style="font-size:18px; font-weight:800; letter-spacing:1px; font-family:monospace; color:var(--primary); background:#fff;" placeholder="Isi TTL & TMT Bulan di atas untuk generate NIP..." required />
+          <input type="text" id="pop1_nipGenerated" class="field-input" style="font-size:18px; font-weight:800; letter-spacing:1px; font-family:monospace; color:var(--primary); background:#fff;" placeholder="${escapeHtml(nipPlaceholder)}" required />
           <div style="font-size:11.5px; color:#16a34a; margin-top:6px;">✓ NIP di atas di-generate otomatis dan <strong>tetap dapat Anda edit/sesuaikan secara manual</strong>.</div>
         </div>
 
@@ -7367,13 +7420,20 @@ async function autoCalculatePopup1Nip() {
   const tglLahir = document.getElementById('pop1_tglLhr')?.value;
   if (!tglLahir) return;
   const tmtBulan = document.getElementById('pop1_tmtBulan')?.value;
-
-  const defaultJenis = (kontrakSelectedLayanan === 'Kontrak Dosen') ? 'Dosen' : 'Tendik';
-  const todayStr = new Date().toISOString().split('T')[0];
+  const isNonAsn = (kontrakSelectedSubMenu === 'Calon Pegawai Tetap Undip NON ASN');
 
   try {
-    const payload = { tglLahir, jenisPegawai: defaultJenis, tglMasuk: todayStr, tmtBulan };
-    const res = await rpc('generateAutoNip', [SESSION.token, payload]);
+    let res;
+    if (isNonAsn) {
+      const gender = document.getElementById('pop1_gender')?.value || '1';
+      const tmtTahun = document.getElementById('pop1_tmtTahun')?.value || new Date().getFullYear();
+      res = await rpc('generateAutoNipNonAsn', [SESSION.token, { tglLahir, gender, tmtBulan, tmtTahun }]);
+    } else {
+      const defaultJenis = (kontrakSelectedLayanan === 'Kontrak Dosen') ? 'Dosen' : 'Tendik';
+      const todayStr = new Date().toISOString().split('T')[0];
+      const payload = { tglLahir, jenisPegawai: defaultJenis, tglMasuk: todayStr, tmtBulan };
+      res = await rpc('generateAutoNip', [SESSION.token, payload]);
+    }
     if (res && res.success) {
       const nipEl = document.getElementById('pop1_nipGenerated');
       if (nipEl) {
@@ -7393,119 +7453,61 @@ async function submitKontrakPopup1Nip(e) {
   const tglLhr = document.getElementById('pop1_tglLhr')?.value;
   const tmtBulan = document.getElementById('pop1_tmtBulan')?.value;
   const nipVal = document.getElementById('pop1_nipGenerated')?.value?.trim();
+  const isNonAsn = (kontrakSelectedSubMenu === 'Calon Pegawai Tetap Undip NON ASN');
 
   if (!tmpLhr || !tglLhr || !tmtBulan || !nipVal) {
     showToast('error', 'Lengkapi Tempat Lahir, Tanggal Lahir, TMT Bulan, dan NIP.');
     return;
   }
 
-  const defaultJenis = (kontrakSelectedLayanan === 'Kontrak Dosen') ? 'Dosen' : 'Tendik';
-  const todayStr = new Date().toISOString().split('T')[0];
-
   const btn = document.getElementById('pop1_submitBtn');
   if (btn) setBtnLoading(btn, true, 'Menyiapkan Breakdown...');
 
   try {
-    const payload = { tglLahir: tglLhr, jenisPegawai: defaultJenis, tglMasuk: todayStr, tmtBulan };
-    const res = await rpc('generateAutoNip', [SESSION.token, payload]);
+    let res, rincian;
+    let extraData = { tmpLhr, tglLhr, tmtBulan, isNonAsn };
+
+    if (isNonAsn) {
+      const gender = document.getElementById('pop1_gender')?.value || '1';
+      const tmtTahun = document.getElementById('pop1_tmtTahun')?.value || new Date().getFullYear();
+      extraData.gender = gender;
+      extraData.tmtTahun = tmtTahun;
+      res = await rpc('generateAutoNipNonAsn', [SESSION.token, { tglLahir: tglLhr, gender, tmtBulan, tmtTahun }]);
+      rincian = (res && res.success) ? res.rincian : {
+        prefix: 'H.7.',
+        thnLahir: nipVal.slice(4, 8),
+        blnLahir: nipVal.slice(8, 10),
+        tglLahir: nipVal.slice(10, 12),
+        thnTmt: nipVal.slice(12, 16),
+        blnTmt: nipVal.slice(16, 18),
+        gender: nipVal.slice(18, 19) === '1' ? '1 (Laki-laki)' : '2 (Perempuan)',
+        nomorUrut: nipVal.slice(19, 22)
+      };
+    } else {
+      const defaultJenis = (kontrakSelectedLayanan === 'Kontrak Dosen') ? 'Dosen' : 'Tendik';
+      const todayStr = new Date().toISOString().split('T')[0];
+      extraData.defaultJenis = defaultJenis;
+      res = await rpc('generateAutoNip', [SESSION.token, { tglLahir: tglLhr, jenisPegawai: defaultJenis, tglMasuk: todayStr, tmtBulan }]);
+      rincian = (res && res.success) ? res.rincian : {
+        thnLahir: nipVal.slice(0,4),
+        blnLahir: nipVal.slice(4,6),
+        tglLahir: nipVal.slice(6,8),
+        kodeJenis: nipVal.slice(8,10) === '01' ? '01 (Tenaga Dosen)' : '02 (Tenaga Kependidikan)',
+        thnMasuk: nipVal.slice(10,12),
+        blnMasuk: nipVal.slice(12,14),
+        nomorUrut: nipVal.slice(14,17)
+      };
+    }
+
     if (btn) setBtnLoading(btn, false, 'Lanjut ➔ Pop-up 2 (Lihat Breakdown Structure NIP)');
-
-    const rincian = (res && res.success) ? res.rincian : {
-      thnLahir: nipVal.slice(0,4),
-      blnLahir: nipVal.slice(4,6),
-      tglLahir: nipVal.slice(6,8),
-      kodeJenis: nipVal.slice(8,10) === '01' ? '01 (Tenaga Dosen)' : '02 (Tenaga Kependidikan)',
-      thnMasuk: nipVal.slice(10,12),
-      blnMasuk: nipVal.slice(12,14),
-      nomorUrut: nipVal.slice(14,17)
-    };
-
-    openKontrakPopup2BreakdownNip(nipVal, rincian, { tmpLhr, tglLhr, tmtBulan, defaultJenis });
+    openKontrakPopup2BreakdownNip(nipVal, rincian, extraData);
   } catch (err) {
     if (btn) setBtnLoading(btn, false, 'Lanjut ➔ Pop-up 2 (Lihat Breakdown Structure NIP)');
     showToast('error', 'Gagal memproses breakdown: ' + err.message);
   }
 }
 
-function openKontrakPopup2BreakdownNip(nip, rincian, extraData) {
-  document.getElementById('modalTitle').textContent = '⚡ Pop-up 2: Breakdown Structure NIP';
-
-  const contentHtml = `
-    <div style="padding:20px; text-align:left; font-size:13.5px;">
-      <div style="background:var(--surface-alt, #f8fafc); border:1px solid var(--border, #e2e8f0); border-radius:10px; padding:16px; margin-bottom:18px; text-align:center;">
-        <div style="font-size:12px; color:var(--text-muted, #64748b); text-transform:uppercase; letter-spacing:0.5px; font-weight:600; margin-bottom:4px;">NIP Dikonfirmasi (17 Digit)</div>
-        <div style="font-size:24px; font-weight:800; color:var(--primary, #0284c7); letter-spacing:1.5px; font-family:monospace;">${escapeHtml(nip)}</div>
-        <div style="font-size:11.5px; color:#16a34a; margin-top:4px;">✓ Pemetaan digit NIP telah dikonfirmasi dan siap dimasukkan ke Form Usulan.</div>
-      </div>
-
-      <h4 style="font-size:14px; font-weight:700; margin-bottom:10px; color:var(--text-main);">📌 Tabel Pemetaan Digit Structure NIP:</h4>
-
-      <table class="tmt-table" style="width:100%; border-collapse:collapse; margin-bottom:20px;">
-        <thead>
-          <tr style="background:var(--surface-alt, #f1f5f9);">
-            <th style="padding:8px 10px; border:1px solid var(--border); text-align:center; width:100px;">Posisi Digit</th>
-            <th style="padding:8px 10px; border:1px solid var(--border); text-align:left;">Nama Komponen</th>
-            <th style="padding:8px 10px; border:1px solid var(--border); text-align:center; width:90px;">Digit Teks</th>
-            <th style="padding:8px 10px; border:1px solid var(--border); text-align:left;">Penjelasan / Makna</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 1–4</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Tahun Lahir</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#0284c7;">${escapeHtml(nip.slice(0,4))}</td>
-            <td style="padding:8px 10px; border:1px solid var(--border);">Tahun kelahiran pegawai</td>
-          </tr>
-          <tr>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 5–6</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Bulan Lahir</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#0284c7;">${escapeHtml(nip.slice(4,6))}</td>
-            <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.blnLahir || 'Bulan lahir')}</td>
-          </tr>
-          <tr>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 7–8</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Tanggal Lahir</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#0284c7;">${escapeHtml(nip.slice(6,8))}</td>
-            <td style="padding:8px 10px; border:1px solid var(--border);">Tanggal lahir pegawai</td>
-          </tr>
-          <tr>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 9–10</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Kode Jenis Pegawai</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#d97706;">${escapeHtml(nip.slice(8,10))}</td>
-            <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.kodeJenis || 'Jenis Pegawai')}</td>
-          </tr>
-          <tr>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 11–12</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Tahun Masuk</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#2563eb;">${escapeHtml(nip.slice(10,12))}</td>
-            <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.thnMasuk || 'Tahun masuk')}</td>
-          </tr>
-          <tr>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 13–14</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Bulan Masuk (TMT Bulan)</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#2563eb;">${escapeHtml(nip.slice(12,14))}</td>
-            <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.blnMasuk || 'Bulan masuk')}</td>
-          </tr>
-          <tr>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 15–17</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Nomor Urut Pegawai</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#16a34a;">${escapeHtml(nip.slice(14,17))}</td>
-            <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.nomorUrut || 'Nomor urut')}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <button type="button" class="btn btn-outline" onclick="openKontrakPopup1GenerateNip()">&larr; Kembali ke Pop-up 1</button>
-        <button type="button" class="btn btn-primary" onclick="confirmAndGoToFormWithNip('${escapeHtml(nip)}', '${escapeHtml(extraData.tmpLhr)}', '${escapeHtml(extraData.tglLhr)}', '${escapeHtml(extraData.tmtBulan || '')}')" style="padding:9px 24px; font-weight:700;">🚀 Gunakan NIP &amp; Masuk ke Form Usulan</button>
-      </div>
-    </div>`;
-
-  document.getElementById('modalBody').innerHTML = contentHtml;
-  document.getElementById('modalOverlay').style.display = 'flex';
-}
-
-function confirmAndGoToFormWithNip(nip, tmpLhr, tglLhr, tmtBulan) {
+function confirmAndGoToFormWithNip(nip, tmpLhr, tglLhr, tmtBulan, extraData) {
   closeModal();
   
   // Transition into Form State
@@ -7513,6 +7515,14 @@ function confirmAndGoToFormWithNip(nip, tmpLhr, tglLhr, tmtBulan) {
 
   const searchWrap = document.getElementById('kontrakSearchWrap');
   if (searchWrap) searchWrap.style.display = 'none';
+
+  const isNonAsn = (kontrakSelectedSubMenu === 'Calon Pegawai Tetap Undip NON ASN');
+
+  // Tampilkan Atasan Langsung untuk Non ASN & Tendik
+  const atasanWrap = document.getElementById('kontrak_atasanWrap');
+  if (atasanWrap) {
+    atasanWrap.style.display = (isNonAsn || kontrakSelectedLayanan === 'Kontrak Tendik') ? 'block' : 'none';
+  }
 
   // Populate form dropdowns
   populateSelect('kontrak_tmtBulan', kontrakFormOptionsCache.bulan, { placeholder: 'Bulan...', valueField: 'value', labelField: 'label' });
@@ -7525,14 +7535,20 @@ function confirmAndGoToFormWithNip(nip, tmpLhr, tglLhr, tmtBulan) {
     if (el) el.addEventListener('change', updateKontrakJangkaWaktuPreview_);
   });
 
-  // Set TMT Bulan if provided
+  // Set TMT Bulan & Tahun
   if (tmtBulan) {
     const tmtBulanEl = document.getElementById('kontrak_tmtBulan');
     if (tmtBulanEl) {
       tmtBulanEl.value = parseInt(tmtBulan, 10);
-      updateKontrakJangkaWaktuPreview_();
     }
   }
+  if (extraData && extraData.tmtTahun) {
+    const tmtTahunEl = document.getElementById('kontrak_tmtTahun');
+    if (tmtTahunEl) {
+      tmtTahunEl.value = extraData.tmtTahun;
+    }
+  }
+  updateKontrakJangkaWaktuPreview_();
 
   // Fill in form values
   const nipEl = document.getElementById('kontrak_nipManual');
@@ -7555,7 +7571,7 @@ function confirmAndGoToFormWithNip(nip, tmpLhr, tglLhr, tmtBulan) {
 
   loadServiceTemplates(kontrakSelectedLayanan, kontrakSelectedSubMenu, 'kontrak_templateSelect');
 
-  // Simpan NIP baru ini langsung ke Supabase data_utama
+  // Simpan NIP baru ini langsung ke Supabase data_utama & usulan_kontrak_baru
   try {
     rpc('saveNipBaruDraft', [SESSION.token, {
       nip: nip,
@@ -7565,7 +7581,7 @@ function confirmAndGoToFormWithNip(nip, tmpLhr, tglLhr, tmtBulan) {
       sub_menu: kontrakSelectedSubMenu
     }]).then(res => {
       if (res && res.success) {
-        console.log('[saveNipBaruDraft] NIP draft berhasil disimpan ke Supabase data_utama:', nip);
+        console.log('[saveNipBaruDraft] NIP draft berhasil disimpan ke Supabase:', nip);
       }
     }).catch(err => {
       console.warn('[saveNipBaruDraft] warning:', err);
@@ -7578,10 +7594,15 @@ function confirmAndGoToFormWithNip(nip, tmpLhr, tglLhr, tmtBulan) {
 function kontrakResetForm_() {
   ['kontrak_search', 'kontrak_nip', 'kontrak_nipManual', 'kontrak_namaLengkap', 'kontrak_tmpLhr', 'kontrak_tglLhr',
    'kontrak_pendidikan', 'kontrak_jurusan', 'kontrak_unitEsIi', 'kontrak_jabatan', 'kontrak_alamat',
-   'kontrak_nomorTelepon', 'kontrak_nomorSurat', 'kontrak_besaranUpah'].forEach(id => {
+   'kontrak_nomorTelepon', 'kontrak_nomorSurat', 'kontrak_besaranUpah',
+   'kontrak_atasanSearch', 'kontrak_atasanNip', 'kontrak_atasanNama'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  const atasanSel = document.getElementById('kontrak_atasanSelected');
+  if (atasanSel) { atasanSel.innerHTML = ''; atasanSel.style.display = 'none'; }
+  const dynWrap = document.getElementById('kontrak_dynamicPlaceholdersWrap');
+  if (dynWrap) { dynWrap.innerHTML = ''; dynWrap.style.display = 'none'; }
   document.getElementById('kontrak_alamatMsg').textContent = '';
 }
 
@@ -7690,27 +7711,212 @@ function updateKontrakBesaranUpahPreview_() {
 }
 
 function kontrakBuildFormData_() {
-  return {
-    nip: document.getElementById('kontrak_nipManual').value,
-    nama_lengkap: document.getElementById('kontrak_namaLengkap').value,
-    tmp_lhr: document.getElementById('kontrak_tmpLhr').value,
-    tgl_lhr: document.getElementById('kontrak_tglLhr').value,
-    pendidikan: document.getElementById('kontrak_pendidikan').value,
-    jurusan: document.getElementById('kontrak_jurusan').value,
-    alamat: document.getElementById('kontrak_alamat').value,
-    unit_es_ii: document.getElementById('kontrak_unitEsIi').value,
-    jabatan: document.getElementById('kontrak_jabatan').value,
-    nomor_telepon: document.getElementById('kontrak_nomorTelepon').value,
-    nomor_surat_perjanjian: document.getElementById('kontrak_nomorSurat').value,
+  const data = {
+    nip: document.getElementById('kontrak_nipManual')?.value || '',
+    nama_lengkap: document.getElementById('kontrak_namaLengkap')?.value || '',
+    tmp_lhr: document.getElementById('kontrak_tmpLhr')?.value || '',
+    tgl_lhr: document.getElementById('kontrak_tglLhr')?.value || '',
+    pendidikan: document.getElementById('kontrak_pendidikan')?.value || '',
+    jurusan: document.getElementById('kontrak_jurusan')?.value || '',
+    alamat: document.getElementById('kontrak_alamat')?.value || '',
+    unit_es_ii: document.getElementById('kontrak_unitEsIi')?.value || '',
+    jabatan: document.getElementById('kontrak_jabatan')?.value || '',
+    nomor_telepon: document.getElementById('kontrak_nomorTelepon')?.value || '',
+    nomor_surat_perjanjian: document.getElementById('kontrak_nomorSurat')?.value || '',
+    atasan_nip: document.getElementById('kontrak_atasanNip')?.value || '',
+    atasan_nama: document.getElementById('kontrak_atasanNama')?.value || '',
+    nama_atasan: document.getElementById('kontrak_atasanNama')?.value || '',
+    nip_atasan: document.getElementById('kontrak_atasanNip')?.value || '',
     // REF (konfirmasi Titto): jangka_waktu_kontrak TIDAK lagi dikirim dari
     // sini -- server menghitungnya sendiri dari tmt_bulan/tahun & tst_bulan/
     // tahun di bawah, supaya nilai akhir di dokumen SELALU konsisten dengan
     // TMT/TST yang benar-benar dipilih (bukan field terpisah yang bisa lupa disinkronkan).
-    tmt_bulan: document.getElementById('kontrak_tmtBulan').value,
-    tmt_tahun: document.getElementById('kontrak_tmtTahun').value,
-    tst_bulan: document.getElementById('kontrak_tstBulan').value,
-    tst_tahun: document.getElementById('kontrak_tstTahun').value
+    tmt_bulan: document.getElementById('kontrak_tmtBulan')?.value || '',
+    tmt_tahun: document.getElementById('kontrak_tmtTahun')?.value || '',
+    tst_bulan: document.getElementById('kontrak_tstBulan')?.value || '',
+    tst_tahun: document.getElementById('kontrak_tstTahun')?.value || ''
   };
+
+  // Kumpulkan dynamic placeholder inputs
+  const dynInputs = document.querySelectorAll('#kontrak_dynamicPlaceholdersWrap [data-kontrak-dyn-key]');
+  dynInputs.forEach(inp => {
+    const k = inp.dataset.kontrakDynKey;
+    if (k && inp.value !== undefined) {
+      data[k] = inp.value;
+    }
+  });
+
+  return data;
+}
+
+function isTtdPlaceholderKey(key) {
+  const k = String(key || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+  return k.includes('ttd') || k.includes('tanda_tangan') || k.includes('tandatangan') || k.includes('signature') || k.includes('paraf');
+}
+
+async function renderKontrakDynamicPlaceholdersForTemplate(templateId) {
+  const wrap = document.getElementById('kontrak_dynamicPlaceholdersWrap');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  wrap.style.display = 'none';
+
+  if (!templateId) return;
+
+  try {
+    const res = await rpc('getTemplatePlaceholders', [SESSION.token, templateId]);
+    const placeholders = (res && res.success && Array.isArray(res.placeholders)) ? res.placeholders : [];
+    
+    // Filter out core fields already in the form
+    const coreKeys = new Set([
+      'nip', 'nama_lengkap', 'nama', 'tmp_lhr', 'tgl_lhr', 'tempat_lahir', 'tanggal_lahir',
+      'pendidikan', 'jurusan', 'unit_es_ii', 'unit_kerja', 'unit', 'jabatan', 'alamat',
+      'nomor_telepon', 'no_hp', 'telepon', 'nomor_surat_perjanjian', 'nomor_surat',
+      'tmt_bulan', 'tmt_tahun', 'tst_bulan', 'tst_tahun', 'jangka_waktu', 'besaran_upah',
+      'atasan_nip', 'atasan_nama', 'nama_atasan', 'nip_atasan', 'atasan_langsung'
+    ]);
+
+    const extraPlaceholders = placeholders.filter(p => {
+      const cleanKey = String(p).trim().toLowerCase();
+      // Suppress TTD placeholders (Aturan: TTD tidak ditampilkan di formulir)
+      if (isTtdPlaceholderKey(cleanKey)) return false;
+      // Suppress core keys already in static form
+      if (coreKeys.has(cleanKey)) return false;
+      return true;
+    });
+
+    if (!extraPlaceholders.length) return;
+
+    wrap.style.display = 'grid';
+    wrap.innerHTML = '<div style="grid-column: 1 / -1; border-top:1px dashed var(--border); padding-top:12px; margin-top:6px; margin-bottom:4px; font-size:12px; font-weight:700; color:var(--primary);">📋 Kolom Tambahan Template (' + escapeHtml(extraPlaceholders.length) + ' Kolom):</div>';
+
+    extraPlaceholders.forEach(key => {
+      const labelText = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      const isDate = key.startsWith('tgl_') || key.startsWith('tmt_') || key.includes('tanggal');
+      
+      const div = document.createElement('div');
+      div.className = 'stack-field';
+      div.innerHTML = `
+        <label>${escapeHtml(labelText)} <span style="font-size:11px; color:#3b82f6; font-weight:600;">[Template]</span></label>
+        <input type="${isDate ? 'date' : 'text'}" class="field-input" data-kontrak-dyn-key="${escapeHtml(key)}" placeholder="Masukkan ${escapeHtml(labelText)}..." />
+      `;
+      wrap.appendChild(div);
+    });
+  } catch (err) {
+    console.warn('[renderKontrakDynamicPlaceholders] error:', err);
+  }
+}
+
+function onKontrakTemplateSelectChange(templateId) {
+  renderKontrakDynamicPlaceholdersForTemplate(templateId);
+}
+
+function bindAdminKontrakAutocomplete() {
+  // 1. Autocomplete untuk Nama Lengkap dari Data Utama
+  const namaInp = document.getElementById('kontrak_namaLengkap');
+  const namaList = document.getElementById('kontrak_namaSearchList');
+  if (namaInp && namaList && !namaInp._bound) {
+    namaInp._bound = true;
+    let timerN = null;
+    namaInp.addEventListener('input', e => {
+      clearTimeout(timerN);
+      const q = e.target.value.trim();
+      if (q.length < 2) {
+        namaList.style.display = 'none';
+        namaList.innerHTML = '';
+        return;
+      }
+      timerN = setTimeout(async () => {
+        try {
+          const res = await rpc('searchEmployees', [SESSION.token, q]);
+          const emps = Array.isArray(res) ? res : (res && res.data ? res.data : []);
+          if (!emps.length) {
+            namaList.innerHTML = '<div style="padding:8px 12px; color:#64748b; font-size:12px;">Tidak ditemukan pegawai di Data Utama.</div>';
+            namaList.style.display = 'block';
+            return;
+          }
+          namaList.innerHTML = '';
+          emps.forEach(emp => {
+            const item = document.createElement('div');
+            item.className = 'autocomplete-item';
+            const displayName = emp.nama_lengkap || emp.nama || emp.nip;
+            item.innerHTML = `<strong>${escapeHtml(displayName)}</strong><br><small style="color:#64748b;">NIP: ${escapeHtml(emp.nip)} &middot; ${escapeHtml(emp.unit_es_ii || '')}</small>`;
+            item.addEventListener('click', () => {
+              namaList.style.display = 'none';
+              namaInp.value = displayName;
+              kontrakIsiFormDariPegawai_(emp.nip, displayName);
+            });
+            namaList.appendChild(item);
+          });
+          namaList.style.display = 'block';
+        } catch (err) {
+          console.warn('searchEmployees error:', err);
+        }
+      }, 250);
+    });
+
+    document.addEventListener('click', e => {
+      if (!namaInp.contains(e.target) && !namaList.contains(e.target)) {
+        namaList.style.display = 'none';
+      }
+    });
+  }
+
+  // 2. Autocomplete untuk Atasan Langsung
+  const atasanInp = document.getElementById('kontrak_atasanSearch');
+  const atasanList = document.getElementById('kontrak_atasanSearchList');
+  if (atasanInp && atasanList && !atasanInp._bound) {
+    atasanInp._bound = true;
+    let timerA = null;
+    atasanInp.addEventListener('input', e => {
+      clearTimeout(timerA);
+      const q = e.target.value.trim();
+      if (q.length < 2) {
+        atasanList.style.display = 'none';
+        atasanList.innerHTML = '';
+        return;
+      }
+      timerA = setTimeout(async () => {
+        try {
+          const res = await rpc('searchAtasanLangsung', [SESSION.token, q]);
+          const list = (res && res.success && Array.isArray(res.data)) ? res.data : [];
+          if (!list.length) {
+            atasanList.innerHTML = '<div style="padding:8px 12px; color:#64748b; font-size:12px;">Tidak ditemukan atasan langsung.</div>';
+            atasanList.style.display = 'block';
+            return;
+          }
+          atasanList.innerHTML = '';
+          list.forEach(a => {
+            const item = document.createElement('div');
+            item.className = 'autocomplete-item';
+            item.innerHTML = `<strong>${escapeHtml(a.nama)}</strong><br><small style="color:#64748b;">NIP: ${escapeHtml(a.nip)} &middot; ${escapeHtml(a.jabatan)} &middot; ${escapeHtml(a.unit)}</small>`;
+            item.addEventListener('click', () => {
+              atasanList.style.display = 'none';
+              const nipEl = document.getElementById('kontrak_atasanNip');
+              const namaEl = document.getElementById('kontrak_atasanNama');
+              if (nipEl) nipEl.value = a.nip;
+              if (namaEl) namaEl.value = a.nama;
+              atasanInp.value = `${a.nama} (${a.nip})`;
+              const sel = document.getElementById('kontrak_atasanSelected');
+              if (sel) {
+                sel.innerHTML = `✓ Atasan Langsung: <strong>${escapeHtml(a.nama)}</strong> (NIP: ${escapeHtml(a.nip)}) &middot; ${escapeHtml(a.unit)}`;
+                sel.style.display = 'block';
+              }
+            });
+            atasanList.appendChild(item);
+          });
+          atasanList.style.display = 'block';
+        } catch (err) {
+          console.warn('searchAtasanLangsung error:', err);
+        }
+      }, 250);
+    });
+
+    document.addEventListener('click', e => {
+      if (!atasanInp.contains(e.target) && !atasanList.contains(e.target)) {
+        atasanList.style.display = 'none';
+      }
+    });
+  }
 }
 
 /** REF (konfirmasi Titto): tampilan LIVE Jangka Waktu Kontrak, dihitung dari selisih TMT->TST (inklusif). Server tetap yang menentukan nilai FINAL saat Preview/Generate. */
@@ -8259,8 +8465,8 @@ function onKontrakUserLayananChange() {
   }
   
   const list = (layanan === 'Kontrak Tendik') 
-    ? (kontrakFormOptionsCache.subMenuTendik || ['Tenaga Profesional', 'Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan']) 
-    : (kontrakFormOptionsCache.subMenuDosen || ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan']);
+    ? (kontrakFormOptionsCache?.subMenuTendik || ['Tenaga Profesional', 'Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan', 'Calon Pegawai Tetap Undip NON ASN']) 
+    : (kontrakFormOptionsCache?.subMenuDosen || ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan', 'Calon Pegawai Tetap Undip NON ASN']);
     
   subMenuSelect.innerHTML = list.map(item => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join('');
 }
