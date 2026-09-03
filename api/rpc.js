@@ -605,6 +605,32 @@ function cleanDocxTableCellLeadingEmptyParagraphs(xml) {
   return xml;
 }
 
+function cleanDocxTtdCell_(xml) {
+  if (!xml || typeof xml !== 'string') return xml;
+
+  // 1. Bersihkan paragraf kosong sebelum tag {{ttd}} di dalam sel tabel yang sama
+  const regEmptyPBeforeTtd = /(<w:p\b[^>]*>(?:(?!<w:t\b)[^<]|<w:r\b[^>]*><w:rPr\b[^>]*\/>\s*<\/w:r>)*?<\/w:p>\s*)(<w:p\b[^>]*>(?:(?!<w:p\b)[\s\S])*?\{\{\s*ttd\s*\}\})/gi;
+  xml = xml.replace(regEmptyPBeforeTtd, '$2');
+
+  // 2. Kempiskan w:trHeight pada baris tabel yang memuat {{ttd}} agar tidak ada celah kosong berlebih
+  const regTrHeight = /(<w:tr\b[^>]*>\s*<w:trPr\b[^>]*>[\s\S]*?)<w:trHeight\b[^>]*\/>([\s\S]*?<w:tc\b[^>]*>[\s\S]*?\{\{\s*ttd\s*\}\})/gi;
+  xml = xml.replace(regTrHeight, '$1<w:trHeight w:val="0" w:hRule="auto"/>$2');
+
+  // 3. Spacing w:after negatif pada paragraf {{ttd}} agar menarik teks nama penandatangan di bawahnya sehingga menempel & menimpa sebagian teks nama
+  const regTtdParagraph = /(<w:p\b[^>]*>(?:(?!<w:p\b)[\s\S])*?<w:pPr\b[^>]*>)([\s\S]*?)(<\/w:pPr>[\s\S]*?\{\{\s*ttd\s*\}\})/gi;
+  xml = xml.replace(regTtdParagraph, (match, pPrOpen, pPrContent, pPrClose) => {
+    let newContent = pPrContent;
+    if (newContent.includes('<w:spacing')) {
+      newContent = newContent.replace(/<w:spacing\b[^>]*\/>/gi, '<w:spacing w:after="-220" w:line="240" w:lineRule="auto"/>');
+    } else {
+      newContent += '<w:spacing w:after="-220" w:line="240" w:lineRule="auto"/>';
+    }
+    return pPrOpen + newContent + pPrClose;
+  });
+
+  return xml;
+}
+
 function createDefaultSkDocxBuffer(jenis_sk, dataCtx) {
   const PizZip = require('pizzip');
   const zip = new PizZip();
@@ -881,6 +907,7 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
         content = docxCleanMassalLoops(content);
         content = cleanWordXmlParagraphBraces(content);
         content = cleanDocxTableCellLeadingEmptyParagraphs(content);
+        content = cleanDocxTtdCell_(content);
         zip.file(fileName, content);
       }
     }
@@ -1207,8 +1234,8 @@ function injectDocxImage(zip, dataCtx) {
           }
         }
 
-        // TTD diposisikan In Front of Text dengan offset vertikal agar menimpa sebagian teks nama penandatangan
-        ttdXml = createDocxInFrontOfTextImageXml('rIdTtdAtasan99', 155, 72, 18);
+        // TTD dibuat inline image yang terikat paragraf w:jc center dalam sel tabel agar 100% lurus, dengan spacing negatif agar menimpa teks nama
+        ttdXml = createDocxInlineImageXml('rIdTtdAtasan99', 155, 72);
       }
     } catch (errTtd) {
       console.warn('[injectDocxImage] Error embedding signature:', errTtd);
@@ -1224,6 +1251,7 @@ function injectDocxImage(zip, dataCtx) {
     const f = zip.file(fileName);
     if (!f) continue;
     let xml = cleanWordXmlParagraphBraces(f.asText());
+    xml = cleanDocxTtdCell_(xml);
 
     if (photoXml) {
       for (const k of photoKeys) {
@@ -7126,12 +7154,55 @@ const methods = {
 
   async deleteUsulanKontrakSingle(args) {
     const [token, usulanId] = extractArgs(args);
-    requireRole(token, ['admin','super_admin']);
+    const decoded = verifyToken(token);
     if (!usulanId) return { success: false, message: 'ID usulan wajib diisi.' };
     const db = getDb();
+
+    // Izinkan admin/super_admin ATAU atasan langsung yang menangani usulan ini
+    if (!['admin', 'super_admin'].includes(decoded.role)) {
+      const { data: uRow } = await db.from('usulan_kontrak').select('atasan_nip, nip').eq('id', usulanId).maybeSingle();
+      if (!uRow || (uRow.atasan_nip !== decoded.nip && uRow.nip !== decoded.nip)) {
+        return { success: false, message: 'Anda tidak memiliki hak akses untuk menghapus usulan ini.' };
+      }
+    }
+
     const { error } = await db.from('usulan_kontrak').delete().eq('id', usulanId);
     if (error) throw error;
     return { success: true, message: 'Usulan kontrak berhasil dihapus permanen.' };
+  },
+
+  async koreksiUsulanKontrakByAtasan(args) {
+    const [token, usulanId, catatanKoreksi] = extractArgs(args);
+    const decoded = verifyToken(token);
+    if (!usulanId) return { success: false, message: 'ID usulan wajib diisi.' };
+    const catatan = String(catatanKoreksi || '').trim();
+    if (!catatan) return { success: false, message: 'Catatan koreksi / keterangan berkas yang salah wajib diisi.' };
+
+    const db = getDb();
+    const { data: usulan, error: fetchErr } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
+    if (fetchErr) throw fetchErr;
+    if (!usulan) return { success: false, message: 'Usulan tidak ditemukan.' };
+
+    if (!['admin', 'super_admin'].includes(decoded.role) && usulan.atasan_nip !== decoded.nip) {
+      return { success: false, message: 'Hanya Atasan Langsung atau Admin yang dapat mengembalikan usulan untuk dikoreksi.' };
+    }
+
+    const currentEval = usulan.evaluasi_data || {};
+    const updatedEval = Object.assign({}, currentEval, {
+      status_koreksi: 'perlu_perbaikan',
+      catatan_koreksi: catatan,
+      dikoreksi_oleh: decoded.nama || decoded.nip,
+      dikoreksi_pada: new Date().toISOString()
+    });
+
+    const { error: updateErr } = await db.from('usulan_kontrak').update({
+      status: 'perlu_perbaikan',
+      catatan: catatan,
+      evaluasi_data: updatedEval
+    }).eq('id', usulanId);
+
+    if (updateErr) throw updateErr;
+    return { success: true, message: 'Usulan berhasil dikembalikan ke pegawai untuk dikoreksi.' };
   },
 
   async tandaiPerjanjianKontrakDibuat(args) {

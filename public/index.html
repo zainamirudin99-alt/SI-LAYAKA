@@ -3707,27 +3707,50 @@
           <div style="display:inline-block; border:2px dashed #94a3b8; border-radius:8px; background:#fff; position:relative;">
             <canvas id="evalTkkSignaturePad" width="420" height="160" style="touch-action:none; cursor:crosshair; display:block;"></canvas>
           </div>
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; flex-wrap:wrap; gap:8px;">
-            <button type="button" class="btn btn-secondary" onclick="clearEvalTkkSignature()" style="padding:4px 12px; font-size:12px;">🗑️ Hapus / Ulangi Tanda Tangan</button>
-            <div style="display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--text-muted, #475569);">
-              <span>Ketebalan Goresan:</span>
-              <select id="evalTkk_lineWidthSelect" class="kontrak-select-dark" style="padding:3px 8px; font-size:12px; height:28px; border-radius:6px;" onchange="changeEvalTkkLineWidth(this.value)">
-                <option value="2.5">Tipis (2.5px)</option>
-                <option value="4" selected>Standar Tebal (4px - Hasil Dokumen 2pt)</option>
-                <option value="5.5">Ekstra Tebal (5.5px)</option>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; flex-wrap:wrap; gap:10px;">
+            <button type="button" class="btn btn-secondary" onclick="clearEvalTkkSignature()" style="padding:6px 14px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:6px;">
+              <span>🗑️</span> Hapus / Ulangi Tanda Tangan
+            </button>
+            <div style="display:inline-flex; align-items:center; gap:8px; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:4px 10px;">
+              <label for="evalTkk_lineWidthSelect" style="font-size:12px; font-weight:600; color:#334155; margin:0; white-space:nowrap;">
+                ✏️ Ketebalan Goresan:
+              </label>
+              <select id="evalTkk_lineWidthSelect" onchange="changeEvalTkkLineWidth(this.value)" style="padding:3px 8px; font-size:12px; font-weight:600; border:1px solid #94a3b8; border-radius:4px; background:#ffffff; color:#0f172a; cursor:pointer; height:28px;">
+                <option value="0.5">0.5 (Sangat Tipis)</option>
+                <option value="1.0">1.0</option>
+                <option value="1.5">1.5</option>
+                <option value="2.0">2.0</option>
+                <option value="2.5" selected>2.5 (Standar)</option>
+                <option value="3.0">3.0</option>
+                <option value="3.5">3.5</option>
+                <option value="4.0">4.0 (Tebal)</option>
+                <option value="4.5">4.5</option>
+                <option value="5.0">5.0 (Sangat Tebal)</option>
               </select>
             </div>
           </div>
-          <div style="font-size:11.5px; color:#64748b; margin-top:4px;">
-            ℹ️ Tanda tangan diposisikan <em>In Front of Text</em> menimpa sebagian teks nama penandatangan dengan ketebalan 2pt di dokumen.
+          <div style="font-size:11.5px; color:#64748b; margin-top:5px;">
+            ℹ️ Tanda tangan diposisikan rapi satu garis lurus di atas teks nama penandatangan dengan ketebalan proporsional.
           </div>
         </div>
 
-        <div style="display:flex; justify-content:flex-end; gap:12px; border-top:1px solid var(--border); padding-top:16px; flex-wrap:wrap;">
-          <button type="button" class="btn btn-secondary" onclick="tutupModalEvaluasiTkk()">Batal</button>
-          <button type="button" class="btn btn-outline" onclick="previewDocxEvaluasiTkk()">👁️ Preview Dokumen</button>
-          <button type="button" id="btnSimpanEvaluasiTkk" class="btn btn-secondary" onclick="simpanEvaluasiTkkFinal(false)" style="font-weight:600;">💾 Simpan &amp; Generate Dokumen (.docx)</button>
-          <button type="button" id="btnValidasiEvaluasiTkk" class="btn btn-primary" onclick="validasiDanKirimEvaluasiTkk()" style="font-weight:700; background:#059669; border-color:#059669; box-shadow:0 4px 12px rgba(5,150,105,0.25);">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:16px; flex-wrap:wrap; gap:12px;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-secondary" onclick="tutupModalEvaluasiTkk()">Batal</button>
+            <button type="button" class="btn btn-outline" onclick="koreksiUsulanBawahanTkk()" style="border-color:#f59e0b; color:#d97706; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+              <span>✏️</span> Koreksi Usulan
+            </button>
+            <button type="button" class="btn btn-outline" onclick="hapusUsulanBawahanTkk()" style="border-color:#ef4444; color:#dc2626; background:#fff5f5; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+              <span>🗑️</span> Hapus Usulan
+            </button>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-outline" onclick="previewDocxEvaluasiTkk()">👁️ Preview Dokumen</button>
+            <button type="button" id="btnSimpanEvaluasiTkk" class="btn btn-secondary" onclick="simpanEvaluasiTkkFinal(false)" style="font-weight:600;">💾 Simpan &amp; Generate (.docx)</button>
+          </div>
+        </div>
+        <div style="margin-top:12px;">
+          <button type="button" id="btnValidasiEvaluasiTkk" class="btn btn-primary" onclick="validasiDanKirimEvaluasiTkk()" style="width:100%; font-weight:700; background:#059669; border-color:#059669; box-shadow:0 4px 12px rgba(5,150,105,0.25); padding:10px 16px; font-size:14px;">
             ✅ Validasi &amp; Kirim ke Admin
           </button>
         </div>
@@ -12477,10 +12500,23 @@ function handleUsulanKontrakSayaResult(res) {
     
     let statusBadge = `<span class="badge" style="background:#ff9800; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">Diajukan</span>`;
     const st = res.usulan.status;
+    let catatanKoreksiHtml = '';
     if (st === 'submitted_to_atasan') {
       statusBadge = `<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">⏳ Menunggu Evaluasi Atasan Langsung</span>`;
     } else if (st === 'under_atasan_review') {
       statusBadge = `<span class="badge" style="background:#3b82f6; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">🔍 Sedang Ditinjau Atasan Langsung</span>`;
+    } else if (st === 'perlu_perbaikan' || st === 'koreksi_atasan') {
+      statusBadge = `<span class="badge" style="background:#d97706; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">⚠️ Perlu Perbaikan (Koreksi Atasan)</span>`;
+      const noteText = res.usulan.catatan || res.usulan.evaluasi_data?.catatan_koreksi || '';
+      if (noteText) {
+        catatanKoreksiHtml = `
+          <div style="margin-top:12px; padding:12px 16px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; color:#92400e; font-size:13px; text-align:left;">
+            <strong>⚠️ Catatan Koreksi dari Atasan Langsung:</strong>
+            <div style="margin-top:4px; font-weight:600; white-space:pre-wrap;">${escapeHtml(noteText)}</div>
+            <div style="margin-top:8px; font-size:12px; color:#b45309;">Silakan hubungi atasan langsung atau perbaiki berkas usulan Anda sesuai instruksi di atas.</div>
+          </div>
+        `;
+      }
     } else if (st === 'validated_by_atasan') {
       statusBadge = `<span class="badge" style="background:#059669; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">📨 Sudah Divalidasi Atasan Langsung (Menunggu Verifikasi Admin)</span>`;
     } else if (st === 'evaluated_extend') {
@@ -12815,6 +12851,10 @@ function renderKontrakAtasanReviewList(daftar) {
 
     if (u.status === 'under_atasan_review') {
       badgeHtml = `<span class="badge" style="background:#3b82f6; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">🔍 Sedang Ditinjau</span>`;
+    } else if (u.status === 'perlu_perbaikan' || u.status === 'koreksi_atasan') {
+      badgeHtml = `<span class="badge" style="background:#d97706; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:700;">⚠️ Dikembalikan untuk Koreksi</span>`;
+      actionBtnText = '✏️ Lihat / Ubah Penilaian';
+      actionBtnClass = 'btn btn-outline';
     } else if (u.status === 'validated_by_atasan') {
       badgeHtml = `<span class="badge" style="background:#059669; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:700;">✅ Sudah Divalidasi &amp; Terkirim ke Admin</span>`;
       actionBtnText = '👁️ Buka / Ubah Penilaian';
@@ -12993,10 +13033,10 @@ function hitungTotalSkorEvaluasiTkk() {
   return total;
 }
 
-let currentEvalTkkLineWidth = 4.0;
+let currentEvalTkkLineWidth = 2.5;
 
 function changeEvalTkkLineWidth(val) {
-  currentEvalTkkLineWidth = parseFloat(val) || 4.0;
+  currentEvalTkkLineWidth = parseFloat(val) || 2.5;
   if (evalTkkCtx) {
     evalTkkCtx.lineWidth = currentEvalTkkLineWidth;
   }
@@ -13005,9 +13045,15 @@ function changeEvalTkkLineWidth(val) {
 function initEvalTkkSignaturePad() {
   evalTkkCanvas = document.getElementById('evalTkkSignaturePad');
   if (!evalTkkCanvas) return;
+  
+  const sel = document.getElementById('evalTkk_lineWidthSelect');
+  if (sel) {
+    currentEvalTkkLineWidth = parseFloat(sel.value) || 2.5;
+  }
+
   evalTkkCtx = evalTkkCanvas.getContext('2d');
   evalTkkCtx.strokeStyle = '#000000';
-  evalTkkCtx.lineWidth = currentEvalTkkLineWidth || 4.0;
+  evalTkkCtx.lineWidth = currentEvalTkkLineWidth || 2.5;
   evalTkkCtx.lineCap = 'round';
   evalTkkCtx.lineJoin = 'round';
 
@@ -13335,6 +13381,53 @@ async function validasiDanKirimEvaluasiTkk() {
     }
   } catch (err) {
     setBtnLoading(btn, false, '✅ Validasi & Kirim ke Admin');
+    showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
+  }
+}
+
+async function koreksiUsulanBawahanTkk() {
+  if (!activeEvaluasiUsulanId) return;
+
+  const catatan = prompt('Masukkan keterangan berkas/file yang salah atau catatan perbaikan untuk bawahan (wajib diisi):');
+  if (catatan === null) return; // Pengguna membatalkan
+
+  const trimmedCatatan = String(catatan || '').trim();
+  if (!trimmedCatatan) {
+    showToast('error', 'Keterangan berkas yang salah / catatan perbaikan wajib diisi agar bawahan dapat memperbaikinya.');
+    return;
+  }
+
+  showToast('info', 'Mengembalikan usulan ke bawahan untuk dikoreksi...');
+  try {
+    const res = await rpc('koreksiUsulanKontrakByAtasan', [SESSION.token, activeEvaluasiUsulanId, trimmedCatatan]);
+    if (res && res.success) {
+      showToast('success', res.message || 'Usulan berhasil dikembalikan ke bawahan untuk diperbaiki.');
+      tutupModalEvaluasiTkk();
+      loadKontrakAtasanReviewList();
+    } else {
+      showToast('error', res?.message || 'Gagal mengirim koreksi usulan.');
+    }
+  } catch (err) {
+    showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
+  }
+}
+
+async function hapusUsulanBawahanTkk() {
+  if (!activeEvaluasiUsulanId) return;
+
+  if (!confirm('Apakah Anda yakin ingin MENGHAPUS usulan kontrak bawahan ini secara permanen? Tindakan ini tidak dapat dibatalkan.')) return;
+
+  showToast('info', 'Menghapus usulan kontrak...');
+  try {
+    const res = await rpc('deleteUsulanKontrakSingle', [SESSION.token, activeEvaluasiUsulanId]);
+    if (res && res.success) {
+      showToast('success', res.message || 'Usulan kontrak berhasil dihapus.');
+      tutupModalEvaluasiTkk();
+      loadKontrakAtasanReviewList();
+    } else {
+      showToast('error', res?.message || 'Gagal menghapus usulan.');
+    }
+  } catch (err) {
     showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
   }
 }

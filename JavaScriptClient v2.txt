@@ -8648,10 +8648,23 @@ function handleUsulanKontrakSayaResult(res) {
     
     let statusBadge = `<span class="badge" style="background:#ff9800; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">Diajukan</span>`;
     const st = res.usulan.status;
+    let catatanKoreksiHtml = '';
     if (st === 'submitted_to_atasan') {
       statusBadge = `<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">⏳ Menunggu Evaluasi Atasan Langsung</span>`;
     } else if (st === 'under_atasan_review') {
       statusBadge = `<span class="badge" style="background:#3b82f6; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">🔍 Sedang Ditinjau Atasan Langsung</span>`;
+    } else if (st === 'perlu_perbaikan' || st === 'koreksi_atasan') {
+      statusBadge = `<span class="badge" style="background:#d97706; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">⚠️ Perlu Perbaikan (Koreksi Atasan)</span>`;
+      const noteText = res.usulan.catatan || res.usulan.evaluasi_data?.catatan_koreksi || '';
+      if (noteText) {
+        catatanKoreksiHtml = `
+          <div style="margin-top:12px; padding:12px 16px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; color:#92400e; font-size:13px; text-align:left;">
+            <strong>⚠️ Catatan Koreksi dari Atasan Langsung:</strong>
+            <div style="margin-top:4px; font-weight:600; white-space:pre-wrap;">${escapeHtml(noteText)}</div>
+            <div style="margin-top:8px; font-size:12px; color:#b45309;">Silakan hubungi atasan langsung atau perbaiki berkas usulan Anda sesuai instruksi di atas.</div>
+          </div>
+        `;
+      }
     } else if (st === 'validated_by_atasan') {
       statusBadge = `<span class="badge" style="background:#059669; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">📨 Sudah Divalidasi Atasan Langsung (Menunggu Verifikasi Admin)</span>`;
     } else if (st === 'evaluated_extend') {
@@ -8986,6 +8999,10 @@ function renderKontrakAtasanReviewList(daftar) {
 
     if (u.status === 'under_atasan_review') {
       badgeHtml = `<span class="badge" style="background:#3b82f6; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">🔍 Sedang Ditinjau</span>`;
+    } else if (u.status === 'perlu_perbaikan' || u.status === 'koreksi_atasan') {
+      badgeHtml = `<span class="badge" style="background:#d97706; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:700;">⚠️ Dikembalikan untuk Koreksi</span>`;
+      actionBtnText = '✏️ Lihat / Ubah Penilaian';
+      actionBtnClass = 'btn btn-outline';
     } else if (u.status === 'validated_by_atasan') {
       badgeHtml = `<span class="badge" style="background:#059669; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:700;">✅ Sudah Divalidasi &amp; Terkirim ke Admin</span>`;
       actionBtnText = '👁️ Buka / Ubah Penilaian';
@@ -9164,10 +9181,10 @@ function hitungTotalSkorEvaluasiTkk() {
   return total;
 }
 
-let currentEvalTkkLineWidth = 4.0;
+let currentEvalTkkLineWidth = 2.5;
 
 function changeEvalTkkLineWidth(val) {
-  currentEvalTkkLineWidth = parseFloat(val) || 4.0;
+  currentEvalTkkLineWidth = parseFloat(val) || 2.5;
   if (evalTkkCtx) {
     evalTkkCtx.lineWidth = currentEvalTkkLineWidth;
   }
@@ -9176,9 +9193,15 @@ function changeEvalTkkLineWidth(val) {
 function initEvalTkkSignaturePad() {
   evalTkkCanvas = document.getElementById('evalTkkSignaturePad');
   if (!evalTkkCanvas) return;
+  
+  const sel = document.getElementById('evalTkk_lineWidthSelect');
+  if (sel) {
+    currentEvalTkkLineWidth = parseFloat(sel.value) || 2.5;
+  }
+
   evalTkkCtx = evalTkkCanvas.getContext('2d');
   evalTkkCtx.strokeStyle = '#000000';
-  evalTkkCtx.lineWidth = currentEvalTkkLineWidth || 4.0;
+  evalTkkCtx.lineWidth = currentEvalTkkLineWidth || 2.5;
   evalTkkCtx.lineCap = 'round';
   evalTkkCtx.lineJoin = 'round';
 
@@ -9506,6 +9529,53 @@ async function validasiDanKirimEvaluasiTkk() {
     }
   } catch (err) {
     setBtnLoading(btn, false, '✅ Validasi & Kirim ke Admin');
+    showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
+  }
+}
+
+async function koreksiUsulanBawahanTkk() {
+  if (!activeEvaluasiUsulanId) return;
+
+  const catatan = prompt('Masukkan keterangan berkas/file yang salah atau catatan perbaikan untuk bawahan (wajib diisi):');
+  if (catatan === null) return; // Pengguna membatalkan
+
+  const trimmedCatatan = String(catatan || '').trim();
+  if (!trimmedCatatan) {
+    showToast('error', 'Keterangan berkas yang salah / catatan perbaikan wajib diisi agar bawahan dapat memperbaikinya.');
+    return;
+  }
+
+  showToast('info', 'Mengembalikan usulan ke bawahan untuk dikoreksi...');
+  try {
+    const res = await rpc('koreksiUsulanKontrakByAtasan', [SESSION.token, activeEvaluasiUsulanId, trimmedCatatan]);
+    if (res && res.success) {
+      showToast('success', res.message || 'Usulan berhasil dikembalikan ke bawahan untuk diperbaiki.');
+      tutupModalEvaluasiTkk();
+      loadKontrakAtasanReviewList();
+    } else {
+      showToast('error', res?.message || 'Gagal mengirim koreksi usulan.');
+    }
+  } catch (err) {
+    showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
+  }
+}
+
+async function hapusUsulanBawahanTkk() {
+  if (!activeEvaluasiUsulanId) return;
+
+  if (!confirm('Apakah Anda yakin ingin MENGHAPUS usulan kontrak bawahan ini secara permanen? Tindakan ini tidak dapat dibatalkan.')) return;
+
+  showToast('info', 'Menghapus usulan kontrak...');
+  try {
+    const res = await rpc('deleteUsulanKontrakSingle', [SESSION.token, activeEvaluasiUsulanId]);
+    if (res && res.success) {
+      showToast('success', res.message || 'Usulan kontrak berhasil dihapus.');
+      tutupModalEvaluasiTkk();
+      loadKontrakAtasanReviewList();
+    } else {
+      showToast('error', res?.message || 'Gagal menghapus usulan.');
+    }
+  } catch (err) {
     showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
   }
 }
