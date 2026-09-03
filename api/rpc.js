@@ -975,7 +975,20 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
         return '';
       }
       const ctx = Object.assign({}, sanitizedData, typeof scope === 'object' && scope !== null ? scope : {});
-      try { return docxEvaluateTag(tag, ctx); } catch (e) { return `[ERROR:${tag}]`; }
+      try {
+        const res = docxEvaluateTag(tag, ctx);
+        // Sinkronisasi variabel hasil 'set' ke scope, sanitizedData, dan dataCtx agar tag berikutnya bisa membacanya
+        Object.assign(sanitizedData, ctx);
+        if (typeof scope === 'object' && scope !== null) {
+          Object.assign(scope, ctx);
+        }
+        if (typeof dataCtx === 'object' && dataCtx !== null) {
+          Object.assign(dataCtx, ctx);
+        }
+        return res;
+      } catch (e) {
+        return `[ERROR:${tag}]`;
+      }
     }
   });
 
@@ -2097,7 +2110,7 @@ function docxEvaluateExpression(expr, dataCtx) {
   return parseTernary();
 }
 
-const SET_EXPR_RE = /^\s*set\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$/i;
+const SET_EXPR_RE = /^\s*set(?:[\s_]+)([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$/i;
 
 function docxCeil2Decimal(val) {
   if (val === null || val === undefined || val === '') return val;
