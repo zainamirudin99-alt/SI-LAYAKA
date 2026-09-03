@@ -127,8 +127,7 @@ const CONFIG = {
   STATUS_KONTRAK_TKK_LIST: ['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan'],
   KONTRAK_UPAH_TIER: {tier1:2903600,tier2:3026400},
   ROLE_LIST: ['normal','user','admin','super_admin'],
-  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER','SK Pensiun BUP Pegawai Undip Non ASN','SK Pensiun Meninggal Pegawai Undip Non ASN','SK Pensiun Uzur Pegawai Undip Non ASN','SK Pensiun Undur Diri Pegawai Undip Non ASN'],'Kontrak Tendik':['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','Formulir Evaluasi'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan'],'Kontrak':['Formulir Evaluasi','Perjanjian Kerja'],'Buat SK dan Surat':['SK CPTU','SK PTU 100%','SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','Surat PLT','Surat PLH','SK Tutam Struktural','SK Tutam Dekan Wadek']},
-  USULAN_KP_KATA_KUNCI_PNS: ['pns'],
+  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER','SK Pensiun BUP Pegawai Undip Non ASN','SK Pensiun Meninggal Pegawai Undip Non ASN','SK Pensiun Uzur Pegawai Undip Non ASN','SK Pensiun Undur Diri Pegawai Undip Non ASN'],'Kontrak Tendik':['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','Formulir Evaluasi','Perjanjian Kerja'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','Perjanjian Kerja'],'Buat SK dan Surat':['SK CPTU','SK PTU 100%','SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','Surat PLT','Surat PLH','SK Tutam Struktural','SK Tutam Dekan Wadek']},
   USULAN_KP_NOTIF_SIASN: 'Siap diusulkan ke-SIASN',
   USULAN_KP_NOTIF_SK:    'Siap Dibuat SK',
   // ---- SK Kenaikan Pangkat (Non-ASN) ----
@@ -7588,8 +7587,9 @@ const methods = {
     try {
       const { data: tmplList } = await db.from('templates')
         .select('*')
-        .or('layanan.ilike.%Kontrak%,layanan.ilike.%Evaluasi%')
+        .or('layanan.ilike.%Kontrak Tendik%,layanan.ilike.%Tendik%,layanan.ilike.%Kontrak%,layanan.ilike.%Evaluasi%')
         .ilike('sub_menu', '%Evaluasi%')
+        .order('dibuat_pada', { ascending: false })
         .limit(1);
 
       if (tmplList && tmplList.length > 0 && tmplList[0].file_id) {
