@@ -175,11 +175,19 @@ function processSignaturePlaceholderInBody_(container, dataContext) {
           }
 
           const imageBlob = Utilities.newBlob(Utilities.base64Decode(cleanBase64), contentType, 'tanda_tangan.png');
-          const inlineImage = parentParagraph.appendInlineImage(imageBlob);
-          inlineImage.setWidth(140);
-          inlineImage.setHeight(70);
-
-          textObj.setText(' ');
+          try {
+            const posImage = parentParagraph.addPositionedImage(imageBlob);
+            posImage.setLayout(DocumentApp.PositionedLayout.ABOVE_TEXT);
+            posImage.setWidth(155);
+            posImage.setHeight(72);
+            posImage.setTopOffset(15);
+            textObj.setText(' ');
+          } catch (ePos) {
+            const inlineImage = parentParagraph.appendInlineImage(imageBlob);
+            inlineImage.setWidth(155);
+            inlineImage.setHeight(72);
+            textObj.setText(' ');
+          }
         } else {
           textObj.setText(' ');
         }

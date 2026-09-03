@@ -1060,6 +1060,49 @@ function createDocxInlineImageXml(relId, widthPx = 120, heightPx = 160) {
     `</w:drawing></w:r>`;
 }
 
+function createDocxInFrontOfTextImageXml(relId, widthPx = 155, heightPx = 72, offsetYPt = 18) {
+  const cx = Math.round(widthPx * 9525);
+  const cy = Math.round(heightPx * 9525);
+  const docPrId = Math.floor(Math.random() * 100000) + 1;
+  const posOffsetY = Math.round(offsetYPt * 12700);
+
+  return `<w:r><w:rPr><w:noProof/></w:rPr><w:drawing>` +
+    `<wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="251658240" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1" ` +
+    `xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
+    `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ` +
+    `xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" ` +
+    `xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ` +
+    `xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
+    `<wp:simplePos x="0" y="0"/>` +
+    `<wp:positionH relativeFrom="column"><wp:align>center</wp:align></wp:positionH>` +
+    `<wp:positionV relativeFrom="paragraph"><wp:posOffset>${posOffsetY}</wp:posOffset></wp:positionV>` +
+    `<wp:extent cx="${cx}" cy="${cy}"/>` +
+    `<wp:effectExtent l="0" t="0" r="0" b="0"/>` +
+    `<wp:wrapNone/>` +
+    `<wp:docPr id="${docPrId}" name="Tanda Tangan Atasan"/>` +
+    `<wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr>` +
+    `<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">` +
+    `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
+    `<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
+    `<pic:nvPicPr>` +
+    `<pic:cNvPr id="0" name="Tanda Tangan Atasan"/>` +
+    `<pic:cNvPicPr/>` +
+    `</pic:nvPicPr>` +
+    `<pic:blipFill>` +
+    `<a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="${relId}"/>` +
+    `<a:stretch><a:fillRect/></a:stretch>` +
+    `</pic:blipFill>` +
+    `<pic:spPr>` +
+    `<a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>` +
+    `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>` +
+    `</pic:spPr>` +
+    `</pic:pic>` +
+    `</a:graphicData>` +
+    `</a:graphic>` +
+    `</wp:anchor>` +
+    `</w:drawing></w:r>`;
+}
+
 function injectDocxImage(zip, dataCtx) {
   if (!zip || !dataCtx) return;
 
@@ -1164,8 +1207,8 @@ function injectDocxImage(zip, dataCtx) {
           }
         }
 
-        // TTD aspect: width 150px, height 70px
-        ttdXml = createDocxInlineImageXml('rIdTtdAtasan99', 150, 70);
+        // TTD diposisikan In Front of Text dengan offset vertikal agar menimpa sebagian teks nama penandatangan
+        ttdXml = createDocxInFrontOfTextImageXml('rIdTtdAtasan99', 155, 72, 18);
       }
     } catch (errTtd) {
       console.warn('[injectDocxImage] Error embedding signature:', errTtd);

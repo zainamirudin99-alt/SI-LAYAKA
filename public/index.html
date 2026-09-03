@@ -3707,8 +3707,19 @@
           <div style="display:inline-block; border:2px dashed #94a3b8; border-radius:8px; background:#fff; position:relative;">
             <canvas id="evalTkkSignaturePad" width="420" height="160" style="touch-action:none; cursor:crosshair; display:block;"></canvas>
           </div>
-          <div style="margin-top:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; flex-wrap:wrap; gap:8px;">
             <button type="button" class="btn btn-secondary" onclick="clearEvalTkkSignature()" style="padding:4px 12px; font-size:12px;">🗑️ Hapus / Ulangi Tanda Tangan</button>
+            <div style="display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--text-muted, #475569);">
+              <span>Ketebalan Goresan:</span>
+              <select id="evalTkk_lineWidthSelect" class="kontrak-select-dark" style="padding:3px 8px; font-size:12px; height:28px; border-radius:6px;" onchange="changeEvalTkkLineWidth(this.value)">
+                <option value="2.5">Tipis (2.5px)</option>
+                <option value="4" selected>Standar Tebal (4px - Hasil Dokumen 2pt)</option>
+                <option value="5.5">Ekstra Tebal (5.5px)</option>
+              </select>
+            </div>
+          </div>
+          <div style="font-size:11.5px; color:#64748b; margin-top:4px;">
+            ℹ️ Tanda tangan diposisikan <em>In Front of Text</em> menimpa sebagian teks nama penandatangan dengan ketebalan 2pt di dokumen.
           </div>
         </div>
 
@@ -12982,12 +12993,21 @@ function hitungTotalSkorEvaluasiTkk() {
   return total;
 }
 
+let currentEvalTkkLineWidth = 4.0;
+
+function changeEvalTkkLineWidth(val) {
+  currentEvalTkkLineWidth = parseFloat(val) || 4.0;
+  if (evalTkkCtx) {
+    evalTkkCtx.lineWidth = currentEvalTkkLineWidth;
+  }
+}
+
 function initEvalTkkSignaturePad() {
   evalTkkCanvas = document.getElementById('evalTkkSignaturePad');
   if (!evalTkkCanvas) return;
   evalTkkCtx = evalTkkCanvas.getContext('2d');
-  evalTkkCtx.strokeStyle = '#0f172a';
-  evalTkkCtx.lineWidth = 2.5;
+  evalTkkCtx.strokeStyle = '#000000';
+  evalTkkCtx.lineWidth = currentEvalTkkLineWidth || 4.0;
   evalTkkCtx.lineCap = 'round';
   evalTkkCtx.lineJoin = 'round';
 
@@ -13010,6 +13030,8 @@ function initEvalTkkSignaturePad() {
   function startDraw(e) {
     evalTkkIsDrawing = true;
     evalTkkHasDrawn = true;
+    evalTkkCtx.strokeStyle = '#000000';
+    evalTkkCtx.lineWidth = currentEvalTkkLineWidth || 4.0;
     const pos = getPos(e);
     evalTkkCtx.beginPath();
     evalTkkCtx.moveTo(pos.x, pos.y);
@@ -13043,6 +13065,57 @@ function clearEvalTkkSignature() {
   evalTkkHasDrawn = false;
 }
 
+function trimCanvas_(canvas) {
+  if (!canvas) return '';
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+  
+  let imgData;
+  try {
+    imgData = ctx.getImageData(0, 0, width, height);
+  } catch (e) {
+    return canvas.toDataURL('image/png');
+  }
+  
+  const data = imgData.data;
+  let minX = width, minY = height, maxX = 0, maxY = 0;
+  let hasPixel = false;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const alpha = data[(y * width + x) * 4 + 3];
+      if (alpha > 15) { // piksel tinta terdeteksi
+        hasPixel = true;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  if (!hasPixel) return canvas.toDataURL('image/png');
+
+  // Berikan padding tipis 8px agar goresan tepi tidak terpotong
+  const pad = 8;
+  minX = Math.max(0, minX - pad);
+  minY = Math.max(0, minY - pad);
+  maxX = Math.min(width, maxX + pad);
+  maxY = Math.min(height, maxY + pad);
+
+  const trimmedWidth = Math.max(1, maxX - minX);
+  const trimmedHeight = Math.max(1, maxY - minY);
+
+  const trimmedCanvas = document.createElement('canvas');
+  trimmedCanvas.width = trimmedWidth;
+  trimmedCanvas.height = trimmedHeight;
+  const trimmedCtx = trimmedCanvas.getContext('2d');
+  trimmedCtx.drawImage(canvas, minX, minY, trimmedWidth, trimmedHeight, 0, 0, trimmedWidth, trimmedHeight);
+
+  return trimmedCanvas.toDataURL('image/png');
+}
+
 function collectEvaluasiTkkPayload() {
   const kriteria = [];
   for (let i = 1; i <= 7; i++) {
@@ -13056,7 +13129,7 @@ function collectEvaluasiTkkPayload() {
 
   let ttdBase64 = '';
   if (evalTkkCanvas && evalTkkHasDrawn) {
-    ttdBase64 = evalTkkCanvas.toDataURL('image/png');
+    ttdBase64 = trimCanvas_(evalTkkCanvas);
   } else if (activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd) {
     ttdBase64 = activeEvaluasiDetail.evaluasi_data.ttd_base64 || activeEvaluasiDetail.evaluasi_data.ttd;
   }
