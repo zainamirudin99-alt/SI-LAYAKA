@@ -2295,10 +2295,13 @@
           </div>
         </div>
 
-        <div style="display:flex; justify-content:flex-end; gap:12px; border-top:1px solid var(--border); padding-top:16px;">
+        <div style="display:flex; justify-content:flex-end; gap:12px; border-top:1px solid var(--border); padding-top:16px; flex-wrap:wrap;">
           <button type="button" class="btn btn-secondary" onclick="tutupModalEvaluasiTkk()">Batal</button>
           <button type="button" class="btn btn-outline" onclick="previewDocxEvaluasiTkk()">👁️ Preview Dokumen</button>
-          <button type="button" id="btnSimpanEvaluasiTkk" class="btn btn-primary" onclick="simpanEvaluasiTkkFinal()" style="font-weight:700;">💾 Simpan &amp; Generate Dokumen (.docx)</button>
+          <button type="button" id="btnSimpanEvaluasiTkk" class="btn btn-secondary" onclick="simpanEvaluasiTkkFinal(false)" style="font-weight:600;">💾 Simpan &amp; Generate Dokumen (.docx)</button>
+          <button type="button" id="btnValidasiEvaluasiTkk" class="btn btn-primary" onclick="validasiDanKirimEvaluasiTkk()" style="font-weight:700; background:#059669; border-color:#059669; box-shadow:0 4px 12px rgba(5,150,105,0.25);">
+            ✅ Validasi &amp; Kirim ke Admin
+          </button>
         </div>
       </div>
     </div>

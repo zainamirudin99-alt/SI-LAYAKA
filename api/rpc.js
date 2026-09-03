@@ -6990,7 +6990,7 @@ const methods = {
     const perUnit = {};
     let totalUsulanBaru = 0;
     (data || []).forEach(u => {
-      if (u.status === 'Diajukan') totalUsulanBaru++;
+      if (['Diajukan', 'validated_by_atasan', 'evaluated_extend', 'evaluated_not_extend'].includes(u.status)) totalUsulanBaru++;
       const unit = String(u.unit || '(Tanpa Unit)').trim() || '(Tanpa Unit)';
       perUnit[unit] = (perUnit[unit] || 0) + 1;
     });
@@ -7441,7 +7441,7 @@ const methods = {
   },
 
   async simpanDanGenerateEvaluasiTkk(args) {
-    const [token, usulanId, evalPayload, isPreviewOnly] = extractArgs(args);
+    const [token, usulanId, evalPayload, isPreviewOnly, isKirimKeAdmin] = extractArgs(args);
     const decoded = verifyToken(token);
     const db = getDb();
 
@@ -7481,7 +7481,13 @@ const methods = {
 
     const totalSkor = p1 + p2 + p3 + p4 + p5 + p6 + p7;
     const isExtend = totalSkor > 10.5; // (>= 11)
-    const newStatus = isExtend ? 'evaluated_extend' : 'evaluated_not_extend';
+    const kirimAdminFlag = Boolean(isKirimKeAdmin || ed.kirimKeAdmin || ed.isKirimKeAdmin);
+    let newStatus = '';
+    if (kirimAdminFlag) {
+      newStatus = isExtend ? 'validated_by_atasan' : 'evaluated_not_extend';
+    } else {
+      newStatus = isExtend ? 'evaluated_extend' : 'evaluated_not_extend';
+    }
 
     const dataCtx = buildEvaluasiTkkDataContext(usulan, Object.assign({}, ed, { ttd: ttdSig }), empData, atasanEmp);
     const gasUrl = process.env.GOOGLE_SCRIPT_URL;
@@ -7629,7 +7635,13 @@ const methods = {
     const updatePayload = {
       evaluasi_skor: totalSkor,
       evaluasi_rekomendasi: dataCtx.rekomendasi,
-      evaluasi_data: Object.assign({}, ed, { total_skor: totalSkor, rekomendasi: dataCtx.rekomendasi }),
+      evaluasi_data: Object.assign({}, ed, {
+        total_skor: totalSkor,
+        rekomendasi: dataCtx.rekomendasi,
+        divalidasi_atasan: kirimAdminFlag,
+        divalidasi_pada: kirimAdminFlag ? new Date().toISOString() : null,
+        divalidasi_oleh: kirimAdminFlag ? (decoded.nama || decoded.nip) : null
+      }),
       evaluasi_doc_url: evalDocUrl,
       evaluasi_gdrive_folder_id: gdriveFolderId || CONFIG.FOLDER_EVALUASI_TKK_ROOT,
       evaluasi_gdrive_file_id: gdriveFileId || null,
@@ -7640,17 +7652,23 @@ const methods = {
     const { error: updErr } = await db.from('usulan_kontrak').update(updatePayload).eq('id', usulanId);
     if (updErr) throw updErr;
 
+    const returnMsg = kirimAdminFlag
+      ? `Usulan berkas dan Formulir Evaluasi Kinerja bertanda tangan berhasil divalidasi dan dikirim ke Admin & Super Admin. Status usulan: "Divalidasi Atasan". Rekomendasi: "${dataCtx.rekomendasi}".`
+      : `Formulir Evaluasi Kinerja berhasil disimpan & digenerate. Status usulan: "${newStatus}". Rekomendasi: "${dataCtx.rekomendasi}".`;
+
     return {
       success: true,
-      message: `Formulir Evaluasi Kinerja berhasil disimpan & digenerate. Status usulan: "${newStatus}". Rekomendasi: "${dataCtx.rekomendasi}".`,
+      message: returnMsg,
       base64: docB64,
       docUrl: evalDocUrl,
+      pdfUrl: pdfUrl,
       gdocsUrl: gdocsViewUrl,
       viewUrl: gdocsViewUrl || evalDocUrl,
       fileName: fileNameSafe,
       totalSkor,
       rekomendasi: dataCtx.rekomendasi,
-      status: newStatus
+      status: newStatus,
+      isValidatedToAdmin: kirimAdminFlag
     };
   },
 
@@ -7666,7 +7684,7 @@ const methods = {
     let targetStatus = '';
     if (setuju === false || setuju === 'tolak') {
       targetStatus = 'Ditolak';
-    } else if (usulan.status === 'evaluated_extend' || Number(usulan.evaluasi_skor) > 10.5) {
+    } else if (['validated_by_atasan', 'evaluated_extend', 'Diajukan'].includes(usulan.status) || Number(usulan.evaluasi_skor) > 10.5) {
       targetStatus = 'validated_by_admin';
     } else {
       targetStatus = 'closed_not_extended';

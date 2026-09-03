@@ -8652,6 +8652,8 @@ function handleUsulanKontrakSayaResult(res) {
       statusBadge = `<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">⏳ Menunggu Evaluasi Atasan Langsung</span>`;
     } else if (st === 'under_atasan_review') {
       statusBadge = `<span class="badge" style="background:#3b82f6; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">🔍 Sedang Ditinjau Atasan Langsung</span>`;
+    } else if (st === 'validated_by_atasan') {
+      statusBadge = `<span class="badge" style="background:#059669; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">📨 Sudah Divalidasi Atasan Langsung (Menunggu Verifikasi Admin)</span>`;
     } else if (st === 'evaluated_extend') {
       statusBadge = `<span class="badge" style="background:#8b5cf6; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">📋 Dievaluasi Atasan (Rekomendasi Diperpanjang) - Menunggu Validasi Admin</span>`;
     } else if (st === 'evaluated_not_extend') {
@@ -8984,6 +8986,10 @@ function renderKontrakAtasanReviewList(daftar) {
 
     if (u.status === 'under_atasan_review') {
       badgeHtml = `<span class="badge" style="background:#3b82f6; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">🔍 Sedang Ditinjau</span>`;
+    } else if (u.status === 'validated_by_atasan') {
+      badgeHtml = `<span class="badge" style="background:#059669; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:700;">✅ Sudah Divalidasi &amp; Terkirim ke Admin</span>`;
+      actionBtnText = '👁️ Buka / Ubah Penilaian';
+      actionBtnClass = 'btn btn-outline';
     } else if (u.status === 'evaluated_extend') {
       badgeHtml = `<span class="badge" style="background:#8b5cf6; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">✅ Selesai Dinilai (Diperpanjang)</span>`;
       actionBtnText = '🔄 Ubah / Buka Penilaian';
@@ -9102,7 +9108,20 @@ async function openModalEvaluasiTkk(usulanId) {
     }
 
     hitungTotalSkorEvaluasiTkk();
-    setTimeout(() => initEvalTkkSignaturePad(), 100);
+    setTimeout(() => {
+      initEvalTkkSignaturePad();
+      if (u.evaluasi_data?.ttd_base64 || u.evaluasi_data?.ttd) {
+        const existingSig = u.evaluasi_data.ttd_base64 || u.evaluasi_data.ttd;
+        const img = new Image();
+        img.onload = () => {
+          if (evalTkkCtx && evalTkkCanvas) {
+            evalTkkCtx.drawImage(img, 0, 0, evalTkkCanvas.width, evalTkkCanvas.height);
+            evalTkkHasDrawn = true;
+          }
+        };
+        img.src = existingSig;
+      }
+    }, 120);
   } catch (err) {
     showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
     tutupModalEvaluasiTkk();
@@ -9220,6 +9239,8 @@ function collectEvaluasiTkkPayload() {
   let ttdBase64 = '';
   if (evalTkkCanvas && evalTkkHasDrawn) {
     ttdBase64 = evalTkkCanvas.toDataURL('image/png');
+  } else if (activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd) {
+    ttdBase64 = activeEvaluasiDetail.evaluasi_data.ttd_base64 || activeEvaluasiDetail.evaluasi_data.ttd;
   }
 
   return {
@@ -9262,7 +9283,7 @@ function downloadBase64File_(base64Data, filename, mimeType = 'application/vnd.o
   }
 }
 
-function openEvaluasiResultModal(res, isPreview = false) {
+function openEvaluasiResultModal(res, isPreview = false, isValidatedToAdmin = false) {
   const modalTitle = document.getElementById('modalTitle');
   const modalBody = document.getElementById('modalBody');
   const modalOverlay = document.getElementById('modalOverlay');
@@ -9270,9 +9291,13 @@ function openEvaluasiResultModal(res, isPreview = false) {
 
   modalOverlay.style.zIndex = '9999';
 
-  modalTitle.textContent = isPreview 
-    ? '👁️ Pratinjau Formulir Evaluasi Kinerja Tenaga Kependidikan'
-    : '🎉 Formulir Evaluasi Kinerja Berhasil Digenerate';
+  if (isValidatedToAdmin) {
+    modalTitle.textContent = '🎉 Usulan Berhasil Divalidasi & Terkirim ke Admin!';
+  } else {
+    modalTitle.textContent = isPreview 
+      ? '👁️ Pratinjau Formulir Evaluasi Kinerja Tenaga Kependidikan'
+      : '🎉 Formulir Evaluasi Kinerja Berhasil Digenerate';
+  }
 
   const gdocsUrl = res.gdocsUrl || (res.viewUrl && res.viewUrl.includes('docs.google.com') ? res.viewUrl : '');
   const pdfUrl = res.pdfUrl || (res.viewUrl && res.viewUrl.includes('/file/d/') ? res.viewUrl : '');
@@ -9304,22 +9329,28 @@ function openEvaluasiResultModal(res, isPreview = false) {
 
   const iframeSrc = pdfUrl || (isGdocs ? gdocsUrl.replace('/edit', '/preview') : '');
 
+  const descText = isValidatedToAdmin
+    ? 'Berkas usulan bawahan beserta Formulir Evaluasi Kinerja yang telah ditandatangani berhasil divalidasi dan dikirim ke akun Admin & Super Admin untuk diverifikasi serta diterbitkan perjanjian kerja.'
+    : (isPreview 
+        ? 'Berikut pratinjau dokumen formulir evaluasi kinerja lengkap dengan skor dan tanda tangan digital. Anda dapat membukanya atau mengunduhnya di bawah ini.' 
+        : 'Dokumen evaluasi kinerja telah berhasil dibuat dan disimpan.');
+
   modalBody.innerHTML = `
     <div style="padding:20px 24px;">
       <div style="text-align:center; margin-bottom:18px;">
-        <div style="font-size:36px; margin-bottom:8px;">${isPreview ? '📋' : '🎉'}</div>
+        <div style="font-size:36px; margin-bottom:8px;">${isValidatedToAdmin ? '🚀' : (isPreview ? '📋' : '🎉')}</div>
         <h3 style="margin:0 0 6px 0; color:var(--text, #0f172a); font-size:17px; font-weight:700;">
-          ${isPreview ? 'Dokumen Pratinjau Evaluasi Kinerja (TKK)' : 'Formulir Evaluasi Kinerja Siap Digunakan'}
+          ${isValidatedToAdmin ? 'Usulan & Evaluasi Kinerja Siap Diproses Admin' : (isPreview ? 'Dokumen Pratinjau Evaluasi Kinerja (TKK)' : 'Formulir Evaluasi Kinerja Siap Digunakan')}
         </h3>
         <p style="margin:0; color:var(--text-muted, #64748b); font-size:13px;">
-          ${isPreview ? 'Berikut pratinjau dokumen formulir evaluasi kinerja lengkap dengan skor dan tanda tangan digital. Anda dapat membukanya atau mengunduhnya di bawah ini.' : 'Dokumen evaluasi kinerja telah berhasil dibuat dan disimpan.'}
+          ${descText}
         </p>
       </div>
 
       <div style="background:var(--surface-alt, #f8fafc); border:1px solid var(--border, #e2e8f0); border-radius:10px; padding:14px 18px; margin-bottom:18px; font-size:13px;">
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px;">
           <div><strong>Total Skor Kinerja:</strong> <span style="color:#2563eb; font-weight:700;">${escHtml(String(res.totalSkor || '-'))} / 21</span></div>
-          <div><strong>Rekomendasi Atasan:</strong> <span style="font-weight:700; color:${res.status === 'evaluated_extend' || Number(res.totalSkor) >= 11 ? '#16a34a' : '#dc2626'};">${escHtml(res.rekomendasi || '-')}</span></div>
+          <div><strong>Rekomendasi Atasan:</strong> <span style="font-weight:700; color:${res.status === 'validated_by_atasan' || res.status === 'evaluated_extend' || Number(res.totalSkor) >= 11 ? '#16a34a' : '#dc2626'};">${escHtml(res.rekomendasi || '-')}</span></div>
         </div>
       </div>
 
@@ -9356,7 +9387,7 @@ async function previewDocxEvaluasiTkk() {
   }
 }
 
-async function simpanEvaluasiTkkFinal() {
+async function simpanEvaluasiTkkFinal(isKirimAdmin = false) {
   if (!activeEvaluasiUsulanId) return;
   const btn = document.getElementById('btnSimpanEvaluasiTkk');
   const payload = collectEvaluasiTkkPayload();
@@ -9369,18 +9400,50 @@ async function simpanEvaluasiTkkFinal() {
   setBtnLoading(btn, true, 'Menyimpan & Menggenerate...');
 
   try {
-    const res = await rpc('simpanDanGenerateEvaluasiTkk', [SESSION.token, activeEvaluasiUsulanId, payload, false]);
+    const res = await rpc('simpanDanGenerateEvaluasiTkk', [SESSION.token, activeEvaluasiUsulanId, payload, false, isKirimAdmin]);
     setBtnLoading(btn, false, '💾 Simpan & Generate Dokumen (.docx)');
     if (res && res.success) {
       showToast('success', res.message || 'Evaluasi kinerja berhasil disimpan & dokumen tergenerate.');
       tutupModalEvaluasiTkk();
       loadKontrakAtasanReviewList();
-      openEvaluasiResultModal(res, false);
+      openEvaluasiResultModal(res, false, isKirimAdmin);
     } else {
       showToast('error', res?.message || 'Gagal menyimpan evaluasi.');
     }
   } catch (err) {
     setBtnLoading(btn, false, '💾 Simpan & Generate Dokumen (.docx)');
+    showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
+  }
+}
+
+async function validasiDanKirimEvaluasiTkk() {
+  if (!activeEvaluasiUsulanId) return;
+  const btn = document.getElementById('btnValidasiEvaluasiTkk');
+  const payload = collectEvaluasiTkkPayload();
+
+  if (!payload.ttd_base64) {
+    showToast('error', 'Silakan bubuhkan tanda tangan Atasan Langsung pada kotak signature pad terlebih dahulu.');
+    return;
+  }
+
+  const confirmMsg = 'Apakah Anda yakin ingin MEMVALIDASI dan MENGIRIM berkas usulan beserta formulir evaluasi kinerja bertanda tangan ini ke akun Admin & Super Admin?';
+  if (!confirm(confirmMsg)) return;
+
+  setBtnLoading(btn, true, 'Memvalidasi & Mengirim...');
+
+  try {
+    const res = await rpc('simpanDanGenerateEvaluasiTkk', [SESSION.token, activeEvaluasiUsulanId, payload, false, true]);
+    setBtnLoading(btn, false, '✅ Validasi & Kirim ke Admin');
+    if (res && res.success) {
+      showToast('success', res.message || 'Usulan berkas dan Formulir Evaluasi berhasil divalidasi dan dikirim ke Admin & Super Admin.');
+      tutupModalEvaluasiTkk();
+      loadKontrakAtasanReviewList();
+      openEvaluasiResultModal(res, false, true);
+    } else {
+      showToast('error', res?.message || 'Gagal memvalidasi dan mengirim evaluasi.');
+    }
+  } catch (err) {
+    setBtnLoading(btn, false, '✅ Validasi & Kirim ke Admin');
     showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
   }
 }
@@ -9551,8 +9614,8 @@ function renderKontrakReviewListItems_(daftar) {
       </div>
       <div class="cdli-meta" style="font-size:12px; text-align:right;">
         <div>${escapeHtml(u.jenis_usulan)} (${escapeHtml(u.tahun)})</div>
-        <div style="color:${u.semua_lampiran_disetujui || u.status === 'Disetujui' ? '#4caf50' : '#ff9800'}; font-weight:bold;">
-          ${u.status === 'Disetujui' ? '✅ Disetujui (Siap Generate)' : (u.semua_lampiran_disetujui ? 'Lampiran Lengkap' : 'Review Tertunda')}
+        <div style="color:${u.status === 'Disetujui' || u.status === 'validated_by_admin' ? '#10b981' : (u.status === 'validated_by_atasan' ? '#059669' : (u.semua_lampiran_disetujui ? '#3b82f6' : '#ff9800'))}; font-weight:bold;">
+          ${u.status === 'Disetujui' || u.status === 'validated_by_admin' ? '✅ Disetujui (Siap Generate)' : (u.status === 'validated_by_atasan' ? '📨 Divalidasi Atasan (Menunggu Admin)' : (u.semua_lampiran_disetujui ? 'Lampiran Lengkap' : 'Review Tertunda'))}
         </div>
       </div>
     </div>`).join('');
@@ -9704,6 +9767,7 @@ function renderKontrakReviewDetailContent_(u) {
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
           <h4 style="margin:0; color:var(--primary);">👔 Penilaian Evaluasi Kinerja (Atasan Langsung)</h4>
           <div>
+            ${u.status === 'validated_by_atasan' ? '<span class="badge" style="background:#059669; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">📨 Divalidasi Atasan Langsung &amp; Terkirim ke Admin</span>' : ''}
             ${u.status === 'evaluated_extend' ? '<span class="badge" style="background:#8b5cf6; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Sudah Dinilai (Rekomendasi Diperpanjang)</span>' : ''}
             ${u.status === 'evaluated_not_extend' ? '<span class="badge" style="background:#ef4444; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Sudah Dinilai (Tidak Diperpanjang)</span>' : ''}
             ${u.status === 'submitted_to_atasan' || u.status === 'under_atasan_review' ? '<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Menunggu Penilaian Atasan</span>' : ''}
@@ -9717,9 +9781,9 @@ function renderKontrakReviewDetailContent_(u) {
           <div><strong>Nomor Surat Evaluasi:</strong> ${escapeHtml(u.evaluasi_nomor_surat || '-')}</div>
         </div>
         ${u.evaluasi_doc_url ? `
-          <div style="margin-bottom:14px;">
-            <a href="${u.evaluasi_doc_url}" target="_blank" class="btn btn-outline kp-small-btn" style="color:var(--primary); border-color:var(--primary); font-weight:700;">
-              📥 Unduh Formulir Evaluasi Kinerja (.docx)
+          <div style="margin-bottom:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <a href="${u.evaluasi_doc_url}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn" style="color:var(--primary); border-color:var(--primary); font-weight:700;">
+              📄 Buka / Unduh Formulir Evaluasi Kinerja (Bertanda Tangan) ↗
             </a>
           </div>` : ''}
         
