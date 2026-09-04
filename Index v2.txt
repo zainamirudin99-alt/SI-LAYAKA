@@ -1334,8 +1334,8 @@
                   <label>Nomor Surat Perjanjian (opsional)</label>
                   <input type="text" id="kontrak_nomorSurat" class="field-input" placeholder="Kosongkan bila belum ada" />
                 </div>
-                <!-- ATASAN LANGSUNG SELECTOR (TENDIK & CALON NON ASN) -->
-                <div class="stack-field autocomplete-wrap grid-full" id="kontrak_atasanWrap" style="background:var(--surface-alt); border:1px solid var(--primary); border-radius:10px; padding:14px; margin-top:8px; margin-bottom:8px;">
+                <!-- ATASAN LANGSUNG SELECTOR (TENDIK & CALON NON ASN) - HANYA UNTUK USULAN AKUN NORMAL -->
+                <div class="stack-field autocomplete-wrap grid-full" id="kontrak_atasanWrap" style="display:none; background:var(--surface-alt); border:1px solid var(--primary); border-radius:10px; padding:14px; margin-top:8px; margin-bottom:8px;">
                   <label style="font-weight:700; color:var(--primary); display:flex; align-items:center; gap:6px;">
                     <span>👔 Cari &amp; Pilih Atasan Langsung</span>
                   </label>

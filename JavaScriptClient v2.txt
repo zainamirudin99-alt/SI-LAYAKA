@@ -7722,10 +7722,10 @@ function confirmAndGoToFormWithNip(nip, tmpLhr, tglLhr, tmtBulan, extraData) {
 
   const isNonAsn = (kontrakSelectedSubMenu === 'Calon Pegawai Tetap Undip NON ASN');
 
-  // Tampilkan Atasan Langsung untuk Non ASN & Tendik
+  // Atasan Langsung hanya diisi untuk usulan dari akun normal yang sudah diizinkan, bukan pada form Buat Kontrak Admin
   const atasanWrap = document.getElementById('kontrak_atasanWrap');
   if (atasanWrap) {
-    atasanWrap.style.display = (isNonAsn || kontrakSelectedLayanan === 'Kontrak Tendik') ? 'block' : 'none';
+    atasanWrap.style.display = 'none';
   }
 
   // Populate form dropdowns
@@ -7970,17 +7970,23 @@ async function renderKontrakDynamicPlaceholdersForTemplate(templateId) {
     const res = await rpc('getTemplatePlaceholders', [SESSION.token, templateId]);
     const placeholders = (res && res.success && Array.isArray(res.placeholders)) ? res.placeholders : [];
     
-    // Filter out core fields already in the form
+    // Filter out core fields already in the form (termasuk TMT, TST, Jangka Waktu, Upah, dsb)
     const coreKeys = new Set([
       'nip', 'nama_lengkap', 'nama', 'tmp_lhr', 'tgl_lhr', 'tempat_lahir', 'tanggal_lahir',
       'pendidikan', 'jurusan', 'unit_es_ii', 'unit_kerja', 'unit', 'jabatan', 'alamat',
-      'nomor_telepon', 'no_hp', 'telepon', 'nomor_surat_perjanjian', 'nomor_surat',
-      'tmt_bulan', 'tmt_tahun', 'tst_bulan', 'tst_tahun', 'jangka_waktu', 'besaran_upah',
-      'atasan_nip', 'atasan_nama', 'nama_atasan', 'nip_atasan', 'atasan_langsung'
+      'nomor_telepon', 'no_hp', 'telepon', 'nomor_surat_perjanjian', 'nomor_surat', 'no_surat',
+      'tmt_bulan', 'tmt_tahun', 'tst_bulan', 'tst_tahun',
+      'tmt_kontrak', 'tst_kontrak', 'tmt', 'tst', 'tmt_mulai', 'tst_selesai',
+      'jangka_waktu', 'jangka_waktu_kontrak', 'jangkawaktu', 'jangkawaktukontrak',
+      'besaran_upah', 'besaran_upah_text', 'upah', 'gaji', 'nominal_upah',
+      'tgl_buat', 'tanggal_buat', 'tgl_surat', 'tanggal_surat', 'hari_buat', 'bulan_buat', 'tahun_buat',
+      'atasan_nip', 'atasan_nama', 'nama_atasan', 'nip_atasan', 'atasan_langsung',
+      'status_kepegawaian', 'status_pegawai', 'jenis_pegawai', 'jenis_peg',
+      'nama_instansi', 'instansi', 'universitas'
     ]);
 
     const extraPlaceholders = placeholders.filter(p => {
-      const cleanKey = String(p).trim().toLowerCase();
+      const cleanKey = String(p).trim().toLowerCase().replace(/[\s\-]/g, '_');
       // Suppress TTD placeholders (Aturan: TTD tidak ditampilkan di formulir)
       if (isTtdPlaceholderKey(cleanKey)) return false;
       // Suppress core keys already in static form
