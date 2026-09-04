@@ -7490,6 +7490,7 @@ async function submitKontrakPopup1Nip(e) {
   e.preventDefault();
   const tmpLhr = document.getElementById('pop1_tmpLhr')?.value?.trim();
   const tglLhr = document.getElementById('pop1_tglLhr')?.value;
+  const tglLahir = tglLhr;
   const gender = document.getElementById('pop1_gender')?.value || '1';
   const tmtBulan = document.getElementById('pop1_tmtBulan')?.value;
   const tmtTahun = document.getElementById('pop1_tmtTahun')?.value || new Date().getFullYear();
@@ -7506,7 +7507,7 @@ async function submitKontrakPopup1Nip(e) {
 
   try {
     let res, rincian;
-    let extraData = { tmpLhr, tglLhr, gender, tmtBulan, tmtTahun, isNonAsn };
+    let extraData = { tmpLhr, tglLhr, tglLahir, gender, tmtBulan, tmtTahun, isNonAsn };
 
     if (isNonAsn) {
       res = await rpc('generateAutoNipNonAsn', [SESSION.token, { tglLahir, gender, tmtBulan, tmtTahun }]);
