@@ -8467,6 +8467,119 @@ const methods = {
     return { success: true, message: 'Draft NIP berhasil disimpan ke Supabase usulan_kontrak_baru & data_utama.' };
   },
 
+  async deleteDraftNip(args) {
+    const [token, payload] = extractArgs(args);
+    verifyToken(token);
+    requireRole(token, ['admin', 'super_admin']);
+    const { nip } = payload || {};
+    const cleanNip = String(nip || '').trim();
+    if (!cleanNip) return { success: false, message: 'NIP wajib diisi.' };
+
+    const db = getDb();
+
+    // 1. Cek apakah NIP sudah memiliki usulan kontrak dengan status Selesai
+    try {
+      const { data: selesai } = await db.from('usulan_kontrak')
+        .select('id, status')
+        .eq('nip', cleanNip)
+        .eq('status', 'Selesai')
+        .maybeSingle();
+      if (selesai) {
+        return { success: false, message: `NIP ${cleanNip} tidak dapat dihapus karena sudah memiliki usulan kontrak yang telah Selesai.` };
+      }
+    } catch (_) {}
+
+    // 2. Hapus dari usulan_kontrak_baru
+    try {
+      const { error: errBaru } = await db.from('usulan_kontrak_baru').delete().eq('nip', cleanNip);
+      if (errBaru) console.warn('[deleteDraftNip] errBaru:', errBaru.message);
+    } catch (e1) {
+      console.warn('[deleteDraftNip] err usulan_kontrak_baru:', e1.message);
+    }
+
+    // 3. Hapus dari draft_nip_non_asn jika ada
+    try {
+      await db.from('draft_nip_non_asn').delete().eq('nip', cleanNip);
+    } catch (_) {}
+
+    // 4. Hapus dari data_utama jika hanya berupa record draft non-ASN/kontrak
+    try {
+      const { data: dUtama } = await db.from('data_utama').select('nip, status_kepegawaian, nama_lengkap').eq('nip', cleanNip).maybeSingle();
+      if (dUtama) {
+        const sk = String(dUtama.status_kepegawaian || '').toLowerCase();
+        if (sk.includes('non asn') || sk.includes('kontrak') || sk.includes('calon') || !dUtama.nama_lengkap) {
+          await db.from('data_utama').delete().eq('nip', cleanNip);
+        }
+      }
+    } catch (eDu) {
+      console.warn('[deleteDraftNip] data_utama delete err:', eDu.message);
+    }
+
+    return { success: true, message: `NIP draft ${cleanNip} berhasil dihapus dari database.` };
+  },
+
+  async updateDraftNip(args) {
+    const [token, payload] = extractArgs(args);
+    verifyToken(token);
+    requireRole(token, ['admin', 'super_admin']);
+    const { oldNip, newNip, tmp_lhr, tgl_lhr, nama_lengkap, layanan, sub_menu } = payload || {};
+    const cleanOld = String(oldNip || '').trim();
+    const cleanNew = String(newNip || cleanOld).trim();
+    if (!cleanOld) return { success: false, message: 'NIP lama wajib diisi.' };
+    if (!cleanNew) return { success: false, message: 'NIP baru tidak boleh kosong.' };
+
+    const db = getDb();
+
+    // 1. Jika NIP berubah, pastikan NIP baru belum dipakai record lain
+    if (cleanNew !== cleanOld) {
+      const { data: dupData } = await db.from('data_utama').select('nip').eq('nip', cleanNew).maybeSingle();
+      if (dupData) return { success: false, message: `NIP ${cleanNew} sudah digunakan oleh data pegawai lain.` };
+      const { data: dupBaru } = await db.from('usulan_kontrak_baru').select('nip').eq('nip', cleanNew).maybeSingle();
+      if (dupBaru) return { success: false, message: `NIP ${cleanNew} sudah terdaftar dalam usulan kontrak baru.` };
+    }
+
+    // 2. Update usulan_kontrak_baru
+    try {
+      const updateObj = {
+        nip: cleanNew,
+        tmp_lhr: tmp_lhr || '',
+        tgl_lhr: tgl_lhr || null,
+        nama_lengkap: nama_lengkap || ''
+      };
+      if (layanan) updateObj.layanan = layanan;
+      if (sub_menu) updateObj.sub_menu = sub_menu;
+      await db.from('usulan_kontrak_baru').update(updateObj).eq('nip', cleanOld);
+    } catch (eBaru) {
+      console.warn('[updateDraftNip] update usulan_kontrak_baru err:', eBaru.message);
+    }
+
+    // 3. Update data_utama
+    try {
+      const { data: dUtama } = await db.from('data_utama').select('nip').eq('nip', cleanOld).maybeSingle();
+      if (dUtama) {
+        await db.from('data_utama').update({
+          nip: cleanNew,
+          tmp_lhr: tmp_lhr || '',
+          tgl_lhr: tgl_lhr || null,
+          nama_lengkap: nama_lengkap || ''
+        }).eq('nip', cleanOld);
+      }
+    } catch (eDu) {
+      console.warn('[updateDraftNip] data_utama update err:', eDu.message);
+    }
+
+    // 4. Update draft_nip_non_asn
+    try {
+      await db.from('draft_nip_non_asn').update({
+        nip: cleanNew,
+        tmp_lhr: tmp_lhr || '',
+        tgl_lhr: tgl_lhr || null
+      }).eq('nip', cleanOld);
+    } catch (_) {}
+
+    return { success: true, message: `Data NIP draft ${cleanOld} berhasil diperbarui.` };
+  },
+
   async previewKontrakDocument(args) {
     const [token, payload] = extractArgs(args);
     const decoded = verifyToken(token);

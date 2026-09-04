@@ -1289,7 +1289,10 @@
 
               <div class="grid-2 kp-grid">
                 <div class="stack-field">
-                  <label>NIP/NIK</label>
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <label style="margin-bottom:0;">NIP/NIK</label>
+                    <button type="button" id="kontrak_btnHapusDraftNip" class="btn btn-sm btn-outline-danger" style="display:none; padding:2px 8px; font-size:11px; border-radius:4px; border:1px solid #ef4444; color:#ef4444; background:transparent; cursor:pointer;" onclick="hapusNipFromFormUsulan()" title="Hapus NIP draft ini dan ulangi generate NIP">🗑️ Hapus NIP</button>
+                  </div>
                   <input type="text" id="kontrak_nipManual" class="field-input" />
                 </div>
                 <div class="stack-field autocomplete-wrap" style="position:relative;">
