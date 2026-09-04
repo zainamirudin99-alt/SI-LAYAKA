@@ -4619,7 +4619,7 @@ const methods = {
   async generateAutoNip(args) {
     const [token, payload] = extractArgs(args);
     verifyToken(token);
-    const { tglLahir, jenisPegawai, tglMasuk, tmtBulan, tmtTahun } = payload || {};
+    const { tglLahir, jenisPegawai, tglMasuk, tmtBulan, tmtTahun, gender } = payload || {};
 
     if (!tglLahir) {
       return { success: false, message: 'Tanggal lahir wajib diisi untuk membuat NIP otomatis.' };
@@ -4686,23 +4686,31 @@ const methods = {
     const BULAN_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
     const labelBulanMasuk = `${mmMasuk} (${BULAN_ID[parseInt(mmMasuk, 10) - 1] || ''})`;
 
-    // 4. Hitung Nomor Urut (NNN) spesifik per Jenis Pegawai (kodeJenis) dan Tahun Masuk (yyMasuk)
+    // 4. Parsing Gender: 1 = Laki-laki, 2 = Perempuan
+    const gRaw = String(gender || '1').trim().toLowerCase();
+    const gGender = (gRaw === '2' || gRaw === 'p' || gRaw.startsWith('perem') || gRaw === 'wanita') ? '2' : '1';
+    const labelGender = gGender === '1' ? '1 (Laki-laki)' : '2 (Perempuan)';
+
+    // 5. Hitung Nomor Urut (NNN) spesifik per Jenis Pegawai (kodeJenis) dan Tahun Masuk (yyMasuk)
     const db = getDb();
     let maxSeqFound = 0;
     try {
-      // NIP 17 digit: YYYYMMDDKKYYMMNNN (KK: pos 9-10, YY: pos 11-12)
+      // NIP 18 digit: YYYYMMDDKKYYMMGNNN (KK: pos 9-10, YY: pos 11-12)
       // Gunakan 8 underscore '_' agar pencarian SQL strictly mencocokkan KKYY pada posisi 9-12 (mencegah false match pada MMDD tanggal lahir)
       const patternYy = `________${kodeJenis}${yyMasuk}%`;
       const { data: dData } = await db.from('data_utama').select('nip').like('nip', patternYy);
       const { data: uKontrak } = await db.from('usulan_kontrak').select('nip').like('nip', patternYy);
       const { data: uKp } = await db.from('usulan_kp').select('nip').like('nip', patternYy);
+      const { data: uKontrakBaru } = await db.from('usulan_kontrak_baru').select('nip').like('nip', patternYy);
 
       const nipsSet = new Set();
       const processNips = (arr) => {
         (arr || []).forEach(r => {
           if (r && r.nip) {
             const clean = String(r.nip).trim();
-            if (clean.length === 17 && clean.slice(8, 10) === kodeJenis && clean.slice(10, 12) === yyMasuk) {
+            if (clean.length === 18 && clean.slice(8, 10) === kodeJenis && clean.slice(10, 12) === yyMasuk) {
+              nipsSet.add(clean);
+            } else if (clean.length === 17 && clean.slice(8, 10) === kodeJenis && clean.slice(10, 12) === yyMasuk) {
               nipsSet.add(clean);
             }
           }
@@ -4712,9 +4720,10 @@ const methods = {
       processNips(dData);
       processNips(uKontrak);
       processNips(uKp);
+      processNips(uKontrakBaru);
 
       nipsSet.forEach(nip => {
-        const seq = parseInt(nip.slice(14, 17), 10);
+        const seq = (nip.length === 18) ? parseInt(nip.slice(15, 18), 10) : parseInt(nip.slice(14, 17), 10);
         if (!isNaN(seq) && seq > maxSeqFound) {
           maxSeqFound = seq;
         }
@@ -4724,21 +4733,23 @@ const methods = {
     }
 
     // Baseline nomor urut di tahun 2026 sesuai jenis pegawai:
-    // Dosen (kode 01): posisi sekarang sudah 013, maka berikutnya minimal 14 (014)
-    // Tendik (kode 02): posisi sekarang sudah 027, maka berikutnya minimal 28 (028)
+    // Dosen (kode 01): di database tahun 2026 sudah ada 019 pegawai, maka urutan baru berikutnya adalah 020
+    // Tendik (kode 02): di database tahun 2026 sudah ada 028 pegawai, maka urutan baru berikutnya adalah 029
+    // Nomor urut ke-reset jika sudah berganti tahun (dimulai dari 001 atau maxSeqFound + 1 jika tahun tersebut sudah ada di database)
+    // Catatan: aturan reset per tahun ini tidak berlaku untuk Calon Pegawai Tetap Undip NON ASN
     let minNextSeq = 1;
     if (yyMasuk === '26') {
       if (kodeJenis === '01') {
-        minNextSeq = 14;
+        minNextSeq = 20;
       } else if (kodeJenis === '02') {
-        minNextSeq = 28;
+        minNextSeq = 29;
       }
     }
     const nextSeq = Math.max(minNextSeq, maxSeqFound + 1);
     const nnnSeq = String(nextSeq).padStart(3, '0');
 
-    // 5. Rakit NIP 17 Digit: YYYYMMDDKKYYMMNNN
-    const generatedNip = `${yyyyLahir}${mmLahir}${ddLahir}${kodeJenis}${yyMasuk}${mmMasuk}${nnnSeq}`;
+    // 6. Rakit NIP 18 Digit: YYYYMMDDKKYYMMGNNN
+    const generatedNip = `${yyyyLahir}${mmLahir}${ddLahir}${kodeJenis}${yyMasuk}${mmMasuk}${gGender}${nnnSeq}`;
 
     return {
       success: true,
@@ -4750,6 +4761,7 @@ const methods = {
         kodeJenis: labelJenis,
         thnMasuk: `${yyMasuk} (Tahun ${fullYearMasuk})`,
         blnMasuk: labelBulanMasuk,
+        gender: labelGender,
         nomorUrut: `${nnnSeq} (Urutan ke-${nextSeq} pegawai ${isDosen ? 'Dosen' : 'Tendik'} pada tahun ${fullYearMasuk})`
       }
     };

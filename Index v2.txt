@@ -599,7 +599,7 @@
                       <label class="kp-label" for="umInputNipDisplay">NIP Pegawai</label>
                       <div style="display:flex; gap:8px;">
                         <input type="text" id="umInputNipDisplay" class="field-input" style="flex:1;" placeholder="Ketik NIP atau Auto Generate..." oninput="document.getElementById('umInputNip').value=this.value;" />
-                        <button type="button" class="btn btn-outline kp-small-btn" onclick="openAutoGenerateNipModal('umInputNipDisplay', 'umInputTglLahir', 'umInputJenisPegawai', 'umInputTglMasuk')" style="border-color:var(--primary); color:var(--primary); font-weight:700; white-space:nowrap;" title="Generate NIP Otomatis (17 Digit)">
+                        <button type="button" class="btn btn-outline kp-small-btn" onclick="openAutoGenerateNipModal('umInputNipDisplay', 'umInputTglLahir', 'umInputJenisPegawai', 'umInputTglMasuk')" style="border-color:var(--primary); color:var(--primary); font-weight:700; white-space:nowrap;" title="Generate NIP Otomatis (18 Digit)">
                           ⚡ Auto NIP
                         </button>
                       </div>
@@ -1454,7 +1454,7 @@
                       <label>NIP/NIK <span style="color:red;">*</span></label>
                       <div style="display:flex; gap:8px;">
                         <input type="text" id="kontrakUser_nip" class="field-input" style="flex:1;" required placeholder="Masukkan NIP/NIK" />
-                        <button type="button" class="btn btn-outline kp-small-btn" onclick="openAutoGenerateNipModal('kontrakUser_nip', 'kontrakUser_tglLahir', 'kontrakUser_jenisPegawai', 'kontrakUser_tglMasuk')" style="border-color:var(--primary); color:var(--primary); font-weight:700; white-space:nowrap;" title="Generate NIP Otomatis (17 Digit)">
+                        <button type="button" class="btn btn-outline kp-small-btn" onclick="openAutoGenerateNipModal('kontrakUser_nip', 'kontrakUser_tglLahir', 'kontrakUser_jenisPegawai', 'kontrakUser_tglMasuk')" style="border-color:var(--primary); color:var(--primary); font-weight:700; white-space:nowrap;" title="Generate NIP Otomatis (18 Digit)">
                           ⚡ Auto NIP
                         </button>
                       </div>

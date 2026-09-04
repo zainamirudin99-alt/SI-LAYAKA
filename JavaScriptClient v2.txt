@@ -2263,7 +2263,7 @@ let currentAutoNipTargetInputId = '';
 
 function openAutoGenerateNipModal(targetInputId, defaultTglLahirId, defaultJenisPegId, defaultTglMasukId) {
   currentAutoNipTargetInputId = targetInputId || '';
-  document.getElementById('modalTitle').textContent = '⚡ Auto Generate NIP Otomatis (17 Digit)';
+  document.getElementById('modalTitle').textContent = '⚡ Auto Generate NIP Otomatis (18 Digit)';
 
   const existingTglLahir = defaultTglLahirId ? (document.getElementById(defaultTglLahirId)?.value || '') : '';
   const existingJenis = defaultJenisPegId ? (document.getElementById(defaultJenisPegId)?.value || 'Tendik') : 'Tendik';
@@ -2274,7 +2274,7 @@ function openAutoGenerateNipModal(targetInputId, defaultTglLahirId, defaultJenis
   const html = `
     <div style="padding:20px; text-align:left;">
       <p style="font-size:13px; color:var(--text-muted, #64748b); margin-bottom:16px;">
-        Sistem akan menghitung NIP 17 Digit dengan rumus: <strong>YYYYMMDDKKYYMMNNN</strong> (Tahun, Bulan, Tanggal Lahir + Kode Jenis Pegawai + Tahun, Bulan Masuk + Nomor Urut per Tahun Masuk).
+        Sistem akan menghitung NIP 18 Digit dengan rumus: <strong>YYYYMMDDKKYYMMGNNN</strong> (Tahun, Bulan, Tanggal Lahir + Kode Jenis Pegawai + Tahun, Bulan Masuk + Kode Gender + Nomor Urut).
       </p>
 
       <form id="autoNipModalForm" onsubmit="submitAutoNipFromModal(event)">
@@ -2290,7 +2290,14 @@ function openAutoGenerateNipModal(targetInputId, defaultTglLahirId, defaultJenis
               <option value="Tendik" ${!existingJenis.toLowerCase().includes('dosen') ? 'selected' : ''}>Tenaga Kependidikan / Tendik (Kode: 02)</option>
             </select>
           </div>
-          <div style="grid-column:1/-1;">
+          <div>
+            <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Jenis Kelamin <span style="color:red;">*</span></label>
+            <select id="autoNip_gender" class="field-input" required>
+              <option value="1">1 - Laki-laki</option>
+              <option value="2">2 - Perempuan</option>
+            </select>
+          </div>
+          <div>
             <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Tanggal Masuk / Bekerja / Kontrak <span style="color:red;">*</span></label>
             <input type="date" id="autoNip_tglMasuk" class="field-input" value="${existingTglMasuk || todayStr}" required />
           </div>
@@ -2311,6 +2318,7 @@ async function submitAutoNipFromModal(e) {
   e.preventDefault();
   const tglLahir = document.getElementById('autoNip_tglLahir')?.value;
   const jenisPegawai = document.getElementById('autoNip_jenisPegawai')?.value;
+  const gender = document.getElementById('autoNip_gender')?.value || '1';
   const tglMasuk = document.getElementById('autoNip_tglMasuk')?.value;
 
   if (!tglLahir) {
@@ -2322,7 +2330,7 @@ async function submitAutoNipFromModal(e) {
   if (btn) setBtnLoading(btn, true, 'Memproses NIP...');
 
   try {
-    const payload = { tglLahir, jenisPegawai, tglMasuk };
+    const payload = { tglLahir, jenisPegawai, tglMasuk, gender };
     const res = await rpc('generateAutoNip', [SESSION.token, payload]);
     if (btn) setBtnLoading(btn, false, '🚀 Buat NIP & Lihat Rincian');
 
@@ -2348,12 +2356,13 @@ async function submitAutoNipFromModal(e) {
 function openNipDetailModal(nip, rincian) {
   if (!rincian) return;
   document.getElementById('modalTitle').textContent = '⚡ Rincian NIP Otomatis Generated';
+  const nipStr = String(nip || '');
   
   const contentHtml = `
     <div style="padding:20px; text-align:left; font-size:13.5px;">
       <div style="background:var(--surface-alt, #f8fafc); border:1px solid var(--border, #e2e8f0); border-radius:10px; padding:16px; margin-bottom:20px; text-align:center;">
-        <div style="font-size:12px; color:var(--text-muted, #64748b); text-transform:uppercase; letter-spacing:0.5px; font-weight:600; margin-bottom:4px;">NIP Hasil Generate (17 Digit)</div>
-        <div style="font-size:22px; font-weight:800; color:var(--primary, #0284c7); letter-spacing:1.5px; font-family:monospace;">${escapeHtml(nip)}</div>
+        <div style="font-size:12px; color:var(--text-muted, #64748b); text-transform:uppercase; letter-spacing:0.5px; font-weight:600; margin-bottom:4px;">NIP Hasil Generate (18 Digit)</div>
+        <div style="font-size:22px; font-weight:800; color:var(--primary, #0284c7); letter-spacing:1.5px; font-family:monospace;">${escapeHtml(nipStr)}</div>
         <div style="font-size:11.5px; color:#16a34a; margin-top:4px;">✓ Hasil generate tetap dapat Anda edit atau sesuaikan secara manual pada form.</div>
       </div>
 
@@ -2370,37 +2379,42 @@ function openNipDetailModal(nip, rincian) {
         <tbody>
           <tr>
             <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">1. Tahun Lahir</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#0284c7;">${escapeHtml(rincian.thnLahir)}</td>
-            <td style="padding:8px 10px; border:1px solid var(--border);">Tahun kelahiran (4 digit)</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#0284c7;">${escapeHtml(nipStr.slice(0,4))}</td>
+            <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.thnLahir || 'Tahun kelahiran (4 digit)')}</td>
           </tr>
           <tr>
             <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">2. Bulan Lahir</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#0284c7;">${escapeHtml(String(rincian.blnLahir).slice(0,2))}</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#0284c7;">${escapeHtml(nipStr.slice(4,6))}</td>
             <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.blnLahir)}</td>
           </tr>
           <tr>
             <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">3. Tanggal Lahir</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#0284c7;">${escapeHtml(rincian.tglLahir)}</td>
-            <td style="padding:8px 10px; border:1px solid var(--border);">Tanggal lahir (2 digit)</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#0284c7;">${escapeHtml(nipStr.slice(6,8))}</td>
+            <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.tglLahir || 'Tanggal lahir (2 digit)')}</td>
           </tr>
           <tr>
             <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">4. Kode Jenis Pegawai</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#d97706;">${escapeHtml(String(rincian.kodeJenis).slice(0,2))}</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#d97706;">${escapeHtml(nipStr.slice(8,10))}</td>
             <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.kodeJenis)}</td>
           </tr>
           <tr>
             <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">5. Tahun Masuk</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#2563eb;">${escapeHtml(String(rincian.thnMasuk).slice(0,2))}</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#2563eb;">${escapeHtml(nipStr.slice(10,12))}</td>
             <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.thnMasuk)}</td>
           </tr>
           <tr>
             <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">6. Bulan Masuk</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#2563eb;">${escapeHtml(String(rincian.blnMasuk).slice(0,2))}</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#2563eb;">${escapeHtml(nipStr.slice(12,14))}</td>
             <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.blnMasuk)}</td>
           </tr>
           <tr>
-            <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">7. Nomor Urut Pegawai</td>
-            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#16a34a;">${escapeHtml(String(rincian.nomorUrut).slice(0,3))}</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">7. Kode Jenis Kelamin</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#d97706;">${escapeHtml(nipStr.length >= 18 ? nipStr.slice(14,15) : '1')}</td>
+            <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.gender || (nipStr.slice(14,15) === '2' ? '2 (Perempuan)' : '1 (Laki-laki)'))}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">8. Nomor Urut Pegawai</td>
+            <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#16a34a;">${escapeHtml(nipStr.length >= 18 ? nipStr.slice(15,18) : nipStr.slice(14,17))}</td>
             <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.nomorUrut)}</td>
           </tr>
         </tbody>
@@ -7185,6 +7199,7 @@ function pilihModeKontrak(mode) {
 
   if (mode === 'baru') {
     // REVISI ALUR: Trigger Pop-up 1 Generate NIP sebelum masuk ke form usulan baru!
+    window._kontrakPendingNipData = null;
     openKontrakPopup1GenerateNip();
     return;
   } else {
@@ -7266,13 +7281,25 @@ function onSelectDraftNipInPopup1(selectedNip) {
   const tglEl = document.getElementById('pop1_tglLhr');
   const tmtBlnEl = document.getElementById('pop1_tmtBulan');
 
+  const genderEl = document.getElementById('pop1_gender');
+  const tmtThnEl = document.getElementById('pop1_tmtTahun');
+
   if (nipEl) nipEl.value = selectedNip;
   if (tmpEl && found && found.tmp_lhr) tmpEl.value = found.tmp_lhr;
   if (tglEl && found && found.tgl_lhr) tglEl.value = pensiunToDateInputValue(found.tgl_lhr);
 
-  if (tmtBlnEl && selectedNip && selectedNip.length >= 14) {
-    const draftBln = selectedNip.slice(12, 14);
-    if (draftBln) tmtBlnEl.value = draftBln;
+  if (selectedNip.startsWith('H.7.')) {
+    // Non-ASN format: H.7. + YYYYMMDD (lahir) + YYYYMM (TMT) + G + NNN
+    if (tmtThnEl && selectedNip.length >= 16) tmtThnEl.value = selectedNip.slice(12, 16);
+    if (tmtBlnEl && selectedNip.length >= 18) tmtBlnEl.value = selectedNip.slice(16, 18);
+    if (genderEl && selectedNip.length >= 19) genderEl.value = selectedNip.slice(18, 19);
+  } else if (selectedNip.length >= 18) {
+    // Standar Kontrak 18 Digit: YYYYMMDD + KK + YY + MM + G + NNN
+    if (tmtThnEl) tmtThnEl.value = '20' + selectedNip.slice(10, 12);
+    if (tmtBlnEl) tmtBlnEl.value = selectedNip.slice(12, 14);
+    if (genderEl) genderEl.value = selectedNip.slice(14, 15);
+  } else if (selectedNip.length >= 14) {
+    if (tmtBlnEl) tmtBlnEl.value = selectedNip.slice(12, 14);
   }
 
   showToast('info', `NIP Draft ${selectedNip} dipilih.`);
@@ -7312,7 +7339,7 @@ function openKontrakPopup1GenerateNip() {
     bulanOpts += `<option value="${b.val}" ${isSel}>${b.label}</option>`;
   });
 
-  const formGridHtml = isNonAsn ? `
+  const formGridHtml = `
         <div style="display:grid; grid-template-columns:1fr 1fr 1.2fr 1fr 1fr; gap:10px; margin-bottom:18px;">
           <div>
             <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Tempat Lahir <span style="color:red;">*</span></label>
@@ -7340,27 +7367,10 @@ function openKontrakPopup1GenerateNip() {
             <input type="number" id="pop1_tmtTahun" class="field-input" value="${currYear}" min="1990" max="2099" onchange="autoCalculatePopup1Nip()" required />
           </div>
         </div>
-  ` : `
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:18px;">
-          <div>
-            <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Tempat Lahir <span style="color:red;">*</span></label>
-            <input type="text" id="pop1_tmpLhr" class="field-input" placeholder="Contoh: Semarang" required />
-          </div>
-          <div>
-            <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Tanggal Lahir <span style="color:red;">*</span></label>
-            <input type="date" id="pop1_tglLhr" class="field-input" onchange="autoCalculatePopup1Nip()" required />
-          </div>
-          <div>
-            <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">TMT Bulan <span style="color:red;">*</span></label>
-            <select id="pop1_tmtBulan" class="field-input" onchange="autoCalculatePopup1Nip()" required>
-              ${bulanOpts}
-            </select>
-          </div>
-        </div>
   `;
 
-  const nipBoxLabel = isNonAsn ? 'NIP Calon Pegawai Tetap Undip NON ASN (Format H.7. + 18 Digit):' : 'NIP Hasil Generate (17 Digit):';
-  const nipPlaceholder = isNonAsn ? 'Isi Tempat/Tanggal Lahir, Gender & TMT untuk generate NIP H.7...' : 'Isi TTL & TMT Bulan di atas untuk generate NIP...';
+  const nipBoxLabel = isNonAsn ? 'NIP Calon Pegawai Tetap Undip NON ASN (Format H.7. + 18 Digit = 22 Karakter):' : 'NIP Hasil Generate (18 Digit):';
+  const nipPlaceholder = isNonAsn ? 'Isi Tempat/Tanggal Lahir, Gender & TMT untuk generate NIP H.7...' : 'Isi TTL, Gender & TMT di atas untuk generate NIP 18 digit...';
 
   const html = `
     <div style="padding:20px; text-align:left; font-size:13.5px;">
@@ -7412,6 +7422,35 @@ function openKontrakPopup1GenerateNip() {
   document.getElementById('modalBody').innerHTML = html;
   document.getElementById('modalOverlay').style.display = 'flex';
 
+  // Restore input previous jika user klik "Kembali ke Pop-up 1"
+  if (window._kontrakPendingNipData && window._kontrakPendingNipData.extraData) {
+    const ed = window._kontrakPendingNipData.extraData;
+    if (ed.tmpLhr) {
+      const el = document.getElementById('pop1_tmpLhr');
+      if (el) el.value = ed.tmpLhr;
+    }
+    if (ed.tglLhr) {
+      const el = document.getElementById('pop1_tglLhr');
+      if (el) el.value = ed.tglLhr;
+    }
+    if (ed.gender) {
+      const el = document.getElementById('pop1_gender');
+      if (el) el.value = ed.gender;
+    }
+    if (ed.tmtBulan) {
+      const el = document.getElementById('pop1_tmtBulan');
+      if (el) el.value = ed.tmtBulan;
+    }
+    if (ed.tmtTahun) {
+      const el = document.getElementById('pop1_tmtTahun');
+      if (el) el.value = ed.tmtTahun;
+    }
+    if (window._kontrakPendingNipData.nip) {
+      const el = document.getElementById('pop1_nipGenerated');
+      if (el) el.value = window._kontrakPendingNipData.nip;
+    }
+  }
+
   // Muat opsi NIP draft secara asynchronous
   loadDraftNipOptionsForPopup1();
 }
@@ -7419,19 +7458,19 @@ function openKontrakPopup1GenerateNip() {
 async function autoCalculatePopup1Nip() {
   const tglLahir = document.getElementById('pop1_tglLhr')?.value;
   if (!tglLahir) return;
+  const gender = document.getElementById('pop1_gender')?.value || '1';
   const tmtBulan = document.getElementById('pop1_tmtBulan')?.value;
+  const tmtTahun = document.getElementById('pop1_tmtTahun')?.value || new Date().getFullYear();
   const isNonAsn = (kontrakSelectedSubMenu === 'Calon Pegawai Tetap Undip NON ASN');
 
   try {
     let res;
     if (isNonAsn) {
-      const gender = document.getElementById('pop1_gender')?.value || '1';
-      const tmtTahun = document.getElementById('pop1_tmtTahun')?.value || new Date().getFullYear();
       res = await rpc('generateAutoNipNonAsn', [SESSION.token, { tglLahir, gender, tmtBulan, tmtTahun }]);
     } else {
       const defaultJenis = (kontrakSelectedLayanan === 'Kontrak Dosen') ? 'Dosen' : 'Tendik';
       const todayStr = new Date().toISOString().split('T')[0];
-      const payload = { tglLahir, jenisPegawai: defaultJenis, tglMasuk: todayStr, tmtBulan };
+      const payload = { tglLahir, gender, jenisPegawai: defaultJenis, tglMasuk: todayStr, tmtBulan, tmtTahun };
       res = await rpc('generateAutoNip', [SESSION.token, payload]);
     }
     if (res && res.success) {
@@ -7451,12 +7490,14 @@ async function submitKontrakPopup1Nip(e) {
   e.preventDefault();
   const tmpLhr = document.getElementById('pop1_tmpLhr')?.value?.trim();
   const tglLhr = document.getElementById('pop1_tglLhr')?.value;
+  const gender = document.getElementById('pop1_gender')?.value || '1';
   const tmtBulan = document.getElementById('pop1_tmtBulan')?.value;
+  const tmtTahun = document.getElementById('pop1_tmtTahun')?.value || new Date().getFullYear();
   const nipVal = document.getElementById('pop1_nipGenerated')?.value?.trim();
   const isNonAsn = (kontrakSelectedSubMenu === 'Calon Pegawai Tetap Undip NON ASN');
 
   if (!tmpLhr || !tglLhr || !tmtBulan || !nipVal) {
-    showToast('error', 'Lengkapi Tempat Lahir, Tanggal Lahir, TMT Bulan, dan NIP.');
+    showToast('error', 'Lengkapi Tempat Lahir, Tanggal Lahir, Jenis Kelamin, TMT, dan NIP.');
     return;
   }
 
@@ -7465,14 +7506,10 @@ async function submitKontrakPopup1Nip(e) {
 
   try {
     let res, rincian;
-    let extraData = { tmpLhr, tglLhr, tmtBulan, isNonAsn };
+    let extraData = { tmpLhr, tglLhr, gender, tmtBulan, tmtTahun, isNonAsn };
 
     if (isNonAsn) {
-      const gender = document.getElementById('pop1_gender')?.value || '1';
-      const tmtTahun = document.getElementById('pop1_tmtTahun')?.value || new Date().getFullYear();
-      extraData.gender = gender;
-      extraData.tmtTahun = tmtTahun;
-      res = await rpc('generateAutoNipNonAsn', [SESSION.token, { tglLahir: tglLhr, gender, tmtBulan, tmtTahun }]);
+      res = await rpc('generateAutoNipNonAsn', [SESSION.token, { tglLahir, gender, tmtBulan, tmtTahun }]);
       rincian = (res && res.success) ? res.rincian : {
         prefix: 'H.7.',
         thnLahir: nipVal.slice(4, 8),
@@ -7487,15 +7524,16 @@ async function submitKontrakPopup1Nip(e) {
       const defaultJenis = (kontrakSelectedLayanan === 'Kontrak Dosen') ? 'Dosen' : 'Tendik';
       const todayStr = new Date().toISOString().split('T')[0];
       extraData.defaultJenis = defaultJenis;
-      res = await rpc('generateAutoNip', [SESSION.token, { tglLahir: tglLhr, jenisPegawai: defaultJenis, tglMasuk: todayStr, tmtBulan }]);
+      res = await rpc('generateAutoNip', [SESSION.token, { tglLahir, gender, jenisPegawai: defaultJenis, tglMasuk: todayStr, tmtBulan, tmtTahun }]);
       rincian = (res && res.success) ? res.rincian : {
-        thnLahir: nipVal.slice(0,4),
-        blnLahir: nipVal.slice(4,6),
-        tglLahir: nipVal.slice(6,8),
-        kodeJenis: nipVal.slice(8,10) === '01' ? '01 (Tenaga Dosen)' : '02 (Tenaga Kependidikan)',
-        thnMasuk: nipVal.slice(10,12),
-        blnMasuk: nipVal.slice(12,14),
-        nomorUrut: nipVal.slice(14,17)
+        thnLahir: nipVal.slice(0, 4),
+        blnLahir: nipVal.slice(4, 6),
+        tglLahir: nipVal.slice(6, 8),
+        kodeJenis: nipVal.slice(8, 10) === '01' ? '01 (Tenaga Dosen)' : '02 (Tenaga Kependidikan)',
+        thnMasuk: nipVal.slice(10, 12),
+        blnMasuk: nipVal.slice(12, 14),
+        gender: (nipVal.length >= 18 ? nipVal.slice(14, 15) : gender) === '2' ? '2 (Perempuan)' : '1 (Laki-laki)',
+        nomorUrut: nipVal.length >= 18 ? nipVal.slice(15, 18) : nipVal.slice(14, 17)
       };
     }
 
@@ -7507,8 +7545,173 @@ async function submitKontrakPopup1Nip(e) {
   }
 }
 
+function openKontrakPopup2BreakdownNip(nip, rincian, extraData) {
+  extraData = extraData || {};
+  rincian = rincian || {};
+  const isNonAsn = !!(extraData.isNonAsn || (typeof nip === 'string' && nip.startsWith('H.7.')));
+
+  document.getElementById('modalTitle').textContent = isNonAsn
+    ? '⚡ Pop-up 2: Breakdown Structure NIP (Calon Pegawai Tetap Undip NON ASN)'
+    : '⚡ Pop-up 2: Breakdown Structure NIP';
+
+  let tableRowsHtml = '';
+
+  if (isNonAsn) {
+    const nipStr = String(nip || '');
+    tableRowsHtml = `
+      <tr>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Karakter 1–4</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Prefix Identitas Instansi</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#0284c7;">${escapeHtml(nipStr.slice(0,4))}</td>
+        <td style="padding:8px 10px; border:1px solid var(--border);">Universitas Diponegoro (H.7.)</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Karakter 5–8</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Tahun Lahir</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#0284c7;">${escapeHtml(nipStr.slice(4,8))}</td>
+        <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.thnLahir || 'Tahun kelahiran pegawai')}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Karakter 9–10</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Bulan Lahir</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#0284c7;">${escapeHtml(nipStr.slice(8,10))}</td>
+        <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.blnLahir || 'Bulan lahir')}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Karakter 11–12</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Tanggal Lahir</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#0284c7;">${escapeHtml(nipStr.slice(10,12))}</td>
+        <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.tglLahir || 'Tanggal kelahiran pegawai')}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Karakter 13–16</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Tahun TMT</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#2563eb;">${escapeHtml(nipStr.slice(12,16))}</td>
+        <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.thnTmt || (extraData.tmtTahun ? 'Tahun ' + extraData.tmtTahun : 'Tahun TMT'))}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Karakter 17–18</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Bulan TMT</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#2563eb;">${escapeHtml(nipStr.slice(16,18))}</td>
+        <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.blnTmt || 'Bulan TMT')}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Karakter 19</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Jenis Kelamin (Gender)</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#d97706;">${escapeHtml(nipStr.slice(18,19))}</td>
+        <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.gender || (nipStr.slice(18,19) === '1' ? '1 (Laki-laki)' : '2 (Perempuan)'))}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Karakter 20–22</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Nomor Urut Pegawai</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#16a34a;">${escapeHtml(nipStr.slice(19,22))}</td>
+        <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.nomorUrut || 'Nomor urut pegawai')}</td>
+      </tr>
+    `;
+  } else {
+    const nipStr = String(nip || '');
+    const genderVal = nipStr.length >= 18 ? nipStr.slice(14, 15) : (extraData.gender || '1');
+    const seqVal = nipStr.length >= 18 ? nipStr.slice(15, 18) : nipStr.slice(14, 17);
+    tableRowsHtml = `
+      <tr>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 1–4</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Tahun Lahir</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#0284c7;">${escapeHtml(nipStr.slice(0,4))}</td>
+        <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.thnLahir || 'Tahun kelahiran pegawai')}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 5–6</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Bulan Lahir</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#0284c7;">${escapeHtml(nipStr.slice(4,6))}</td>
+        <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.blnLahir || 'Bulan lahir')}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 7–8</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Tanggal Lahir</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#0284c7;">${escapeHtml(nipStr.slice(6,8))}</td>
+        <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.tglLahir || 'Tanggal kelahiran pegawai')}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 9–10</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Kode Jenis Pegawai</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#d97706;">${escapeHtml(nipStr.slice(8,10))}</td>
+        <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.kodeJenis || (nipStr.slice(8,10) === '01' ? '01 (Tenaga Dosen)' : '02 (Tenaga Kependidikan)'))}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 11–12</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Tahun Masuk</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#2563eb;">${escapeHtml(nipStr.slice(10,12))}</td>
+        <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.thnMasuk || 'Tahun masuk')}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 13–14</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Bulan Masuk (TMT Bulan)</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#2563eb;">${escapeHtml(nipStr.slice(12,14))}</td>
+        <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.blnMasuk || 'Bulan masuk')}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 15</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Kode Jenis Kelamin</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#d97706;">${escapeHtml(genderVal)}</td>
+        <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.gender || (genderVal === '2' ? '2 (Perempuan)' : '1 (Laki-laki)'))}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-weight:700; color:#475569;">Digit 16–18</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); font-weight:600;">Nomor Urut Pegawai</td>
+        <td style="padding:8px 10px; border:1px solid var(--border); text-align:center; font-family:monospace; font-weight:700; color:#16a34a;">${escapeHtml(seqVal)}</td>
+        <td style="padding:8px 10px; border:1px solid var(--border);">${escapeHtml(rincian.nomorUrut || 'Nomor urut pegawai')}</td>
+      </tr>
+    `;
+  }
+
+  window._kontrakPendingNipData = { nip, rincian, extraData };
+
+  const contentHtml = `
+    <div style="padding:20px; text-align:left; font-size:13.5px;">
+      <div style="background:var(--surface-alt, #f8fafc); border:1px solid var(--border, #e2e8f0); border-radius:10px; padding:16px; margin-bottom:18px; text-align:center;">
+        <div style="font-size:12px; color:var(--text-muted, #64748b); text-transform:uppercase; letter-spacing:0.5px; font-weight:600; margin-bottom:4px;">
+          ${isNonAsn ? 'NIP Dikonfirmasi (Format H.7. + 18 Digit = 22 Karakter)' : 'NIP Dikonfirmasi (18 Digit)'}
+        </div>
+        <div style="font-size:24px; font-weight:800; color:var(--primary, #0284c7); letter-spacing:1.5px; font-family:monospace;">${escapeHtml(nip)}</div>
+        <div style="font-size:11.5px; color:#16a34a; margin-top:4px;">✓ Pemetaan digit NIP telah dikonfirmasi dan siap dimasukkan ke Form Usulan.</div>
+      </div>
+
+      <h4 style="font-size:14px; font-weight:700; margin-bottom:10px; color:var(--text-main);">📌 Tabel Pemetaan Digit Structure NIP:</h4>
+
+      <table class="tmt-table" style="width:100%; border-collapse:collapse; margin-bottom:20px;">
+        <thead>
+          <tr style="background:var(--surface-alt, #f1f5f9);">
+            <th style="padding:8px 10px; border:1px solid var(--border); text-align:center; width:110px;">Posisi Digit</th>
+            <th style="padding:8px 10px; border:1px solid var(--border); text-align:left;">Nama Komponen</th>
+            <th style="padding:8px 10px; border:1px solid var(--border); text-align:center; width:100px;">Digit Teks</th>
+            <th style="padding:8px 10px; border:1px solid var(--border); text-align:left;">Penjelasan / Makna</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRowsHtml}
+        </tbody>
+      </table>
+
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <button type="button" class="btn btn-outline" onclick="openKontrakPopup1GenerateNip()">&larr; Kembali ke Pop-up 1</button>
+        <button type="button" class="btn btn-primary" id="pop2_confirmBtn" onclick="onConfirmKontrakPopup2Click()" style="padding:9px 24px; font-weight:700;">🚀 Gunakan NIP &amp; Masuk ke Form Usulan</button>
+      </div>
+    </div>`;
+
+  document.getElementById('modalBody').innerHTML = contentHtml;
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+
+function onConfirmKontrakPopup2Click() {
+  if (window._kontrakPendingNipData) {
+    const { nip, extraData } = window._kontrakPendingNipData;
+    confirmAndGoToFormWithNip(nip, extraData ? extraData.tmpLhr : '', extraData ? extraData.tglLhr : '', extraData ? extraData.tmtBulan : '', extraData);
+  }
+}
+
 function confirmAndGoToFormWithNip(nip, tmpLhr, tglLhr, tmtBulan, extraData) {
   closeModal();
+  window._kontrakPendingNipData = null;
   
   // Transition into Form State
   kontrakGoToState_('form');
