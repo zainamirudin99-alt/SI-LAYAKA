@@ -264,7 +264,7 @@ const CONFIG = {
   // manual Super Admin lewat Menu Perubahan Status Akun tidak tertimpa
   // lagi oleh aturan default ini di kemudian hari).
   SEED_SUPER_ADMIN_NIP: '200103310225061024',
-  SEED_ADMIN_UNIT_ES_II: 'Direktorat Sumber Daya Manusia',
+  SEED_ADMIN_UNIT_ES_II: 'Direktorat Organisasi dan Sumber Daya Manusia',
 
   // Field data diri yang boleh dilihat akun berperan 'normal' (tampilan
   // "Profil Saya" -- satu-satunya yang mereka lihat, tidak ada menu lain).

@@ -462,7 +462,7 @@ function renderProfilSayaView(profil) {
           <div class="label-tech" style="color:var(--primary); margin-bottom:4px;">Identitas Pegawai</div>
           <h3 style="margin:0; font-family:'Sora',sans-serif; font-size:22px; font-weight:700; color:var(--text);">Data Utama Personal</h3>
         </div>
-        <button type="button" class="btn btn-outline" onclick="alert('Untuk mengajukan perubahan data utama profil, silakan hubungi Subbagian Kepegawaian DSDM UNDIP dengan membawa dokumen pendukung.');" style="font-size:12px; font-weight:600; padding:6px 14px;">
+        <button type="button" class="btn btn-outline" onclick="alert('Untuk mengajukan perubahan data utama profil, silakan hubungi Subbagian Kepegawaian DOSDM UNDIP dengan membawa dokumen pendukung.');" style="font-size:12px; font-weight:600; padding:6px 14px;">
           ✏️ Ajukan Perubahan
         </button>
       </div>
@@ -4081,7 +4081,7 @@ async function loadUsulanMasukTmtDashboard(forceRefresh = false) {
 
 function applyUsulanMasukDashboardData(res, container) {
   const sc = res.statusCounts || {};
-  const dsdm = sc['Diterima DSDM'] || 0;
+  const dsdm = (sc['Diterima DOSDM'] || 0) + (sc['Diterima DSDM'] || 0);
   const siasn = sc['Diajukan SIASN'] || 0;
   const pertek = sc['TTD Pertek'] || 0;
   const sk = sc['SK Berhasil'] || 0;
@@ -4196,7 +4196,7 @@ async function renderUsulanPieChart(dsdm, siasn, pertek, sk, perbaikan, belumEli
     usulanPieChartInstance.destroy();
   }
 
-  const labels = ['Diterima DSDM', 'Diajukan SIASN', 'TTD Pertek', 'SK Berhasil', 'Perbaikan', 'Belum Eligible', 'Pensiun'];
+  const labels = ['Diterima DOSDM', 'Diajukan SIASN', 'TTD Pertek', 'SK Berhasil', 'Perbaikan', 'Belum Eligible', 'Pensiun'];
   const data = [dsdm || 0, siasn || 0, pertek || 0, sk || 0, perbaikan || 0, belumEligible || 0, pensiun || 0];
   const colors = ['#3b82f6', '#f59e0b', '#8b5cf6', '#10b981', '#f97316', '#ef4444', '#06b6d4'];
 
@@ -4281,8 +4281,9 @@ function renderStatusDetailModalContent() {
 
   const targetStatus = window.umCurrentModalStatus;
   let filtered = (window.umGlobalList || []).filter(u => {
-    const st = String(u.status || 'Diterima DSDM').trim();
+    const st = String(u.status || 'Diterima DOSDM').trim();
     if (targetStatus === 'ALL') return true;
+    if (targetStatus === 'Diterima DOSDM' || targetStatus === 'Diterima DSDM') return st === 'Diterima DOSDM' || st === 'Diterima DSDM';
     if (targetStatus === 'Diajukan SIASN') return st === 'Diajukan SIASN' || st === 'Diajukan ke SIASN';
     if (targetStatus === 'Belum Eligible') return st === 'Belum Eligible' || st === 'Tidak Eligible';
     return st.toLowerCase() === targetStatus.toLowerCase();
@@ -4306,8 +4307,8 @@ function renderStatusDetailModalContent() {
   }
 
   tbody.innerHTML = filtered.map((u, idx) => {
-    const currentStatus = String(u.status || 'Diterima DSDM').trim();
-    let badgeClass = 'dsdm';
+    const currentStatus = String(u.status || 'Diterima DOSDM').trim();
+    let badgeClass = 'dsdm'; if (currentStatus === 'Diterima DOSDM' || currentStatus === 'Diterima DSDM') badgeClass = 'dosdm';
     if (currentStatus === 'Diajukan SIASN' || currentStatus === 'Diajukan ke SIASN') badgeClass = 'siasn';
     else if (currentStatus === 'TTD Pertek') badgeClass = 'pertek';
     else if (currentStatus === 'SK Berhasil') badgeClass = 'sk';
@@ -4341,7 +4342,7 @@ function renderStatusDetailModalContent() {
         <td><span class="badge-status ${badgeClass}">${escapeHtml(currentStatus)}</span></td>
         <td>
           <select class="status-select" onchange="updateStatusFromModal('${u.id}', this.value)">
-            <option value="Diterima DSDM" ${currentStatus === 'Diterima DSDM' ? 'selected' : ''}>Diterima DSDM</option>
+            <option value="Diterima DOSDM" ${(currentStatus === 'Diterima DOSDM' || currentStatus === 'Diterima DSDM') ? 'selected' : ''}>Diterima DOSDM</option>
             <option value="Diajukan SIASN" ${currentStatus === 'Diajukan SIASN' || currentStatus === 'Diajukan ke SIASN' ? 'selected' : ''}>Diajukan SIASN</option>
             <option value="TTD Pertek" ${currentStatus === 'TTD Pertek' ? 'selected' : ''}>TTD Pertek</option>
             <option value="SK Berhasil" ${currentStatus === 'SK Berhasil' ? 'selected' : ''}>SK Berhasil</option>
@@ -4524,13 +4525,13 @@ function onUmYearFilterChange() {
   window.umGlobalList = filteredList;
 
   const sc = {
-    'Diterima DSDM': 0, 'Diajukan SIASN': 0, 'TTD Pertek': 0,
+    'Diterima DOSDM': 0, 'Diterima DSDM': 0, 'Diajukan SIASN': 0, 'TTD Pertek': 0,
     'SK Berhasil': 0, 'Perbaikan': 0, 'Belum Eligible': 0, 'Pensiun': 0
   };
 
   filteredList.forEach(u => {
     const st = String(u.status || '').trim();
-    if (st === 'Diterima DSDM') sc['Diterima DSDM']++;
+    if (st === 'Diterima DOSDM' || st === 'Diterima DSDM') { sc['Diterima DOSDM'] = (sc['Diterima DOSDM'] || 0) + 1; sc['Diterima DSDM']++; }
     else if (st === 'Diajukan SIASN' || st === 'Diajukan ke SIASN') sc['Diajukan SIASN']++;
     else if (st === 'TTD Pertek') sc['TTD Pertek']++;
     else if (st === 'SK Berhasil') sc['SK Berhasil']++;
@@ -4539,7 +4540,7 @@ function onUmYearFilterChange() {
     else if (st === 'Pensiun') sc['Pensiun']++;
   });
 
-  const dsdm = sc['Diterima DSDM'];
+  const dsdm = sc['Diterima DOSDM'];
   const siasn = sc['Diajukan SIASN'];
   const pertek = sc['TTD Pertek'];
   const sk = sc['SK Berhasil'];
@@ -4717,8 +4718,8 @@ function buildUsulanTableHtml(items) {
   if (!items || !items.length) return '<div style="padding:12px; font-style:italic;">Tidak ada data usulan.</div>';
 
   let rowsHtml = items.map((u, idx) => {
-    const currentStatus = String(u.status || 'Diterima DSDM').trim();
-    let badgeClass = 'dsdm';
+    const currentStatus = String(u.status || 'Diterima DOSDM').trim();
+    let badgeClass = 'dsdm'; if (currentStatus === 'Diterima DOSDM' || currentStatus === 'Diterima DSDM') badgeClass = 'dosdm';
     if (currentStatus === 'Diajukan SIASN' || currentStatus === 'Diajukan ke SIASN') badgeClass = 'siasn';
     else if (currentStatus === 'TTD Pertek') badgeClass = 'pertek';
     else if (currentStatus === 'SK Berhasil') badgeClass = 'sk';
@@ -4762,7 +4763,7 @@ function buildUsulanTableHtml(items) {
         </td>
         <td>
           <select class="status-select" onchange="updateUsulanStatusInline('${u.id}', this.value)">
-            <option value="Diterima DSDM" ${currentStatus === 'Diterima DSDM' ? 'selected' : ''}>Diterima DSDM</option>
+            <option value="Diterima DOSDM" ${(currentStatus === 'Diterima DOSDM' || currentStatus === 'Diterima DSDM') ? 'selected' : ''}>Diterima DOSDM</option>
             <option value="Diajukan SIASN" ${currentStatus === 'Diajukan SIASN' || currentStatus === 'Diajukan ke SIASN' ? 'selected' : ''}>Diajukan SIASN</option>
             <option value="TTD Pertek" ${currentStatus === 'TTD Pertek' ? 'selected' : ''}>TTD Pertek</option>
             <option value="SK Berhasil" ${currentStatus === 'SK Berhasil' ? 'selected' : ''}>SK Berhasil</option>
@@ -4977,9 +4978,9 @@ function onSelectImportSheetChange() {
     }
 
     const golLama = idxGolLama >= 0 ? String(row[idxGolLama] || '').trim() : '';
-    let rawStatus = idxStatus >= 0 ? String(row[idxStatus] || '').trim() : 'Diterima DSDM';
+    let rawStatus = idxStatus >= 0 ? String(row[idxStatus] || '').trim() : 'Diterima DOSDM';
     
-    let status = 'Diterima DSDM';
+    let status = 'Diterima DOSDM';
     const sLower = rawStatus.toLowerCase();
     if (sLower.includes('siasn')) status = 'Diajukan SIASN';
     else if (sLower.includes('pertek')) status = 'TTD Pertek';
@@ -4987,6 +4988,7 @@ function onSelectImportSheetChange() {
     else if (sLower.includes('perbaikan')) status = 'Perbaikan';
     else if (sLower.includes('eligible')) status = 'Belum Eligible';
     else if (sLower.includes('pensiun')) status = 'Pensiun';
+    else if (sLower.includes('dsdm') || sLower.includes('dosdm')) status = 'Diterima DOSDM';
     else if (rawStatus) status = rawStatus;
 
     let golBaru = idxGolBaru >= 0 ? String(row[idxGolBaru] || '').trim() : '';
@@ -12712,7 +12714,7 @@ async function buatSkInitForm() {
       'Fakultas Ilmu Sosial dan Ilmu Politik', 'Fakultas Kesehatan Masyarakat',
       'Fakultas Perikanan dan Ilmu Kelautan', 'Fakultas Peternakan dan Pertanian',
       'Fakultas Psikologi', 'Sekolah Vokasi', 'Sekolah Pascasarjana',
-      'Direktorat Sumber Daya Manusia', 'Direktorat Akademik'
+      'Direktorat Organisasi dan Sumber Daya Manusia', 'Direktorat Akademik'
     ];
     const units = (res && res.data && res.data.length > 0) ? res.data : DEFAULT_UNITS;
     if (sel) {
@@ -12763,7 +12765,7 @@ function populateUnitDropdown() {
     'Fakultas Ilmu Sosial dan Ilmu Politik', 'Fakultas Kesehatan Masyarakat',
     'Fakultas Perikanan dan Ilmu Kelautan', 'Fakultas Peternakan dan Pertanian',
     'Fakultas Psikologi', 'Sekolah Vokasi', 'Sekolah Pascasarjana',
-    'Direktorat Sumber Daya Manusia', 'Direktorat Akademik'
+    'Direktorat Organisasi dan Sumber Daya Manusia', 'Direktorat Akademik'
   ];
 
   if (!sel.options || sel.options.length <= 1) {

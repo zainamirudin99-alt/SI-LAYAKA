@@ -235,7 +235,7 @@ function addUsulanMasukDirect(sessionToken, payload) {
   const now = new Date();
   sheet.appendRow([
     id, '', payload.nip || '', payload.nama, payload.unit || '',
-    admin.nip, admin.nama || 'Admin', now, '', payload.status || 'Diterima DSDM', '', '', admin.nip, payload.tmt || '',
+    admin.nip, admin.nama || 'Admin', now, '', payload.status || 'Diterima DOSDM', '', '', admin.nip, payload.tmt || '',
     payload.golongan_lama || payload.golLama || '', payload.golongan_baru || payload.golBaru || '', payload.jabatan || ''
   ]);
   return { success: true, message: 'Usulan berhasil ditambahkan.' };
@@ -252,7 +252,7 @@ function bulkInsertUsulanMasuk(sessionToken, list) {
     const id = Utilities.getUuid();
     sheet.appendRow([
       id, '', item.nip || '', item.nama || item.namaLengkap, item.unit || '',
-      admin.nip, admin.nama || 'Admin Import', now, '', item.status || 'Diterima DSDM', '', '', admin.nip, item.tmt || item.keterangan || '',
+      admin.nip, admin.nama || 'Admin Import', now, '', item.status || 'Diterima DOSDM', '', '', admin.nip, item.tmt || item.keterangan || '',
       item.golongan_lama || item.golLama || '', item.golongan_baru || item.golBaru || '', item.jabatan || ''
     ]);
     count++;
@@ -263,10 +263,10 @@ function bulkInsertUsulanMasuk(sessionToken, list) {
 function getUsulanMasukTmtGrouped(sessionToken) {
   requireRole_(sessionToken, ['admin', 'super_admin']);
   const rows = getAllUsulanKp_();
-  const statusCounts = { 'Diterima DSDM': 0, 'Diajukan SIASN': 0, 'TTD Pertek': 0, 'SK Berhasil': 0, 'Lainnya': 0 };
+  const statusCounts = { 'Diterima DOSDM': 0, 'Diterima DSDM': 0, 'Diajukan SIASN': 0, 'TTD Pertek': 0, 'SK Berhasil': 0, 'Lainnya': 0 };
   rows.forEach(u => {
     const st = String(u.status || '').trim();
-    if (st === 'Diterima DSDM') statusCounts['Diterima DSDM']++;
+    if (st === 'Diterima DOSDM' || st === 'Diterima DSDM') { statusCounts['Diterima DOSDM']++; statusCounts['Diterima DSDM']++; }
     else if (st === 'Diajukan SIASN' || st === 'Diajukan ke SIASN') statusCounts['Diajukan SIASN']++;
     else if (st === 'TTD Pertek') statusCounts['TTD Pertek']++;
     else if (st === 'SK Berhasil') statusCounts['SK Berhasil']++;

@@ -105,7 +105,7 @@ const CONFIG = {
   FOLDER_PENSIUN_LAMPIRAN: '1ko75RjljybXg6tLqpXdOH1Im8rjlUFTd',
   FOLDER_KONTRAK_ROOT:    '1uCTUJ2qfrBeyjFEwsufFKuZuQO1MaYQi',
   FOLDER_EVALUASI_TKK_ROOT: '1i6ePepJQzOm2HxVzevvEYWF5L6xR5Bue',
-  SEED_ADMIN_UNIT_ES_II: 'Direktorat Sumber Daya Manusia',
+  SEED_ADMIN_UNIT_ES_II: 'Direktorat Organisasi dan Sumber Daya Manusia',
   PROFIL_NORMAL_FIELDS:  ['nama_lengkap','tgl_lhr','golongan','status_kepegawaian','status_bekerja','jabatan','tmt_pensiun_bup'],
   PENSIUN_DASHBOARD_AMBANG_TAHUN: 1,
   GOLONGAN_URUTAN: ['I/a','I/b','I/c','I/d','II/a','II/b','II/c','II/d','III/a','III/b','III/c','III/d','IV/a','IV/b','IV/c','IV/d','IV/e'],
@@ -3053,7 +3053,7 @@ const methods = {
       'Fakultas Psikologi',
       'Sekolah Vokasi',
       'Sekolah Pascasarjana',
-      'Direktorat Sumber Daya Manusia',
+      'Direktorat Organisasi dan Sumber Daya Manusia',
       'Direktorat Akademik'
     ];
 
@@ -4456,7 +4456,7 @@ const methods = {
       status_kepegawaian: String(payload.status_kepegawaian || payload.statusKepegawaian || 'PNS').trim(),
       golongan_lama: String(payload.golongan_lama || payload.golLama || '').trim(),
       golongan_baru: String(payload.golongan_baru || payload.golBaru || '').trim(),
-      status: String(payload.status || 'Diterima DSDM').trim(),
+      status: String(payload.status || 'Diterima DOSDM').trim(),
       tmt: String(payload.tmt || '').trim(),
       diajukan_oleh_nip: decoded.nip,
       nama_pengaju: decoded.nama || 'Admin',
@@ -4492,7 +4492,7 @@ const methods = {
       status_kepegawaian: String(item.status_kepegawaian || item.statusKepegawaian || 'PNS').trim(),
       golongan_lama: String(item.golongan_lama || item.golLama || item.golLamaStr || '').trim(),
       golongan_baru: String(item.golongan_baru || item.golBaru || item.golBaruStr || '').trim(),
-      status: String(item.status || 'Diterima DSDM').trim(),
+      status: String(item.status || 'Diterima DOSDM').trim(),
       tmt: String(item.tmt || item.keterangan || '').trim(),
       diajukan_oleh_nip: decoded.nip || 'admin',
       nama_pengaju: decoded.nama || 'Admin Import',
@@ -4537,7 +4537,7 @@ const methods = {
       golongan_baru: payload.golBaru || payload.golongan_baru || '',
       jabatan: payload.jabatan || '',
       unit: payload.unit || '',
-      status: payload.status || 'Diterima DSDM',
+      status: payload.status || 'Diterima DOSDM',
       tmt: payload.tmt || '',
       jenis_pegawai: payload.jenis_pegawai || 'Tendik',
       status_kepegawaian: payload.status_kepegawaian || 'PNS',
@@ -4573,6 +4573,7 @@ const methods = {
     const list = data || [];
     
     const statusCounts = {
+      'Diterima DOSDM': 0,
       'Diterima DSDM': 0,
       'Diajukan SIASN': 0,
       'TTD Pertek': 0,
@@ -4585,7 +4586,7 @@ const methods = {
 
     list.forEach(u => {
       const st = String(u.status || '').trim();
-      if (st === 'Diterima DSDM') statusCounts['Diterima DSDM']++;
+      if (st === 'Diterima DOSDM' || st === 'Diterima DSDM') { statusCounts['Diterima DOSDM']++; statusCounts['Diterima DSDM']++; }
       else if (st === 'Diajukan SIASN' || st === 'Diajukan ke SIASN') statusCounts['Diajukan SIASN']++;
       else if (st === 'TTD Pertek') statusCounts['TTD Pertek']++;
       else if (st === 'SK Berhasil') statusCounts['SK Berhasil']++;

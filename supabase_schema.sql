@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS usulan_kp (
   nama_pengaju          TEXT,
   tanggal_diajukan      TIMESTAMPTZ DEFAULT NOW(),
   file_url              TEXT,
-  status                TEXT DEFAULT 'Diterima DSDM',
+  status                TEXT DEFAULT 'Diterima DOSDM',
   tmt                   TEXT,
   opsi_a_selesai_pada   TIMESTAMPTZ,
   opsi_b_selesai_pada   TIMESTAMPTZ,

@@ -1,4 +1,4 @@
-﻿<style>
+<style>
 
 
 
@@ -329,11 +329,14 @@
   }
   .login-logo { height: 48px; width: auto; object-fit: contain; }
   .login-logo--undip { height: 54px; }
-  .login-logo--dsdm { height: 44px; }
-  body.theme-light .login-logo--dsdm {
+  .login-logo--dsdm,
+  .login-logo--dosdm { height: 44px; }
+  body.theme-light .login-logo--dsdm,
+  body.theme-light .login-logo--dosdm {
     filter: brightness(0.18) contrast(1.2);
   }
-  body.theme-dark .login-logo--dsdm {
+  body.theme-dark .login-logo--dsdm,
+  body.theme-dark .login-logo--dosdm {
     filter: none;
   }
   .logo-divider {
@@ -1293,8 +1296,10 @@
   .um-stat-card .um-stat-value { font-size: 24px; font-weight: 800; margin-bottom: 4px; }
   .um-stat-card .um-stat-label { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
 
-  .um-stat-card.stat-dsdm { border-color: #3b82f6; }
-  .um-stat-card.stat-dsdm .um-stat-value { color: #2563eb; }
+  .um-stat-card.stat-dsdm,
+  .um-stat-card.stat-dosdm { border-color: #3b82f6; }
+  .um-stat-card.stat-dsdm .um-stat-value,
+  .um-stat-card.stat-dosdm .um-stat-value { color: #2563eb; }
   .um-stat-card.stat-siasn { border-color: #f59e0b; }
   .um-stat-card.stat-siasn .um-stat-value { color: #d97706; }
   .um-stat-card.stat-pertek { border-color: #8b5cf6; }
@@ -1315,7 +1320,8 @@
     display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 999px;
     font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
   }
-  .badge-status.dsdm { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+  .badge-status.dsdm,
+  .badge-status.dosdm { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
   .badge-status.siasn { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
   .badge-status.pertek { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
   .badge-status.sk { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
@@ -1323,7 +1329,8 @@
   .badge-status.belumbisa { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
   .badge-status.pensiun { background: #cffafe; color: #0e7490; border: 1px solid #a5f3fc; }
 
-  body.theme-dark .badge-status.dsdm { background: rgba(59,130,246,0.2); color: #60a5fa; border-color: #3b82f6; }
+  body.theme-dark .badge-status.dsdm,
+  body.theme-dark .badge-status.dosdm { background: rgba(59,130,246,0.2); color: #60a5fa; border-color: #3b82f6; }
   body.theme-dark .badge-status.siasn { background: rgba(245,158,11,0.2); color: #fbbf24; border-color: #f59e0b; }
   body.theme-dark .badge-status.pertek { background: rgba(139,92,246,0.2); color: #c084fc; border-color: #8b5cf6; }
   body.theme-dark .badge-status.sk { background: rgba(16,185,129,0.2); color: #34d399; border-color: #10b981; }
