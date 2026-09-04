@@ -8257,6 +8257,8 @@ function kontrakBuildFormData_() {
     atasan_nama: document.getElementById('kontrak_atasanNama')?.value || '',
     nama_atasan: document.getElementById('kontrak_atasanNama')?.value || '',
     nip_atasan: document.getElementById('kontrak_atasanNip')?.value || '',
+    mode: kontrakSelectedMode || 'baru',
+    jenis_usulan: (kontrakSelectedMode === 'perpanjangan') ? 'Perpanjangan' : 'Baru',
     // REF (konfirmasi Titto): jangka_waktu_kontrak TIDAK lagi dikirim dari
     // sini -- server menghitungnya sendiri dari tmt_bulan/tahun & tst_bulan/
     // tahun di bawah, supaya nilai akhir di dokumen SELALU konsisten dengan
@@ -8638,6 +8640,8 @@ async function runKontrakPreviewGenerate(mode) {
     layanan: kontrakSelectedLayanan,
     subMenu: kontrakSelectedSubMenu,
     sub_menu: kontrakSelectedSubMenu,
+    mode: kontrakSelectedMode || 'baru',
+    jenis_usulan: (kontrakSelectedMode === 'perpanjangan') ? 'Perpanjangan' : 'Baru',
     formData: formData,
     form_data: formData,
     templateFileId: templateId,

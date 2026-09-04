@@ -7159,10 +7159,12 @@ const methods = {
     const [token] = extractArgs(args);
     requireRole(token, ['admin','super_admin']);
     const db = getDb();
-    const { data } = await db.from('usulan_kontrak').select('unit, status').neq('status','Ditolak');
+    const { data } = await db.from('usulan_kontrak').select('unit, status, diajukan_oleh_nip, diproses_oleh_nip').neq('status','Ditolak');
     const perUnit = {};
     let totalUsulanBaru = 0;
     (data || []).forEach(u => {
+      // Abaikan usulan yang dibuat langsung oleh admin sendiri (bukan diajukan oleh pegawai untuk direview)
+      if (u.diajukan_oleh_nip && u.diajukan_oleh_nip === u.diproses_oleh_nip && u.status === 'Selesai') return;
       if (['Diajukan', 'validated_by_atasan', 'evaluated_extend', 'evaluated_not_extend'].includes(u.status)) totalUsulanBaru++;
       const unit = String(u.unit || '(Tanpa Unit)').trim() || '(Tanpa Unit)';
       perUnit[unit] = (perUnit[unit] || 0) + 1;
@@ -7178,7 +7180,9 @@ const methods = {
     const { data, error } = await db.from('usulan_kontrak').select('*').neq('status','Ditolak').eq('unit', unit);
     if (error) throw error;
     const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat'];
-    const daftar = (data || []).map(u => ({
+    const daftar = (data || [])
+      .filter(u => !(u.diajukan_oleh_nip && u.diajukan_oleh_nip === u.diproses_oleh_nip && u.status === 'Selesai'))
+      .map(u => ({
       id: u.id, nip: u.nip, nama: u.nama, unit: u.unit, email: u.email,
       tahun: u.tahun, jenis_usulan: u.jenis_usulan, evaluasi_kinerja: u.evaluasi_kinerja,
       layanan: u.layanan, sub_menu: u.sub_menu, status: u.status,
@@ -7596,12 +7600,16 @@ const methods = {
     let query = db.from('usulan_kontrak').select('*');
     if (!['admin', 'super_admin'].includes(decoded.role)) {
       query = query.or(`atasan_nip.eq.${cleanNip},atasan_nip.ilike.%${cleanNip}%`);
+    } else {
+      query = query.not('atasan_nip', 'is', null).neq('atasan_nip', '');
     }
 
     const { data, error } = await query.order('tanggal_diajukan', { ascending: false });
     if (error) throw error;
 
-    const list = (data || []).map(u => ({
+    const list = (data || [])
+      .filter(u => !(u.diajukan_oleh_nip && u.diajukan_oleh_nip === u.diproses_oleh_nip && u.status === 'Selesai'))
+      .map(u => ({
       id: u.id,
       nip: u.nip,
       nama: u.nama,
@@ -8664,101 +8672,88 @@ const methods = {
     const targetSubMenu = subMenu || sub_menu || '';
     if (!cleanNip) return { success: false, message: 'NIP wajib diisi.' };
 
-    // 1. Simpan/Upsert seluruh data isian ke tabel usulan_kontrak_baru di Supabase (kolom pertama: NIP)
-    const durasiBulan = ((parseInt(actualFormData.tst_tahun, 10) - parseInt(actualFormData.tmt_tahun, 10)) * 12) + (parseInt(actualFormData.tst_bulan, 10) - parseInt(actualFormData.tmt_bulan, 10)) + 1;
-    const jangkaWaktuStr = (durasiBulan === 12) ? '1 (satu) tahun' : (durasiBulan > 0 ? `${durasiBulan} bulan` : '');
+    const mode = String(payload.mode || actualFormData.mode || actualFormData.jenis_usulan || '').toLowerCase();
+    const isPerpanjangan = (mode === 'perpanjangan' || actualFormData.jenis_usulan === 'Perpanjangan');
 
-    const usulanKontrakBaruRecord = {
-      nip: cleanNip,
-      nama_lengkap: namaLengkap,
-      tmp_lhr: actualFormData.tmp_lhr || '',
-      tgl_lhr: actualFormData.tgl_lhr || null,
-      pendidikan: actualFormData.pendidikan || '',
-      jurusan: actualFormData.jurusan || '',
-      unit_es_ii: actualFormData.unit_es_ii || '',
-      jabatan: actualFormData.jabatan || '',
-      alamat: actualFormData.alamat || '',
-      nomor_telepon: actualFormData.nomor_telepon || '',
-      nomor_surat_perjanjian: actualFormData.nomor_surat_perjanjian || '',
-      tmt_bulan: actualFormData.tmt_bulan || '',
-      tmt_tahun: actualFormData.tmt_tahun || '',
-      tst_bulan: actualFormData.tst_bulan || '',
-      tst_tahun: actualFormData.tst_tahun || '',
-      jangka_waktu: actualFormData.jangka_waktu || jangkaWaktuStr,
-      besaran_upah: actualFormData.besaran_upah || '',
-      layanan: layanan || 'Kontrak Tendik',
-      sub_menu: targetSubMenu,
-      form_data: actualFormData,
-      status: 'Selesai',
-      diajukan_oleh_nip: decoded.nip
-    };
-    try {
-      const { error: errBaru } = await db.from('usulan_kontrak_baru').upsert(usulanKontrakBaruRecord, { onConflict: 'nip' });
-      if (errBaru) throw errBaru;
-    } catch (eBaru) {
-      console.warn('[generateKontrakDocument] upsert usulan_kontrak_baru warning:', eBaru.message);
-    }
+    // 1. Sesuai instruksi:
+    //    - Jika USULAN BARU: Simpan data ke tabel usulan_kontrak_baru & data_utama di Supabase.
+    //    - Jika PERPANJANGAN: Tidak perlu disimpan ke tabel usulan_kontrak_baru atau usulan_kontrak
+    //      karena hasil generate sudah otomatis tersimpan di direktori email/drive.
+    //    - Pada proses "Buat Kontrak" oleh Admin, TIDAK PERLU disimpan ke usulan_kontrak
+    //      agar tidak masuk ke sub menu Review Usulan ataupun Review Usulan Bawahan (Atasan Langsung).
+    if (!isPerpanjangan) {
+      const durasiBulan = ((parseInt(actualFormData.tst_tahun, 10) - parseInt(actualFormData.tmt_tahun, 10)) * 12) + (parseInt(actualFormData.tst_bulan, 10) - parseInt(actualFormData.tmt_bulan, 10)) + 1;
+      const jangkaWaktuStr = (durasiBulan === 12) ? '1 (satu) tahun' : (durasiBulan > 0 ? `${durasiBulan} bulan` : '');
 
-    // 2. Simpan/Upsert juga ke tabel data_utama di Supabase
-    const empRecord = {
-      nip: cleanNip,
-      nama_lengkap: namaLengkap,
-      nama: namaLengkap,
-      tmp_lhr: actualFormData.tmp_lhr || '',
-      tgl_lhr: actualFormData.tgl_lhr || null,
-      pendidikan: actualFormData.pendidikan || '',
-      jurusan: actualFormData.jurusan || '',
-      unit_es_ii: actualFormData.unit_es_ii || '',
-      jabatan: actualFormData.jabatan || '',
-      alamat: actualFormData.alamat || '',
-      nomor_telepon: actualFormData.nomor_telepon || '',
-      status_kepegawaian: 'Non ASN / Kontrak',
-      status_bekerja: 'Aktif Bekerja'
-    };
-    try {
-      const { error: upsertErr } = await db.from('data_utama').upsert(empRecord, { onConflict: 'nip' });
-      if (upsertErr) throw upsertErr;
-    } catch (dbErr) {
-      console.warn('[generateKontrakDocument] upsert data_utama warning:', dbErr.message);
+      const usulanKontrakBaruRecord = {
+        nip: cleanNip,
+        nama_lengkap: namaLengkap,
+        tmp_lhr: actualFormData.tmp_lhr || '',
+        tgl_lhr: actualFormData.tgl_lhr || null,
+        pendidikan: actualFormData.pendidikan || '',
+        jurusan: actualFormData.jurusan || '',
+        unit_es_ii: actualFormData.unit_es_ii || '',
+        jabatan: actualFormData.jabatan || '',
+        alamat: actualFormData.alamat || '',
+        nomor_telepon: actualFormData.nomor_telepon || '',
+        nomor_surat_perjanjian: actualFormData.nomor_surat_perjanjian || '',
+        tmt_bulan: actualFormData.tmt_bulan || '',
+        tmt_tahun: actualFormData.tmt_tahun || '',
+        tst_bulan: actualFormData.tst_bulan || '',
+        tst_tahun: actualFormData.tst_tahun || '',
+        jangka_waktu: actualFormData.jangka_waktu || jangkaWaktuStr,
+        besaran_upah: actualFormData.besaran_upah || '',
+        layanan: layanan || 'Kontrak Tendik',
+        sub_menu: targetSubMenu,
+        form_data: actualFormData,
+        status: 'Selesai',
+        diajukan_oleh_nip: decoded.nip
+      };
       try {
-        const coreRecord = {
-          nip: cleanNip,
-          nama_lengkap: namaLengkap,
-          nama: namaLengkap,
-          tmp_lhr: actualFormData.tmp_lhr || '',
-          tgl_lhr: actualFormData.tgl_lhr || null,
-          pendidikan: actualFormData.pendidikan || '',
-          jurusan: actualFormData.jurusan || '',
-          unit_es_ii: actualFormData.unit_es_ii || '',
-          jabatan: actualFormData.jabatan || '',
-          status_kepegawaian: 'Non ASN / Kontrak',
-          status_bekerja: 'Aktif Bekerja'
-        };
-        await db.from('data_utama').upsert(coreRecord, { onConflict: 'nip' });
-      } catch (_) {}
-    }
+        const { error: errBaru } = await db.from('usulan_kontrak_baru').upsert(usulanKontrakBaruRecord, { onConflict: 'nip' });
+        if (errBaru) throw errBaru;
+      } catch (eBaru) {
+        console.warn('[generateKontrakDocument] upsert usulan_kontrak_baru warning:', eBaru.message);
+      }
 
-    // 3. Simpan juga ke tabel usulan_kontrak
-    const tahun = String(actualFormData.tmt_tahun || new Date().getFullYear());
-    const usulanRecord = {
-      nip: cleanNip,
-      nama: namaLengkap,
-      unit: actualFormData.unit_es_ii || '',
-      email: actualFormData.email || decoded.email || '',
-      tahun: tahun,
-      jenis_usulan: actualFormData.jenis_usulan || 'Baru',
-      layanan: layanan || 'Kontrak Tendik',
-      sub_menu: targetSubMenu,
-      form_data: actualFormData,
-      status: 'Selesai',
-      perjanjian_dibuat: true,
-      diajukan_oleh_nip: decoded.nip,
-      diproses_oleh_nip: decoded.nip
-    };
-    try {
-      await db.from('usulan_kontrak').insert(usulanRecord);
-    } catch (uErr) {
-      console.warn('[generateKontrakDocument] insert usulan_kontrak warning:', uErr.message);
+      // Simpan/Upsert juga ke tabel data_utama di Supabase
+      const empRecord = {
+        nip: cleanNip,
+        nama_lengkap: namaLengkap,
+        nama: namaLengkap,
+        tmp_lhr: actualFormData.tmp_lhr || '',
+        tgl_lhr: actualFormData.tgl_lhr || null,
+        pendidikan: actualFormData.pendidikan || '',
+        jurusan: actualFormData.jurusan || '',
+        unit_es_ii: actualFormData.unit_es_ii || '',
+        jabatan: actualFormData.jabatan || '',
+        alamat: actualFormData.alamat || '',
+        nomor_telepon: actualFormData.nomor_telepon || '',
+        status_kepegawaian: (targetSubMenu === 'Calon Pegawai Tetap Undip NON ASN') ? 'Calon Pegawai Undip Non ASN' : 'Non ASN / Kontrak',
+        status_bekerja: 'Aktif Bekerja'
+      };
+      try {
+        const { error: upsertErr } = await db.from('data_utama').upsert(empRecord, { onConflict: 'nip' });
+        if (upsertErr) throw upsertErr;
+      } catch (dbErr) {
+        console.warn('[generateKontrakDocument] upsert data_utama warning:', dbErr.message);
+        try {
+          const coreRecord = {
+            nip: cleanNip,
+            nama_lengkap: namaLengkap,
+            nama: namaLengkap,
+            tmp_lhr: actualFormData.tmp_lhr || '',
+            tgl_lhr: actualFormData.tgl_lhr || null,
+            pendidikan: actualFormData.pendidikan || '',
+            jurusan: actualFormData.jurusan || '',
+            unit_es_ii: actualFormData.unit_es_ii || '',
+            jabatan: actualFormData.jabatan || '',
+            status_kepegawaian: (targetSubMenu === 'Calon Pegawai Tetap Undip NON ASN') ? 'Calon Pegawai Undip Non ASN' : 'Non ASN / Kontrak',
+            status_bekerja: 'Aktif Bekerja'
+          };
+          await db.from('data_utama').upsert(coreRecord, { onConflict: 'nip' });
+        } catch (_) {}
+      }
     }
 
     // 3. Generate Dokumen
