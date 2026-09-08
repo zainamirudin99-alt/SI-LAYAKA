@@ -259,6 +259,7 @@ END $$;
 -- ============================================================
 -- 10. TABEL: usulan_kontrak
 --     Pengajuan usulan Kontrak oleh pegawai / admin
+--     Lampiran berkas persyaratan disimpan berupa Tautan (Link) Google Drive langsung menuju file
 -- ============================================================
 CREATE TABLE IF NOT EXISTS usulan_kontrak (
   id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -272,7 +273,7 @@ CREATE TABLE IF NOT EXISTS usulan_kontrak (
   layanan                     TEXT,
   sub_menu                    TEXT,
   form_data                   JSONB DEFAULT '{}',
-  ktp_url                     TEXT,
+  ktp_url                     TEXT, -- Link Google Drive langsung ke file KTP (bukan folder)
   ktp_approved                BOOLEAN DEFAULT FALSE,
   kk_url                      TEXT,
   kk_approved                 BOOLEAN DEFAULT FALSE,

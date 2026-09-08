@@ -9100,10 +9100,33 @@ async function uploadKontrakFileDirect(fileObj, folderName = 'kontrak-tkk') {
   return urlRes.publicUrl || urlRes.path;
 }
 
+function validateAndCleanGdriveFileUrl(url, label, isRequired = true) {
+  let clean = String(url || '').trim();
+  if (!clean) {
+    if (isRequired) throw new Error(`Tautan Google Drive untuk ${label} wajib diisi.`);
+    return '';
+  }
+  if (!/^https?:\/\//i.test(clean)) {
+    clean = 'https://' + clean;
+  }
+  try {
+    new URL(clean);
+  } catch (_) {
+    throw new Error(`Format tautan untuk ${label} tidak valid. Pastikan format URL lengkap (https://...).`);
+  }
+  const lower = clean.toLowerCase();
+  if (lower.includes('/drive/folders/') || (lower.includes('/drive/u/') && lower.includes('/folders/')) || lower.includes('/folders/')) {
+    throw new Error(`Tautan "${label}" adalah tautan FOLDER Google Drive! Harap gunakan tautan langsung ke FILE Google Drive (bukan folder).`);
+  }
+  if (!lower.includes('drive.google.com') && !lower.includes('docs.google.com')) {
+    throw new Error(`Tautan "${label}" harus merupakan tautan Google Drive (drive.google.com atau docs.google.com).`);
+  }
+  return clean;
+}
 async function submitUsulanKontrak(e) {
   e.preventDefault();
   const btn = document.getElementById('kontrakUser_submitBtn');
-  setBtnLoading(btn, true, 'Menyiapkan berkas...');
+  setBtnLoading(btn, true, 'Menyiapkan usulan...');
   
   try {
     const nip = document.getElementById('kontrakUser_nip').value;
@@ -9123,56 +9146,20 @@ async function submitUsulanKontrak(e) {
       return;
     }
     
-    // File elements
-    const ktpInput = document.getElementById('kontrakUser_file_ktp');
-    const kkInput = document.getElementById('kontrakUser_file_kk');
-    const pasFotoInput = document.getElementById('kontrakUser_file_pas_foto');
-    const ijazahInput = document.getElementById('kontrakUser_file_ijazah');
-    const suratPengantarInput = document.getElementById('kontrakUser_file_surat_pengantar');
-    const suratLamaranInput = document.getElementById('kontrakUser_file_surat_lamaran');
-    const ketSehatInput = document.getElementById('kontrakUser_file_ket_sehat');
-    const simInput = document.getElementById('kontrakUser_file_sim');
-    const strInput = document.getElementById('kontrakUser_file_str');
+    const jabVal = document.getElementById('kontrakUser_jabatan')?.value || '';
+    const isDriver = String(jabVal).toLowerCase().includes('pengemudi');
+    const isMedis = isJabatanMedis(jabVal);
 
-    // Upload lampiran langsung ke Supabase Storage via Signed URL (Bypass Vercel 4.5MB Payload Limit)
-    let ktp_url = '', kk_url = '', pas_foto_url = '', ijazah_transkrip_url = '', surat_pengantar_url = '', surat_lamaran_url = '', keterangan_sehat_url = '', sim_ab_url = '', str_aktif_url = '';
-
-    if (ktpInput && ktpInput.files.length) {
-      setBtnLoading(btn, true, 'Mengunggah KTP...');
-      ktp_url = await uploadKontrakFileDirect(ktpInput.files[0]);
-    }
-    if (kkInput && kkInput.files.length) {
-      setBtnLoading(btn, true, 'Mengunggah Kartu Keluarga...');
-      kk_url = await uploadKontrakFileDirect(kkInput.files[0]);
-    }
-    if (pasFotoInput && pasFotoInput.files.length) {
-      setBtnLoading(btn, true, 'Mengunggah Pas Foto...');
-      pas_foto_url = await uploadKontrakFileDirect(pasFotoInput.files[0]);
-    }
-    if (ijazahInput && ijazahInput.files.length) {
-      setBtnLoading(btn, true, 'Mengunggah Ijazah & Transkrip...');
-      ijazah_transkrip_url = await uploadKontrakFileDirect(ijazahInput.files[0]);
-    }
-    if (suratPengantarInput && suratPengantarInput.files.length) {
-      setBtnLoading(btn, true, 'Mengunggah Surat Pengantar...');
-      surat_pengantar_url = await uploadKontrakFileDirect(suratPengantarInput.files[0]);
-    }
-    if (suratLamaranInput && suratLamaranInput.files.length) {
-      setBtnLoading(btn, true, 'Mengunggah Surat Lamaran...');
-      surat_lamaran_url = await uploadKontrakFileDirect(suratLamaranInput.files[0]);
-    }
-    if (ketSehatInput && ketSehatInput.files.length) {
-      setBtnLoading(btn, true, 'Mengunggah Surat Keterangan Sehat...');
-      keterangan_sehat_url = await uploadKontrakFileDirect(ketSehatInput.files[0]);
-    }
-    if (simInput && simInput.files.length) {
-      setBtnLoading(btn, true, 'Mengunggah SIM...');
-      sim_ab_url = await uploadKontrakFileDirect(simInput.files[0]);
-    }
-    if (strInput && strInput.files.length) {
-      setBtnLoading(btn, true, 'Mengunggah STR Aktif...');
-      str_aktif_url = await uploadKontrakFileDirect(strInput.files[0]);
-    }
+    // Validasi dan ambil URL langsung ke file Google Drive (bukan link folder)
+    const ktp_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_ktp')?.value, 'KTP', true);
+    const kk_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_kk')?.value, 'Kartu Keluarga', true);
+    const pas_foto_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_pas_foto')?.value, 'Pas Foto Terbaru', true);
+    const ijazah_transkrip_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_ijazah')?.value, 'Ijazah & Transkrip Terakhir', true);
+    const surat_pengantar_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_surat_pengantar')?.value, 'Surat Pengantar Pimpinan Unit', true);
+    const surat_lamaran_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_surat_lamaran')?.value, 'Surat Lamaran', true);
+    const keterangan_sehat_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_ket_sehat')?.value, 'Surat Keterangan Sehat', true);
+    const sim_ab_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_sim')?.value, 'SIM A & B', isDriver);
+    const str_aktif_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_str')?.value, 'STR Aktif', isMedis);
 
     setBtnLoading(btn, true, 'Menyimpan Usulan...');
 
@@ -9180,7 +9167,7 @@ async function submitUsulanKontrak(e) {
       nip, nama, unit, email, tahun, jenis_usulan, evaluasi_kinerja, layanan, sub_menu, atasan_nip,
       ktp_url, kk_url, pas_foto_url, ijazah_transkrip_url, surat_pengantar_url, surat_lamaran_url, keterangan_sehat_url, sim_ab_url, str_aktif_url,
       form_data: {
-        nip, nama_lengkap: nama, unit_es_ii: unit, jabatan: document.getElementById('kontrakUser_jabatan').value, email, atasan_nip,
+        nip, nama_lengkap: nama, unit_es_ii: unit, jabatan: jabVal, email, atasan_nip,
         status_kepegawaian: sub_menu
       }
     };
@@ -9198,7 +9185,7 @@ async function submitUsulanKontrak(e) {
     }
   } catch (err) {
     setBtnLoading(btn, false, 'Ajukan Usulan');
-    showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
+    showToast('error', err.message || err);
   }
 }
 
@@ -9645,12 +9632,13 @@ function handleUsulanKontrakSayaResult(res) {
         ${(res.usulan.lampiran || []).map(l => {
           const label = String(l.key || '').replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
           const icon = l.approved ? `<span style="color:#4caf50; font-weight:bold;">✅ Disetujui</span>` : `<span style="color:#ff9800; font-weight:bold;">⏳ Menunggu Review</span>`;
+          const linkButton = l.url ? `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:#2563eb; font-size:12px; margin-left:8px; font-weight:600; display:inline-flex; align-items:center; gap:3px;">(Buka Link GDrive ↗)</a>` : '';
           return `
             <div class="ce-dashboard-list-item" style="cursor:default; display:flex; justify-content:space-between; align-items:center; padding:10px 14px;">
-              <div>📄 ${label}</div>
+              <div>📄 ${escapeHtml(label)} ${linkButton}</div>
               <div>${icon}</div>
             </div>`;
-        }).join('')}
+        }).join('')}}
       </div>
 
       ${readOnlyCardHtml}
@@ -10700,10 +10688,16 @@ function renderKontrakReviewDetailContent_(u) {
     </div>
 
     <div class="ce-dashboard-list" style="margin-top:10px; gap:10px;">
-      ${lampiranList.map(l => {
+            ${lampiranList.map(l => {
         const linkHtml = l.url 
-          ? `<a href="${l.url}" target="_blank" style="text-decoration:none; color:#1957b3; font-weight:600; font-size:14px;">📄 ${l.label} (Buka File)</a>`
-          : `<span style="color:#64748b; font-size:14px; font-weight:500;">📄 ${l.label}</span>`;
+          ? `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:#1d4ed8; font-weight:600; font-size:14px; display:inline-flex; align-items:center; gap:6px;" title="Klik untuk membuka berkas Google Drive di tab baru">
+              <span style="font-size:16px;">📄</span>
+              <span>${escapeHtml(l.label)}</span>
+              <span style="font-size:12px; font-weight:700; color:#1d4ed8; background:#eff6ff; border:1px solid #bfdbfe; padding:2px 8px; border-radius:4px; display:inline-flex; align-items:center; gap:3px;">
+                Buka Link Google Drive ↗
+              </span>
+            </a>`
+          : `<span style="color:#64748b; font-size:14px; font-weight:500;">📄 ${escapeHtml(l.label)}</span>`;
         
         const previewBtnHtml = l.url
           ? `<button type="button" class="btn btn-outline" style="padding:3px 10px; font-size:12px;" onclick="openPreviewModal('${escapeHtml(l.url)}')">👁️ Preview</button>`
@@ -10711,7 +10705,7 @@ function renderKontrakReviewDetailContent_(u) {
 
         return `
           <div class="ce-dashboard-list-item" style="cursor:default; display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:var(--surface); border:1px solid #e2e8f0; border-radius:8px;">
-            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
               ${linkHtml}
               ${previewBtnHtml}
             </div>
@@ -10720,7 +10714,7 @@ function renderKontrakReviewDetailContent_(u) {
               <span style="font-size:14px; font-weight:600; color:${l.approved ? '#4caf50' : '#64748b'};">${l.approved ? '✅ Disetujui' : 'Setujui'}</span>
             </div>
           </div>`;
-      }).join('')}
+      }).join('')}}
     </div>
 
     ${periodeInputHtml}

@@ -1528,46 +1528,69 @@
                    </div>
                  </div>
 
-                 <h4 style="margin-top:20px; border-bottom:1px solid #ddd; padding-bottom:6px;">Unggah Lampiran Persyaratan</h4>
-                 <div class="grid-2 kp-grid" id="kontrakUserAttachmentsWrap">
-                   <div class="stack-field">
-                     <label>KTP (PDF/Gambar) <span style="color:red;">*</span></label>
-                     <input type="file" id="kontrakUser_file_ktp" class="field-input" accept="application/pdf,image/*" required />
-                   </div>
-                   <div class="stack-field">
-                     <label>Kartu Keluarga (PDF/Gambar) <span style="color:red;">*</span></label>
-                     <input type="file" id="kontrakUser_file_kk" class="field-input" accept="application/pdf,image/*" required />
-                   </div>
-                   <div class="stack-field">
-                     <label>Pas Foto Terbaru (Gambar) <span style="color:red;">*</span></label>
-                     <input type="file" id="kontrakUser_file_pas_foto" class="field-input" accept="image/*" required />
-                   </div>
-                   <div class="stack-field">
-                     <label>Ijazah & Transkrip Terakhir (PDF) <span style="color:red;">*</span></label>
-                     <input type="file" id="kontrakUser_file_ijazah" class="field-input" accept="application/pdf" required />
-                   </div>
-                   <div class="stack-field">
-                     <label>Surat Pengantar Pimpinan Unit (PDF) <span style="color:red;">*</span></label>
-                     <input type="file" id="kontrakUser_file_surat_pengantar" class="field-input" accept="application/pdf" required />
-                   </div>
-                   <div class="stack-field">
-                     <label>Surat Lamaran (PDF) <span style="color:red;">*</span></label>
-                     <input type="file" id="kontrakUser_file_surat_lamaran" class="field-input" accept="application/pdf" required />
-                   </div>
-                   <div class="stack-field">
-                     <label>Surat Keterangan Sehat (PDF/Gambar) <span style="color:red;">*</span></label>
-                     <input type="file" id="kontrakUser_file_ket_sehat" class="field-input" accept="application/pdf,image/*" required />
-                   </div>
-                   <div class="stack-field" id="kontrakUser_simWrap" style="display:none;">
-                  <label>SIM A & B (PDF/Gambar) <span style="color:red;">*</span></label>
-                  <input type="file" id="kontrakUser_file_sim" class="field-input" accept="application/pdf,image/*" />
-                </div>
-                <div class="stack-field" id="kontrakUser_strWrap" style="display:none;">
-                  <label>STR Aktif (PDF) <span style="color:red;">*</span></label>
-                  <input type="file" id="kontrakUser_file_str" class="field-input" accept="application/pdf" />
-                </div>
-              </div>
-              <div class="actions-bar" style="margin-top:20px;">
+                 <h4 style="margin-top:20px; border-bottom:1px solid #ddd; padding-bottom:6px; display:flex; align-items:center; gap:8px;">
+                    🔗 Tautan Lampiran Persyaratan (Google Drive)
+                  </h4>
+                  <div style="background:var(--surface-alt, #f8fafc); border:1px solid #93c5fd; border-left:4px solid #2563eb; border-radius:8px; padding:12px 16px; margin-top:12px; margin-bottom:18px; font-size:13px; line-height:1.6; color:var(--text, #1e293b);">
+                    <div style="font-weight:700; color:#1e40af; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                      <span>💡</span> Petunjuk Tautan Berkas Google Drive:
+                    </div>
+                    <ul style="margin:4px 0 0 18px; padding:0;">
+                      <li>Unggah berkas persyaratan ke Google Drive pribadi Anda terlebih dahulu.</li>
+                      <li>Pastikan akses berbagi file disetel ke <strong>"Siapa saja yang memiliki link dapat melihat"</strong> (Anyone with the link can view).</li>
+                      <li>Salin <strong>link langsung menuju ke FILE</strong> (contoh: <code>https://drive.google.com/file/d/.../view</code>). <strong>Bukan link folder!</strong></li>
+                    </ul>
+                  </div>
+
+                  <div class="grid-2 kp-grid" id="kontrakUserAttachmentsWrap">
+                    <div class="stack-field">
+                      <label>KTP (PDF/Gambar) <span style="color:red;">*</span></label>
+                      <input type="url" id="kontrakUser_file_ktp" class="field-input" placeholder="https://drive.google.com/file/d/.../view" required autocomplete="off" />
+                      <div class="helper-text" style="font-size:11px; color:#64748b; margin-top:3px;">Link Google Drive langsung ke file KTP (bukan folder)</div>
+                    </div>
+                    <div class="stack-field">
+                      <label>Kartu Keluarga (PDF/Gambar) <span style="color:red;">*</span></label>
+                      <input type="url" id="kontrakUser_file_kk" class="field-input" placeholder="https://drive.google.com/file/d/.../view" required autocomplete="off" />
+                      <div class="helper-text" style="font-size:11px; color:#64748b; margin-top:3px;">Link Google Drive langsung ke file Kartu Keluarga (bukan folder)</div>
+                    </div>
+                    <div class="stack-field">
+                      <label>Pas Foto Terbaru (Gambar) <span style="color:red;">*</span></label>
+                      <input type="url" id="kontrakUser_file_pas_foto" class="field-input" placeholder="https://drive.google.com/file/d/.../view" required autocomplete="off" />
+                      <div class="helper-text" style="font-size:11px; color:#64748b; margin-top:3px;">Link Google Drive langsung ke file Pas Foto Terbaru</div>
+                    </div>
+                    <div class="stack-field">
+                      <label>Ijazah & Transkrip Terakhir (PDF) <span style="color:red;">*</span></label>
+                      <input type="url" id="kontrakUser_file_ijazah" class="field-input" placeholder="https://drive.google.com/file/d/.../view" required autocomplete="off" />
+                      <div class="helper-text" style="font-size:11px; color:#64748b; margin-top:3px;">Link Google Drive langsung ke file Ijazah & Transkrip</div>
+                    </div>
+                    <div class="stack-field">
+                      <label>Surat Pengantar Pimpinan Unit (PDF) <span style="color:red;">*</span></label>
+                      <input type="url" id="kontrakUser_file_surat_pengantar" class="field-input" placeholder="https://drive.google.com/file/d/.../view" required autocomplete="off" />
+                      <div class="helper-text" style="font-size:11px; color:#64748b; margin-top:3px;">Link Google Drive langsung ke file Surat Pengantar Unit</div>
+                    </div>
+                    <div class="stack-field">
+                      <label>Surat Lamaran (PDF) <span style="color:red;">*</span></label>
+                      <input type="url" id="kontrakUser_file_surat_lamaran" class="field-input" placeholder="https://drive.google.com/file/d/.../view" required autocomplete="off" />
+                      <div class="helper-text" style="font-size:11px; color:#64748b; margin-top:3px;">Link Google Drive langsung ke file Surat Lamaran</div>
+                    </div>
+                    <div class="stack-field">
+                      <label>Surat Keterangan Sehat (PDF/Gambar) <span style="color:red;">*</span></label>
+                      <input type="url" id="kontrakUser_file_ket_sehat" class="field-input" placeholder="https://drive.google.com/file/d/.../view" required autocomplete="off" />
+                      <div class="helper-text" style="font-size:11px; color:#64748b; margin-top:3px;">Link Google Drive langsung ke file Surat Keterangan Sehat</div>
+                    </div>
+                    <div class="stack-field" id="kontrakUser_simWrap" style="display:none;">
+                      <label>SIM A & B (PDF/Gambar) <span style="color:red;">*</span></label>
+                      <input type="url" id="kontrakUser_file_sim" class="field-input" placeholder="https://drive.google.com/file/d/.../view" autocomplete="off" />
+                      <div class="helper-text" style="font-size:11px; color:#64748b; margin-top:3px;">Link Google Drive langsung ke file SIM A/B (Khusus Pengemudi)</div>
+                    </div>
+                    <div class="stack-field" id="kontrakUser_strWrap" style="display:none;">
+                      <label>STR Aktif (PDF) <span style="color:red;">*</span></label>
+                      <input type="url" id="kontrakUser_file_str" class="field-input" placeholder="https://drive.google.com/file/d/.../view" autocomplete="off" />
+                      <div class="helper-text" style="font-size:11px; color:#64748b; margin-top:3px;">Link Google Drive langsung ke file STR Aktif (Khusus Tenaga Medis)</div>
+                    </div>
+                  </div>
+               
+               <div class="actions-bar" style="margin-top:20px;">
                 <button type="submit" class="btn btn-primary" id="kontrakUser_submitBtn">Ajukan Usulan</button>
               </div>
             </form>

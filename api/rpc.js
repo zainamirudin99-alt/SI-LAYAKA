@@ -87,6 +87,12 @@ function getLampiranUrl(data, k) {
   return String(url || '').trim();
 }
 
+function isGdriveFolderUrl(url) {
+  if (!url) return false;
+  const s = String(url).toLowerCase();
+  return s.includes('/drive/folders/') || (s.includes('/drive/u/') && s.includes('/folders/')) || s.includes('/folders/');
+}
+
 // Global in-memory cache for akses_kontrak_mandiri
 const MEMORY_AKSES_KONTRAK_MANDIRI = {};
 
@@ -6999,16 +7005,61 @@ const methods = {
       ketSehatBase64, ketSehatNama
     } = payload || {};
 
+    let ktpUrl = payload?.ktp_url || '',
+        kkUrl = payload?.kk_url || '',
+        pasFotoUrl = payload?.pas_foto_url || '',
+        ijazahUrl = payload?.ijazah_transkrip_url || '',
+        pengantarUrl = payload?.surat_pengantar_url || '',
+        lamaranUrl = payload?.surat_lamaran_url || '',
+        simUrl = payload?.sim_ab_url || '',
+        strUrl = payload?.str_aktif_url || '',
+        sehatUrl = payload?.keterangan_sehat_url || '';
+
+    const allUrls = [ktpUrl, kkUrl, pasFotoUrl, ijazahUrl, pengantarUrl, lamaranUrl, simUrl, strUrl, sehatUrl];
+    if (allUrls.some(u => isGdriveFolderUrl(u))) {
+      return { success: false, message: 'Tautan berkas persyaratan harus langsung menuju ke FILE Google Drive, bukan tautan FOLDER.' };
+    }
+
     if (!nip || !nama) return { success: false, message: 'Data pegawai (NIP/Nama) wajib diisi.' };
     if (!email) return { success: false, message: 'Email wajib diisi.' };
     if (!tahun) return { success: false, message: 'Tahun kontrak wajib diisi.' };
-    if (!ktpBase64) return { success: false, message: 'File KTP wajib diunggah.' };
-    if (!kkBase64) return { success: false, message: 'File KK wajib diunggah.' };
-    if (!pasFotoBase64) return { success: false, message: 'Pas Foto wajib diunggah.' };
-    if (!ijazahBase64) return { success: false, message: 'Ijazah & Transkrip wajib diunggah.' };
-    if (!suratPengantarBase64) return { success: false, message: 'Surat Pengantar Unit wajib diunggah.' };
-    if (!suratLamaranBase64) return { success: false, message: 'Surat Lamaran wajib diunggah.' };
-    if (!ketSehatBase64) return { success: false, message: 'Keterangan Sehat wajib diunggah.' };
+    if (!ktpUrl && !ktpBase64) return { success: false, message: 'Link Google Drive KTP wajib diisi.' };
+    if (!kkUrl && !kkBase64) return { success: false, message: 'Link Google Drive KK wajib diisi.' };
+    if (!pasFotoUrl && !pasFotoBase64) return { success: false, message: 'Link Google Drive Pas Foto wajib diisi.' };
+    if (!ijazahUrl && !ijazahBase64) return { success: false, message: 'Link Google Drive Ijazah & Transkrip wajib diisi.' };
+    if (!pengantarUrl && !suratPengantarBase64) return { success: false, message: 'Link Google Drive Surat Pengantar Unit wajib diisi.' };
+    if (!lamaranUrl && !suratLamaranBase64) return { success: false, message: 'Link Google Drive Surat Lamaran wajib diisi.' };
+    if (!sehatUrl && !ketSehatBase64) return { success: false, message: 'Link Google Drive Keterangan Sehat wajib diisi.' };
+
+    // Jika menggunakan tautan Google Drive langsung, simpan langsung ke database Supabase tanpa storage
+    if (ktpUrl || kkUrl || pasFotoUrl || ijazahUrl) {
+      const { error } = await db.from('usulan_kontrak').insert({
+        nip: String(nip || '').trim(),
+        nama: String(nama || '').trim(),
+        unit: String(unit || '').trim(),
+        email: String(email || '').trim(),
+        tahun: String(tahun || '').trim(),
+        jenis_usulan: String(jenis_usulan || '').trim(),
+        evaluasi_kinerja: String(evaluasi_kinerja || '').trim(),
+        layanan: String(layanan || 'Kontrak Dosen').trim(),
+        sub_menu: String(sub_menu || '').trim(),
+        form_data: form_data || {},
+        ktp_url: ktpUrl,
+        kk_url: kkUrl,
+        pas_foto_url: pasFotoUrl,
+        ijazah_transkrip_url: ijazahUrl,
+        surat_pengantar_url: pengantarUrl,
+        surat_lamaran_url: lamaranUrl,
+        sim_ab_url: simUrl,
+        str_aktif_url: strUrl,
+        keterangan_sehat_url: sehatUrl,
+        diajukan_oleh_nip: decoded.nip,
+        nama_pengaju: decoded.nama,
+        status: 'Diajukan'
+      });
+      if (error) throw error;
+      return { success: true, message: 'Usulan Kontrak berhasil diajukan. Tunggu review dari admin.' };
+    }
 
     // Forward to GAS for Drive file upload
     const gasUrl = process.env.GOOGLE_SCRIPT_URL;
@@ -7519,6 +7570,19 @@ const methods = {
         simUrl = payload.sim_ab_url || '',
         strUrl = payload.str_aktif_url || '',
         sehatUrl = payload.keterangan_sehat_url || '';
+
+    const allUrls = [ktpUrl, kkUrl, pasFotoUrl, ijazahUrl, pengantarUrl, lamaranUrl, simUrl, strUrl, sehatUrl];
+    if (allUrls.some(u => isGdriveFolderUrl(u))) {
+      return { success: false, message: 'Tautan berkas persyaratan harus langsung menuju ke FILE Google Drive, bukan tautan FOLDER.' };
+    }
+
+    if (!ktpUrl && !ktpBase64) return { success: false, message: 'Link Google Drive KTP wajib diisi.' };
+    if (!kkUrl && !kkBase64) return { success: false, message: 'Link Google Drive Kartu Keluarga wajib diisi.' };
+    if (!pasFotoUrl && !pasFotoBase64) return { success: false, message: 'Link Google Drive Pas Foto wajib diisi.' };
+    if (!ijazahUrl && !ijazahBase64) return { success: false, message: 'Link Google Drive Ijazah & Transkrip wajib diisi.' };
+    if (!pengantarUrl && !suratPengantarBase64) return { success: false, message: 'Link Google Drive Surat Pengantar Unit wajib diisi.' };
+    if (!lamaranUrl && !suratLamaranBase64) return { success: false, message: 'Link Google Drive Surat Lamaran wajib diisi.' };
+    if (!sehatUrl && !ketSehatBase64) return { success: false, message: 'Link Google Drive Surat Keterangan Sehat wajib diisi.' };
 
     try {
       if (!ktpUrl && ktpBase64) ktpUrl = await uploadLampiran(ktpBase64, `KTP-${targetNip}`, 'kontrak-tkk');
