@@ -13337,12 +13337,26 @@ function handleUsulanKontrakSayaResult(res) {
     
     let generateBtnHtml = '';
     let readOnlyCardHtml = '';
+    let skpFormHtml = '';
 
-    const isApprovedOrCompleted = (st === 'validated_by_admin' || st === 'Disetujui' || st === 'Selesai' || st === 'contract_generated' || !!res.usulan.perjanjian_dibuat);
+    const u = res.usulan;
+    const fd = u.form_data || {};
+    const subMenuNormalized = String(u.sub_menu || fd.status_kepegawaian || '').trim();
+
+    // Verifikasi status approval:
+    // 1. Disetujui/divalidasi oleh admin
+    const isApprovedByAdmin = (st === 'validated_by_admin' || st === 'Disetujui' || st === 'Selesai' || st === 'contract_generated' || !!u.perjanjian_dibuat);
+    // 2. Formulir evaluasi atasan langsung sudah diisi & disetujui (bukan menunggu atau koreksi atasan)
+    const isEvaluasiAtasanDone = Boolean(u.evaluasi_skor && st !== 'submitted_to_atasan' && st !== 'under_atasan_review' && st !== 'perlu_perbaikan' && st !== 'koreksi_atasan');
+
+    // Sasaran Kinerja Pegawai (SKP) HANYA untuk Tendik berkategori Kontrak Penuh Waktu atau Kontrak Paruh Waktu,
+    // dan HANYA bisa diakses setelah usulannya disetujui (approved) oleh atasan langsung DAN admin.
+    // Untuk Tenaga Profesional, Dosen, atau usulan yang belum di-approve: canAccessSkp = false.
+    const isTendikPenuhParuh = (u.layanan === 'Kontrak Tendik' && ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu'].includes(subMenuNormalized));
+    const canAccessSkp = isTendikPenuhParuh && isApprovedByAdmin && isEvaluasiAtasanDone;
+
+    const isApprovedOrCompleted = isApprovedByAdmin;
     if (isApprovedOrCompleted) {
-      const u = res.usulan;
-      const fd = u.form_data || {};
-
       let savedTmtBulan = normalizeMonth(u.tmt_bulan || fd.tmt_bulan);
       let savedTmtTahun = u.tmt_tahun || fd.tmt_tahun || '';
       let savedTstBulan = normalizeMonth(u.tst_bulan || fd.tst_bulan);
@@ -13389,9 +13403,11 @@ function handleUsulanKontrakSayaResult(res) {
               <input type="text" value="${escapeHtml(besaranUpahStr)}" readonly disabled class="field-input-dark" />
             </div>` : '';
 
-      const isTendikPenuhParuh = (res.usulan.layanan === 'Kontrak Tendik' && ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu'].includes(res.usulan.sub_menu || res.usulan.form_data?.status_kepegawaian));
-      const skpFormHtml = isTendikPenuhParuh ? renderSkpFormHtml(res.usulan) : '';
-      const isAlreadySelesai = (res.usulan.status === 'Selesai' || res.usulan.status === 'contract_generated' || !!res.usulan.perjanjian_dibuat);
+      if (canAccessSkp) {
+        skpFormHtml = renderSkpFormHtml(u);
+      }
+
+      const isAlreadySelesai = (u.status === 'Selesai' || u.status === 'contract_generated' || !!u.perjanjian_dibuat);
       const genBtnText = isAlreadySelesai ? '🔄 Generate Ulang Dokumen Perjanjian Kerja' : '🚀 Buat Dokumen Perjanjian Kerja Final';
 
       readOnlyCardHtml = `
@@ -13561,10 +13577,10 @@ function handleUsulanKontrakSayaResult(res) {
               <div>📄 ${escapeHtml(label)} ${linkButton}</div>
               <div>${icon}</div>
             </div>`;
-        }).join('')}}
+        }).join('')}
       </div>
 
-      ${isTendikPenuhParuh ? `
+      ${canAccessSkp ? `
         <div style="margin-top:24px; margin-bottom:16px; display:flex; gap:10px; background:var(--surface-alt); padding:6px; border-radius:10px; border:1px solid var(--border); width:fit-content; max-width:100%;">
           <button type="button" id="tabDocGenPerjanjian_${res.usulan.id}" class="btn btn-primary" style="padding:8px 18px; font-weight:700; border-radius:8px;" onclick="switchKontrakDocTab('${res.usulan.id}', 'perjanjian')">
             📄 Dokumen Perjanjian Kerja
@@ -13579,12 +13595,12 @@ function handleUsulanKontrakSayaResult(res) {
         <div id="wrapDocGenSkp_${res.usulan.id}" style="display:none;">
           ${skpFormHtml}
         </div>
-      ` : readOnlyCardHtml}
+      ` : (isApprovedOrCompleted ? readOnlyCardHtml : '')}
     `;
 
     if (isApprovedOrCompleted) {
       renderTemplateSelectorForUsulan(res.usulan.layanan, res.usulan.sub_menu, 'usulan_tplSelectorWrap_' + res.usulan.id, null, null, res.usulan.id);
-      if (isTendikPenuhParuh) {
+      if (canAccessSkp) {
         initSkpFormHandlers(res.usulan.id, res.usulan);
       }
     }
@@ -14606,7 +14622,7 @@ function renderKontrakReviewDetailContent_(u) {
             ❌ Tutup Usulan (Tidak Diperpanjang)
           </button>
         
-          ${['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu'].includes(u.sub_menu || u.form_data?.status_kepegawaian) ? `
+          ${(u.layanan === 'Kontrak Tendik' && ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu'].includes(u.sub_menu || u.form_data?.status_kepegawaian) && Boolean(u.evaluasi_skor)) ? `
             <button type="button" class="btn btn-secondary" style="font-weight:700; background:#4338ca; color:#fff; border-color:#4338ca; margin-left:8px;" onclick="bukaModalGenerateSkp('${u.id}')">
               📊 Buat Sasaran Kinerja Pegawai (SKP)
             </button>
@@ -17909,11 +17925,6 @@ function buatSkReset() {
 // Helper HTML escape
 function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;'); }
 
-
-
-
-
-</script>
 /* ========================= SASARAN KINERJA PEGAWAI (SKP) TENDIK ========================= */
 
 const SKP_BULAN_LIST = [
@@ -18744,6 +18755,7 @@ async function bukaModalGenerateSkp(usulanId) {
     showToast('error', 'Gagal membuka formulir SKP: ' + (err.message || err));
   }
 }
+</script>
 
 </body>
 </html>
