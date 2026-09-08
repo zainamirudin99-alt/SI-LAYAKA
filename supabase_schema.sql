@@ -291,11 +291,16 @@ CREATE TABLE IF NOT EXISTS usulan_kontrak (
   str_aktif_approved          BOOLEAN DEFAULT FALSE,
   keterangan_sehat_url        TEXT,
   keterangan_sehat_approved   BOOLEAN DEFAULT FALSE,
+  hasil_kerja_url             TEXT, -- Link Google Drive dokumentasi / PPT hasil kerja (khusus Tendik)
+  hasil_kerja_approved        BOOLEAN DEFAULT FALSE,
   diajukan_oleh_nip           TEXT,
   nama_pengaju                TEXT,
   tanggal_diajukan            TIMESTAMPTZ DEFAULT NOW(),
   status                      TEXT DEFAULT 'Diajukan',
   perjanjian_dibuat           BOOLEAN DEFAULT FALSE,
+  skp_dibuat                  BOOLEAN DEFAULT FALSE,
+  skp_data                    JSONB DEFAULT '{}',
+  skp_file_url                TEXT,
   diproses_oleh_nip           TEXT
 );
 
@@ -400,7 +405,12 @@ ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS str_aktif_url               
 ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS str_aktif_approved          BOOLEAN DEFAULT FALSE;
 ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS keterangan_sehat_url        TEXT;
 ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS keterangan_sehat_approved   BOOLEAN DEFAULT FALSE;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS hasil_kerja_url             TEXT;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS hasil_kerja_approved        BOOLEAN DEFAULT FALSE;
 ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS perjanjian_dibuat           BOOLEAN DEFAULT FALSE;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS skp_dibuat                  BOOLEAN DEFAULT FALSE;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS skp_data                    JSONB DEFAULT '{}';
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS skp_file_url                TEXT;
 
 -- ============================================================
 -- 12. TAMBAHAN UNTUK ALUR SK PENSIUN (PEGAWAI UNDIP NON-ASN)

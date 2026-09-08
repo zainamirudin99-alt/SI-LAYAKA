@@ -1588,6 +1588,11 @@
                       <input type="url" id="kontrakUser_file_str" class="field-input" placeholder="https://drive.google.com/file/d/.../view" autocomplete="off" />
                       <div class="helper-text" style="font-size:11px; color:#64748b; margin-top:3px;">Link Google Drive langsung ke file STR Aktif (Khusus Tenaga Medis)</div>
                     </div>
+                    <div class="stack-field grid-full" id="kontrakUser_hasilKerjaWrap" style="display:none; grid-column: 1 / -1;">
+                      <label>Link Hasil Kerja (Dokumentasi / PowerPoint) <span style="color:red;">*</span></label>
+                      <input type="url" id="kontrakUser_file_hasil_kerja" class="field-input" placeholder="https://drive.google.com/file/d/.../view" autocomplete="off" />
+                      <div class="helper-text" style="font-size:11px; color:#64748b; margin-top:3px;">Tautan Google Drive file hasil kerja langsung (dapat berupa dokumentasi pekerjaan atau presentasi PowerPoint PPT). Bukan link folder. Khusus Tenaga Kependidikan.</div>
+                    </div>
                   </div>
                
                <div class="actions-bar" style="margin-top:20px;">

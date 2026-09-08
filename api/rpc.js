@@ -84,6 +84,9 @@ function getLampiranUrl(data, k) {
   if (!url && k === 'pas_foto') {
     url = data.pas_foto_url || data.pasfoto_url || fd.pas_foto_url || fd.pasfoto_url || fd.pasfoto || '';
   }
+  if (!url && k === 'hasil_kerja') {
+    url = data.hasil_kerja_url || fd.hasil_kerja_url || fd.hasil_kerja || data.hasil_kerja || '';
+  }
   return String(url || '').trim();
 }
 
@@ -133,7 +136,7 @@ const CONFIG = {
   STATUS_KONTRAK_TKK_LIST: ['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan'],
   KONTRAK_UPAH_TIER: {tier1:2903600,tier2:3026400},
   ROLE_LIST: ['normal','user','admin','super_admin'],
-  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER','SK Pensiun BUP Pegawai Undip Non ASN','SK Pensiun Meninggal Pegawai Undip Non ASN','SK Pensiun Uzur Pegawai Undip Non ASN','SK Pensiun Undur Diri Pegawai Undip Non ASN'],'Kontrak Tendik':['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','Formulir Evaluasi','Perjanjian Kerja','Calon Pegawai Tetap Undip NON ASN'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','Perjanjian Kerja','Calon Pegawai Tetap Undip NON ASN'],'Buat SK dan Surat':['SK CPTU','SK PTU 100%','SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','Surat PLT','Surat PLH','SK Tutam Struktural','SK Tutam Dekan Wadek']},
+  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER','SK Pensiun BUP Pegawai Undip Non ASN','SK Pensiun Meninggal Pegawai Undip Non ASN','SK Pensiun Uzur Pegawai Undip Non ASN','SK Pensiun Undur Diri Pegawai Undip Non ASN'],'Kontrak Tendik':['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','Formulir Evaluasi','Perjanjian Kerja','Sasaran Kinerja Pegawai','Calon Pegawai Tetap Undip NON ASN'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','Perjanjian Kerja','Calon Pegawai Tetap Undip NON ASN'],'Buat SK dan Surat':['SK CPTU','SK PTU 100%','SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','Surat PLT','Surat PLH','SK Tutam Struktural','SK Tutam Dekan Wadek']},
   USULAN_KP_NOTIF_SIASN: 'Siap diusulkan ke-SIASN',
   USULAN_KP_NOTIF_SK:    'Siap Dibuat SK',
   // ---- SK Kenaikan Pangkat (Non-ASN) ----
@@ -2866,7 +2869,8 @@ const methods = {
       const LOOP_SECTION_NAMES = [
         'pejabat_dilantik','pejabat_lantik','dilantik',
         'pejabat_diberhentikan','pejabat_berhenti','diberhentikan',
-        'pejabat_terkait','pejabat'
+        'pejabat_terkait','pejabat',
+        'hasil_kerja_utama','hasil_kerja_tambahan'
       ];
 
       // Helper: dapatkan base key dari ekspresi (strip filter |upper dsb, strip [dropdown], strip set)
@@ -7159,7 +7163,7 @@ const methods = {
 
       if (!data) return { success: true, usulan: null };
 
-      const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat'];
+      const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat','hasil_kerja'];
       const semuaYangAda = LAMP_KEYS.filter(k => getLampiranUrl(data, k));
       const semuaApproved = semuaYangAda.every(k => data[k+'_approved']);
       return {
@@ -7177,6 +7181,9 @@ const methods = {
           tanggal_diajukan: formatTanggalIndonesia(data.tanggal_diajukan),
           semua_lampiran_disetujui: semuaApproved,
           perjanjian_dibuat: data.perjanjian_dibuat,
+          skp_dibuat: !!data.skp_dibuat,
+          skp_data: data.skp_data || {},
+          skp_file_url: data.skp_file_url || '',
           periode_kontrak: data.periode_kontrak || data.form_data?.periode_kontrak || '',
           tmt_bulan: data.tmt_bulan || data.form_data?.tmt_bulan || '',
           tmt_tahun: data.tmt_tahun || data.form_data?.tmt_tahun || '',
@@ -7231,7 +7238,7 @@ const methods = {
     const db = getDb();
     const { data, error } = await db.from('usulan_kontrak').select('*').neq('status','Ditolak').eq('unit', unit);
     if (error) throw error;
-    const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat'];
+    const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat','hasil_kerja'];
     const daftar = (data || [])
       .filter(u => !(u.diajukan_oleh_nip && u.diajukan_oleh_nip === u.diproses_oleh_nip && u.status === 'Selesai'))
       .map(u => ({
@@ -7239,6 +7246,9 @@ const methods = {
       tahun: u.tahun, jenis_usulan: u.jenis_usulan, evaluasi_kinerja: u.evaluasi_kinerja,
       layanan: u.layanan, sub_menu: u.sub_menu, status: u.status,
       nama_pengaju: u.nama_pengaju, tanggal_diajukan: formatTanggalIndonesia(u.tanggal_diajukan),
+      skp_dibuat: !!u.skp_dibuat,
+      skp_data: u.skp_data || {},
+      skp_file_url: u.skp_file_url || '',
       form_data: u.form_data || {},
       lampiran: LAMP_KEYS.map(k => ({
         key: k, label: k.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase()),
@@ -7252,7 +7262,7 @@ const methods = {
   async approveUsulanKontrakAttachment(args) {
     const [token, usulanId, lampKey, disetujui] = extractArgs(args);
     const decoded = requireRole(token, ['admin','super_admin']);
-    const VALID_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat'];
+    const VALID_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat','hasil_kerja'];
     if (!VALID_KEYS.includes(lampKey)) return { success: false, message: 'Kunci lampiran tidak valid.' };
     const db = getDb();
     const updateCol = {};
@@ -7289,7 +7299,8 @@ const methods = {
       surat_lamaran_approved: true,
       sim_ab_approved: true,
       str_aktif_approved: true,
-      keterangan_sehat_approved: true
+      keterangan_sehat_approved: true,
+      hasil_kerja_approved: true
     };
     const { error } = await db.from('usulan_kontrak').update(updateObj).eq('id', usulanId);
     if (error) throw error;
@@ -7542,7 +7553,7 @@ const methods = {
     const {
       nip, nama, unit, email, tahun, jenis_usulan, evaluasi_kinerja, layanan, sub_menu, atasan_nip, form_data,
       ktpBase64, kkBase64, pasFotoBase64, ijazahBase64, suratPengantarBase64, suratLamaranBase64,
-      simAbBase64, strAktifBase64, ketSehatBase64
+      simAbBase64, strAktifBase64, ketSehatBase64, hasilKerjaBase64
     } = payload || {};
 
     const targetNip = String(nip || decoded.nip).trim();
@@ -7569,9 +7580,10 @@ const methods = {
         lamaranUrl = payload.surat_lamaran_url || '',
         simUrl = payload.sim_ab_url || '',
         strUrl = payload.str_aktif_url || '',
-        sehatUrl = payload.keterangan_sehat_url || '';
+        sehatUrl = payload.keterangan_sehat_url || '',
+        hasilKerjaUrl = payload.hasil_kerja_url || '';
 
-    const allUrls = [ktpUrl, kkUrl, pasFotoUrl, ijazahUrl, pengantarUrl, lamaranUrl, simUrl, strUrl, sehatUrl];
+    const allUrls = [ktpUrl, kkUrl, pasFotoUrl, ijazahUrl, pengantarUrl, lamaranUrl, simUrl, strUrl, sehatUrl, hasilKerjaUrl];
     if (allUrls.some(u => isGdriveFolderUrl(u))) {
       return { success: false, message: 'Tautan berkas persyaratan harus langsung menuju ke FILE Google Drive, bukan tautan FOLDER.' };
     }
@@ -7583,6 +7595,7 @@ const methods = {
     if (!pengantarUrl && !suratPengantarBase64) return { success: false, message: 'Link Google Drive Surat Pengantar Unit wajib diisi.' };
     if (!lamaranUrl && !suratLamaranBase64) return { success: false, message: 'Link Google Drive Surat Lamaran wajib diisi.' };
     if (!sehatUrl && !ketSehatBase64) return { success: false, message: 'Link Google Drive Surat Keterangan Sehat wajib diisi.' };
+    if (!hasilKerjaUrl && !hasilKerjaBase64) return { success: false, message: 'Link Google Drive Bukti/Hasil Kerja (Dokumentasi/PPT) wajib diisi.' };
 
     try {
       if (!ktpUrl && ktpBase64) ktpUrl = await uploadLampiran(ktpBase64, `KTP-${targetNip}`, 'kontrak-tkk');
@@ -7594,6 +7607,7 @@ const methods = {
       if (!simUrl && simAbBase64) simUrl = await uploadLampiran(simAbBase64, `SIM-${targetNip}`, 'kontrak-tkk');
       if (!strUrl && strAktifBase64) strUrl = await uploadLampiran(strAktifBase64, `STR-${targetNip}`, 'kontrak-tkk');
       if (!sehatUrl && ketSehatBase64) sehatUrl = await uploadLampiran(ketSehatBase64, `SEHAT-${targetNip}`, 'kontrak-tkk');
+      if (!hasilKerjaUrl && hasilKerjaBase64) hasilKerjaUrl = await uploadLampiran(hasilKerjaBase64, `HASILKERJA-${targetNip}`, 'kontrak-tkk');
     } catch (upErr) {
       console.warn('[ajukanUsulanKontrakTendik] Upload lampiran notice:', upErr.message);
     }
@@ -7606,7 +7620,7 @@ const methods = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             method: 'ajukanUsulanKontrakDrive',
-            params: [shortId, Object.assign({}, payload, { atasan_nip, atasan_nama: atasanNama })],
+            params: [shortId, Object.assign({}, payload, { atasan_nip, atasan_nama: atasanNama, hasil_kerja_url: hasilKerjaUrl })],
             remoteSession: { id: shortId, data: { nip: targetNip, nama: targetNama } }
           })
         }).catch(e => console.warn('[GAS Bridge] Notice:', e.message));
@@ -7641,6 +7655,7 @@ const methods = {
       sim_ab_url: simUrl,
       str_aktif_url: strUrl,
       keterangan_sehat_url: sehatUrl,
+      hasil_kerja_url: hasilKerjaUrl,
       diajukan_oleh_nip: decoded.nip,
       nama_pengaju: decoded.nama,
       tanggal_diajukan: new Date().toISOString()
@@ -8150,6 +8165,253 @@ const methods = {
       });
     } catch (err) {
       return { success: false, message: 'Gagal generate kontrak: ' + err.message };
+    }
+  },
+
+  async generateSkpTendik(args) {
+    const [token, templateRef, usulanId, skpFormData] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin', 'normal', 'user']);
+    const role = decoded.role || 'normal';
+    const db = getDb();
+
+    if (!usulanId) return { success: false, message: 'ID usulan wajib diisi.' };
+    const { data: usulan, error: fetchErr } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
+    if (fetchErr) throw fetchErr;
+    if (!usulan) return { success: false, message: 'Usulan kontrak tidak ditemukan.' };
+
+    if (usulan.layanan !== 'Kontrak Tendik') {
+      return { success: false, message: 'Sasaran Kinerja Pegawai hanya berlaku untuk Tenaga Kependidikan.' };
+    }
+    const allowedSub = ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu'];
+    const currentSub = usulan.sub_menu || usulan.form_data?.status_kepegawaian || '';
+    if (!allowedSub.includes(currentSub)) {
+      return { success: false, message: 'Sasaran Kinerja Pegawai hanya berlaku untuk status Kontrak Penuh Waktu dan Kontrak Paruh Waktu.' };
+    }
+
+    // Pastikan usulan telah disetujui
+    const approvedStatuses = ['Disetujui', 'validated_by_admin', 'Selesai', 'contract_generated'];
+    if (!approvedStatuses.includes(usulan.status) && !usulan.perjanjian_dibuat) {
+      return { success: false, message: 'Usulan kontrak harus disetujui terlebih dahulu sebelum membuat SKP.' };
+    }
+
+    // Pastikan form evaluasi sudah diisi oleh atasan langsung
+    if (usulan.evaluasi_skor === null || usulan.evaluasi_skor === undefined) {
+      return { success: false, message: 'Formulir evaluasi kinerja belum diisi oleh Atasan Langsung.' };
+    }
+
+    // Ambil template: bisa dari templateRef atau default untuk Layanan Kontrak Tendik - Sasaran Kinerja Pegawai
+    let tmplRow = null;
+    if (templateRef) {
+      const { data } = await db.from('templates').select('*').or(`id.eq.${templateRef},file_id.eq.${templateRef}`).maybeSingle();
+      tmplRow = data;
+    }
+    if (!tmplRow) {
+      const { data } = await db.from('templates').select('*').eq('layanan', 'Kontrak Tendik').eq('sub_menu', 'Sasaran Kinerja Pegawai').order('dibuat_pada', { ascending: false }).limit(1).maybeSingle();
+      tmplRow = data;
+    }
+
+    if (!tmplRow) {
+      return { success: false, message: 'Template Sasaran Kinerja Pegawai belum ditemukan di menu Kelola Template.' };
+    }
+
+    const payloadData = skpFormData || {};
+
+    // Hitung tanggal akhir otomatis
+    const BULAN_NAMES = ['JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI', 'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'];
+    const blnAwal = String(payloadData.bulan_awal_penilaian || 'JANUARI').trim().toUpperCase();
+    const blnAkhir = String(payloadData.bulan_akhir_penilaian || 'DESEMBER').trim().toUpperCase();
+    const thnPenilaian = parseInt(payloadData.tahun_penilaian || new Date().getFullYear(), 10);
+    let blnAkhirIdx = BULAN_NAMES.indexOf(blnAkhir);
+    if (blnAkhirIdx === -1) blnAkhirIdx = 11;
+    const hariAkhir = String(new Date(thnPenilaian, blnAkhirIdx + 1, 0).getDate());
+
+    const tglBuatStr = formatTanggalIndonesia(new Date());
+
+    // Siapkan baris looping
+    const hasilUtamaList = Array.isArray(payloadData.hasil_kerja_utama) && payloadData.hasil_kerja_utama.length > 0
+      ? payloadData.hasil_kerja_utama.map((item, idx) => ({
+          no: idx + 1,
+          nama_hasil_kerja_utama: String(item.nama_hasil_kerja_utama || '').trim(),
+          ukuran_keberhasilan_hasil_kerja_utama: String(item.ukuran_keberhasilan_hasil_kerja_utama || '').trim()
+        }))
+      : [{ no: 1, nama_hasil_kerja_utama: '-', ukuran_keberhasilan_hasil_kerja_utama: '-' }];
+
+    const hasilTambahanList = Array.isArray(payloadData.hasil_kerja_tambahan) && payloadData.hasil_kerja_tambahan.length > 0
+      ? payloadData.hasil_kerja_tambahan.map((item, idx) => ({
+          no: idx + 1,
+          nama_hasil_kerja_tambahan: String(item.nama_hasil_kerja_tambahan || '').trim(),
+          ukuran_keberhasilan_hasil_kerja_tambahan: String(item.ukuran_keberhasilan_hasil_kerja_tambahan || '').trim()
+        }))
+      : [{ no: 1, nama_hasil_kerja_tambahan: '-', ukuran_keberhasilan_hasil_kerja_tambahan: '-' }];
+
+    const capaianOrg = String(payloadData.capaian_kinerja_organisasi || 'BAIK').trim().toUpperCase();
+    const predikatPeg = String(payloadData.predikat_kinerja_pegawai || 'BAIK').trim().toUpperCase();
+
+    const dataCtx = {
+      // Periode & Tanggal
+      bulan_awal_penilaian: blnAwal,
+      'bulan_awal_penilaian | upper': blnAwal,
+      bulan_akhir_penilaian: blnAkhir,
+      'bulan_akhir_penilaian | upper': blnAkhir,
+      hari_akhir_penilaian: hariAkhir,
+      tahun_penilaian: String(thnPenilaian),
+      tgl_buat: tglBuatStr,
+      tanggal_buat: tglBuatStr,
+
+      // Pegawai
+      nama_lengkap: String(payloadData.nama_lengkap || usulan.nama || '').trim(),
+      nip: String(payloadData.nip || usulan.nip || '').trim(),
+      pangkat: String(payloadData.pangkat || '').trim(),
+      golongan: String(payloadData.golongan || '').trim(),
+      jabatan: String(payloadData.jabatan || usulan.form_data?.jabatan || '').trim(),
+      unit_es_ii: String(payloadData.unit_es_ii || usulan.unit || '').trim(),
+
+      // Atasan Langsung
+      nama_lengkap_atasan_langsung: String(payloadData.nama_lengkap_atasan_langsung || usulan.atasan_nama || '').trim(),
+      nip_atasan_langsung: String(payloadData.nip_atasan_langsung || usulan.atasan_nip || '').trim(),
+      pangkat_atasan_langsung: String(payloadData.pangkat_atasan_langsung || '').trim(),
+      golongan_atasan_langsung: String(payloadData.golongan_atasan_langsung || '').trim(),
+      tutam_atasan_langsung: String(payloadData.tutam_atasan_langsung || '').trim(),
+      unit_es_ii_atasan_langsung: String(payloadData.unit_es_ii_atasan_langsung || '').trim(),
+
+      // Pejabat Penilai Kinerja
+      nama_lengkap_pejabat: String(payloadData.nama_lengkap_pejabat || '').trim(),
+      nip_pejabat: String(payloadData.nip_pejabat || '').trim(),
+      pangkat_pejabat: String(payloadData.pangkat_pejabat || '').trim(),
+      golongan_pejabat: String(payloadData.golongan_pejabat || '').trim(),
+      tutam_pejabat: String(payloadData.tutam_pejabat || '').trim(),
+      unit_es_ii_pejabat: String(payloadData.unit_es_ii_pejabat || '').trim(),
+
+      // Capaian & Predikat
+      capaian_kinerja_organisasi: capaianOrg,
+      'capaian_kinerja_organisasi | upper': capaianOrg,
+      predikat_kinerja_pegawai: predikatPeg,
+      'predikat_kinerja_pegawai | upper': predikatPeg,
+      catatan_rekomendasi: String(payloadData.catatan_rekomendasi || '').trim(),
+
+      // Looping baris
+      hasil_kerja_utama: hasilUtamaList,
+      hasil_kerja_tambahan: hasilTambahanList,
+
+      // Core Values BerAKHLAK
+      ekspektasi_berorientasi_pelayanan: String(payloadData.ekspektasi_berorientasi_pelayanan || '').trim(),
+      ekspektasi_akuntabel: String(payloadData.ekspektasi_akuntabel || '').trim(),
+      ekspektasi_kompeten: String(payloadData.ekspektasi_kompeten || '').trim(),
+      ekspektasi_harmonis: String(payloadData.ekspektasi_harmonis || '').trim(),
+      ekspektasi_loyal: String(payloadData.ekspektasi_loyal || '').trim(),
+      ekspektasi_adaptif: String(payloadData.ekspektasi_adaptif || '').trim(),
+      ekspektasi_kolaboratif: String(payloadData.ekspektasi_kolaboratif || '').trim()
+    };
+
+    const isDocxTemplate = tmplRow.tipe === 'docx';
+
+    if (isDocxTemplate) {
+      let templateBuffer;
+      try {
+        templateBuffer = await downloadTemplateBuffer(tmplRow.file_id);
+      } catch (err) {
+        return { success: false, message: 'Gagal mengunduh file template DOCX dari storage: ' + err.message };
+      }
+
+      const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx);
+
+      if (payloadData.is_preview) {
+        return {
+          success: true,
+          outputType: 'docx',
+          base64: renderedBuffer.toString('base64'),
+          fileName: `SKP_${dataCtx.nama_lengkap}_${thnPenilaian}.docx`,
+          message: 'Preview SKP berhasil dibuat.'
+        };
+      }
+
+      const mustPdf = ['normal', 'user'].includes(role) && payloadData.output_format === 'pdf';
+      if (mustPdf) {
+        const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+        if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi.' };
+        const shortId = uuidv4();
+        const remoteSession = { id: shortId, data: { nip: decoded.nip, nama_lengkap: decoded.nama, nama: decoded.nama, role: 'admin' } };
+        const response = await fetch(gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            method: 'convertDocxToPdf',
+            params: [shortId, renderedBuffer.toString('base64'), `SKP_${dataCtx.nama_lengkap}_${thnPenilaian}.docx`],
+            remoteSession
+          })
+        });
+        const gasResult = await response.json();
+        if (!gasResult.success) return gasResult;
+
+        await db.from('usulan_kontrak').update({
+          skp_dibuat: true,
+          skp_data: payloadData,
+          skp_file_url: gasResult.pdfUrl
+        }).eq('id', usulanId);
+
+        return { success: true, outputType: 'pdf', pdfUrl: gasResult.pdfUrl, fileName: gasResult.fileName };
+      }
+
+      // Output Word (.docx)
+      const base64Out = renderedBuffer.toString('base64');
+      await db.from('usulan_kontrak').update({
+        skp_dibuat: true,
+        skp_data: payloadData
+      }).eq('id', usulanId);
+
+      return {
+        success: true,
+        outputType: 'docx',
+        base64: base64Out,
+        fileName: `SKP_${dataCtx.nama_lengkap}_${thnPenilaian}.docx`,
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        message: 'Dokumen Sasaran Kinerja Pegawai (Word) berhasil digenerate.'
+      };
+    }
+
+    // JALUR GDOCS (Google Docs)
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi.' };
+
+    const shortId = uuidv4();
+    const remoteSession = {
+      id: shortId,
+      data: { nip: decoded.nip || '', nama_lengkap: decoded.nama || '', nama: decoded.nama || '', role: 'admin' }
+    };
+
+    try {
+      const response = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'generateKontrakFromUsulan',
+          params: [shortId, tmplRow.file_id, dataCtx],
+          remoteSession
+        })
+      });
+      const gasResult = await response.json();
+      if (!gasResult.success) return gasResult;
+
+      const resViewUrl = gasResult.viewUrl || gasResult.docViewUrl || (gasResult.docFileId ? `https://docs.google.com/document/d/${gasResult.docFileId}/edit` : '');
+      const resPdfUrl = gasResult.pdfViewUrl || gasResult.pdfDownloadUrl || (gasResult.pdfFileId ? `https://drive.google.com/file/d/${gasResult.pdfFileId}/view` : '');
+
+      await db.from('usulan_kontrak').update({
+        skp_dibuat: true,
+        skp_data: payloadData,
+        skp_file_url: resViewUrl || resPdfUrl
+      }).eq('id', usulanId);
+
+      return Object.assign({
+        success: true,
+        fileId: gasResult.fileId || gasResult.docFileId || '',
+        viewUrl: resViewUrl,
+        pdfUrl: resPdfUrl,
+        fileName: `SKP_${dataCtx.nama_lengkap}_${thnPenilaian}`,
+        message: 'Dokumen Sasaran Kinerja Pegawai (Google Docs) berhasil dibuat.',
+        outputType: gasResult.outputType || 'gdocs'
+      }, gasResult);
+    } catch (err) {
+      return { success: false, message: 'Gagal generate SKP via Google Docs: ' + err.message };
     }
   },
 

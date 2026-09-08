@@ -3012,6 +3012,11 @@
                       <input type="url" id="kontrakUser_file_str" class="field-input" placeholder="https://drive.google.com/file/d/.../view" autocomplete="off" />
                       <div class="helper-text" style="font-size:11px; color:#64748b; margin-top:3px;">Link Google Drive langsung ke file STR Aktif (Khusus Tenaga Medis)</div>
                     </div>
+                    <div class="stack-field grid-full" id="kontrakUser_hasilKerjaWrap" style="display:none; grid-column: 1 / -1;">
+                      <label>Link Hasil Kerja (Dokumentasi / PowerPoint) <span style="color:red;">*</span></label>
+                      <input type="url" id="kontrakUser_file_hasil_kerja" class="field-input" placeholder="https://drive.google.com/file/d/.../view" autocomplete="off" />
+                      <div class="helper-text" style="font-size:11px; color:#64748b; margin-top:3px;">Tautan Google Drive file hasil kerja langsung (dapat berupa dokumentasi pekerjaan atau presentasi PowerPoint PPT). Bukan link folder. Khusus Tenaga Kependidikan.</div>
+                    </div>
                   </div>
                
                <div class="actions-bar" style="margin-top:20px;">
@@ -12897,6 +12902,20 @@ function onKontrakUserLayananChange() {
       bindAtasanLangsungSearch();
     }
   }
+
+  const hasilKerjaWrap = document.getElementById('kontrakUser_hasilKerjaWrap');
+  const hasilKerjaInput = document.getElementById('kontrakUser_file_hasil_kerja');
+  if (hasilKerjaWrap) {
+    hasilKerjaWrap.style.display = (layanan === 'Kontrak Tendik') ? 'block' : 'none';
+    if (hasilKerjaInput) {
+      if (layanan === 'Kontrak Tendik') {
+        hasilKerjaInput.setAttribute('required', 'required');
+      } else {
+        hasilKerjaInput.removeAttribute('required');
+        hasilKerjaInput.value = '';
+      }
+    }
+  }
   
   if (!subMenuSelect) return;
   
@@ -13059,12 +13078,15 @@ async function submitUsulanKontrak(e) {
     const keterangan_sehat_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_ket_sehat')?.value, 'Surat Keterangan Sehat', true);
     const sim_ab_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_sim')?.value, 'SIM A & B', isDriver);
     const str_aktif_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_str')?.value, 'STR Aktif', isMedis);
+    const hasil_kerja_url = (layanan === 'Kontrak Tendik')
+      ? validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_hasil_kerja')?.value, 'Bukti/Hasil Kerja (Dokumentasi/PPT)', true)
+      : '';
 
     setBtnLoading(btn, true, 'Menyimpan Usulan...');
 
     const payload = {
       nip, nama, unit, email, tahun, jenis_usulan, evaluasi_kinerja, layanan, sub_menu, atasan_nip,
-      ktp_url, kk_url, pas_foto_url, ijazah_transkrip_url, surat_pengantar_url, surat_lamaran_url, keterangan_sehat_url, sim_ab_url, str_aktif_url,
+      ktp_url, kk_url, pas_foto_url, ijazah_transkrip_url, surat_pengantar_url, surat_lamaran_url, keterangan_sehat_url, sim_ab_url, str_aktif_url, hasil_kerja_url,
       form_data: {
         nip, nama_lengkap: nama, unit_es_ii: unit, jabatan: jabVal, email, atasan_nip,
         status_kepegawaian: sub_menu
@@ -13367,6 +13389,8 @@ function handleUsulanKontrakSayaResult(res) {
               <input type="text" value="${escapeHtml(besaranUpahStr)}" readonly disabled class="field-input-dark" />
             </div>` : '';
 
+      const isTendikPenuhParuh = (res.usulan.layanan === 'Kontrak Tendik' && ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu'].includes(res.usulan.sub_menu || res.usulan.form_data?.status_kepegawaian));
+      const skpFormHtml = isTendikPenuhParuh ? renderSkpFormHtml(res.usulan) : '';
       const isAlreadySelesai = (res.usulan.status === 'Selesai' || res.usulan.status === 'contract_generated' || !!res.usulan.perjanjian_dibuat);
       const genBtnText = isAlreadySelesai ? '🔄 Generate Ulang Dokumen Perjanjian Kerja' : '🚀 Buat Dokumen Perjanjian Kerja Final';
 
@@ -13540,11 +13564,29 @@ function handleUsulanKontrakSayaResult(res) {
         }).join('')}}
       </div>
 
-      ${readOnlyCardHtml}
+      ${isTendikPenuhParuh ? `
+        <div style="margin-top:24px; margin-bottom:16px; display:flex; gap:10px; background:var(--surface-alt); padding:6px; border-radius:10px; border:1px solid var(--border); width:fit-content; max-width:100%;">
+          <button type="button" id="tabDocGenPerjanjian_${res.usulan.id}" class="btn btn-primary" style="padding:8px 18px; font-weight:700; border-radius:8px;" onclick="switchKontrakDocTab('${res.usulan.id}', 'perjanjian')">
+            📄 Dokumen Perjanjian Kerja
+          </button>
+          <button type="button" id="tabDocGenSkp_${res.usulan.id}" class="btn btn-outline" style="padding:8px 18px; font-weight:700; border-radius:8px;" onclick="switchKontrakDocTab('${res.usulan.id}', 'skp')">
+            📊 Sasaran Kinerja Pegawai (SKP)
+          </button>
+        </div>
+        <div id="wrapDocGenPerjanjian_${res.usulan.id}">
+          ${readOnlyCardHtml}
+        </div>
+        <div id="wrapDocGenSkp_${res.usulan.id}" style="display:none;">
+          ${skpFormHtml}
+        </div>
+      ` : readOnlyCardHtml}
     `;
 
     if (isApprovedOrCompleted) {
       renderTemplateSelectorForUsulan(res.usulan.layanan, res.usulan.sub_menu, 'usulan_tplSelectorWrap_' + res.usulan.id, null, null, res.usulan.id);
+      if (isTendikPenuhParuh) {
+        initSkpFormHandlers(res.usulan.id, res.usulan);
+      }
     }
   }
 }
@@ -13709,7 +13751,8 @@ async function openModalEvaluasiTkk(usulanId) {
       { key: 'surat_lamaran_url', label: 'Surat Lamaran' },
       { key: 'keterangan_sehat_url', label: 'Surat Keterangan Sehat' },
       { key: 'sim_ab_url', label: 'SIM' },
-      { key: 'str_aktif_url', label: 'STR Aktif' }
+      { key: 'str_aktif_url', label: 'STR Aktif' },
+      { key: 'hasil_kerja_url', label: 'Hasil Kerja (Dokumentasi/PPT)' }
     ];
 
     const filesHtml = LAMP_KEYS.filter(f => u[f.key]).map(f => `
@@ -14436,7 +14479,8 @@ function renderKontrakReviewDetailContent_(u) {
     { key: 'surat_lamaran', label: 'Surat Lamaran' },
     { key: 'sim_ab', label: 'SIM A/B (Pengemudi)' },
     { key: 'str_aktif', label: 'STR Aktif (Medis)' },
-    { key: 'keterangan_sehat', label: 'Surat Keterangan Sehat' }
+    { key: 'keterangan_sehat', label: 'Surat Keterangan Sehat' },
+    { key: 'hasil_kerja', label: 'Hasil Kerja (Dokumentasi/PPT)' }
   ];
 
   const lampiranList = LAMP_DEFINITIONS.map(item => {
@@ -14561,7 +14605,12 @@ function renderKontrakReviewDetailContent_(u) {
           <button type="button" class="btn btn-outline" style="color:#ef4444; border-color:#ef4444; font-weight:600;" onclick="adminValidasiUsulanTendik('${u.id}', false)">
             ❌ Tutup Usulan (Tidak Diperpanjang)
           </button>
-        </div>
+        
+          ${['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu'].includes(u.sub_menu || u.form_data?.status_kepegawaian) ? `
+            <button type="button" class="btn btn-secondary" style="font-weight:700; background:#4338ca; color:#fff; border-color:#4338ca; margin-left:8px;" onclick="bukaModalGenerateSkp('${u.id}')">
+              📊 Buat Sasaran Kinerja Pegawai (SKP)
+            </button>
+          ` : ''}</div>
       </div>
     ` : '';
 
@@ -17865,5 +17914,836 @@ function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&
 
 
 </script>
+/* ========================= SASARAN KINERJA PEGAWAI (SKP) TENDIK ========================= */
+
+const SKP_BULAN_LIST = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
+
+function switchKontrakDocTab(usulanId, tabName) {
+  const tabPerjanjian = document.getElementById('tabDocGenPerjanjian_' + usulanId);
+  const tabSkp = document.getElementById('tabDocGenSkp_' + usulanId);
+  const wrapPerjanjian = document.getElementById('wrapDocGenPerjanjian_' + usulanId);
+  const wrapSkp = document.getElementById('wrapDocGenSkp_' + usulanId);
+
+  if (tabName === 'skp') {
+    if (tabPerjanjian) { tabPerjanjian.className = 'btn btn-outline'; }
+    if (tabSkp) { tabSkp.className = 'btn btn-primary'; }
+    if (wrapPerjanjian) wrapPerjanjian.style.display = 'none';
+    if (wrapSkp) wrapSkp.style.display = 'block';
+  } else {
+    if (tabPerjanjian) { tabPerjanjian.className = 'btn btn-primary'; }
+    if (tabSkp) { tabSkp.className = 'btn btn-outline'; }
+    if (wrapPerjanjian) wrapPerjanjian.style.display = 'block';
+    if (wrapSkp) wrapSkp.style.display = 'none';
+  }
+}
+
+function calculateSkpHariAkhir(blnAkhir, thn) {
+  const idx = SKP_BULAN_LIST.findIndex(b => b.toLowerCase() === String(blnAkhir || '').toLowerCase());
+  const monthIdx = (idx >= 0) ? idx : 11;
+  const year = parseInt(thn || new Date().getFullYear(), 10);
+  return new Date(year, monthIdx + 1, 0).getDate();
+}
+
+function onSkpPeriodeChange(usulanId) {
+  const blnAwal = document.getElementById('skp_blnAwal_' + usulanId)?.value || 'Januari';
+  const blnAkhir = document.getElementById('skp_blnAkhir_' + usulanId)?.value || 'Desember';
+  const thn = document.getElementById('skp_thnPenilaian_' + usulanId)?.value || new Date().getFullYear();
+  const lastDay = calculateSkpHariAkhir(blnAkhir, thn);
+  
+  const elHari = document.getElementById('skp_hariAkhir_' + usulanId);
+  if (elHari) elHari.value = String(lastDay);
+
+  const badge = document.getElementById('skp_periodeBadge_' + usulanId);
+  if (badge) {
+    badge.textContent = '📅 Periode Penilaian: 1 ' + blnAwal.toUpperCase() + ' s.d ' + lastDay + ' ' + blnAkhir.toUpperCase() + ' ' + thn;
+  }
+}
+
+function renderSkpFormHtml(u) {
+  const fd = u.form_data || {};
+  const saved = u.skp_data || {};
+  const thnSekarang = saved.tahun_penilaian || u.tahun || new Date().getFullYear();
+  const blnAwalSel = saved.bulan_awal_penilaian || 'Januari';
+  const blnAkhirSel = saved.bulan_akhir_penilaian || 'Desember';
+  const lastDay = calculateSkpHariAkhir(blnAkhirSel, thnSekarang);
+  const tglBuatStr = formatTanggalIndonesia(new Date());
+
+  const defUtama = Array.isArray(saved.hasil_kerja_utama) && saved.hasil_kerja_utama.length > 0 
+    ? saved.hasil_kerja_utama 
+    : [
+        { nama_hasil_kerja_utama: 'Pelaksanaan tugas pelayanan administrasi dan operasional unit kerja', ukuran_keberhasilan_hasil_kerja_utama: 'Terselesaikannya administrasi secara tepat waktu dan akurat' },
+        { nama_hasil_kerja_utama: 'Penyusunan laporan dan dokumentasi berkas kegiatan kerja', ukuran_keberhasilan_hasil_kerja_utama: 'Dokumen dan laporan tersusun rapi serta terverifikasi pimpinan' }
+      ];
+
+  const defTambahan = Array.isArray(saved.hasil_kerja_tambahan) && saved.hasil_kerja_tambahan.length > 0 
+    ? saved.hasil_kerja_tambahan 
+    : [
+        { nama_hasil_kerja_tambahan: 'Partisipasi dalam kepanitiaan atau kegiatan insidental unit kerja', ukuran_keberhasilan_hasil_kerja_tambahan: 'Tercapainya target kegiatan sesuai penugasan pimpinan' }
+      ];
+
+  return `
+    <div class="kontrak-form-wrap" style="margin-top:24px; padding:24px; background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.05);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--border); padding-bottom:12px; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+        <div>
+          <h3 style="margin:0; color:var(--text); font-size:18px; font-weight:800; display:flex; align-items:center; gap:8px;">
+            📊 Formulir Sasaran Kinerja Pegawai (SKP) Tendik
+          </h3>
+          <div style="font-size:12.5px; color:var(--text-muted); margin-top:4px;">
+            Lengkapi 29 placeholder SKP Tenaga Kependidikan Kontrak Penuh/Paruh Waktu. Template mendukung Google Docs & MS Word.
+          </div>
+        </div>
+        ${u.skp_dibuat ? '<span class="badge" style="background:#059669; color:#fff; padding:6px 12px; border-radius:8px; font-weight:700;">✅ SKP Pernah Dibuat</span>' : ''}
+      </div>
+
+      <!-- BAGIAN 1: PERIODE & TANGGAL PENILAIAN -->
+      <div style="background:var(--surface-alt); border:1px solid var(--border); border-radius:10px; padding:18px; margin-bottom:20px;">
+        <h4 style="margin-top:0; margin-bottom:14px; color:var(--primary); font-size:14px; font-weight:700;">
+          1. Periode &amp; Tanggal Penilaian
+        </h4>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:14px;">
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">BULAN AWAL PENILAIAN {{bulan_awal_penilaian | upper}}</label>
+            <select id="skp_blnAwal_${u.id}" class="kontrak-select-dark" onchange="onSkpPeriodeChange('${u.id}')">
+              ${SKP_BULAN_LIST.map(b => `<option value="${b}" ${b.toLowerCase() === blnAwalSel.toLowerCase() ? 'selected' : ''}>${b}</option>`).join('')}
+            </select>
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">BULAN AKHIR PENILAIAN {{bulan_akhir_penilaian | upper}}</label>
+            <select id="skp_blnAkhir_${u.id}" class="kontrak-select-dark" onchange="onSkpPeriodeChange('${u.id}')">
+              ${SKP_BULAN_LIST.map(b => `<option value="${b}" ${b.toLowerCase() === blnAkhirSel.toLowerCase() ? 'selected' : ''}>${b}</option>`).join('')}
+            </select>
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">TAHUN PENILAIAN {{tahun_penilaian}}</label>
+            <input type="number" id="skp_thnPenilaian_${u.id}" class="field-input-dark" value="${thnSekarang}" onchange="onSkpPeriodeChange('${u.id}')" />
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">HARI AKHIR PENILAIAN {{hari_akhir_penilaian}} (Otomatis)</label>
+            <input type="text" id="skp_hariAkhir_${u.id}" class="field-input-dark" value="${lastDay}" readonly disabled style="background:var(--card-bg-subtle, #f8fafc); font-weight:700; color:var(--primary);" />
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">TANGGAL BUAT {{tgl_buat}} (Otomatis Sistem)</label>
+            <input type="text" id="skp_tglBuat_${u.id}" class="field-input-dark" value="${tglBuatStr}" readonly disabled style="background:var(--card-bg-subtle, #f8fafc); font-weight:600;" />
+          </div>
+        </div>
+        <div id="skp_periodeBadge_${u.id}" style="font-size:12.5px; font-weight:700; color:#0284c7; margin-top:12px;">
+          📅 Periode Penilaian: 1 ${blnAwalSel.toUpperCase()} s.d ${lastDay} ${blnAkhirSel.toUpperCase()} ${thnSekarang}
+        </div>
+      </div>
+
+      <!-- BAGIAN 2: DATA PEGAWAI YANG DINILAI -->
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px; margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <h4 style="margin:0; color:var(--primary); font-size:14px; font-weight:700;">
+            2. Pegawai yang Dinilai
+          </h4>
+          <span style="font-size:12px; color:var(--text-muted);">Ketik nama/NIP untuk mencari dan mengisi otomatis</span>
+        </div>
+        <div style="position:relative; margin-bottom:14px;">
+          <input type="text" id="skp_searchPeg_${u.id}" class="field-input-dark" placeholder="🔍 Cari Nama / NIP Pegawai untuk auto-fill..." style="background:#fff;" />
+          <div id="skp_searchPegList_${u.id}" class="autocomplete-list" style="display:none; position:absolute; left:0; right:0; top:100%; z-index:90; background:#fff; border:1px solid #cbd5e1; border-radius:8px; max-height:220px; overflow-y:auto; box-shadow:0 8px 20px rgba(0,0,0,0.15);"></div>
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px;">
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">NAMA LENGKAP {{nama_lengkap}}</label>
+            <input type="text" id="skp_nama_${u.id}" class="field-input-dark" value="${escapeHtml(saved.nama_lengkap || u.nama || '')}" />
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">NIP {{nip}}</label>
+            <input type="text" id="skp_nip_${u.id}" class="field-input-dark" value="${escapeHtml(saved.nip || u.nip || '')}" />
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">PANGKAT {{pangkat}}</label>
+            <input type="text" id="skp_pangkat_${u.id}" class="field-input-dark" value="${escapeHtml(saved.pangkat || (typeof getPangkatForGolongan === 'function' ? getPangkatForGolongan(fd.golongan || '') : '') || '')}" />
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">GOLONGAN {{golongan}}</label>
+            <input type="text" id="skp_golongan_${u.id}" class="field-input-dark" value="${escapeHtml(saved.golongan || fd.golongan || '')}" />
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">JABATAN {{jabatan}}</label>
+            <input type="text" id="skp_jabatan_${u.id}" class="field-input-dark" value="${escapeHtml(saved.jabatan || fd.jabatan || u.jabatan || '')}" />
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">UNIT KERJA {{unit_es_ii}}</label>
+            <input type="text" id="skp_unit_${u.id}" class="field-input-dark" value="${escapeHtml(saved.unit_es_ii || u.unit || fd.unit_es_ii || '')}" />
+          </div>
+        </div>
+      </div>
+
+      <!-- BAGIAN 3: PEJABAT PENILAI KINERJA (ATASAN LANGSUNG) -->
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px; margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <h4 style="margin:0; color:var(--primary); font-size:14px; font-weight:700;">
+            3. Pejabat Penilai Kinerja (Atasan Langsung)
+          </h4>
+          <span style="font-size:12px; color:var(--text-muted);">Cari nama/NIP atasan langsung untuk mengisi otomatis</span>
+        </div>
+        <div style="position:relative; margin-bottom:14px;">
+          <input type="text" id="skp_searchAtasan_${u.id}" class="field-input-dark" placeholder="🔍 Cari Nama / NIP Atasan Langsung untuk auto-fill..." style="background:#fff;" />
+          <div id="skp_searchAtasanList_${u.id}" class="autocomplete-list" style="display:none; position:absolute; left:0; right:0; top:100%; z-index:90; background:#fff; border:1px solid #cbd5e1; border-radius:8px; max-height:220px; overflow-y:auto; box-shadow:0 8px 20px rgba(0,0,0,0.15);"></div>
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px;">
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">NAMA ATASAN {{nama_lengkap_atasan_langsung}}</label>
+            <input type="text" id="skp_namaAtasan_${u.id}" class="field-input-dark" value="${escapeHtml(saved.nama_lengkap_atasan_langsung || u.atasan_nama || '')}" />
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">NIP ATASAN {{nip_atasan_langsung}}</label>
+            <input type="text" id="skp_nipAtasan_${u.id}" class="field-input-dark" value="${escapeHtml(saved.nip_atasan_langsung || u.atasan_nip || '')}" />
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">PANGKAT ATASAN {{pangkat_atasan_langsung}}</label>
+            <input type="text" id="skp_pangkatAtasan_${u.id}" class="field-input-dark" value="${escapeHtml(saved.pangkat_atasan_langsung || '')}" />
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">GOLONGAN ATASAN {{golongan_atasan_langsung}}</label>
+            <input type="text" id="skp_golonganAtasan_${u.id}" class="field-input-dark" value="${escapeHtml(saved.golongan_atasan_langsung || '')}" />
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">TUGAS TAMBAHAN (TUTAM) {{tutam_atasan_langsung}}</label>
+            <input type="text" id="skp_tutamAtasan_${u.id}" class="field-input-dark" placeholder="Ketik tugas tambahan (opsional)..." value="${escapeHtml(saved.tutam_atasan_langsung || '')}" />
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">UNIT KERJA ATASAN {{unit_es_ii_atasan_langsung}}</label>
+            <input type="text" id="skp_unitAtasan_${u.id}" class="field-input-dark" value="${escapeHtml(saved.unit_es_ii_atasan_langsung || u.unit || '')}" />
+          </div>
+        </div>
+      </div>
+
+      <!-- BAGIAN 4: ATASAN PEJABAT PENILAI KINERJA (PEJABAT) -->
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px; margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <h4 style="margin:0; color:var(--primary); font-size:14px; font-weight:700;">
+            4. Atasan Pejabat Penilai Kinerja (Pejabat)
+          </h4>
+          <span style="font-size:12px; color:var(--text-muted);">Cari nama/NIP pejabat penilai untuk mengisi otomatis</span>
+        </div>
+        <div style="position:relative; margin-bottom:14px;">
+          <input type="text" id="skp_searchPejabat_${u.id}" class="field-input-dark" placeholder="🔍 Cari Nama / NIP Pejabat untuk auto-fill..." style="background:#fff;" />
+          <div id="skp_searchPejabatList_${u.id}" class="autocomplete-list" style="display:none; position:absolute; left:0; right:0; top:100%; z-index:90; background:#fff; border:1px solid #cbd5e1; border-radius:8px; max-height:220px; overflow-y:auto; box-shadow:0 8px 20px rgba(0,0,0,0.15);"></div>
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px;">
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">NAMA PEJABAT {{nama_lengkap_pejabat}}</label>
+            <input type="text" id="skp_namaPejabat_${u.id}" class="field-input-dark" value="${escapeHtml(saved.nama_lengkap_pejabat || '')}" />
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">NIP PEJABAT {{nip_pejabat}}</label>
+            <input type="text" id="skp_nipPejabat_${u.id}" class="field-input-dark" value="${escapeHtml(saved.nip_pejabat || '')}" />
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">PANGKAT PEJABAT {{pangkat_pejabat}}</label>
+            <input type="text" id="skp_pangkatPejabat_${u.id}" class="field-input-dark" value="${escapeHtml(saved.pangkat_pejabat || '')}" />
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">GOLONGAN PEJABAT {{golongan_pejabat}}</label>
+            <input type="text" id="skp_golonganPejabat_${u.id}" class="field-input-dark" value="${escapeHtml(saved.golongan_pejabat || '')}" />
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">TUGAS TAMBAHAN (TUTAM) {{tutam_pejabat}}</label>
+            <input type="text" id="skp_tutamPejabat_${u.id}" class="field-input-dark" placeholder="Ketik tugas tambahan pejabat (opsional)..." value="${escapeHtml(saved.tutam_pejabat || '')}" />
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">UNIT KERJA PEJABAT {{unit_es_ii_pejabat}}</label>
+            <input type="text" id="skp_unitPejabat_${u.id}" class="field-input-dark" value="${escapeHtml(saved.unit_es_ii_pejabat || u.unit || '')}" />
+          </div>
+        </div>
+      </div>
+
+      <!-- BAGIAN 5: PENILAIAN KINERJA & REKOMENDASI -->
+      <div style="background:var(--surface-alt); border:1px solid var(--border); border-radius:10px; padding:18px; margin-bottom:20px;">
+        <h4 style="margin-top:0; margin-bottom:14px; color:var(--primary); font-size:14px; font-weight:700;">
+          5. Penilaian Kinerja &amp; Rekomendasi
+        </h4>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:14px; margin-bottom:14px;">
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">CAPAIAN KINERJA ORGANISASI {{capaian_kinerja_organisasi | upper}}</label>
+            <select id="skp_capaianOrg_${u.id}" class="kontrak-select-dark">
+              <option value="ISTIMEWA" ${String(saved.capaian_kinerja_organisasi).toUpperCase() === 'ISTIMEWA' ? 'selected' : ''}>Istimewa</option>
+              <option value="BAIK" ${String(saved.capaian_kinerja_organisasi || 'BAIK').toUpperCase() === 'BAIK' ? 'selected' : ''}>Baik</option>
+            </select>
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">PREDIKAT KINERJA PEGAWAI {{predikat_kinerja_pegawai | upper}}</label>
+            <select id="skp_predikatPeg_${u.id}" class="kontrak-select-dark">
+              <option value="SANGAT BAIK" ${String(saved.predikat_kinerja_pegawai).toUpperCase() === 'SANGAT BAIK' ? 'selected' : ''}>Sangat Baik</option>
+              <option value="BAIK" ${String(saved.predikat_kinerja_pegawai || 'BAIK').toUpperCase() === 'BAIK' ? 'selected' : ''}>Baik</option>
+              <option value="CUKUP" ${String(saved.predikat_kinerja_pegawai).toUpperCase() === 'CUKUP' ? 'selected' : ''}>Cukup</option>
+            </select>
+          </div>
+        </div>
+        <div class="stack-field">
+          <label style="font-size:12px; font-weight:700;">CATATAN / REKOMENDASI {{catatan_rekomendasi}}</label>
+          <textarea id="skp_catatan_${u.id}" class="field-input-dark" rows="3" placeholder="Ketik catatan atau rekomendasi tindak lanjut...">${escapeHtml(saved.catatan_rekomendasi || u.evaluasi_rekomendasi || 'Tingkatkan komitmen, kinerja, dan integritas kerja secara berkelanjutan.')}</textarea>
+        </div>
+      </div>
+
+      <!-- BAGIAN 6: HASIL KERJA UTAMA (LOOPING ROWS) -->
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px; margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <div>
+            <h4 style="margin:0; color:var(--primary); font-size:14px; font-weight:700;">
+              6. Hasil Kerja Utama (Looping Baris: {{#hasil_kerja_utama}})
+            </h4>
+            <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+              Format template: {{#hasil_kerja_utama}} {{no}} {{nama_hasil_kerja_utama}} {{ukuran_keberhasilan_hasil_kerja_utama}} {{/hasil_kerja_utama}}
+            </div>
+          </div>
+          <button type="button" class="btn btn-outline" style="font-size:12px; padding:6px 12px; font-weight:600;" onclick="addSkpHkuRow('${u.id}')">
+            ➕ Tambah Baris Hasil Kerja Utama
+          </button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table id="skp_tableHku_${u.id}" style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+              <tr style="background:var(--surface-alt); border-bottom:2px solid var(--border);">
+                <th style="padding:8px 10px; width:45px; text-align:center;">No</th>
+                <th style="padding:8px 10px; text-align:left;">Rencana Hasil Kerja Utama</th>
+                <th style="padding:8px 10px; text-align:left;">Ukuran Keberhasilan / Indikator</th>
+                <th style="padding:8px 10px; width:60px; text-align:center;">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${defUtama.map((item, idx) => `
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td class="skp-hku-no" style="padding:8px; text-align:center; font-weight:700;">${idx + 1}</td>
+                  <td style="padding:8px;">
+                    <textarea class="field-input-dark skp-hku-nama" rows="2" placeholder="Nama hasil kerja utama...">${escapeHtml(item.nama_hasil_kerja_utama || '')}</textarea>
+                  </td>
+                  <td style="padding:8px;">
+                    <textarea class="field-input-dark skp-hku-ukuran" rows="2" placeholder="Ukuran keberhasilan / target...">${escapeHtml(item.ukuran_keberhasilan_hasil_kerja_utama || '')}</textarea>
+                  </td>
+                  <td style="padding:8px; text-align:center;">
+                    <button type="button" class="btn btn-outline" style="color:#ef4444; border-color:#fca5a5; padding:4px 8px; font-size:12px;" onclick="removeSkpRow(this, '${u.id}', 'hku')">🗑️</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- BAGIAN 7: HASIL KERJA TAMBAHAN (LOOPING ROWS) -->
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px; margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <div>
+            <h4 style="margin:0; color:var(--primary); font-size:14px; font-weight:700;">
+              7. Hasil Kerja Tambahan (Looping Baris: {{#hasil_kerja_tambahan}})
+            </h4>
+            <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+              Format template: {{#hasil_kerja_tambahan}} {{no}} {{nama_hasil_kerja_tambahan}} {{ukuran_keberhasilan_hasil_kerja_tambahan}} {{/hasil_kerja_tambahan}}
+            </div>
+          </div>
+          <button type="button" class="btn btn-outline" style="font-size:12px; padding:6px 12px; font-weight:600;" onclick="addSkpHktRow('${u.id}')">
+            ➕ Tambah Baris Hasil Kerja Tambahan
+          </button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table id="skp_tableHkt_${u.id}" style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+              <tr style="background:var(--surface-alt); border-bottom:2px solid var(--border);">
+                <th style="padding:8px 10px; width:45px; text-align:center;">No</th>
+                <th style="padding:8px 10px; text-align:left;">Rencana Hasil Kerja Tambahan</th>
+                <th style="padding:8px 10px; text-align:left;">Ukuran Keberhasilan / Indikator</th>
+                <th style="padding:8px 10px; width:60px; text-align:center;">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${defTambahan.map((item, idx) => `
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td class="skp-hkt-no" style="padding:8px; text-align:center; font-weight:700;">${idx + 1}</td>
+                  <td style="padding:8px;">
+                    <textarea class="field-input-dark skp-hkt-nama" rows="2" placeholder="Nama hasil kerja tambahan...">${escapeHtml(item.nama_hasil_kerja_tambahan || '')}</textarea>
+                  </td>
+                  <td style="padding:8px;">
+                    <textarea class="field-input-dark skp-hkt-ukuran" rows="2" placeholder="Ukuran keberhasilan / target...">${escapeHtml(item.ukuran_keberhasilan_hasil_kerja_tambahan || '')}</textarea>
+                  </td>
+                  <td style="padding:8px; text-align:center;">
+                    <button type="button" class="btn btn-outline" style="color:#ef4444; border-color:#fca5a5; padding:4px 8px; font-size:12px;" onclick="removeSkpRow(this, '${u.id}', 'hkt')">🗑️</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- BAGIAN 8: 7 CORE VALUES BerAKHLAK -->
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px; margin-bottom:20px;">
+        <h4 style="margin-top:0; margin-bottom:14px; color:var(--primary); font-size:14px; font-weight:700;">
+          8. Perilaku Kerja — Ekspektasi Khusus Pimpinan (BerAKHLAK)
+        </h4>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:14px;">
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">1. Berorientasi Pelayanan {{ekspektasi_berorientasi_pelayanan}}</label>
+            <textarea id="skp_ekspPelayanan_${u.id}" class="field-input-dark" rows="2">${escapeHtml(saved.ekspektasi_berorientasi_pelayanan || 'Memahami dan memenuhi kebutuhan penerima layanan dengan ramah, cekatan, dan solutif')}</textarea>
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">2. Akuntabel {{ekspektasi_akuntabel}}</label>
+            <textarea id="skp_ekspAkuntabel_${u.id}" class="field-input-dark" rows="2">${escapeHtml(saved.ekspektasi_akuntabel || 'Melaksanakan tugas dengan jujur, bertanggung jawab, cermat, disiplin, dan berintegritas tinggi')}</textarea>
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">3. Kompeten {{ekspektasi_kompeten}}</label>
+            <textarea id="skp_ekspKompeten_${u.id}" class="field-input-dark" rows="2">${escapeHtml(saved.ekspektasi_kompeten || 'Meningkatkan kompetensi diri dan membantu orang lain belajar serta menyelesaikan tugas kualitas terbaik')}</textarea>
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">4. Harmonis {{ekspektasi_harmonis}}</label>
+            <textarea id="skp_ekspHarmonis_${u.id}" class="field-input-dark" rows="2">${escapeHtml(saved.ekspektasi_harmonis || 'Menghargai setiap orang apapun latar belakangnya serta membangun lingkungan kerja yang kondusif')}</textarea>
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">5. Loyal {{ekspektasi_loyal}}</label>
+            <textarea id="skp_ekspLoyal_${u.id}" class="field-input-dark" rows="2">${escapeHtml(saved.ekspektasi_loyal || 'Memegang teguh ideologi Pancasila, UUD 1945, setia pada NKRI serta menjaga rahasia jabatan dan negara')}</textarea>
+          </div>
+          <div class="stack-field">
+            <label style="font-size:12px; font-weight:700;">6. Adaptif {{ekspektasi_adaptif}}</label>
+            <textarea id="skp_ekspAdaptif_${u.id}" class="field-input-dark" rows="2">${escapeHtml(saved.ekspektasi_adaptif || 'Cepat menyesuaikan diri menghadapi perubahan, terus berinovasi dan mengembangkan kreativitas')}</textarea>
+          </div>
+          <div class="stack-field" style="grid-column: 1 / -1;">
+            <label style="font-size:12px; font-weight:700;">7. Kolaboratif {{ekspektasi_kolaboratif}}</label>
+            <textarea id="skp_ekspKolaboratif_${u.id}" class="field-input-dark" rows="2">${escapeHtml(saved.ekspektasi_kolaboratif || 'Memberi kesempatan berbagai pihak untuk berkontribusi dan menggerakkan pemanfaatan sumber daya bersama')}</textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- BAGIAN 9: TEMPLATE SELECTOR (GDOCS & DOCX) -->
+      <div class="stack-field" style="margin-top:20px; margin-bottom:16px;">
+        <label style="font-weight:700; margin-bottom:8px; display:block;">PILIH TEMPLATE SASARAN KINERJA PEGAWAI (SKP)</label>
+        <div id="skp_tplSelectorWrap_${u.id}"></div>
+      </div>
+
+      <!-- TOMBOL AKSI -->
+      <div class="actions-bar" style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px; border-top:1px solid var(--border); padding-top:16px; flex-wrap:wrap;">
+        <button type="button" class="btn btn-outline" style="padding:10px 20px; font-weight:600;" onclick="previewSkpTendikSelf('${u.id}')">
+          👁️ Preview SKP
+        </button>
+        <button type="button" class="btn btn-primary" id="skp_genBtn_${u.id}" style="padding:10px 24px; font-weight:700; background:#2563eb; border-color:#2563eb;" onclick="generateSkpTendikSelf('${u.id}')">
+          🚀 Buat Sasaran Kinerja Pegawai (SKP)
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function addSkpHkuRow(usulanId, nama = '', ukuran = '') {
+  const tbody = document.querySelector('#skp_tableHku_' + usulanId + ' tbody');
+  if (!tbody) return;
+  const count = tbody.querySelectorAll('tr').length + 1;
+  const tr = document.createElement('tr');
+  tr.style.borderBottom = '1px solid var(--border)';
+  tr.innerHTML = `
+    <td class="skp-hku-no" style="padding:8px; text-align:center; font-weight:700;">${count}</td>
+    <td style="padding:8px;">
+      <textarea class="field-input-dark skp-hku-nama" rows="2" placeholder="Nama hasil kerja utama...">${escapeHtml(nama)}</textarea>
+    </td>
+    <td style="padding:8px;">
+      <textarea class="field-input-dark skp-hku-ukuran" rows="2" placeholder="Ukuran keberhasilan / target...">${escapeHtml(ukuran)}</textarea>
+    </td>
+    <td style="padding:8px; text-align:center;">
+      <button type="button" class="btn btn-outline" style="color:#ef4444; border-color:#fca5a5; padding:4px 8px; font-size:12px;" onclick="removeSkpRow(this, '${usulanId}', 'hku')">🗑️</button>
+    </td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function addSkpHktRow(usulanId, nama = '', ukuran = '') {
+  const tbody = document.querySelector('#skp_tableHkt_' + usulanId + ' tbody');
+  if (!tbody) return;
+  const count = tbody.querySelectorAll('tr').length + 1;
+  const tr = document.createElement('tr');
+  tr.style.borderBottom = '1px solid var(--border)';
+  tr.innerHTML = `
+    <td class="skp-hkt-no" style="padding:8px; text-align:center; font-weight:700;">${count}</td>
+    <td style="padding:8px;">
+      <textarea class="field-input-dark skp-hkt-nama" rows="2" placeholder="Nama hasil kerja tambahan...">${escapeHtml(nama)}</textarea>
+    </td>
+    <td style="padding:8px;">
+      <textarea class="field-input-dark skp-hkt-ukuran" rows="2" placeholder="Ukuran keberhasilan / target...">${escapeHtml(ukuran)}</textarea>
+    </td>
+    <td style="padding:8px; text-align:center;">
+      <button type="button" class="btn btn-outline" style="color:#ef4444; border-color:#fca5a5; padding:4px 8px; font-size:12px;" onclick="removeSkpRow(this, '${usulanId}', 'hkt')">🗑️</button>
+    </td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function removeSkpRow(btn, usulanId, type) {
+  const tr = btn.closest('tr');
+  if (!tr) return;
+  const tbody = tr.closest('tbody');
+  tr.remove();
+  if (tbody) {
+    const noClass = type === 'hku' ? '.skp-hku-no' : '.skp-hkt-no';
+    tbody.querySelectorAll('tr').forEach((row, i) => {
+      const cell = row.querySelector(noClass);
+      if (cell) cell.textContent = String(i + 1);
+    });
+  }
+}
+
+function bindSkpAutocomplete(inputId, listId, onSelect) {
+  const input = document.getElementById(inputId);
+  const list = document.getElementById(listId);
+  if (!input || !list || input._boundSkp) return;
+  input._boundSkp = true;
+  let timer;
+
+  input.addEventListener('input', e => {
+    clearTimeout(timer);
+    const q = e.target.value.trim();
+    if (q.length < 2) {
+      list.style.display = 'none';
+      list.innerHTML = '';
+      return;
+    }
+    timer = setTimeout(async () => {
+      try {
+        const res = await rpc('searchEmployees', [SESSION.token, q]);
+        const items = Array.isArray(res) ? res : (res?.data || []);
+        if (items.length > 0) {
+          list.innerHTML = items.map(emp => `
+            <div class="autocomplete-item" style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #e2e8f0; font-size:13px;" data-nip="${escapeHtml(emp.nip)}">
+              <strong>${escapeHtml(emp.nama_lengkap || emp.nama)}</strong>
+              <div style="font-size:11px; color:#64748b;">NIP: ${escapeHtml(emp.nip)} &bull; ${escapeHtml(emp.unitEsIi || emp.unit_es_ii || '-')}</div>
+            </div>
+          `).join('');
+          list.style.display = 'block';
+          list.querySelectorAll('.autocomplete-item').forEach(el => {
+            el.onclick = async () => {
+              const nip = el.getAttribute('data-nip');
+              list.style.display = 'none';
+              try {
+                const full = await rpc('getEmployeeFullData', [SESSION.token, nip]);
+                onSelect(full || { nip });
+              } catch (_) {
+                const item = items.find(x => x.nip === nip);
+                onSelect(item || { nip });
+              }
+            };
+          });
+        } else {
+          list.innerHTML = '<div style="padding:8px 12px; font-size:12px; color:#94a3b8;">Tidak ditemukan pegawai.</div>';
+          list.style.display = 'block';
+        }
+      } catch (err) {
+        console.warn('[bindSkpAutocomplete] error:', err);
+      }
+    }, 250);
+  });
+
+  document.addEventListener('click', e => {
+    if (!input.contains(e.target) && !list.contains(e.target)) {
+      list.style.display = 'none';
+    }
+  });
+}
+
+function initSkpFormHandlers(usulanId, u) {
+  // Autocomplete 1: Pegawai yang Dinilai
+  bindSkpAutocomplete('skp_searchPeg_' + usulanId, 'skp_searchPegList_' + usulanId, emp => {
+    const nama = emp.nama_lengkap || emp.nama || '';
+    const nip = emp.nip || '';
+    const gol = emp.golongan || '';
+    const pgt = emp.pangkat || (typeof getPangkatForGolongan === 'function' ? getPangkatForGolongan(gol) : '') || '';
+    const jab = emp.jabatan || '';
+    const unit = emp.unit_es_ii || emp.unitEsIi || '';
+
+    if (document.getElementById('skp_nama_' + usulanId)) document.getElementById('skp_nama_' + usulanId).value = nama;
+    if (document.getElementById('skp_nip_' + usulanId)) document.getElementById('skp_nip_' + usulanId).value = nip;
+    if (document.getElementById('skp_pangkat_' + usulanId)) document.getElementById('skp_pangkat_' + usulanId).value = pgt;
+    if (document.getElementById('skp_golongan_' + usulanId)) document.getElementById('skp_golongan_' + usulanId).value = gol;
+    if (document.getElementById('skp_jabatan_' + usulanId)) document.getElementById('skp_jabatan_' + usulanId).value = jab;
+    if (document.getElementById('skp_unit_' + usulanId)) document.getElementById('skp_unit_' + usulanId).value = unit;
+    showToast('info', 'Data pegawai berhasil diisi otomatis.');
+  });
+
+  // Autocomplete 2: Pejabat Penilai Kinerja (Atasan Langsung)
+  bindSkpAutocomplete('skp_searchAtasan_' + usulanId, 'skp_searchAtasanList_' + usulanId, emp => {
+    const nama = emp.nama_lengkap || emp.nama || '';
+    const nip = emp.nip || '';
+    const gol = emp.golongan || '';
+    const pgt = emp.pangkat || (typeof getPangkatForGolongan === 'function' ? getPangkatForGolongan(gol) : '') || '';
+    const unit = emp.unit_es_ii || emp.unitEsIi || '';
+
+    if (document.getElementById('skp_namaAtasan_' + usulanId)) document.getElementById('skp_namaAtasan_' + usulanId).value = nama;
+    if (document.getElementById('skp_nipAtasan_' + usulanId)) document.getElementById('skp_nipAtasan_' + usulanId).value = nip;
+    if (document.getElementById('skp_pangkatAtasan_' + usulanId)) document.getElementById('skp_pangkatAtasan_' + usulanId).value = pgt;
+    if (document.getElementById('skp_golonganAtasan_' + usulanId)) document.getElementById('skp_golonganAtasan_' + usulanId).value = gol;
+    if (document.getElementById('skp_unitAtasan_' + usulanId)) document.getElementById('skp_unitAtasan_' + usulanId).value = unit;
+    showToast('info', 'Data atasan langsung berhasil diisi otomatis.');
+  });
+
+  // Autocomplete 3: Atasan Pejabat Penilai Kinerja (Pejabat)
+  bindSkpAutocomplete('skp_searchPejabat_' + usulanId, 'skp_searchPejabatList_' + usulanId, emp => {
+    const nama = emp.nama_lengkap || emp.nama || '';
+    const nip = emp.nip || '';
+    const gol = emp.golongan || '';
+    const pgt = emp.pangkat || (typeof getPangkatForGolongan === 'function' ? getPangkatForGolongan(gol) : '') || '';
+    const unit = emp.unit_es_ii || emp.unitEsIi || '';
+
+    if (document.getElementById('skp_namaPejabat_' + usulanId)) document.getElementById('skp_namaPejabat_' + usulanId).value = nama;
+    if (document.getElementById('skp_nipPejabat_' + usulanId)) document.getElementById('skp_nipPejabat_' + usulanId).value = nip;
+    if (document.getElementById('skp_pangkatPejabat_' + usulanId)) document.getElementById('skp_pangkatPejabat_' + usulanId).value = pgt;
+    if (document.getElementById('skp_golonganPejabat_' + usulanId)) document.getElementById('skp_golonganPejabat_' + usulanId).value = gol;
+    if (document.getElementById('skp_unitPejabat_' + usulanId)) document.getElementById('skp_unitPejabat_' + usulanId).value = unit;
+    showToast('info', 'Data pejabat penilai berhasil diisi otomatis.');
+  });
+
+  // Render template selector for SKP
+  renderTemplateSelectorForSkp('Kontrak Tendik', 'Sasaran Kinerja Pegawai', 'skp_tplSelectorWrap_' + usulanId, usulanId);
+}
+
+function renderTemplateSelectorForSkp(layanan, subMenu, wrapId, usulanId) {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap) return;
+
+  const selectId = 'skp_templateSelect_' + usulanId;
+  const radioName = 'skp_templateSelectType_' + usulanId;
+
+  wrap.innerHTML = `
+    <div style="margin-bottom:12px; text-align:left;">
+      <div style="display:flex; gap:16px; margin-bottom:8px;">
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
+          <input type="radio" name="${radioName}" value="docx" checked /> Microsoft Word (.docx)
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
+          <input type="radio" name="${radioName}" value="gdocs" /> Google Docs (GDocs)
+        </label>
+      </div>
+      <select id="${selectId}" class="field-input" style="width:100%;" required></select>
+    </div>
+  `;
+
+  const selectEl = document.getElementById(selectId);
+  selectEl.innerHTML = '<option value="">Memuat template SKP...</option>';
+
+  const loadTmpl = async () => {
+    try {
+      const res = await rpc('getTemplates', [SESSION.token, layanan, subMenu]);
+      const templates = res?.templates || (Array.isArray(res) ? res : []);
+      
+      const filterTpl = (tipe) => {
+        const filtered = templates.filter(t => (t.tipe || 'gdocs') === tipe);
+        if (!filtered.length) {
+          selectEl.innerHTML = '<option value="">Belum ada template ' + (tipe === 'docx' ? 'Word (.docx)' : 'Google Docs') + ' untuk Sasaran Kinerja Pegawai</option>';
+          return;
+        }
+        selectEl.innerHTML = filtered.map(t => {
+          const val = t.id || t.fileId || t.file_id;
+          return '<option value="' + val + '" data-tipe="' + (t.tipe || 'gdocs') + '">' + escapeHtml(t.judul) + '</option>';
+        }).join('');
+      };
+
+      filterTpl('docx');
+
+      wrap.querySelectorAll('input[name="' + radioName + '"]').forEach(radio => {
+        radio.addEventListener('change', e => {
+          filterTpl(e.target.value);
+        });
+      });
+    } catch (err) {
+      selectEl.innerHTML = '<option value="">Gagal memuat template: ' + (err.message || err) + '</option>';
+    }
+  };
+
+  loadTmpl();
+}
+
+function collectSkpFormData(usulanId) {
+  const blnAwal = document.getElementById('skp_blnAwal_' + usulanId)?.value || 'Januari';
+  const blnAkhir = document.getElementById('skp_blnAkhir_' + usulanId)?.value || 'Desember';
+  const thn = document.getElementById('skp_thnPenilaian_' + usulanId)?.value || new Date().getFullYear();
+  const hariAkhir = calculateSkpHariAkhir(blnAkhir, thn);
+
+  const nama = document.getElementById('skp_nama_' + usulanId)?.value?.trim() || '';
+  const nip = document.getElementById('skp_nip_' + usulanId)?.value?.trim() || '';
+  const pangkat = document.getElementById('skp_pangkat_' + usulanId)?.value?.trim() || '';
+  const golongan = document.getElementById('skp_golongan_' + usulanId)?.value?.trim() || '';
+  const jabatan = document.getElementById('skp_jabatan_' + usulanId)?.value?.trim() || '';
+  const unit = document.getElementById('skp_unit_' + usulanId)?.value?.trim() || '';
+
+  const namaAtasan = document.getElementById('skp_namaAtasan_' + usulanId)?.value?.trim() || '';
+  const nipAtasan = document.getElementById('skp_nipAtasan_' + usulanId)?.value?.trim() || '';
+  const pangkatAtasan = document.getElementById('skp_pangkatAtasan_' + usulanId)?.value?.trim() || '';
+  const golonganAtasan = document.getElementById('skp_golonganAtasan_' + usulanId)?.value?.trim() || '';
+  const tutamAtasan = document.getElementById('skp_tutamAtasan_' + usulanId)?.value?.trim() || '';
+  const unitAtasan = document.getElementById('skp_unitAtasan_' + usulanId)?.value?.trim() || '';
+
+  const namaPejabat = document.getElementById('skp_namaPejabat_' + usulanId)?.value?.trim() || '';
+  const nipPejabat = document.getElementById('skp_nipPejabat_' + usulanId)?.value?.trim() || '';
+  const pangkatPejabat = document.getElementById('skp_pangkatPejabat_' + usulanId)?.value?.trim() || '';
+  const golonganPejabat = document.getElementById('skp_golonganPejabat_' + usulanId)?.value?.trim() || '';
+  const tutamPejabat = document.getElementById('skp_tutamPejabat_' + usulanId)?.value?.trim() || '';
+  const unitPejabat = document.getElementById('skp_unitPejabat_' + usulanId)?.value?.trim() || '';
+
+  const capaianOrg = document.getElementById('skp_capaianOrg_' + usulanId)?.value || 'BAIK';
+  const predikatPeg = document.getElementById('skp_predikatPeg_' + usulanId)?.value || 'BAIK';
+  const catatan = document.getElementById('skp_catatan_' + usulanId)?.value?.trim() || '';
+
+  // Looping Hasil Kerja Utama
+  const hkuList = [];
+  const hkuRows = document.querySelectorAll('#skp_tableHku_' + usulanId + ' tbody tr');
+  hkuRows.forEach((tr, i) => {
+    const n = tr.querySelector('.skp-hku-nama')?.value?.trim() || '';
+    const u = tr.querySelector('.skp-hku-ukuran')?.value?.trim() || '';
+    if (n || u) {
+      hkuList.push({ no: i + 1, nama_hasil_kerja_utama: n, ukuran_keberhasilan_hasil_kerja_utama: u });
+    }
+  });
+
+  // Looping Hasil Kerja Tambahan
+  const hktList = [];
+  const hktRows = document.querySelectorAll('#skp_tableHkt_' + usulanId + ' tbody tr');
+  hktRows.forEach((tr, i) => {
+    const n = tr.querySelector('.skp-hkt-nama')?.value?.trim() || '';
+    const u = tr.querySelector('.skp-hkt-ukuran')?.value?.trim() || '';
+    if (n || u) {
+      hktList.push({ no: i + 1, nama_hasil_kerja_tambahan: n, ukuran_keberhasilan_hasil_kerja_tambahan: u });
+    }
+  });
+
+  const ekspPelayanan = document.getElementById('skp_ekspPelayanan_' + usulanId)?.value?.trim() || '';
+  const ekspAkuntabel = document.getElementById('skp_ekspAkuntabel_' + usulanId)?.value?.trim() || '';
+  const ekspKompeten = document.getElementById('skp_ekspKompeten_' + usulanId)?.value?.trim() || '';
+  const ekspHarmonis = document.getElementById('skp_ekspHarmonis_' + usulanId)?.value?.trim() || '';
+  const ekspLoyal = document.getElementById('skp_ekspLoyal_' + usulanId)?.value?.trim() || '';
+  const ekspAdaptif = document.getElementById('skp_ekspAdaptif_' + usulanId)?.value?.trim() || '';
+  const ekspKolaboratif = document.getElementById('skp_ekspKolaboratif_' + usulanId)?.value?.trim() || '';
+
+  return {
+    bulan_awal_penilaian: blnAwal.toUpperCase(),
+    bulan_akhir_penilaian: blnAkhir.toUpperCase(),
+    tahun_penilaian: thn,
+    hari_akhir_penilaian: String(hariAkhir),
+    nama_lengkap: nama,
+    nip,
+    pangkat,
+    golongan,
+    jabatan,
+    unit_es_ii: unit,
+    nama_lengkap_atasan_langsung: namaAtasan,
+    nip_atasan_langsung: nipAtasan,
+    pangkat_atasan_langsung: pangkatAtasan,
+    golongan_atasan_langsung: golonganAtasan,
+    tutam_atasan_langsung: tutamAtasan,
+    unit_es_ii_atasan_langsung: unitAtasan,
+    nama_lengkap_pejabat: namaPejabat,
+    nip_pejabat: nipPejabat,
+    pangkat_pejabat: pangkatPejabat,
+    golongan_pejabat: golonganPejabat,
+    tutam_pejabat: tutamPejabat,
+    unit_es_ii_pejabat: unitPejabat,
+    capaian_kinerja_organisasi: capaianOrg,
+    predikat_kinerja_pegawai: predikatPeg,
+    catatan_rekomendasi: catatan,
+    hasil_kerja_utama: hkuList,
+    hasil_kerja_tambahan: hktList,
+    ekspektasi_berorientasi_pelayanan: ekspPelayanan,
+    ekspektasi_akuntabel: ekspAkuntabel,
+    ekspektasi_kompeten: ekspKompeten,
+    ekspektasi_harmonis: ekspHarmonis,
+    ekspektasi_loyal: ekspLoyal,
+    ekspektasi_adaptif: ekspAdaptif,
+    ekspektasi_kolaboratif: ekspKolaboratif
+  };
+}
+
+async function previewSkpTendikSelf(usulanId) {
+  const selectEl = document.getElementById('skp_templateSelect_' + usulanId);
+  const templateRef = selectEl ? selectEl.value : '';
+  if (!templateRef) {
+    showToast('error', 'Silakan pilih template SKP terlebih dahulu.');
+    return;
+  }
+
+  const payloadData = collectSkpFormData(usulanId);
+  payloadData.is_preview = true;
+
+  showToast('info', 'Menyiapkan preview SKP...');
+  try {
+    const res = await rpc('generateSkpTendik', [SESSION.token, templateRef, usulanId, payloadData]);
+    if (res && res.success) {
+      if (res.base64) {
+        openDocxPreviewModal(res.base64, res.fileName || 'Preview_SKP.docx');
+      } else if (res.viewUrl || res.pdfUrl) {
+        window.open(res.viewUrl || res.pdfUrl, '_blank');
+      } else {
+        showToast('success', res.message || 'Preview berhasil disiapkan.');
+      }
+    } else {
+      showToast('error', res?.message || 'Gagal menyiapkan preview SKP.');
+    }
+  } catch (err) {
+    showToast('error', 'Gagal preview SKP: ' + (err.message || err));
+  }
+}
+
+async function generateSkpTendikSelf(usulanId) {
+  const selectEl = document.getElementById('skp_templateSelect_' + usulanId);
+  const templateRef = selectEl ? selectEl.value : '';
+  if (!templateRef) {
+    showToast('error', 'Silakan pilih template SKP terlebih dahulu.');
+    return;
+  }
+
+  const payloadData = collectSkpFormData(usulanId);
+  if (!payloadData.nama_lengkap || !payloadData.nip) {
+    showToast('error', 'Data pegawai (Nama & NIP) wajib diisi.');
+    return;
+  }
+  if (!payloadData.nama_lengkap_atasan_langsung || !payloadData.nip_atasan_langsung) {
+    showToast('error', 'Data atasan langsung penilai kinerja wajib diisi.');
+    return;
+  }
+
+  const btn = document.getElementById('skp_genBtn_' + usulanId);
+  setBtnLoading(btn, true, 'Membuat SKP...');
+
+  try {
+    const res = await rpc('generateSkpTendik', [SESSION.token, templateRef, usulanId, payloadData]);
+    setBtnLoading(btn, false, '🚀 Buat Sasaran Kinerja Pegawai (SKP)');
+    if (res && res.success) {
+      showToast('success', res.message || 'Sasaran Kinerja Pegawai berhasil dibuat.');
+      if (res.outputType === 'docx' && res.base64) {
+        downloadDocxFromBase64(res.base64, res.fileName || 'SKP_' + payloadData.nama_lengkap + '.docx');
+      } else if (res.outputType === 'pdf' && res.pdfUrl) {
+        window.open(res.pdfUrl, '_blank');
+      } else if (res.viewUrl) {
+        window.open(res.viewUrl, '_blank');
+      }
+      // Refresh usulan jika di halaman usulan saya
+      if (typeof loadUsulanKontrakSaya === 'function') {
+        loadUsulanKontrakSaya();
+      }
+    } else {
+      showToast('error', res?.message || 'Gagal generate SKP.');
+    }
+  } catch (err) {
+    setBtnLoading(btn, false, '🚀 Buat Sasaran Kinerja Pegawai (SKP)');
+    showToast('error', 'Gagal generate SKP: ' + (err.message || err));
+  }
+}
+
+async function bukaModalGenerateSkp(usulanId) {
+  showToast('info', 'Memuat data usulan untuk formulir SKP...');
+  try {
+    const res = await rpc('getDetailEvaluasiKontrak', [SESSION.token, usulanId]);
+    if (!res || !res.success) {
+      showToast('error', res?.message || 'Gagal memuat usulan.');
+      return;
+    }
+    const u = res.data || res.usulan;
+    document.getElementById('modalTitle').textContent = '📊 Sasaran Kinerja Pegawai (SKP) — ' + (u.nama || '');
+    document.getElementById('modalBody').innerHTML = renderSkpFormHtml(u);
+    document.getElementById('modalOverlay').style.display = 'flex';
+    initSkpFormHandlers(u.id, u);
+  } catch (err) {
+    showToast('error', 'Gagal membuka formulir SKP: ' + (err.message || err));
+  }
+}
+
 </body>
 </html>
