@@ -738,6 +738,7 @@ function buildEvaluasiTkkDataContext(usulan, evalData, empData, atasanEmp) {
   const totalSkor = p1 + p2 + p3 + p4 + p5 + p6 + p7;
   const isExtend = (ed.keputusan === 'diperbarui') || (!ed.keputusan && totalSkor > 10.5); // (>= 11)
   const totalTahunPembaruan = tahunEvaluasi + 1;
+  const totalTahunPerpanjangan = totalTahunPembaruan;
   let rekomendasi = isExtend
     ? `Diperbarui Kontrak s.d. 31 Desember ${totalTahunPembaruan}`
     : 'Tidak Diperbarui';
@@ -775,6 +776,7 @@ function buildEvaluasiTkkDataContext(usulan, evalData, empData, atasanEmp) {
     atasan_langsung: namaAtasan,
     nip_atasan_langsung: nipAtasan,
     total_tahun_perpanjangan: String(totalTahunPerpanjangan),
+    total_tahun_pembaruan: String(totalTahunPembaruan),
     rekomendasi: rekomendasi,
     ttd: ed.ttd || ed.ttd_base64 || ''
   };
