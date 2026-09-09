@@ -10383,12 +10383,12 @@ async function generateEvaluasiDanLanjutKeSkp() {
     return;
   }
 
-  const payload = collectEvaluasiTkkPayload();
-  setBtnLoading(btn, true, 'Menyiapkan Evaluasi & Lanjut...');
+  if (btn) setBtnLoading(btn, true, 'Menyiapkan Evaluasi & Lanjut...');
 
   try {
+    const payload = collectEvaluasiTkkPayload();
     const res = await rpc('simpanDanGenerateEvaluasiTkk', [SESSION.token, activeEvaluasiUsulanId, payload, false, false]);
-    setBtnLoading(btn, false, '⚡ Generate Form Evaluasi & Lanjut ke SKP &rarr;');
+    if (btn) setBtnLoading(btn, false, '⚡ Generate Form Evaluasi & Lanjut ke SKP &rarr;');
     if (res && res.success) {
       showToast('success', 'Formulir evaluasi kinerja berhasil disimpan. Lanjut mengisi Sasaran Kinerja Pegawai (SKP).');
       switchEvalModalStep(2);
@@ -10396,7 +10396,7 @@ async function generateEvaluasiDanLanjutKeSkp() {
       showToast('error', res?.message || 'Gagal menyimpan evaluasi.');
     }
   } catch (err) {
-    setBtnLoading(btn, false, '⚡ Generate Form Evaluasi & Lanjut ke SKP &rarr;');
+    if (btn) setBtnLoading(btn, false, '⚡ Generate Form Evaluasi & Lanjut ke SKP &rarr;');
     showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
   }
 }
@@ -10625,12 +10625,16 @@ function trimCanvas_(canvas) {
   return trimmedCanvas.toDataURL('image/png');
 }
 
+function trimCanvasSignature(canvas) {
+  return typeof trimCanvas_ === 'function' ? trimCanvas_(canvas) : '';
+}
+
 function collectEvaluasiTkkPayload() {
   let ttdBase64 = '';
   if (evalTkkCanvas && evalTkkHasDrawn) {
-    ttdBase64 = trimCanvasSignature(evalTkkCanvas);
-  } else if (activeEvaluasiDetail?.evaluasi_data?.ttd_base64) {
-    ttdBase64 = activeEvaluasiDetail.evaluasi_data.ttd_base64;
+    ttdBase64 = typeof trimCanvas_ === 'function' ? trimCanvas_(evalTkkCanvas) : (evalTkkCanvas.toDataURL ? evalTkkCanvas.toDataURL('image/png') : '');
+  } else if (activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd) {
+    ttdBase64 = activeEvaluasiDetail.evaluasi_data.ttd_base64 || activeEvaluasiDetail.evaluasi_data.ttd;
   }
 
   const kriteria = [];
@@ -10645,7 +10649,12 @@ function collectEvaluasiTkkPayload() {
   const tahun = (document.getElementById('evalTkk_tahunEvaluasi')?.value || '').trim();
 
   // Kumpulkan 33 placeholder Sasaran Kinerja Pegawai (SKP)
-  const skpData = collectSkpFormData(activeEvaluasiUsulanId);
+  let skpData = {};
+  try {
+    skpData = collectSkpFormData(activeEvaluasiUsulanId) || {};
+  } catch (errSkp) {
+    console.warn('[collectEvaluasiTkkPayload] collectSkpFormData warning:', errSkp);
+  }
 
   return {
     keputusan,
@@ -10810,10 +10819,10 @@ function submitFromPreviewSkp() {
 
 async function previewDocxEvaluasiTkk() {
   if (!activeEvaluasiUsulanId) return;
-  const payload = collectEvaluasiTkkPayload();
-  showToast('info', 'Membuat preview dokumen formulir evaluasi...');
 
   try {
+    const payload = collectEvaluasiTkkPayload();
+    showToast('info', 'Membuat preview dokumen formulir evaluasi...');
     const res = await rpc('simpanDanGenerateEvaluasiTkk', [SESSION.token, activeEvaluasiUsulanId, payload, true]);
     if (res && res.success) {
       showToast('success', 'Pratinjau formulir evaluasi berhasil dibuat.');
@@ -15259,6 +15268,17 @@ function collectSkpFormData(usulanId) {
   const ekspLoyal = document.getElementById('skp_ekspLoyal_' + usulanId)?.value?.trim() || '';
   const ekspAdaptif = document.getElementById('skp_ekspAdaptif_' + usulanId)?.value?.trim() || '';
   const ekspKolaboratif = document.getElementById('skp_ekspKolaboratif_' + usulanId)?.value?.trim() || '';
+
+  // Variabel opsional / kompatibilitas template lama
+  const namaPejabat = document.getElementById('skp_namaPejabat_' + usulanId)?.value?.trim() || '';
+  const nipPejabat = document.getElementById('skp_nipPejabat_' + usulanId)?.value?.trim() || '';
+  const pangkatPejabat = document.getElementById('skp_pangkatPejabat_' + usulanId)?.value?.trim() || '';
+  const golonganPejabat = document.getElementById('skp_golonganPejabat_' + usulanId)?.value?.trim() || '';
+  const tutamPejabat = document.getElementById('skp_tutamPejabat_' + usulanId)?.value?.trim() || '';
+  const unitPejabat = document.getElementById('skp_unitPejabat_' + usulanId)?.value?.trim() || '';
+  const capaianOrg = document.getElementById('skp_capaianOrg_' + usulanId)?.value?.trim() || '';
+  const predikatPeg = document.getElementById('skp_predikatPeg_' + usulanId)?.value?.trim() || '';
+  const catatan = document.getElementById('skp_catatan_' + usulanId)?.value?.trim() || '';
 
   return {
     bulan_awal_penilaian: blnAwal.toUpperCase(),

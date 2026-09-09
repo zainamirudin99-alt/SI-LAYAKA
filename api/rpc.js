@@ -7351,7 +7351,11 @@ const methods = {
     // Izinkan admin/super_admin ATAU atasan langsung yang menangani usulan ini
     if (!['admin', 'super_admin'].includes(decoded.role)) {
       const { data: uRow } = await db.from('usulan_kontrak').select('atasan_nip, nip').eq('id', usulanId).maybeSingle();
-      if (!uRow || (uRow.atasan_nip !== decoded.nip && uRow.nip !== decoded.nip)) {
+      const cleanNip = String(decoded.nip || '').trim();
+      const rowAtasanNip = String(uRow?.atasan_nip || '').trim();
+      const rowNip = String(uRow?.nip || '').trim();
+      const isAllowed = rowAtasanNip === cleanNip || rowAtasanNip.includes(cleanNip) || cleanNip.includes(rowAtasanNip) || rowNip === cleanNip;
+      if (!uRow || !isAllowed) {
         return { success: false, message: 'Anda tidak memiliki hak akses untuk menghapus usulan ini.' };
       }
     }
@@ -7373,7 +7377,10 @@ const methods = {
     if (fetchErr) throw fetchErr;
     if (!usulan) return { success: false, message: 'Usulan tidak ditemukan.' };
 
-    if (!['admin', 'super_admin'].includes(decoded.role) && usulan.atasan_nip !== decoded.nip) {
+    const cleanNip = String(decoded.nip || '').trim();
+    const rowAtasanNip = String(usulan?.atasan_nip || '').trim();
+    const isAtasan = rowAtasanNip === cleanNip || rowAtasanNip.includes(cleanNip) || cleanNip.includes(rowAtasanNip);
+    if (!['admin', 'super_admin'].includes(decoded.role) && !isAtasan) {
       return { success: false, message: 'Hanya Atasan Langsung atau Admin yang dapat mengembalikan usulan untuk dikoreksi.' };
     }
 
@@ -7856,7 +7863,10 @@ const methods = {
     if (uErr) throw uErr;
     if (!usulan) return { success: false, message: 'Usulan kontrak tidak ditemukan.' };
 
-    if (usulan.atasan_nip !== decoded.nip && !['admin', 'super_admin'].includes(decoded.role)) {
+    const cleanNip = String(decoded.nip || '').trim();
+    const rowAtasanNip = String(usulan?.atasan_nip || '').trim();
+    const isAtasan = rowAtasanNip === cleanNip || rowAtasanNip.includes(cleanNip) || cleanNip.includes(rowAtasanNip);
+    if (!isAtasan && !['admin', 'super_admin'].includes(decoded.role)) {
       throw new Error('Anda tidak berwenang mengisi formulir evaluasi usulan ini.');
     }
 
