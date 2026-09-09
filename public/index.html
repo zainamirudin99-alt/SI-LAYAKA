@@ -2938,15 +2938,45 @@
                      </select>
                    </div>
 
-                   <!-- ATASAN LANGSUNG AUTO-NOTICE (TENDIK) & SELECTOR (DOSEN) -->
-                   <div class="stack-field grid-full" id="kontrakUser_atasanAutoNotice" style="display:none; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:14px; margin-top:8px; margin-bottom:8px;">
-                     <div style="display:flex; align-items:center; gap:8px; font-weight:700; color:#1d4ed8; font-size:13.5px;">
-                       <span>ðŸ¤– Penugasan Atasan Langsung Otomatis Sistem</span>
-                     </div>
-                     <div style="font-size:12.5px; color:#1e40af; margin-top:4px; line-height:1.5;">
-                       Atasan Langsung penilai evaluasi kinerja Anda akan dideteksi dan ditetapkan secara otomatis oleh sistem berdasarkan kecocokan unit kerja (unit_es_iv) Anda. Anda tidak perlu memilih atasan langsung secara manual.
-                     </div>
-                   </div>
+                    <!-- ATASAN LANGSUNG OTOMATIS (TENDIK) & SELECTOR (DOSEN) -->
+                    <div class="stack-field grid-full" id="kontrakUser_atasanAutoNotice" style="display:none; background:var(--surface-alt, #f8fafc); border:1.5px solid #cbd5e1; border-radius:10px; padding:16px; margin-top:8px; margin-bottom:8px;">
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <label style="font-weight:700; color:var(--text, #1e293b); font-size:13.5px; display:flex; align-items:center; gap:6px; margin:0;">
+                          <span>&#128084; Atasan Langsung (Penilai Evaluasi Kinerja)</span>
+                        </label>
+                        <span style="font-size:11.5px; background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; border-radius:6px; padding:3px 8px; font-weight:600; display:flex; align-items:center; gap:4px;">
+                          &#128274; Otomatis Sistem (Terkunci)
+                        </span>
+                      </div>
+
+                      <!-- Loading State -->
+                      <div id="kontrakUser_atasanLoading" style="display:none; color:#64748b; font-size:13px; padding:8px 0;">
+                        <span style="display:inline-block; width:14px; height:14px; border:2px solid #cbd5e1; border-top-color:#3b82f6; border-radius:50%; animation:spin 0.8s linear infinite; vertical-align:middle; margin-right:6px;"></span>
+                        Mendeteksi data Atasan Langsung berdasarkan Unit Kerja...
+                      </div>
+
+                      <!-- Found Atasan State -->
+                      <div id="kontrakUser_atasanFoundCard" style="display:none;">
+                        <input type="text" id="kontrakUser_atasanDisplay" class="field-input" readonly style="background:#ffffff; color:#0f172a; font-weight:700; cursor:not-allowed; border:1.5px solid #cbd5e1; width:100%; box-sizing:border-box; margin-bottom:8px;" value="" />
+                        <div style="display:flex; flex-wrap:wrap; gap:12px; font-size:12px; color:#475569; background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px;">
+                          <div><strong>NIP:</strong> <span id="kontrakUser_atasanNipTxt">-</span></div>
+                          <div><strong>Unit / Prodi:</strong> <span id="kontrakUser_atasanProdiTxt">-</span></div>
+                          <div id="kontrakUser_atasanTutamTxtWrap" style="display:none;"><strong>Jabatan / Tutam:</strong> <span id="kontrakUser_atasanTutamTxt">-</span></div>
+                        </div>
+                      </div>
+
+                      <!-- Error / Not Found State -->
+                      <div id="kontrakUser_atasanErrorCard" style="display:none; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:12px 14px; color:#991b1b; font-size:13px; line-height:1.5;">
+                        <div style="font-weight:700; margin-bottom:2px; display:flex; align-items:center; gap:6px;">
+                          <span>&#9888;&#65039;</span> Atasan Langsung Belum Terdaftar
+                        </div>
+                        <div id="kontrakUser_atasanErrorMsg">Atasan Langsung untuk Unit Kerja / Prodi Anda belum terdaftar di sistem. Silakan hubungi Administrator Kepegawaian untuk mendaftarkan Atasan Langsung Anda.</div>
+                      </div>
+
+                      <div style="font-size:11.5px; color:#64748b; margin-top:8px;">
+                        * Ditentukan otomatis oleh sistem berdasarkan kecocokan unit kerja (unit_es_iv) Anda dan tidak dapat diubah manual.
+                      </div>
+                    </div>
                    <div class="stack-field autocomplete-wrap grid-full" id="kontrakUser_atasanWrap" style="display:none; background:var(--surface-alt); border:1px solid var(--primary); border-radius:10px; padding:14px; margin-top:8px; margin-bottom:8px;">
                      <label style="font-weight:700; color:var(--primary); display:flex; align-items:center; gap:6px;">
                        <span>👔 Cari &amp; Pilih Atasan Langsung (Penilai Evaluasi Kinerja)</span>
@@ -12989,12 +13019,19 @@ function onKontrakUserLayananChange() {
   const atasanWrap = document.getElementById('kontrakUser_atasanWrap');
   const autoNotice = document.getElementById('kontrakUser_atasanAutoNotice');
   const isTendik = (layanan === 'Kontrak Tendik');
+  const btnSubmit = document.getElementById('kontrakUser_submitBtn') || document.querySelector('#kontrakUserForm button[type="submit"]');
 
   if (autoNotice) {
     autoNotice.style.display = isTendik ? 'block' : 'none';
   }
   if (atasanWrap) {
-    atasanWrap.style.display = 'none'; // Tendik is auto-assigned by unit_es_iv; manual search hidden
+    atasanWrap.style.display = isTendik ? 'none' : 'block';
+  }
+
+  if (isTendik) {
+    loadAtasanLangsungOtomatisTendik();
+  } else {
+    if (btnSubmit) btnSubmit.removeAttribute('disabled');
   }
 
   // Tampilkan/sembunyikan berkas awal
@@ -13081,6 +13118,74 @@ function onKontrakUserLayananChange() {
     
   subMenuSelect.innerHTML = list.map(item => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join('');
 }
+
+async function loadAtasanLangsungOtomatisTendik() {
+  const noticeEl = document.getElementById('kontrakUser_atasanAutoNotice');
+  if (!noticeEl) return;
+
+  const loadingEl = document.getElementById('kontrakUser_atasanLoading');
+  const foundCard = document.getElementById('kontrakUser_atasanFoundCard');
+  const errorCard = document.getElementById('kontrakUser_atasanErrorCard');
+  const errorMsg = document.getElementById('kontrakUser_atasanErrorMsg');
+  const atasanDisplay = document.getElementById('kontrakUser_atasanDisplay');
+  const nipTxt = document.getElementById('kontrakUser_atasanNipTxt');
+  const prodiTxt = document.getElementById('kontrakUser_atasanProdiTxt');
+  const tutamWrap = document.getElementById('kontrakUser_atasanTutamTxtWrap');
+  const tutamTxt = document.getElementById('kontrakUser_atasanTutamTxt');
+  const hiddenNip = document.getElementById('kontrakUser_atasanNip');
+  const hiddenNama = document.getElementById('kontrakUser_atasanNama');
+  const btnSubmit = document.getElementById('kontrakUser_submitBtn') || document.querySelector('#kontrakUserForm button[type="submit"]');
+
+  if (loadingEl) loadingEl.style.display = 'block';
+  if (foundCard) foundCard.style.display = 'none';
+  if (errorCard) errorCard.style.display = 'none';
+
+  const userNip = document.getElementById('kontrakUser_nip')?.value || SESSION.user?.nip || SESSION.nip || '';
+
+  try {
+    const res = await rpc('getAtasanLangsungTendik', [SESSION.token, userNip]);
+    if (loadingEl) loadingEl.style.display = 'none';
+
+    if (res && res.success && res.atasan) {
+      const at = res.atasan;
+      const atNama = at.nama_lengkap || at.nama || at.nip;
+      if (atasanDisplay) atasanDisplay.value = `${atNama} (NIP: ${at.nip})`;
+      if (nipTxt) nipTxt.textContent = at.nip || '-';
+      if (prodiTxt) prodiTxt.textContent = at.prodi || res.unit_es_iv || '-';
+
+      const tutamDesc = at.detail_tutam || at.jabatan || '';
+      if (tutamWrap && tutamTxt) {
+        if (tutamDesc) {
+          tutamTxt.textContent = tutamDesc;
+          tutamWrap.style.display = 'inline-block';
+        } else {
+          tutamWrap.style.display = 'none';
+        }
+      }
+
+      if (hiddenNip) hiddenNip.value = at.nip || '';
+      if (hiddenNama) hiddenNama.value = atNama;
+
+      if (foundCard) foundCard.style.display = 'block';
+      if (btnSubmit) btnSubmit.removeAttribute('disabled');
+    } else {
+      const msg = (res && res.message) ? res.message : 'Atasan Langsung belum ditemukan untuk unit kerja Anda. Silakan hubungi Administrator Kepegawaian.';
+      if (errorMsg) errorMsg.textContent = msg;
+      if (errorCard) errorCard.style.display = 'block';
+      if (hiddenNip) hiddenNip.value = '';
+      if (hiddenNama) hiddenNama.value = '';
+      if (btnSubmit) btnSubmit.setAttribute('disabled', 'disabled');
+    }
+  } catch (err) {
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (errorMsg) errorMsg.textContent = 'Gagal mendeteksi Atasan Langsung: ' + (err.message || err);
+    if (errorCard) errorCard.style.display = 'block';
+    if (hiddenNip) hiddenNip.value = '';
+    if (hiddenNama) hiddenNama.value = '';
+    if (btnSubmit) btnSubmit.setAttribute('disabled', 'disabled');
+  }
+}
+
 function bindAtasanLangsungSearch() {
   const input = document.getElementById('kontrakUser_atasanSearch');
   const listEl = document.getElementById('kontrakUser_atasanSearchList');
@@ -13212,6 +13317,15 @@ async function submitUsulanKontrak(e) {
     const isDriver = String(jabVal).toLowerCase().includes('pengemudi');
     const isMedis = (typeof isJabatanMedis === 'function') ? isJabatanMedis(jabVal) : false;
 
+    const atasan_nip = document.getElementById('kontrakUser_atasanNip')?.value || '';
+    const atasan_nama = document.getElementById('kontrakUser_atasanNama')?.value || '';
+
+    if (isTendik && !atasan_nip) {
+      showToast('error', 'Atasan Langsung belum terdeteksi untuk unit kerja Anda. Silakan hubungi Administrator Kepegawaian.');
+      setBtnLoading(btn, false, 'Ajukan Usulan');
+      return;
+    }
+
     // Untuk Tendik: Hanya Surat Lamaran & Bukti Hasil Kerja yang diminta pada tahap pengusulan awal!
     const surat_lamaran_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_surat_lamaran')?.value, 'Surat Lamaran', true);
     const hasil_kerja_url = isTendik
@@ -13242,12 +13356,14 @@ async function submitUsulanKontrak(e) {
 
     const payload = {
       nip, nama, unit, email, tahun,
+      atasan_nip, atasan_nama,
       jenis_usulan: isTendik ? 'Pembaruan Kontrak' : jenis_usulan,
       evaluasi_kinerja, layanan, sub_menu,
       ktp_url, kk_url, pas_foto_url, ijazah_transkrip_url, surat_pengantar_url,
       surat_lamaran_url, keterangan_sehat_url, sim_ab_url, str_aktif_url, hasil_kerja_url,
       form_data: {
         nip, nama_lengkap: nama, unit_es_ii: unit, jabatan: jabVal, email,
+        atasan_nip, atasan_nama,
         status_kepegawaian: sub_menu
       }
     };

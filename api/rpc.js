@@ -7566,6 +7566,74 @@ const methods = {
     };
   },
 
+  async getAtasanLangsungTendik(args) {
+    const [token, targetNipArg] = extractArgs(args);
+    const decoded = verifyToken(token);
+    if (!decoded) return { success: false, message: 'Sesi login tidak valid.' };
+    const db = getDb();
+
+    const targetNip = String(targetNipArg || decoded.nip).trim();
+    if (!targetNip) {
+      return { success: false, message: 'NIP pegawai tidak ditemukan.' };
+    }
+
+    const emp = await findEmployeeByNip(targetNip);
+    const unitEsIv = String(emp?.unit_es_iv || '').trim();
+
+    if (!unitEsIv) {
+      return {
+        success: false,
+        unit_es_iv: '',
+        message: 'Unit Kerja / Program Studi (unit_es_iv) pada profil kepegawaian Anda belum terisi. Hubungi Administrator Kepegawaian untuk melengkapi data.'
+      };
+    }
+
+    let atasanMatches = [];
+    try {
+      const { data: matches, error: atasanErr } = await db.from('atasan_langsung')
+        .select('*')
+        .ilike('prodi', unitEsIv);
+      if (atasanErr) throw atasanErr;
+      atasanMatches = matches || [];
+    } catch (dbErr) {
+      console.warn('[getAtasanLangsungTendik] Error querying atasan_langsung:', dbErr.message);
+      return { success: false, unit_es_iv: unitEsIv, message: 'Gagal mencari Atasan Langsung di database: ' + dbErr.message };
+    }
+
+    if (!atasanMatches || atasanMatches.length === 0) {
+      return {
+        success: false,
+        unit_es_iv: unitEsIv,
+        message: `Atasan Langsung untuk Unit Kerja / Prodi "${unitEsIv}" belum terdaftar di sistem. Hubungi Administrator Kepegawaian untuk mendaftarkan Atasan Langsung Anda.`
+      };
+    }
+
+    if (atasanMatches.length > 1) {
+      return {
+        success: false,
+        unit_es_iv: unitEsIv,
+        multiple: true,
+        message: `Terdeteksi lebih dari satu Atasan Langsung untuk Unit Kerja / Prodi "${unitEsIv}". Hubungi Administrator Kepegawaian untuk verifikasi data.`
+      };
+    }
+
+    const atasanRow = atasanMatches[0];
+    return {
+      success: true,
+      unit_es_iv: unitEsIv,
+      atasan: {
+        nip: atasanRow.nip,
+        nama_lengkap: atasanRow.nama_lengkap || atasanRow.nama || atasanRow.nip,
+        pangkat: atasanRow.pangkat || '',
+        golongan: atasanRow.golongan || '',
+        jabatan: atasanRow.jabatan || '',
+        unit_es_ii: atasanRow.unit_es_ii || '',
+        prodi: atasanRow.prodi || unitEsIv,
+        detail_tutam: atasanRow.detail_tutam || ''
+      }
+    };
+  },
+
   async ajukanUsulanKontrakTendik(args) {
     const [token, payload] = extractArgs(args);
     const decoded = verifyToken(token);
