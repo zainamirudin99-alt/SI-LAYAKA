@@ -14282,8 +14282,17 @@ async function openModalEvaluasiTkk(usulanId) {
         <div><strong>NIP Pegawai:</strong> ${escapeHtml(u.nip || '-')}</div>
         <div><strong>Unit Kerja:</strong> ${escapeHtml(u.unit || '-')}</div>
         <div><strong>Jabatan:</strong> ${escapeHtml(u.jabatan || u.form_data?.jabatan || '-')}</div>
-        <div><strong>Pendidikan / Jurusan:</strong> ${escapeHtml(u.pendidikan || u.form_data?.pendidikan || '-')}, ${escapeHtml(u.jurusan || u.form_data?.jurusan || '-')}</div>
-        <div><strong>Atasan Langsung:    // Inisialisasi tampilan awal Langkah 1 (Evaluasi 7 Kriteria)
+        <div><strong>Atasan Langsung:</strong> ${escapeHtml(at.nama_lengkap || at.nama || u.atasan_nama || '-')}</div>
+      </div>
+      <div style="font-size:12.5px; margin-top:8px;">
+        <strong>Berkas Lampiran Pengusul:</strong>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
+          ${filesHtml || '<span style="color:#94a3b8;">Tidak ada berkas lampiran terunggah.</span>'}
+        </div>
+      </div>
+    `;
+
+    // Inisialisasi tampilan awal Langkah 1 (Evaluasi 7 Kriteria)
     switchEvalModalStep(1);
 
     // Fill existing criteria scores if available
