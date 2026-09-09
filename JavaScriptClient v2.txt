@@ -10626,12 +10626,12 @@ function trimCanvas_(canvas) {
 }
 
 function collectEvaluasiTkkPayload() {
-  const sel = document.querySelector('input[name="evalTkk_keputusan"]:checked');
-  const keputusan = sel ? sel.value : 'diperbarui';
-
   let ttdBase64 = '';
   if (evalTkkCanvas && evalTkkHasDrawn) {
-    ttdBase64 =  }
+    ttdBase64 = trimCanvasSignature(evalTkkCanvas);
+  } else if (activeEvaluasiDetail?.evaluasi_data?.ttd_base64) {
+    ttdBase64 = activeEvaluasiDetail.evaluasi_data.ttd_base64;
+  }
 
   const kriteria = [];
   for (let i = 1; i <= 7; i++) {
