@@ -10899,16 +10899,27 @@ async function validasiDanKirimEvaluasiTkk() {
   }
 
   const skp = payload.skp_data || {};
-  if (!skp.nama_lengkap || !skp.nip) {
+  const namaPeg = skp.nama_lengkap || activeEvaluasiDetail?.nama || activeEvaluasiDetail?.nama_lengkap || '';
+  const nipPeg = skp.nip || activeEvaluasiDetail?.nip || '';
+  if (!namaPeg || !nipPeg) {
     showToast('error', 'Data Pegawai pada Formulir SKP belum lengkap.');
     switchEvalModalStep(2);
     return;
   }
-  if (!skp.nama_lengkap_atasan_langsung || !skp.nip_atasan_langsung) {
+  skp.nama_lengkap = namaPeg;
+  skp.nip = nipPeg;
+  if (!skp.pangkat || skp.pangkat === '-') skp.pangkat = 'Tanpa Golongan';
+  if (!skp.golongan || skp.golongan === '-') skp.golongan = 'Tanpa Golongan';
+
+  const namaAt = skp.nama_lengkap_atasan_langsung || activeEvaluasiDetail?.atasan_nama || SESSION.user?.nama || '';
+  const nipAt = skp.nip_atasan_langsung || activeEvaluasiDetail?.atasan_nip || SESSION.user?.nip || '';
+  if (!namaAt || !nipAt) {
     showToast('error', 'Data Atasan Langsung pada Formulir SKP belum lengkap.');
     switchEvalModalStep(2);
     return;
   }
+  skp.nama_lengkap_atasan_langsung = namaAt;
+  skp.nip_atasan_langsung = nipAt;
 
   const confirmMsg = 'Apakah Anda yakin ingin MEMVALIDASI dan MENGIRIM berkas usulan beserta formulir evaluasi & SKP bertanda tangan ini ke akun Admin Kepegawaian?';
   if (!confirm(confirmMsg)) return;
@@ -14794,11 +14805,13 @@ function renderSkpFormHtml(u, atasanParam = null) {
   const lastDay = saved.hari_akhir_penilaian || calculateSkpHariAkhir(blnAkhirSel, thnSekarang);
   const tglBuatStr = saved.tgl_buat || formatTanggalIndonesia(new Date());
 
-  // Data Pegawai (Pengusul) - Otomatis & Terkunci
+  // Data Pegawai (Pengusul) - Otomatis & Terkunci (Pegawai Kontrak otomatis Tanpa Golongan)
   const pegNama = saved.nama_lengkap || u.nama || fd.nama_lengkap || '';
   const pegNip = saved.nip || u.nip || fd.nip || '';
-  const pegGol = saved.golongan || fd.golongan || u.golongan || '';
-  const pegPangkat = saved.pangkat || (typeof getPangkatForGolongan === 'function' ? getPangkatForGolongan(pegGol) : '') || fd.pangkat || '';
+  const rawGol = saved.golongan || fd.golongan || u.golongan || '';
+  const pegGol = (rawGol && rawGol.trim() !== '' && rawGol.trim() !== '-' && rawGol !== 'null') ? rawGol.trim() : 'Tanpa Golongan';
+  const rawPangkat = saved.pangkat || (typeof getPangkatForGolongan === 'function' && rawGol && rawGol !== 'Tanpa Golongan' ? getPangkatForGolongan(rawGol) : '') || fd.pangkat || '';
+  const pegPangkat = (rawPangkat && rawPangkat.trim() !== '' && rawPangkat.trim() !== '-' && rawPangkat !== 'null') ? rawPangkat.trim() : 'Tanpa Golongan';
   const pegJabatan = saved.jabatan || fd.jabatan || u.jabatan || '';
   const pegUnit = saved.unit_es_ii || u.unit || u.unit_es_ii || fd.unit_es_ii || '';
 
@@ -15210,33 +15223,47 @@ function downloadDocxFromBase64(base64Data, filename) {
 }
 
 function collectSkpFormData(usulanId) {
-  const pegEl = document.getElementById('skp_nama_' + usulanId);
-  if (!pegEl) {
-    if (window.currentUsulanSaya && window.currentUsulanSaya.skp_data) {
-      return Object.assign({}, window.currentUsulanSaya.skp_data);
-    }
+  const targetId = usulanId || activeEvaluasiUsulanId || activeEvaluasiDetail?.id || '';
+  const elNama = document.getElementById('skp_nama_' + targetId) || document.querySelector('[id^="skp_nama_"]');
+  const elNip = document.getElementById('skp_nip_' + targetId) || document.querySelector('[id^="skp_nip_"]');
+  const elPangkat = document.getElementById('skp_pangkat_' + targetId) || document.querySelector('[id^="skp_pangkat_"]');
+  const elGolongan = document.getElementById('skp_golongan_' + targetId) || document.querySelector('[id^="skp_golongan_"]');
+  const elJabatan = document.getElementById('skp_jabatan_' + targetId) || document.querySelector('[id^="skp_jabatan_"]');
+  const elUnit = document.getElementById('skp_unit_' + targetId) || document.querySelector('[id^="skp_unit_"]');
+
+  if (!elNama && window.currentUsulanSaya && window.currentUsulanSaya.skp_data) {
+    return Object.assign({}, window.currentUsulanSaya.skp_data);
   }
 
-  const blnAwal = document.getElementById('skp_blnAwal_' + usulanId)?.value || 'Januari';
-  const blnAkhir = document.getElementById('skp_blnAkhir_' + usulanId)?.value || 'Desember';
-  const thn = document.getElementById('skp_thnPenilaian_' + usulanId)?.value || new Date().getFullYear();
-  const elHari = document.getElementById('skp_hariAkhir_' + usulanId);
+  const blnAwal = (document.getElementById('skp_blnAwal_' + targetId) || document.querySelector('[id^="skp_blnAwal_"]'))?.value || 'Januari';
+  const blnAkhir = (document.getElementById('skp_blnAkhir_' + targetId) || document.querySelector('[id^="skp_blnAkhir_"]'))?.value || 'Desember';
+  const thn = (document.getElementById('skp_thnPenilaian_' + targetId) || document.querySelector('[id^="skp_thnPenilaian_"]'))?.value || new Date().getFullYear();
+  const elHari = document.getElementById('skp_hariAkhir_' + targetId) || document.querySelector('[id^="skp_hariAkhir_"]');
   const hariAkhir = elHari ? elHari.value : String(calculateSkpHariAkhir(blnAkhir, thn));
-  const tglBuatStr = document.getElementById('skp_tglBuat_' + usulanId)?.value || formatTanggalIndonesia(new Date());
+  const tglBuatStr = (document.getElementById('skp_tglBuat_' + targetId) || document.querySelector('[id^="skp_tglBuat_"]'))?.value || formatTanggalIndonesia(new Date());
 
-  const nama = document.getElementById('skp_nama_' + usulanId)?.value?.trim() || '';
-  const nip = document.getElementById('skp_nip_' + usulanId)?.value?.trim() || '';
-  const pangkat = document.getElementById('skp_pangkat_' + usulanId)?.value?.trim() || '';
-  const golongan = document.getElementById('skp_golongan_' + usulanId)?.value?.trim() || '';
-  const jabatan = document.getElementById('skp_jabatan_' + usulanId)?.value?.trim() || '';
-  const unit = document.getElementById('skp_unit_' + usulanId)?.value?.trim() || '';
+  const nama = elNama?.value?.trim() || activeEvaluasiDetail?.nama || activeEvaluasiDetail?.nama_lengkap || activeEvaluasiDetail?.form_data?.nama_lengkap || '';
+  const nip = elNip?.value?.trim() || activeEvaluasiDetail?.nip || activeEvaluasiDetail?.form_data?.nip || '';
+  const rawPangkat = elPangkat?.value?.trim() || activeEvaluasiDetail?.pangkat || '';
+  const pangkat = (rawPangkat && rawPangkat !== '-' && rawPangkat !== 'null') ? rawPangkat : 'Tanpa Golongan';
+  const rawGolongan = elGolongan?.value?.trim() || activeEvaluasiDetail?.golongan || '';
+  const golongan = (rawGolongan && rawGolongan !== '-' && rawGolongan !== 'null') ? rawGolongan : 'Tanpa Golongan';
+  const jabatan = elJabatan?.value?.trim() || activeEvaluasiDetail?.jabatan || activeEvaluasiDetail?.form_data?.jabatan || '';
+  const unit = elUnit?.value?.trim() || activeEvaluasiDetail?.unit || activeEvaluasiDetail?.unit_es_ii || '';
 
-  const namaAtasan = document.getElementById('skp_namaAtasan_' + usulanId)?.value?.trim() || '';
-  const nipAtasan = document.getElementById('skp_nipAtasan_' + usulanId)?.value?.trim() || '';
-  const pangkatAtasan = document.getElementById('skp_pangkatAtasan_' + usulanId)?.value?.trim() || '';
-  const golonganAtasan = document.getElementById('skp_golonganAtasan_' + usulanId)?.value?.trim() || '';
-  const tutamAtasan = document.getElementById('skp_tutamAtasan_' + usulanId)?.value?.trim() || '';
-  const unitAtasan = document.getElementById('skp_unitAtasan_' + usulanId)?.value?.trim() || '';
+  const elNamaAtasan = document.getElementById('skp_namaAtasan_' + targetId) || document.querySelector('[id^="skp_namaAtasan_"]');
+  const elNipAtasan = document.getElementById('skp_nipAtasan_' + targetId) || document.querySelector('[id^="skp_nipAtasan_"]');
+  const elPangkatAtasan = document.getElementById('skp_pangkatAtasan_' + targetId) || document.querySelector('[id^="skp_pangkatAtasan_"]');
+  const elGolonganAtasan = document.getElementById('skp_golonganAtasan_' + targetId) || document.querySelector('[id^="skp_golonganAtasan_"]');
+  const elTutamAtasan = document.getElementById('skp_tutamAtasan_' + targetId) || document.querySelector('[id^="skp_tutamAtasan_"]');
+  const elUnitAtasan = document.getElementById('skp_unitAtasan_' + targetId) || document.querySelector('[id^="skp_unitAtasan_"]');
+
+  const namaAtasan = elNamaAtasan?.value?.trim() || activeEvaluasiDetail?.atasan_nama || SESSION.user?.nama || '';
+  const nipAtasan = elNipAtasan?.value?.trim() || activeEvaluasiDetail?.atasan_nip || SESSION.user?.nip || '';
+  const pangkatAtasan = elPangkatAtasan?.value?.trim() || '';
+  const golonganAtasan = elGolonganAtasan?.value?.trim() || '';
+  const tutamAtasan = elTutamAtasan?.value?.trim() || '';
+  const unitAtasan = elUnitAtasan?.value?.trim() || SESSION.user?.unit_es_ii || activeEvaluasiDetail?.unit || '';
 
   // Looping Hasil Kerja Utama
   const hkuList = [];

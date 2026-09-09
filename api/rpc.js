@@ -762,6 +762,8 @@ function buildEvaluasiTkkDataContext(usulan, evalData, empData, atasanEmp) {
     nama_lengkap: namaPemohon,
     nama: namaPemohon,
     nip: nipPemohon,
+    pangkat: (ed.pangkat && ed.pangkat !== '-' && ed.pangkat !== 'null') ? ed.pangkat : (emp.pangkat || u.pangkat || 'Tanpa Golongan'),
+    golongan: (ed.golongan && ed.golongan !== '-' && ed.golongan !== 'null') ? ed.golongan : (emp.golongan || u.golongan || 'Tanpa Golongan'),
     jabatan: ed.jabatan || emp.jabatan || u.jabatan || 'Tenaga Kependidikan',
     unit_es_ii: ed.unit_es_ii || emp.unit_es_ii || u.unit || '',
     bulan_awal_kontrak: ed.bulan_awal_kontrak || 'Januari',
@@ -8665,8 +8667,8 @@ const methods = {
       // Pegawai
       nama_lengkap: String(payloadData.nama_lengkap || usulan.nama || '').trim(),
       nip: String(payloadData.nip || usulan.nip || '').trim(),
-      pangkat: String(payloadData.pangkat || '').trim(),
-      golongan: String(payloadData.golongan || '').trim(),
+      pangkat: (payloadData.pangkat && payloadData.pangkat.trim() !== '' && payloadData.pangkat !== '-' && payloadData.pangkat !== 'null') ? payloadData.pangkat.trim() : (usulan.pangkat || 'Tanpa Golongan'),
+      golongan: (payloadData.golongan && payloadData.golongan.trim() !== '' && payloadData.golongan !== '-' && payloadData.golongan !== 'null') ? payloadData.golongan.trim() : (usulan.golongan || 'Tanpa Golongan'),
       jabatan: String(payloadData.jabatan || usulan.form_data?.jabatan || '').trim(),
       unit_es_ii: String(payloadData.unit_es_ii || usulan.unit || '').trim(),
 
