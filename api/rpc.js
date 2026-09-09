@@ -7823,15 +7823,20 @@ const methods = {
     }
 
     const emp = await findEmployeeByNip(data.nip);
-    const atasanEmp = (await findEmployeeByNip(data.atasan_nip || cleanNip)) || {};
-    let atasanTutam = data.form_data?.atasan_tutam || '';
-    if (!atasanTutam && data.atasan_nip) {
-      try {
-        const { data: atRow } = await db.from('atasan_langsung').select('detail_tutam').eq('nip', data.atasan_nip).maybeSingle();
-        if (atRow && atRow.detail_tutam) atasanTutam = atRow.detail_tutam;
-      } catch (_) {}
-    }
-    atasanEmp.detail_tutam = atasanTutam || atasanEmp.detail_tutam || '';
+    let atasanEmp = (await findEmployeeByNip(data.atasan_nip || cleanNip)) || {};
+    try {
+      const { data: atRow } = await db.from('atasan_langsung').select('*').eq('nip', data.atasan_nip || cleanNip).maybeSingle();
+      if (atRow) {
+        atasanEmp = Object.assign({}, atRow, atasanEmp, {
+          nama_lengkap: atRow.nama_lengkap || atasanEmp.nama_lengkap || atasanEmp.nama,
+          pangkat: atRow.pangkat || atasanEmp.pangkat,
+          golongan: atRow.golongan || atasanEmp.golongan,
+          unit_es_ii: atRow.unit_es_ii || atasanEmp.unit_es_ii,
+          detail_tutam: atRow.detail_tutam || atasanEmp.detail_tutam || ''
+        });
+      }
+    } catch (_) {}
+    atasanEmp.detail_tutam = atasanEmp.detail_tutam || data.form_data?.atasan_tutam || '';
 
     return {
       success: true,
@@ -7856,13 +7861,50 @@ const methods = {
     }
 
     const empData = (await findEmployeeByNip(usulan.nip)) || {};
-    const atasanEmp = (await findEmployeeByNip(usulan.atasan_nip || decoded.nip)) || {
+    let atasanEmp = (await findEmployeeByNip(usulan.atasan_nip || decoded.nip)) || {
       nip: decoded.nip,
       nama: decoded.nama,
       nama_lengkap: decoded.nama
     };
+    try {
+      const { data: atRow } = await db.from('atasan_langsung').select('*').eq('nip', usulan.atasan_nip || decoded.nip).maybeSingle();
+      if (atRow) {
+        atasanEmp = Object.assign({}, atRow, atasanEmp, {
+          nama_lengkap: atRow.nama_lengkap || atasanEmp.nama_lengkap || atasanEmp.nama,
+          pangkat: atRow.pangkat || atasanEmp.pangkat,
+          golongan: atRow.golongan || atasanEmp.golongan,
+          unit_es_ii: atRow.unit_es_ii || atasanEmp.unit_es_ii,
+          detail_tutam: atRow.detail_tutam || atasanEmp.detail_tutam || ''
+        });
+      }
+    } catch (_) {}
 
     const ed = evalPayload || {};
+
+    // Jika atasan meminta perbaikan berkas lampiran
+    if (ed.keputusan === 'perlu_perbaikan' || ed.keputusan === 'koreksi') {
+      const catatanKoreksi = String(ed.catatan_koreksi || ed.catatan || '').trim();
+      if (!catatanKoreksi) {
+        return { success: false, message: 'Catatan perbaikan berkas untuk pengusul wajib diisi.' };
+      }
+      const { error: kErr } = await db.from('usulan_kontrak').update({
+        status: 'koreksi_atasan',
+        catatan: catatanKoreksi,
+        evaluasi_data: Object.assign({}, usulan.evaluasi_data || {}, {
+          keputusan: 'perlu_perbaikan',
+          catatan_koreksi: catatanKoreksi,
+          dikembalikan_pada: new Date().toISOString(),
+          dikembalikan_oleh: decoded.nama || decoded.nip
+        })
+      }).eq('id', usulanId);
+      if (kErr) throw kErr;
+      return {
+        success: true,
+        message: 'Usulan berhasil dikembalikan ke pengusul untuk perbaikan berkas lampiran.',
+        status: 'koreksi_atasan'
+      };
+    }
+
     const p1 = Number(ed.orientasi_pelayanan || (ed.kriteria && ed.kriteria[0]) || 0);
     const p2 = Number(ed.inisiatif_kerja || (ed.kriteria && ed.kriteria[1]) || 0);
     const p3 = Number(ed.komitmen || (ed.kriteria && ed.kriteria[2]) || 0);
@@ -7883,8 +7925,8 @@ const methods = {
       if (!ttdSig || !String(ttdSig).trim()) {
         return { success: false, message: 'Tanda tangan atasan langsung pada signature pad wajib diisi.' };
       }
-      if (isRenew && (!ed.skp_data || !ed.skp_data.tahun_penilaian)) {
-        return { success: false, message: 'Formulir Sasaran Kinerja Pegawai (SKP) wajib diisi lengkap untuk keputusan Diperbarui.' };
+      if (isRenew && isKirimKeAdmin && (!ed.skp_data || !ed.skp_data.tahun_penilaian)) {
+        return { success: false, message: 'Formulir Sasaran Kinerja Pegawai (SKP) wajib diisi lengkap sebelum divalidasi ke Admin.' };
       }
     }
 
@@ -8512,32 +8554,37 @@ const methods = {
       return { success: false, message: 'Sasaran Kinerja Pegawai hanya berlaku untuk Tenaga Kependidikan.' };
     }
 
-    // Pastikan seluruh berkas kelengkapan telah disetujui Admin
-    const isDriver = /pengemudi|sopir|driver/i.test(usulan.form_data?.jabatan || usulan.jabatan || '');
-    const isMedis = /perawat|dokter|medis|apoteker|bidan/i.test(usulan.form_data?.jabatan || usulan.jabatan || '');
-    const reqChecks = [
-      usulan.ktp_approved,
-      usulan.kk_approved,
-      usulan.ijazah_transkrip_approved,
-      usulan.keterangan_sehat_approved,
-      usulan.surat_pengantar_approved
-    ];
-    if (isDriver) reqChecks.push(usulan.sim_ab_approved);
-    if (isMedis) reqChecks.push(usulan.str_aktif_approved);
+    const isPreview = Boolean(payloadData && payloadData.is_preview);
+    const isAtasanReviewing = (usulan.atasan_nip === decoded.nip || ['admin', 'super_admin'].includes(decoded.role));
 
-    if (!reqChecks.every(Boolean)) {
-      return { success: false, message: 'Dokumen Sasaran Kinerja Pegawai (SKP) belum dapat dibuat. Seluruh berkas kelengkapan (KTP, KK, Ijazah, Surat Sehat, Surat Pengantar) wajib disetujui terlebih dahulu oleh Admin.' };
-    }
+    if (!isPreview && !isAtasanReviewing) {
+      // Pastikan seluruh berkas kelengkapan telah disetujui Admin jika bukan mode preview / evaluasi atasan
+      const isDriver = /pengemudi|sopir|driver/i.test(usulan.form_data?.jabatan || usulan.jabatan || '');
+      const isMedis = /perawat|dokter|medis|apoteker|bidan/i.test(usulan.form_data?.jabatan || usulan.jabatan || '');
+      const reqChecks = [
+        usulan.ktp_approved,
+        usulan.kk_approved,
+        usulan.ijazah_transkrip_approved,
+        usulan.keterangan_sehat_approved,
+        usulan.surat_pengantar_approved
+      ];
+      if (isDriver) reqChecks.push(usulan.sim_ab_approved);
+      if (isMedis) reqChecks.push(usulan.str_aktif_approved);
 
-    // Pastikan usulan telah disetujui
-    const approvedStatuses = ['Disetujui', 'validated_by_admin', 'Selesai', 'contract_generated'];
-    if (!approvedStatuses.includes(usulan.status) && !usulan.perjanjian_dibuat) {
-      return { success: false, message: 'Usulan kontrak harus disetujui terlebih dahulu sebelum membuat SKP.' };
-    }
+      if (!reqChecks.every(Boolean)) {
+        return { success: false, message: 'Dokumen Sasaran Kinerja Pegawai (SKP) belum dapat dibuat. Seluruh berkas kelengkapan (KTP, KK, Ijazah, Surat Sehat, Surat Pengantar) wajib disetujui terlebih dahulu oleh Admin.' };
+      }
 
-    // Pastikan form evaluasi sudah diisi oleh atasan langsung
-    if (usulan.evaluasi_skor === null || usulan.evaluasi_skor === undefined) {
-      return { success: false, message: 'Formulir evaluasi kinerja belum diisi oleh Atasan Langsung.' };
+      // Pastikan usulan telah disetujui
+      const approvedStatuses = ['Disetujui', 'validated_by_admin', 'Selesai', 'contract_generated'];
+      if (!approvedStatuses.includes(usulan.status) && !usulan.perjanjian_dibuat) {
+        return { success: false, message: 'Usulan kontrak harus disetujui terlebih dahulu sebelum membuat SKP.' };
+      }
+
+      // Pastikan form evaluasi sudah diisi oleh atasan langsung
+      if (usulan.evaluasi_skor === null || usulan.evaluasi_skor === undefined) {
+        return { success: false, message: 'Formulir evaluasi kinerja belum diisi oleh Atasan Langsung.' };
+      }
     }
 
     // Ambil template: bisa dari templateRef atau default untuk Layanan Kontrak Tendik - Sasaran Kinerja Pegawai
@@ -8567,7 +8614,8 @@ const methods = {
     const thnPenilaian = parseInt(payloadData.tahun_penilaian || new Date().getFullYear(), 10);
     let blnAkhirIdx = BULAN_NAMES.indexOf(blnAkhir);
     if (blnAkhirIdx === -1) blnAkhirIdx = 11;
-    const hariAkhir = String(new Date(thnPenilaian, blnAkhirIdx + 1, 0).getDate());
+    const calcHariAkhir = String(new Date(thnPenilaian, blnAkhirIdx + 1, 0).getDate());
+    const hariAkhir = String(payloadData.hari_akhir_penilaian || calcHariAkhir);
 
     const tglBuatStr = formatTanggalIndonesia(new Date());
 
@@ -8637,14 +8685,21 @@ const methods = {
       hasil_kerja_utama: hasilUtamaList,
       hasil_kerja_tambahan: hasilTambahanList,
 
-      // Core Values BerAKHLAK
-      ekspektasi_berorientasi_pelayanan: String(payloadData.ekspektasi_berorientasi_pelayanan || '').trim(),
-      ekspektasi_akuntabel: String(payloadData.ekspektasi_akuntabel || '').trim(),
-      ekspektasi_kompeten: String(payloadData.ekspektasi_kompeten || '').trim(),
-      ekspektasi_harmonis: String(payloadData.ekspektasi_harmonis || '').trim(),
-      ekspektasi_loyal: String(payloadData.ekspektasi_loyal || '').trim(),
-      ekspektasi_adaptif: String(payloadData.ekspektasi_adaptif || '').trim(),
-      ekspektasi_kolaboratif: String(payloadData.ekspektasi_kolaboratif || '').trim()
+      // Core Values BerAKHLAK (Disediakan format {{variabel}} maupun {{ekspektasi_variabel}})
+      berorientasi_pelayanan: String(payloadData.berorientasi_pelayanan || payloadData.ekspektasi_berorientasi_pelayanan || '').trim(),
+      ekspektasi_berorientasi_pelayanan: String(payloadData.ekspektasi_berorientasi_pelayanan || payloadData.berorientasi_pelayanan || '').trim(),
+      akuntabel: String(payloadData.akuntabel || payloadData.ekspektasi_akuntabel || '').trim(),
+      ekspektasi_akuntabel: String(payloadData.ekspektasi_akuntabel || payloadData.akuntabel || '').trim(),
+      kompeten: String(payloadData.kompeten || payloadData.ekspektasi_kompeten || '').trim(),
+      ekspektasi_kompeten: String(payloadData.ekspektasi_kompeten || payloadData.kompeten || '').trim(),
+      harmonis: String(payloadData.harmonis || payloadData.ekspektasi_harmonis || '').trim(),
+      ekspektasi_harmonis: String(payloadData.ekspektasi_harmonis || payloadData.harmonis || '').trim(),
+      loyal: String(payloadData.loyal || payloadData.ekspektasi_loyal || '').trim(),
+      ekspektasi_loyal: String(payloadData.ekspektasi_loyal || payloadData.loyal || '').trim(),
+      adaptif: String(payloadData.adaptif || payloadData.ekspektasi_adaptif || '').trim(),
+      ekspektasi_adaptif: String(payloadData.ekspektasi_adaptif || payloadData.adaptif || '').trim(),
+      kolaboratif: String(payloadData.kolaboratif || payloadData.ekspektasi_kolaboratif || '').trim(),
+      ekspektasi_kolaboratif: String(payloadData.ekspektasi_kolaboratif || payloadData.kolaboratif || '').trim()
     };
 
     const isDocxTemplate = tmplRow.tipe === 'docx';

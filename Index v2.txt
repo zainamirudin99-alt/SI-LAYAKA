@@ -2228,260 +2228,293 @@
 
   <!-- ======================= LOADING OVERLAY ======================= -->
   <div id="globalLoadingOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
-    <div style="background:var(--surface,#fff);border-radius:16px;padding:28px 36px;box-shadow:0 20px 60px rgba(0,0,0,0.3);display:flex;flex-direction:column;align-items:center;gap:14px;min-width:220px;">
       <div style="width:40px;height:40px;border:4px solid var(--border,#e2e8f0);border-top-color:var(--primary,#6366f1);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
       <p id="globalLoadingText" style="margin:0;font-size:14px;font-weight:600;color:var(--text-main,#0f172a);text-align:center;">Memproses...</p>
     </div>
   </div>
 
   <!-- ======================= MODAL EVALUASI KINERJA TKK (7 KRITERIA) ======================= -->
-    <div class="modal-overlay" id="modalEvaluasiTkk" style="display:none; z-index:9990;">
+  <div class="modal-overlay" id="modalEvaluasiTkk" style="display:none; z-index:9990;">
     <div class="modal-box" style="max-width:980px; width:95%; max-height:92vh; overflow-y:auto;">
       <div class="modal-header" style="position:sticky; top:0; background:var(--surface); z-index:10; border-bottom:1px solid var(--border); padding:14px 20px;">
         <strong style="font-size:16px; color:var(--text); display:flex; align-items:center; gap:8px;">
-          <span>ðŸ“‹ Formulir Evaluasi Kinerja &amp; SKP Tenaga Kependidikan</span>
+          <span>&#128221; Formulir Evaluasi Kinerja &amp; Sasaran Kinerja Pegawai (SKP)</span>
         </strong>
-        <button type="button" class="btn btn-secondary" onclick="tutupModalEvaluasiTkk()" style="padding:4px 10px; font-size:13px;">âœ• Tutup</button>
+        <button type="button" class="btn btn-secondary" onclick="tutupModalEvaluasiTkk()" style="padding:4px 10px; font-size:13px;">&#10005; Tutup</button>
       </div>
+
+      <!-- STEPPER WIZARD INDICATOR -->
+      <div style="background:var(--surface-alt, #f8fafc); border-bottom:1px solid var(--border, #e2e8f0); padding:12px 24px;">
+        <div style="display:flex; align-items:center; justify-content:center; gap:16px; max-width:640px; margin:0 auto; flex-wrap:wrap;">
+          <div id="evalTkk_stepBadge1" onclick="switchEvalModalStep(1)" style="cursor:pointer; display:flex; align-items:center; gap:8px; padding:6px 14px; border-radius:8px; background:var(--primary,#2563eb); color:#fff; font-weight:700; font-size:13px; transition:all 0.2s;">
+            <span style="background:rgba(255,255,255,0.25); width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px;">1</span>
+            <span>Evaluasi Kinerja (7 Kriteria)</span>
+          </div>
+          <div style="color:var(--text-muted,#94a3b8); font-weight:700;">&rarr;</div>
+          <div id="evalTkk_stepBadge2" onclick="switchEvalModalStep(2)" style="cursor:pointer; display:flex; align-items:center; gap:8px; padding:6px 14px; border-radius:8px; background:var(--surface,#fff); border:1px solid var(--border,#cbd5e1); color:var(--text-muted,#64748b); font-weight:700; font-size:13px; transition:all 0.2s;">
+            <span style="background:#e2e8f0; color:#475569; width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px;">2</span>
+            <span>Sasaran Kinerja Pegawai (SKP)</span>
+          </div>
+        </div>
+      </div>
+
       <div class="modal-body" style="padding:20px 24px;">
-        <div id="evalTkkPegawaiInfo" style="background:var(--surface-alt); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:20px;"></div>
-        
-        <div class="grid-2 kp-grid" style="margin-bottom:18px;">
-          <div class="stack-field">
-            <label style="font-weight:600;">Nomor Surat (Opsional)</label>
-            <input type="text" id="evalTkk_nomorSurat" class="field-input" placeholder="Contoh: 123/UN7.A/KP/2026" />
-          </div>
-          <div class="stack-field">
-            <label style="font-weight:600;">Tahun Evaluasi</label>
-            <input type="text" id="evalTkk_tahunEvaluasi" class="field-input" readonly />
-          </div>
-        </div>
-
-        <!-- PILIHAN KEPUTUSAN ATASAN LANGSUNG -->
-        <div style="background:var(--surface-alt, #f8fafc); border:2px solid var(--primary, #2563eb); border-radius:12px; padding:18px; margin-bottom:22px;">
-          <div style="font-size:14px; font-weight:800; color:var(--primary, #1e40af); margin-bottom:12px; display:flex; align-items:center; gap:8px;">
-            <span>âš–ï¸ Keputusan Evaluasi Atasan Langsung:</span>
-          </div>
-          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px;">
-            <label class="eval-decision-card" id="evalTkk_card_diperbarui" style="display:block; cursor:pointer; padding:14px; border:2px solid #10b981; background:#f0fdf4; border-radius:10px; transition:all 0.2s;">
-              <div style="display:flex; align-items:flex-start; gap:8px;">
-                <input type="radio" name="evalTkk_keputusan" id="evalTkk_keputusan_diperbarui" value="diperbarui" checked onchange="onEvalTkkKeputusanChange()" style="margin-top:3px;" />
-                <div>
-                  <strong style="color:#047857; font-size:14px;">ðŸŸ¢ Diperbarui</strong>
-                  <div style="font-size:12px; color:#065f46; margin-top:3px; line-height:1.4;">Usulan disetujui. Lanjut mengisi 7 kriteria &amp; Sasaran Kinerja Pegawai (SKP).</div>
-                </div>
-              </div>
-            </label>
-            <label class="eval-decision-card" id="evalTkk_card_tidak_diperbarui" style="display:block; cursor:pointer; padding:14px; border:2px solid #cbd5e1; background:#fff; border-radius:10px; transition:all 0.2s;">
-              <div style="display:flex; align-items:flex-start; gap:8px;">
-                <input type="radio" name="evalTkk_keputusan" id="evalTkk_keputusan_tidak_diperbarui" value="tidak_diperbarui" onchange="onEvalTkkKeputusanChange()" style="margin-top:3px;" />
-                <div>
-                  <strong style="color:#dc2626; font-size:14px;">ðŸ”´ Tidak Diperbarui</strong>
-                  <div style="font-size:12px; color:#991b1b; margin-top:3px; line-height:1.4;">Usulan ditolak / kontrak tidak dilanjutkan (wajib sertakan alasan).</div>
-                </div>
-              </div>
-            </label>
-            <label class="eval-decision-card" id="evalTkk_card_perlu_perbaikan" style="display:block; cursor:pointer; padding:14px; border:2px solid #cbd5e1; background:#fff; border-radius:10px; transition:all 0.2s;">
-              <div style="display:flex; align-items:flex-start; gap:8px;">
-                <input type="radio" name="evalTkk_keputusan" id="evalTkk_keputusan_perlu_perbaikan" value="perlu_perbaikan" onchange="onEvalTkkKeputusanChange()" style="margin-top:3px;" />
-                <div>
-                  <strong style="color:#d97706; font-size:14px;">ðŸŸ¡ Perlu Perbaikan</strong>
-                  <div style="font-size:12px; color:#92400e; margin-top:3px; line-height:1.4;">Kembalikan usulan ke pengusul untuk perbaikan berkas lampiran.</div>
-                </div>
-              </div>
-            </label>
-          </div>
-        </div>
-
-        <!-- WRAP ALASAN TIDAK DIPERBARUI -->
-        <div id="evalTkk_tidakDiperbaruiWrap" style="display:none; background:#fef2f2; border:1px solid #f87171; border-radius:10px; padding:16px; margin-bottom:20px;">
-          <label style="font-weight:700; color:#b91c1c; font-size:13.5px; display:block; margin-bottom:6px;">
-            ðŸ“ Catatan Alasan Tidak Diperbarui <span style="color:red;">*</span>
-          </label>
-          <textarea id="evalTkk_alasanTidakDiperbarui" class="field-input" rows="3" placeholder="Jelaskan alasan atau pertimbangan mengapa kontrak pegawai tidak diperbarui..."></textarea>
-          <div style="font-size:11.5px; color:#991b1b; margin-top:4px;">Catatan ini akan diteruskan ke Admin Kepegawaian dan menjadi dasar penutupan usulan.</div>
-        </div>
-
-        <!-- WRAP CATATAN PERBAIKAN -->
-        <div id="evalTkk_perluPerbaikanWrap" style="display:none; background:#fffbeb; border:1px solid #fbbf24; border-radius:10px; padding:16px; margin-bottom:20px;">
-          <label style="font-weight:700; color:#b45309; font-size:13.5px; display:block; margin-bottom:6px;">
-            âœï¸ Catatan Perbaikan Berkas untuk Pengusul <span style="color:red;">*</span>
-          </label>
-          <textarea id="evalTkk_catatanPerbaikan" class="field-input" rows="3" placeholder="Tuliskan instruksi berkas yang buram, salah upload, atau dokumen yang perlu diperbaiki oleh pengusul..."></textarea>
-          <div style="font-size:11.5px; color:#92400e; margin-top:4px;">Usulan akan dikembalikan ke akun pengusul dengan status 'Perlu Perbaikan (Koreksi Atasan)'.</div>
-        </div>
-
-        <!-- SEKSI KRITERIA & SKOR -->
-        <div id="evalTkk_kriteriaSection">
-          <h4 style="margin-top:10px; margin-bottom:12px; border-bottom:2px solid var(--primary); padding-bottom:6px; color:var(--primary);">
-            A. Penilaian 7 Kriteria Kinerja (Skor: 1 = Kurang, 2 = Baik, 3 = Sangat Baik)
-          </h4>
-
-          <div class="table-responsive" style="overflow-x:auto; margin-bottom:20px;">
-            <table class="table-list" style="width:100%; text-align:left; border-collapse:collapse;">
-              <thead>
-                <tr style="background:var(--surface-alt);">
-                  <th style="width:40px; padding:10px; text-align:center;">No</th>
-                  <th style="padding:10px;">Kriteria Penilaian</th>
-                  <th style="width:240px; padding:10px; text-align:center;">Skor Penilaian</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style="text-align:center; padding:10px;">1</td>
-                  <td style="padding:10px;"><strong>Orientasi Pelayanan</strong><br><small style="color:var(--text-muted);">Sikap dan perilaku kerja dalam memberikan pelayanan terbaik kepada pihak yang dilayani.</small></td>
-                  <td style="padding:10px; text-align:center;">
-                    <div style="display:flex; justify-content:center; gap:12px;">
-                      <label><input type="radio" name="eval_p1" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
-                      <label><input type="radio" name="eval_p1" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
-                      <label><input type="radio" name="eval_p1" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="text-align:center; padding:10px;">2</td>
-                  <td style="padding:10px;"><strong>Inisiatif Kerja</strong><br><small style="color:var(--text-muted);">Kemauan dan kemampuan untuk mengambil tindakan proaktif tanpa harus selalu menunggu instruksi.</small></td>
-                  <td style="padding:10px; text-align:center;">
-                    <div style="display:flex; justify-content:center; gap:12px;">
-                      <label><input type="radio" name="eval_p2" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
-                      <label><input type="radio" name="eval_p2" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
-                      <label><input type="radio" name="eval_p2" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="text-align:center; padding:10px;">3</td>
-                  <td style="padding:10px;"><strong>Komitmen</strong><br><small style="color:var(--text-muted);">Kesungguhan dan tanggung jawab dalam menjalankan tugas kedinasan dan menjaga nama baik institusi.</small></td>
-                  <td style="padding:10px; text-align:center;">
-                    <div style="display:flex; justify-content:center; gap:12px;">
-                      <label><input type="radio" name="eval_p3" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
-                      <label><input type="radio" name="eval_p3" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
-                      <label><input type="radio" name="eval_p3" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="text-align:center; padding:10px;">4</td>
-                  <td style="padding:10px;"><strong>Kerjasama</strong><br><small style="color:var(--text-muted);">Kemampuan bekerja sama dalam tim dan bersinergi dengan rekan kerja maupun unit lain.</small></td>
-                  <td style="padding:10px; text-align:center;">
-                    <div style="display:flex; justify-content:center; gap:12px;">
-                      <label><input type="radio" name="eval_p4" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
-                      <label><input type="radio" name="eval_p4" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
-                      <label><input type="radio" name="eval_p4" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="text-align:center; padding:10px;">5</td>
-                  <td style="padding:10px;"><strong>Kehadiran</strong><br><small style="color:var(--text-muted);">Ketepatan waktu dan tingkat kehadiran kerja sesuai jam operasional dinas.</small></td>
-                  <td style="padding:10px; text-align:center;">
-                    <div style="display:flex; justify-content:center; gap:12px;">
-                      <label><input type="radio" name="eval_p5" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
-                      <label><input type="radio" name="eval_p5" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
-                      <label><input type="radio" name="eval_p5" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="text-align:center; padding:10px;">6</td>
-                  <td style="padding:10px;"><strong>Disiplin</strong><br><small style="color:var(--text-muted);">Ketaatan terhadap tata tertib, peraturan kepegawaian, dan etika profesi.</small></td>
-                  <td style="padding:10px; text-align:center;">
-                    <div style="display:flex; justify-content:center; gap:12px;">
-                      <label><input type="radio" name="eval_p6" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
-                      <label><input type="radio" name="eval_p6" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
-                      <label><input type="radio" name="eval_p6" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="text-align:center; padding:10px;">7</td>
-                  <td style="padding:10px;"><strong>Kesesuaian Hasil Kerja dengan Tupoksi</strong><br><small style="color:var(--text-muted);">Kualitas dan kuantitas target capaian kinerja sesuai uraian tugas pokok dan fungsi jabatan.</small></td>
-                  <td style="padding:10px; text-align:center;">
-                    <div style="display:flex; justify-content:center; gap:12px;">
-                      <label><input type="radio" name="eval_p7" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
-                      <label><input type="radio" name="eval_p7" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
-                      <label><input type="radio" name="eval_p7" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Total Skor & Rekomendasi Box -->
-          <div style="background:var(--surface-alt); border:2px solid var(--primary); border-radius:12px; padding:18px; margin-bottom:20px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-              <div>
-                <div style="font-size:13px; font-weight:600; color:var(--text-muted);">TOTAL SKOR KINERJA (MAKSIMAL 21):</div>
-                <div id="evalTkk_totalSkorDisplay" style="font-size:24px; font-weight:800; color:var(--primary);">14 / 21</div>
-              </div>
-              <div style="text-align:right;">
-                <div style="font-size:13px; font-weight:600; color:var(--text-muted);">REKOMENDASI ATASAN LANGSUNG:</div>
-                <div id="evalTkk_rekomendasiDisplay" style="font-size:16px; font-weight:700; color:#16a34a;">Diperbarui Kontrak s.d. 31 Desember 2027</div>
-              </div>
+        <!-- ======================= STEP 1: FORM EVALUASI KINERJA ======================= -->
+        <div id="evalTkk_step1Container">
+          <div id="evalTkkPegawaiInfo" style="background:var(--surface-alt); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:20px;"></div>
+          
+          <div class="grid-2 kp-grid" style="margin-bottom:18px;">
+            <div class="stack-field">
+              <label style="font-weight:600;">Nomor Surat (Opsional)</label>
+              <input type="text" id="evalTkk_nomorSurat" class="field-input" placeholder="Contoh: 123/UN7.A/KP/2026" />
+            </div>
+            <div class="stack-field">
+              <label style="font-weight:600;">Tahun Evaluasi</label>
+              <input type="text" id="evalTkk_tahunEvaluasi" class="field-input" readonly />
             </div>
           </div>
-        </div> <!-- End evalTkk_kriteriaSection -->
 
-        <!-- CONTAINER FORM SKP TENDIK (DIISI ATASAN SAAT DIPERBARUI) -->
-        <div id="evalTkk_skpSection" style="margin-bottom:20px;"></div>
+          <input type="hidden" id="evalTkk_keputusanOtomatis" value="diperbarui" />
 
-        <!-- SEKSI TANDA TANGAN ATASAN LANGSUNG -->
-        <div id="evalTkk_signatureSection">
-          <h4 style="margin-top:10px; margin-bottom:12px; border-bottom:2px solid var(--primary); padding-bottom:6px; color:var(--primary);">
-            B. Tanda Tangan Atasan Langsung (Penilai)
-          </h4>
-          <div style="margin-bottom:20px;">
-            <div class="helper-text" style="margin-bottom:8px;">Bubuhkan tanda tangan Anda menggunakan mouse atau layar sentuh pada kotak di bawah:</div>
-            <div style="display:inline-block; border:2px dashed #94a3b8; border-radius:8px; background:#fff; position:relative;">
-              <canvas id="evalTkkSignaturePad" width="420" height="160" style="touch-action:none; cursor:crosshair; display:block;"></canvas>
+          <!-- SEKSI KRITERIA & SKOR -->
+          <div id="evalTkk_kriteriaSection">
+            <h4 style="margin-top:10px; margin-bottom:12px; border-bottom:2px solid var(--primary); padding-bottom:6px; color:var(--primary);">
+              A. Penilaian 7 Kriteria Kinerja (Skor: 1 = Kurang, 2 = Baik, 3 = Sangat Baik)
+            </h4>
+
+            <div class="table-responsive" style="overflow-x:auto; margin-bottom:20px;">
+              <table class="table-list" style="width:100%; text-align:left; border-collapse:collapse;">
+                <thead>
+                  <tr style="background:var(--surface-alt);">
+                    <th style="width:40px; padding:10px; text-align:center;">No</th>
+                    <th style="padding:10px;">Kriteria Penilaian</th>
+                    <th style="width:240px; padding:10px; text-align:center;">Skor Penilaian</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style="text-align:center; padding:10px;">1</td>
+                    <td style="padding:10px;"><strong>Orientasi Pelayanan</strong><br><small style="color:var(--text-muted);">Sikap dan perilaku kerja dalam memberikan pelayanan terbaik kepada pihak yang dilayani.</small></td>
+                    <td style="padding:10px; text-align:center;">
+                      <div style="display:flex; justify-content:center; gap:12px;">
+                        <label><input type="radio" name="eval_p1" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
+                        <label><input type="radio" name="eval_p1" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
+                        <label><input type="radio" name="eval_p1" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="text-align:center; padding:10px;">2</td>
+                    <td style="padding:10px;"><strong>Inisiatif Kerja</strong><br><small style="color:var(--text-muted);">Kemauan dan kemampuan untuk mengambil tindakan proaktif tanpa harus selalu menunggu instruksi.</small></td>
+                    <td style="padding:10px; text-align:center;">
+                      <div style="display:flex; justify-content:center; gap:12px;">
+                        <label><input type="radio" name="eval_p2" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
+                        <label><input type="radio" name="eval_p2" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
+                        <label><input type="radio" name="eval_p2" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="text-align:center; padding:10px;">3</td>
+                    <td style="padding:10px;"><strong>Komitmen</strong><br><small style="color:var(--text-muted);">Kesungguhan dan tanggung jawab dalam menjalankan tugas kedinasan dan menjaga nama baik institusi.</small></td>
+                    <td style="padding:10px; text-align:center;">
+                      <div style="display:flex; justify-content:center; gap:12px;">
+                        <label><input type="radio" name="eval_p3" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
+                        <label><input type="radio" name="eval_p3" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
+                        <label><input type="radio" name="eval_p3" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="text-align:center; padding:10px;">4</td>
+                    <td style="padding:10px;"><strong>Kerjasama</strong><br><small style="color:var(--text-muted);">Kemampuan bekerja sama dalam tim dan bersinergi dengan rekan kerja maupun unit lain.</small></td>
+                    <td style="padding:10px; text-align:center;">
+                      <div style="display:flex; justify-content:center; gap:12px;">
+                        <label><input type="radio" name="eval_p4" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
+                        <label><input type="radio" name="eval_p4" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
+                        <label><input type="radio" name="eval_p4" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="text-align:center; padding:10px;">5</td>
+                    <td style="padding:10px;"><strong>Kehadiran</strong><br><small style="color:var(--text-muted);">Ketepatan waktu dan tingkat kehadiran kerja sesuai jam operasional dinas.</small></td>
+                    <td style="padding:10px; text-align:center;">
+                      <div style="display:flex; justify-content:center; gap:12px;">
+                        <label><input type="radio" name="eval_p5" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
+                        <label><input type="radio" name="eval_p5" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
+                        <label><input type="radio" name="eval_p5" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="text-align:center; padding:10px;">6</td>
+                    <td style="padding:10px;"><strong>Disiplin</strong><br><small style="color:var(--text-muted);">Ketaatan terhadap tata tertib, peraturan kepegawaian, dan etika profesi.</small></td>
+                    <td style="padding:10px; text-align:center;">
+                      <div style="display:flex; justify-content:center; gap:12px;">
+                        <label><input type="radio" name="eval_p6" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
+                        <label><input type="radio" name="eval_p6" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
+                        <label><input type="radio" name="eval_p6" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="text-align:center; padding:10px;">7</td>
+                    <td style="padding:10px;"><strong>Kesesuaian Hasil Kerja dengan Tupoksi</strong><br><small style="color:var(--text-muted);">Kualitas dan kuantitas target capaian kinerja sesuai uraian tugas pokok dan fungsi jabatan.</small></td>
+                    <td style="padding:10px; text-align:center;">
+                      <div style="display:flex; justify-content:center; gap:12px;">
+                        <label><input type="radio" name="eval_p7" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
+                        <label><input type="radio" name="eval_p7" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
+                        <label><input type="radio" name="eval_p7" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; flex-wrap:wrap; gap:10px;">
-              <button type="button" class="btn btn-secondary" onclick="clearEvalTkkSignature()" style="padding:6px 14px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:6px;">
-                <span>ðŸ—‘ï¸</span> Hapus / Ulangi Tanda Tangan
+
+            <!-- Total Skor & Rekomendasi Box (Murni dari 7 Kriteria) -->
+            <div style="background:var(--surface-alt); border:2px solid var(--primary); border-radius:12px; padding:18px; margin-bottom:20px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <div>
+                  <div style="font-size:13px; font-weight:600; color:var(--text-muted);">TOTAL SKOR KINERJA (MAKSIMAL 21):</div>
+                  <div id="evalTkk_totalSkorDisplay" style="font-size:24px; font-weight:800; color:var(--primary);">14 / 21</div>
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-size:13px; font-weight:600; color:var(--text-muted);">REKOMENDASI ATASAN LANGSUNG:</div>
+                  <div id="evalTkk_rekomendasiDisplay" style="font-size:16px; font-weight:700; color:#16a34a;">Diperbarui Kontrak s.d. 31 Desember 2027</div>
+                </div>
+              </div>
+            </div>
+          </div> <!-- End evalTkk_kriteriaSection -->
+
+          <!-- SEKSI TANDA TANGAN ATASAN LANGSUNG -->
+          <div id="evalTkk_signatureSection">
+            <h4 style="margin-top:10px; margin-bottom:12px; border-bottom:2px solid var(--primary); padding-bottom:6px; color:var(--primary);">
+              B. Tanda Tangan Atasan Langsung (Penilai)
+            </h4>
+            <div style="margin-bottom:20px;">
+              <div class="helper-text" style="margin-bottom:8px;">Bubuhkan tanda tangan Anda menggunakan mouse atau layar sentuh pada kotak di bawah:</div>
+              <div style="display:inline-block; border:2px dashed #94a3b8; border-radius:8px; background:#fff; position:relative;">
+                <canvas id="evalTkkSignaturePad" width="420" height="160" style="touch-action:none; cursor:crosshair; display:block;"></canvas>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; flex-wrap:wrap; gap:10px;">
+                <button type="button" class="btn btn-secondary" onclick="clearEvalTkkSignature()" style="padding:6px 14px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:6px;">
+                  <span>&#128465;&#65039;</span> Hapus / Ulangi Tanda Tangan
+                </button>
+                <div style="display:inline-flex; align-items:center; gap:8px; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:4px 10px;">
+                  <label for="evalTkk_lineWidthSelect" style="font-size:12px; font-weight:600; color:#334155; margin:0; white-space:nowrap;">
+                    &#9999;&#65039; Ketebalan Goresan:
+                  </label>
+                  <select id="evalTkk_lineWidthSelect" onchange="changeEvalTkkLineWidth(this.value)" style="padding:3px 8px; font-size:12px; font-weight:600; border:1px solid #94a3b8; border-radius:4px; background:#ffffff; color:#0f172a; cursor:pointer; height:28px;">
+                    <option value="0.5">0.5 (Sangat Tipis)</option>
+                    <option value="1.0">1.0</option>
+                    <option value="1.5">1.5</option>
+                    <option value="2.0">2.0</option>
+                    <option value="2.5" selected>2.5 (Standar)</option>
+                    <option value="3.0">3.0</option>
+                    <option value="3.5">3.5</option>
+                    <option value="4.0">4.0 (Tebal)</option>
+                    <option value="4.5">4.5</option>
+                    <option value="5.0">5.0 (Sangat Tebal)</option>
+                  </select>
+                </div>
+              </div>
+              <div style="font-size:11.5px; color:#64748b; margin-top:5px;">
+                &#8505;&#65039; Tanda tangan diposisikan rapi satu garis lurus di atas teks nama penandatangan dengan ketebalan proporsional.
+              </div>
+            </div>
+          </div> <!-- End evalTkk_signatureSection -->
+
+          <!-- BARIS TOMBOL AKSI LANGKAH 1 -->
+          <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:16px; flex-wrap:wrap; gap:12px;">
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button type="button" class="btn btn-secondary" onclick="tutupModalEvaluasiTkk()">Batal</button>
+              <button type="button" class="btn btn-outline" id="btnHapusUsulanBawahan" onclick="hapusUsulanBawahanTkk()" style="border-color:#ef4444; color:#dc2626; background:#fff5f5; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+                <span>&#128465;&#65039;</span> Hapus Usulan
               </button>
-              <div style="display:inline-flex; align-items:center; gap:8px; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:4px 10px;">
-                <label for="evalTkk_lineWidthSelect" style="font-size:12px; font-weight:600; color:#334155; margin:0; white-space:nowrap;">
-                  âœï¸ Ketebalan Goresan:
-                </label>
-                <select id="evalTkk_lineWidthSelect" onchange="changeEvalTkkLineWidth(this.value)" style="padding:3px 8px; font-size:12px; font-weight:600; border:1px solid #94a3b8; border-radius:4px; background:#ffffff; color:#0f172a; cursor:pointer; height:28px;">
-                  <option value="0.5">0.5 (Sangat Tipis)</option>
-                  <option value="1.0">1.0</option>
-                  <option value="1.5">1.5</option>
-                  <option value="2.0">2.0</option>
-                  <option value="2.5" selected>2.5 (Standar)</option>
-                  <option value="3.0">3.0</option>
-                  <option value="3.5">3.5</option>
-                  <option value="4.0">4.0 (Tebal)</option>
-                  <option value="4.5">4.5</option>
-                  <option value="5.0">5.0 (Sangat Tebal)</option>
-                </select>
-              </div>
             </div>
-            <div style="font-size:11.5px; color:#64748b; margin-top:5px;">
-              â„¹ï¸ Tanda tangan diposisikan rapi satu garis lurus di atas teks nama penandatangan dengan ketebalan proporsional.
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+              <button type="button" class="btn btn-outline" onclick="previewDocxEvaluasiTkk()" style="font-weight:600; display:inline-flex; align-items:center; gap:6px;">
+                <span>&#128065;&#65039;</span> Preview Evaluasi
+              </button>
+              <button type="button" class="btn btn-outline" onclick="bukaModalPerbaikanBerkasTkk()" style="border-color:#f59e0b; color:#b45309; background:#fffbeb; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+                <span>&#9888;&#65039;</span> Perbaikan
+              </button>
+              <button type="button" id="btnGenerateLanjutSkp" class="btn btn-primary" onclick="generateEvaluasiDanLanjutKeSkp()" style="font-weight:700; background:#2563eb; border-color:#2563eb; box-shadow:0 4px 14px rgba(37,99,235,0.25); display:inline-flex; align-items:center; gap:8px; padding:10px 18px;">
+                <span>&#9889;</span> Generate Form Evaluasi &amp; Lanjut ke SKP &rarr;
+              </button>
             </div>
           </div>
-        </div> <!-- End evalTkk_signatureSection -->
+        </div> <!-- End evalTkk_step1Container -->
 
-        <!-- BARIS TOMBOL AKSI -->
-        <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:16px; flex-wrap:wrap; gap:12px;">
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button type="button" class="btn btn-secondary" onclick="tutupModalEvaluasiTkk()">Batal</button>
-            <button type="button" class="btn btn-outline" id="btnHapusUsulanBawahan" onclick="hapusUsulanBawahanTkk()" style="border-color:#ef4444; color:#dc2626; background:#fff5f5; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
-              <span>ðŸ—‘ï¸</span> Hapus Usulan
+        <!-- ======================= STEP 2: FORM SASARAN KINERJA PEGAWAI (SKP 33 VARIABEL) ======================= -->
+        <div id="evalTkk_step2Container" style="display:none;">
+          <!-- BANNER HASIL EVALUASI LANGKAH 1 -->
+          <div style="background:#ecfdf5; border:1px solid #6ee7b7; border-radius:10px; padding:14px 18px; margin-bottom:18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-size:24px;">&#9989;</span>
+              <div>
+                <div style="font-weight:800; color:#065f46; font-size:14px;">Formulir Evaluasi Kinerja Siap!</div>
+                <div style="font-size:12.5px; color:#047857; margin-top:2px;">
+                  Total Skor: <strong id="step2_skorEvaluasiBadge">14 / 21</strong> &bull; Rekomendasi: <strong id="step2_rekomendasiBadge">Diperbarui Kontrak</strong>. Silakan lengkapi sasaran kinerja pegawai (SKP) di bawah ini.
+                </div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-outline" onclick="previewDocxEvaluasiTkk()" style="font-size:12px; padding:4px 10px; background:#fff; font-weight:600;">
+              &#128065;&#65039; Lihat Dokumen Evaluasi
             </button>
           </div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;" id="evalTkk_btnPreviewSimpanWrap">
-            <button type="button" class="btn btn-outline" onclick="previewDocxEvaluasiTkk()">ðŸ‘ï¸ Preview Evaluasi</button>
-            <button type="button" id="btnSimpanEvaluasiTkk" class="btn btn-secondary" onclick="simpanEvaluasiTkkFinal(false)" style="font-weight:600;">ðŸ’¾ Simpan Draft (.docx)</button>
+
+          <!-- CONTAINER FORM SKP 33 VARIABEL -->
+          <div id="evalTkk_skpSection" style="margin-bottom:20px;"></div>
+
+          <!-- BARIS TOMBOL AKSI LANGKAH 2 -->
+          <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:16px; margin-top:20px; flex-wrap:wrap; gap:12px;">
+            <div>
+              <button type="button" class="btn btn-secondary" onclick="switchEvalModalStep(1)" style="font-weight:600; display:inline-flex; align-items:center; gap:6px;">
+                <span>&larr;</span> Kembali ke Form Evaluasi
+              </button>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+              <button type="button" class="btn btn-outline" onclick="previewSkpTendikModal()" style="font-weight:600; display:inline-flex; align-items:center; gap:6px;">
+                <span>&#128065;&#65039;</span> Preview Dokumen SKP
+              </button>
+              <button type="button" id="btnValidasiEvaluasiTkk" class="btn btn-primary" onclick="validasiDanKirimEvaluasiTkk()" style="font-weight:700; background:#059669; border-color:#059669; box-shadow:0 4px 14px rgba(5,150,105,0.25); padding:10px 22px; font-size:14px; display:inline-flex; align-items:center; gap:8px;">
+                <span>&#9989;</span> Simpan &amp; Kirim Usulan ke Admin Kepegawaian
+              </button>
+            </div>
           </div>
+        </div> <!-- End evalTkk_step2Container -->
+
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CATATAN PERBAIKAN BERKAS KE PENGUSUL -->
+  <div class="modal-overlay" id="modalCatatanPerbaikanTkk" style="display:none; z-index:9995;">
+    <div class="modal-box" style="max-width:560px; width:92%; padding:24px; border-radius:12px;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:12px;">
+        <span style="font-size:24px;">&#9888;&#65039;</span>
+        <div>
+          <h3 style="margin:0; font-size:16px; font-weight:800; color:var(--text);">Kembalikan untuk Perbaikan Berkas</h3>
+          <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Usulan akan dikembalikan ke pengusul untuk memperbaiki berkas lampiran yang tidak sesuai.</div>
         </div>
-        <div style="margin-top:12px;">
-          <button type="button" id="btnValidasiEvaluasiTkk" class="btn btn-primary" onclick="validasiDanKirimEvaluasiTkk()" style="width:100%; font-weight:700; background:#059669; border-color:#059669; box-shadow:0 4px 12px rgba(5,150,105,0.25); padding:10px 16px; font-size:14px;">
-            âœ… Validasi &amp; Kirim Keputusan Evaluasi ke Admin
-          </button>
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="display:block; font-size:13px; font-weight:700; color:#b45309; margin-bottom:6px;">
+          Catatan Perbaikan Berkas untuk Pengusul <span style="color:red;">*</span>
+        </label>
+        <textarea id="catatanPerbaikanModal_input" class="field-input" rows="4" placeholder="Tuliskan dengan jelas berkas mana yang tidak sesuai, salah upload, atau buram (contoh: 'Bukti hasil kerja belum dilampirkan atau surat keterangan sehat buram, mohon diunggah kembali')..."></textarea>
+        <div style="font-size:11.5px; color:var(--text-muted); margin-top:4px;">
+          Pengusul akan menerima notifikasi status <strong>Koreksi Atasan</strong> dan dapat mengunggah ulang dokumen yang diminta.
         </div>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" class="btn btn-secondary" onclick="tutupModalPerbaikanBerkasTkk()">Batal</button>
+        <button type="button" id="btnKirimPerbaikanModal" class="btn btn-primary" onclick="kirimPerbaikanBerkasTkk()" style="background:#d97706; border-color:#d97706; font-weight:700;">
+          &#11013;&#65039; Kembalikan ke Pengusul
+        </button>
       </div>
     </div>
   </div>
