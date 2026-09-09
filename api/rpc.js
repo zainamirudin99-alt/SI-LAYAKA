@@ -96,6 +96,26 @@ function isGdriveFolderUrl(url) {
   return s.includes('/drive/folders/') || (s.includes('/drive/u/') && s.includes('/folders/')) || s.includes('/folders/');
 }
 
+async function sendEmailNotificationSafe(toEmail, recipientName, subject, body) {
+  if (!toEmail || !String(toEmail).includes('@')) return;
+  const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+  if (!gasUrl) return;
+  try {
+    const shortId = uuidv4();
+    await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        method: 'sendEmailNotification',
+        params: [toEmail, recipientName, subject, body],
+        remoteSession: { id: shortId, data: { email: toEmail, nama: recipientName, role: 'admin' } }
+      })
+    });
+  } catch (err) {
+    console.warn('[sendEmailNotificationSafe] Error:', err.message);
+  }
+}
+
 // Global in-memory cache for akses_kontrak_mandiri
 const MEMORY_AKSES_KONTRAK_MANDIRI = {};
 
@@ -716,11 +736,12 @@ function buildEvaluasiTkkDataContext(usulan, evalData, empData, atasanEmp) {
   const p7 = Math.max(1, Math.min(3, Number(ed.hasil_kerja || (ed.kriteria && ed.kriteria[6]) || 1)));
 
   const totalSkor = p1 + p2 + p3 + p4 + p5 + p6 + p7;
-  const isExtend = totalSkor > 10.5; // (>= 11)
-  const totalTahunPerpanjangan = tahunEvaluasi + 1;
-  const rekomendasi = isExtend
-    ? `Diperpanjang Kontrak s.d. 31 Desember ${totalTahunPerpanjangan}`
-    : 'Tidak Diperpanjang';
+  const isExtend = (ed.keputusan === 'diperbarui') || (!ed.keputusan && totalSkor > 10.5); // (>= 11)
+  const totalTahunPembaruan = tahunEvaluasi + 1;
+  let rekomendasi = isExtend
+    ? `Diperbarui Kontrak s.d. 31 Desember ${totalTahunPembaruan}`
+    : 'Tidak Diperbarui';
+  if (ed.keputusan === 'perlu_perbaikan') rekomendasi = 'Perlu Perbaikan Berkas';
 
   const emp = empData || {};
   const u = usulan || {};
@@ -7224,7 +7245,7 @@ const methods = {
     (data || []).forEach(u => {
       // Abaikan usulan yang dibuat langsung oleh admin sendiri (bukan diajukan oleh pegawai untuk direview)
       if (u.diajukan_oleh_nip && u.diajukan_oleh_nip === u.diproses_oleh_nip && u.status === 'Selesai') return;
-      if (['Diajukan', 'validated_by_atasan', 'evaluated_extend', 'evaluated_not_extend'].includes(u.status)) totalUsulanBaru++;
+      if (['Diajukan', 'validated_by_atasan', 'evaluated_renewed', 'evaluated_extend', 'evaluated_not_renewed', 'evaluated_not_extend'].includes(u.status)) totalUsulanBaru++;
       const unit = String(u.unit || '(Tanpa Unit)').trim() || '(Tanpa Unit)';
       perUnit[unit] = (perUnit[unit] || 0) + 1;
     });
@@ -7551,62 +7572,69 @@ const methods = {
     const db = getDb();
 
     const {
-      nip, nama, unit, email, tahun, jenis_usulan, evaluasi_kinerja, layanan, sub_menu, atasan_nip, form_data,
-      ktpBase64, kkBase64, pasFotoBase64, ijazahBase64, suratPengantarBase64, suratLamaranBase64,
-      simAbBase64, strAktifBase64, ketSehatBase64, hasilKerjaBase64
+      nip, nama, unit, email, tahun, jenis_usulan, evaluasi_kinerja, layanan, sub_menu, form_data,
+      suratLamaranBase64, hasilKerjaBase64
     } = payload || {};
 
     const targetNip = String(nip || decoded.nip).trim();
     const targetNama = String(nama || decoded.nama).trim();
 
-    if (!atasan_nip || !String(atasan_nip).trim()) {
-      return { success: false, message: 'Atasan Langsung wajib dipilih untuk pengajuan usulan Tenaga Kependidikan.' };
+    const emp = await findEmployeeByNip(targetNip);
+    const unitEsIv = String(emp?.unit_es_iv || payload?.unit_es_iv || form_data?.unit_es_iv || '').trim();
+    if (!unitEsIv) {
+      return {
+        success: false,
+        message: 'Unit / Program Studi (unit_es_iv) pada data kepegawaian Anda belum terisi. Hubungi administrator kepegawaian untuk melengkapi data sebelum mengajukan pembaruan kontrak.'
+      };
     }
 
-    const atasanEmp = await findEmployeeByNip(atasan_nip);
-    if (!atasanEmp) return { success: false, message: 'Atasan Langsung dengan NIP tersebut tidak ditemukan di database.' };
-    const atasanNama = atasanEmp.nama_lengkap || atasanEmp.nama || atasanEmp.nip;
+    // Auto-assign Atasan Langsung: Match unit_es_iv (Pengusul) = prodi (Tabel Atasan Langsung)
+    let atasanMatches = [];
+    try {
+      const { data: matches, error: atasanErr } = await db.from('atasan_langsung')
+        .select('*')
+        .ilike('prodi', unitEsIv);
+      if (atasanErr) throw atasanErr;
+      atasanMatches = matches || [];
+    } catch (dbErr) {
+      console.warn('[ajukanUsulanKontrakTendik] Error querying atasan_langsung:', dbErr.message);
+    }
+
+    if (!atasanMatches || atasanMatches.length === 0) {
+      return {
+        success: false,
+        message: `Atasan Langsung untuk Unit / Program Studi "${unitEsIv}" belum terdaftar di sistem. Hubungi administrator kepegawaian.`
+      };
+    }
+
+    if (atasanMatches.length > 1) {
+      return {
+        success: false,
+        message: `Terdeteksi lebih dari satu Atasan Langsung untuk Unit / Program Studi "${unitEsIv}". Hubungi administrator kepegawaian untuk verifikasi data.`
+      };
+    }
+
+    const atasanRow = atasanMatches[0];
+    const atasanNip = String(atasanRow.nip || '').trim();
+    const atasanNama = String(atasanRow.nama_lengkap || atasanRow.nama || atasanNip).trim();
+    const atasanTutam = String(atasanRow.detail_tutam || '').trim();
 
     const { status_kepegawaian: roleStatus } = await getUserRole(targetNip);
-    const emp = await findEmployeeByNip(targetNip);
     const effectiveStatus = roleStatus || emp?.status_kepegawaian || 'Tenaga Profesional';
 
     const shortId = uuidv4();
-    let ktpUrl = payload.ktp_url || '',
-        kkUrl = payload.kk_url || '',
-        pasFotoUrl = payload.pas_foto_url || '',
-        ijazahUrl = payload.ijazah_transkrip_url || '',
-        pengantarUrl = payload.surat_pengantar_url || '',
-        lamaranUrl = payload.surat_lamaran_url || '',
-        simUrl = payload.sim_ab_url || '',
-        strUrl = payload.str_aktif_url || '',
-        sehatUrl = payload.keterangan_sehat_url || '',
+    let lamaranUrl = payload.surat_lamaran_url || '',
         hasilKerjaUrl = payload.hasil_kerja_url || '';
 
-    const allUrls = [ktpUrl, kkUrl, pasFotoUrl, ijazahUrl, pengantarUrl, lamaranUrl, simUrl, strUrl, sehatUrl, hasilKerjaUrl];
-    if (allUrls.some(u => isGdriveFolderUrl(u))) {
+    if (isGdriveFolderUrl(lamaranUrl) || isGdriveFolderUrl(hasilKerjaUrl)) {
       return { success: false, message: 'Tautan berkas persyaratan harus langsung menuju ke FILE Google Drive, bukan tautan FOLDER.' };
     }
 
-    if (!ktpUrl && !ktpBase64) return { success: false, message: 'Link Google Drive KTP wajib diisi.' };
-    if (!kkUrl && !kkBase64) return { success: false, message: 'Link Google Drive Kartu Keluarga wajib diisi.' };
-    if (!pasFotoUrl && !pasFotoBase64) return { success: false, message: 'Link Google Drive Pas Foto wajib diisi.' };
-    if (!ijazahUrl && !ijazahBase64) return { success: false, message: 'Link Google Drive Ijazah & Transkrip wajib diisi.' };
-    if (!pengantarUrl && !suratPengantarBase64) return { success: false, message: 'Link Google Drive Surat Pengantar Unit wajib diisi.' };
     if (!lamaranUrl && !suratLamaranBase64) return { success: false, message: 'Link Google Drive Surat Lamaran wajib diisi.' };
-    if (!sehatUrl && !ketSehatBase64) return { success: false, message: 'Link Google Drive Surat Keterangan Sehat wajib diisi.' };
     if (!hasilKerjaUrl && !hasilKerjaBase64) return { success: false, message: 'Link Google Drive Bukti/Hasil Kerja (Dokumentasi/PPT) wajib diisi.' };
 
     try {
-      if (!ktpUrl && ktpBase64) ktpUrl = await uploadLampiran(ktpBase64, `KTP-${targetNip}`, 'kontrak-tkk');
-      if (!kkUrl && kkBase64) kkUrl = await uploadLampiran(kkBase64, `KK-${targetNip}`, 'kontrak-tkk');
-      if (!pasFotoUrl && pasFotoBase64) pasFotoUrl = await uploadLampiran(pasFotoBase64, `FOTO-${targetNip}`, 'kontrak-tkk');
-      if (!ijazahUrl && ijazahBase64) ijazahUrl = await uploadLampiran(ijazahBase64, `IJAZAH-${targetNip}`, 'kontrak-tkk');
-      if (!pengantarUrl && suratPengantarBase64) pengantarUrl = await uploadLampiran(suratPengantarBase64, `PENGANTAR-${targetNip}`, 'kontrak-tkk');
       if (!lamaranUrl && suratLamaranBase64) lamaranUrl = await uploadLampiran(suratLamaranBase64, `LAMARAN-${targetNip}`, 'kontrak-tkk');
-      if (!simUrl && simAbBase64) simUrl = await uploadLampiran(simAbBase64, `SIM-${targetNip}`, 'kontrak-tkk');
-      if (!strUrl && strAktifBase64) strUrl = await uploadLampiran(strAktifBase64, `STR-${targetNip}`, 'kontrak-tkk');
-      if (!sehatUrl && ketSehatBase64) sehatUrl = await uploadLampiran(ketSehatBase64, `SEHAT-${targetNip}`, 'kontrak-tkk');
       if (!hasilKerjaUrl && hasilKerjaBase64) hasilKerjaUrl = await uploadLampiran(hasilKerjaBase64, `HASILKERJA-${targetNip}`, 'kontrak-tkk');
     } catch (upErr) {
       console.warn('[ajukanUsulanKontrakTendik] Upload lampiran notice:', upErr.message);
@@ -7620,7 +7648,7 @@ const methods = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             method: 'ajukanUsulanKontrakDrive',
-            params: [shortId, Object.assign({}, payload, { atasan_nip, atasan_nama: atasanNama, hasil_kerja_url: hasilKerjaUrl })],
+            params: [shortId, Object.assign({}, payload, { atasan_nip: atasanNip, atasan_nama: atasanNama, hasil_kerja_url: hasilKerjaUrl, surat_lamaran_url: lamaranUrl })],
             remoteSession: { id: shortId, data: { nip: targetNip, nama: targetNama } }
           })
         }).catch(e => console.warn('[GAS Bridge] Notice:', e.message));
@@ -7631,30 +7659,24 @@ const methods = {
       nip: targetNip,
       nama: targetNama,
       unit: String(unit || emp?.unit_es_ii || '').trim(),
-      email: String(email || '').trim(),
+      email: String(email || emp?.email || '').trim(),
       tahun: String(tahun || new Date().getFullYear()).trim(),
-      jenis_usulan: String(jenis_usulan || 'Perpanjangan Kontrak').trim(),
+      jenis_usulan: 'Pembaruan Kontrak',
       evaluasi_kinerja: String(evaluasi_kinerja || '').trim(),
       layanan: 'Kontrak Tendik',
       sub_menu: String(sub_menu || effectiveStatus || 'Tenaga Profesional').trim(),
-      atasan_nip: String(atasan_nip).trim(),
+      atasan_nip: atasanNip,
       atasan_nama: atasanNama,
       status: 'submitted_to_atasan',
       form_data: Object.assign({}, form_data || {}, {
-        atasan_nip: String(atasan_nip).trim(),
+        atasan_nip: atasanNip,
         atasan_nama: atasanNama,
+        atasan_tutam: atasanTutam,
+        unit_es_iv: unitEsIv,
         status_kepegawaian: effectiveStatus,
         jenis_pegawai: 'Tenaga Kependidikan'
       }),
-      ktp_url: ktpUrl,
-      kk_url: kkUrl,
-      pas_foto_url: pasFotoUrl,
-      ijazah_transkrip_url: ijazahUrl,
-      surat_pengantar_url: pengantarUrl,
       surat_lamaran_url: lamaranUrl,
-      sim_ab_url: simUrl,
-      str_aktif_url: strUrl,
-      keterangan_sehat_url: sehatUrl,
       hasil_kerja_url: hasilKerjaUrl,
       diajukan_oleh_nip: decoded.nip,
       nama_pengaju: decoded.nama,
@@ -7666,7 +7688,7 @@ const methods = {
 
     return {
       success: true,
-      message: `Usulan Kontrak Tenaga Kependidikan berhasil diajukan dan diteruskan ke Atasan Langsung (${atasanNama}).`,
+      message: `Usulan Pembaruan Kontrak Tenaga Kependidikan berhasil diajukan dan diteruskan secara otomatis ke Atasan Langsung (${atasanNama}).`,
       id: inserted?.id
     };
   },
@@ -7733,7 +7755,15 @@ const methods = {
     }
 
     const emp = await findEmployeeByNip(data.nip);
-    const atasanEmp = await findEmployeeByNip(data.atasan_nip || cleanNip);
+    const atasanEmp = (await findEmployeeByNip(data.atasan_nip || cleanNip)) || {};
+    let atasanTutam = data.form_data?.atasan_tutam || '';
+    if (!atasanTutam && data.atasan_nip) {
+      try {
+        const { data: atRow } = await db.from('atasan_langsung').select('detail_tutam').eq('nip', data.atasan_nip).maybeSingle();
+        if (atRow && atRow.detail_tutam) atasanTutam = atRow.detail_tutam;
+      } catch (_) {}
+    }
+    atasanEmp.detail_tutam = atasanTutam || atasanEmp.detail_tutam || '';
 
     return {
       success: true,
@@ -7774,6 +7804,10 @@ const methods = {
     const p7 = Number(ed.hasil_kerja || (ed.kriteria && ed.kriteria[6]) || 0);
     const ttdSig = ed.ttd || ed.ttd_base64 || '';
 
+    const totalSkor = p1 + p2 + p3 + p4 + p5 + p6 + p7;
+    const keputusan = ed.keputusan || (totalSkor > 10.5 ? 'diperbarui' : 'tidak_diperbarui');
+    const isRenew = (keputusan === 'diperbarui');
+
     if (!isPreviewOnly) {
       if ([p1, p2, p3, p4, p5, p6, p7].some(v => v < 1 || v > 3)) {
         return { success: false, message: 'Semua 7 kriteria penilaian wajib diisi dengan skor 1 s.d. 3.' };
@@ -7781,16 +7815,21 @@ const methods = {
       if (!ttdSig || !String(ttdSig).trim()) {
         return { success: false, message: 'Tanda tangan atasan langsung pada signature pad wajib diisi.' };
       }
+      if (isRenew && (!ed.skp_data || !ed.skp_data.tahun_penilaian)) {
+        return { success: false, message: 'Formulir Sasaran Kinerja Pegawai (SKP) wajib diisi lengkap untuk keputusan Diperbarui.' };
+      }
     }
 
-    const totalSkor = p1 + p2 + p3 + p4 + p5 + p6 + p7;
-    const isExtend = totalSkor > 10.5; // (>= 11)
     const kirimAdminFlag = Boolean(isKirimKeAdmin || ed.kirimKeAdmin || ed.isKirimKeAdmin);
     let newStatus = '';
-    if (kirimAdminFlag) {
-      newStatus = isExtend ? 'validated_by_atasan' : 'evaluated_not_extend';
+    if (keputusan === 'perlu_perbaikan' || keputusan === 'koreksi') {
+      newStatus = 'koreksi_atasan';
+    } else if (keputusan === 'tidak_diperbarui' || !isRenew) {
+      newStatus = 'evaluated_not_renewed';
+    } else if (kirimAdminFlag) {
+      newStatus = 'validated_by_atasan';
     } else {
-      newStatus = isExtend ? 'evaluated_extend' : 'evaluated_not_extend';
+      newStatus = 'evaluated_renewed';
     }
 
     const dataCtx = buildEvaluasiTkkDataContext(usulan, Object.assign({}, ed, { ttd: ttdSig }), empData, atasanEmp);
@@ -7933,6 +7972,11 @@ const methods = {
       status: newStatus
     };
 
+    if (ed.skp_data && isRenew) {
+      updatePayload.skp_data = ed.skp_data;
+      updatePayload.skp_dibuat = true;
+    }
+
     const { error: updErr } = await db.from('usulan_kontrak').update(updatePayload).eq('id', usulanId);
     if (updErr) throw updErr;
 
@@ -7968,22 +8012,221 @@ const methods = {
     let targetStatus = '';
     if (setuju === false || setuju === 'tolak') {
       targetStatus = 'Ditolak';
-    } else if (['validated_by_atasan', 'evaluated_extend', 'Diajukan'].includes(usulan.status) || Number(usulan.evaluasi_skor) > 10.5) {
+    } else if (['validated_by_atasan', 'evaluated_renewed', 'evaluated_extend', 'Diajukan'].includes(usulan.status) || Number(usulan.evaluasi_skor) > 10.5) {
       targetStatus = 'validated_by_admin';
     } else {
-      targetStatus = 'closed_not_extended';
+      targetStatus = 'closed_not_renewed';
     }
 
-    const { error: uErr } = await db.from('usulan_kontrak').update({
+    const updateFields = {
       status: targetStatus,
       diproses_oleh_nip: decoded.nip
-    }).eq('id', usulanId);
+    };
+    if (targetStatus === 'validated_by_admin') {
+      updateFields.notifikasi_kelayakan_dilihat = false;
+      if (!usulan.berkas_kelengkapan_status || usulan.berkas_kelengkapan_status === 'pending') {
+        updateFields.berkas_kelengkapan_status = 'pending';
+      }
+    }
+
+    const { error: uErr } = await db.from('usulan_kontrak').update(updateFields).eq('id', usulanId);
     if (uErr) throw uErr;
+
+    // Send email notification to user if validated_by_admin
+    if (targetStatus === 'validated_by_admin' && usulan.email) {
+      sendEmailNotificationSafe(
+        usulan.email,
+        usulan.nama,
+        'Pemberitahuan Kelayakan Pembaruan Kontrak Tendik - SI-LAYAKA',
+        `Yth. Sdr/i ${usulan.nama},\n\nSelamat! Saudara dinyatakan memenuhi syarat untuk pembaruan kontrak.\nSilakan login ke aplikasi SI-LAYAKA untuk melengkapi berkas persyaratan akhir (KTP, Kartu Keluarga, Ijazah & Transkrip, Surat Keterangan Sehat, dan Surat Pengantar Unit).\n\nTerima kasih,\nBagian Kepegawaian (SI-LAYAKA)`
+      ).catch(e => console.warn('[Email Notif] Notice:', e.message));
+    }
 
     return {
       success: true,
       message: `Usulan Tenaga Kependidikan berhasil divalidasi dengan status "${targetStatus}".`,
       status: targetStatus
+    };
+  },
+
+  async submitBerkasKelengkapanTendik(args) {
+    const [token, usulanId, berkasPayload] = extractArgs(args);
+    const decoded = verifyToken(token);
+    const db = getDb();
+
+    const { data: usulan, error: fErr } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
+    if (fErr) throw fErr;
+    if (!usulan) return { success: false, message: 'Usulan tidak ditemukan.' };
+
+    if (usulan.nip !== decoded.nip && !['admin', 'super_admin'].includes(decoded.role)) {
+      return { success: false, message: 'Anda tidak berwenang mengunggah berkas untuk usulan ini.' };
+    }
+
+    if (!['validated_by_admin', 'Disetujui', 'contract_generated', 'Selesai'].includes(usulan.status)) {
+      return { success: false, message: 'Berkas kelengkapan hanya dapat diunggah setelah usulan divalidasi oleh Admin.' };
+    }
+
+    const bp = berkasPayload || {};
+    const ktpUrl = bp.ktp_url || usulan.ktp_url || '';
+    const kkUrl = bp.kk_url || usulan.kk_url || '';
+    const ijazahUrl = bp.ijazah_transkrip_url || usulan.ijazah_transkrip_url || '';
+    const sehatUrl = bp.keterangan_sehat_url || usulan.keterangan_sehat_url || '';
+    const pengantarUrl = bp.surat_pengantar_url || usulan.surat_pengantar_url || '';
+    const strUrl = bp.str_aktif_url || usulan.str_aktif_url || '';
+    const simUrl = bp.sim_ab_url || usulan.sim_ab_url || '';
+
+    const allUrls = [ktpUrl, kkUrl, ijazahUrl, sehatUrl, pengantarUrl, strUrl, simUrl].filter(Boolean);
+    if (allUrls.some(u => isGdriveFolderUrl(u))) {
+      return { success: false, message: 'Tautan berkas kelengkapan harus langsung menuju ke FILE Google Drive, bukan tautan FOLDER.' };
+    }
+
+    if (!ktpUrl) return { success: false, message: 'Link Google Drive KTP wajib diisi.' };
+    if (!kkUrl) return { success: false, message: 'Link Google Drive Kartu Keluarga (KK) wajib diisi.' };
+    if (!ijazahUrl) return { success: false, message: 'Link Google Drive Ijazah & Transkrip Terakhir wajib diisi.' };
+    if (!sehatUrl) return { success: false, message: 'Link Google Drive Surat Keterangan Sehat wajib diisi.' };
+    if (!pengantarUrl) return { success: false, message: 'Link Google Drive Surat Pengantar Pimpinan Unit wajib diisi.' };
+
+    const currentData = usulan.berkas_kelengkapan_data || {};
+    const updateFields = {
+      ktp_url: ktpUrl,
+      kk_url: kkUrl,
+      ijazah_transkrip_url: ijazahUrl,
+      keterangan_sehat_url: sehatUrl,
+      surat_pengantar_url: pengantarUrl,
+      str_aktif_url: strUrl,
+      sim_ab_url: simUrl,
+      berkas_kelengkapan_submitted: true,
+      berkas_kelengkapan_status: 'submitted',
+      berkas_kelengkapan_data: Object.assign({}, currentData, bp, {
+        submitted_at: new Date().toISOString()
+      })
+    };
+
+    // Reset approved status jika URL berubah (misal re-upload berkas yang buram/salah)
+    if (bp.ktp_url && bp.ktp_url !== usulan.ktp_url) updateFields.ktp_approved = false;
+    if (bp.kk_url && bp.kk_url !== usulan.kk_url) updateFields.kk_approved = false;
+    if (bp.ijazah_transkrip_url && bp.ijazah_transkrip_url !== usulan.ijazah_transkrip_url) updateFields.ijazah_transkrip_approved = false;
+    if (bp.keterangan_sehat_url && bp.keterangan_sehat_url !== usulan.keterangan_sehat_url) updateFields.keterangan_sehat_approved = false;
+    if (bp.surat_pengantar_url && bp.surat_pengantar_url !== usulan.surat_pengantar_url) updateFields.surat_pengantar_approved = false;
+    if (bp.str_aktif_url && bp.str_aktif_url !== usulan.str_aktif_url) updateFields.str_aktif_approved = false;
+    if (bp.sim_ab_url && bp.sim_ab_url !== usulan.sim_ab_url) updateFields.sim_ab_approved = false;
+
+    const { error: updErr } = await db.from('usulan_kontrak').update(updateFields).eq('id', usulanId);
+    if (updErr) throw updErr;
+
+    return { success: true, message: 'Berkas kelengkapan berhasil disimpan dan diajukan untuk verifikasi Admin.' };
+  },
+
+  async approveBerkasKelengkapanItem(args) {
+    const [token, usulanId, berkasKey, approved, catatan] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+
+    const { data: usulan, error: fErr } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
+    if (fErr) throw fErr;
+    if (!usulan) return { success: false, message: 'Usulan tidak ditemukan.' };
+
+    const validKeys = ['ktp', 'kk', 'ijazah_transkrip', 'keterangan_sehat', 'surat_pengantar', 'sim_ab', 'str_aktif'];
+    if (!validKeys.includes(berkasKey)) {
+      return { success: false, message: `Kunci berkas "${berkasKey}" tidak valid.` };
+    }
+
+    const fieldApproved = `${berkasKey}_approved`;
+    const isApproved = Boolean(approved);
+    const currentData = usulan.berkas_kelengkapan_data || {};
+    const itemNotes = currentData.catatan || {};
+    if (catatan !== undefined) {
+      itemNotes[berkasKey] = String(catatan || '').trim();
+    }
+
+    const updateFields = {
+      [fieldApproved]: isApproved,
+      berkas_kelengkapan_data: Object.assign({}, currentData, {
+        catatan: itemNotes,
+        updated_at: new Date().toISOString()
+      })
+    };
+
+    const isDriver = /pengemudi|sopir|driver/i.test(usulan.form_data?.jabatan || usulan.jabatan || '');
+    const isMedis = /perawat|dokter|medis|apoteker|bidan/i.test(usulan.form_data?.jabatan || usulan.jabatan || '');
+
+    const state = Object.assign({}, usulan, updateFields);
+    const reqChecks = [
+      state.ktp_approved,
+      state.kk_approved,
+      state.ijazah_transkrip_approved,
+      state.keterangan_sehat_approved,
+      state.surat_pengantar_approved
+    ];
+    if (isDriver) reqChecks.push(state.sim_ab_approved);
+    if (isMedis) reqChecks.push(state.str_aktif_approved);
+
+    const allApproved = reqChecks.every(Boolean);
+    if (allApproved) {
+      updateFields.berkas_kelengkapan_status = 'all_approved';
+    } else if (!isApproved) {
+      updateFields.berkas_kelengkapan_status = 'revision_needed';
+    } else {
+      updateFields.berkas_kelengkapan_status = 'in_review';
+    }
+
+    const { error: updErr } = await db.from('usulan_kontrak').update(updateFields).eq('id', usulanId);
+    if (updErr) throw updErr;
+
+    return {
+      success: true,
+      message: `Status berkas ${berkasKey} berhasil diubah menjadi ${isApproved ? 'Disetujui' : 'Perlu Perbaikan'}.`,
+      allApproved,
+      berkasStatus: updateFields.berkas_kelengkapan_status
+    };
+  },
+
+  async tandaiNotifikasiKelayakanDilihat(args) {
+    const [token, usulanId] = extractArgs(args);
+    verifyToken(token);
+    const db = getDb();
+    await db.from('usulan_kontrak').update({ notifikasi_kelayakan_dilihat: true }).eq('id', usulanId);
+    return { success: true };
+  },
+
+  async getBerkasKelengkapanTendik(args) {
+    const [token, usulanId] = extractArgs(args);
+    verifyToken(token);
+    const db = getDb();
+    const { data: u, error } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
+    if (error) throw error;
+    if (!u) return { success: false, message: 'Usulan tidak ditemukan.' };
+
+    const isDriver = /pengemudi|sopir|driver/i.test(u.form_data?.jabatan || u.jabatan || '');
+    const isMedis = /perawat|dokter|medis|apoteker|bidan/i.test(u.form_data?.jabatan || u.jabatan || '');
+
+    const bData = u.berkas_kelengkapan_data || {};
+    const notes = bData.catatan || {};
+
+    const items = [
+      { key: 'ktp', label: 'KTP', url: u.ktp_url || '', approved: Boolean(u.ktp_approved), catatan: notes.ktp || '', required: true },
+      { key: 'kk', label: 'Kartu Keluarga (KK)', url: u.kk_url || '', approved: Boolean(u.kk_approved), catatan: notes.kk || '', required: true },
+      { key: 'ijazah_transkrip', label: 'Ijazah & Transkrip Terakhir', url: u.ijazah_transkrip_url || '', approved: Boolean(u.ijazah_transkrip_approved), catatan: notes.ijazah_transkrip || '', required: true },
+      { key: 'keterangan_sehat', label: 'Surat Keterangan Sehat', url: u.keterangan_sehat_url || '', approved: Boolean(u.keterangan_sehat_approved), catatan: notes.keterangan_sehat || '', required: true },
+      { key: 'surat_pengantar', label: 'Surat Pengantar Pimpinan Unit', url: u.surat_pengantar_url || '', approved: Boolean(u.surat_pengantar_approved), catatan: notes.surat_pengantar || '', required: true }
+    ];
+
+    if (isMedis) {
+      items.push({ key: 'str_aktif', label: 'STR Aktif (Tenaga Medis)', url: u.str_aktif_url || '', approved: Boolean(u.str_aktif_approved), catatan: notes.str_aktif || '', required: true });
+    }
+    if (isDriver) {
+      items.push({ key: 'sim_ab', label: 'SIM A & B (Pengemudi)', url: u.sim_ab_url || '', approved: Boolean(u.sim_ab_approved), catatan: notes.sim_ab || '', required: true });
+    }
+
+    const allApproved = items.every(i => i.approved);
+
+    return {
+      success: true,
+      items,
+      allApproved,
+      status: u.berkas_kelengkapan_status || (allApproved ? 'all_approved' : 'pending'),
+      submitted: Boolean(u.berkas_kelengkapan_submitted),
+      notifikasiDilihat: Boolean(u.notifikasi_kelayakan_dilihat)
     };
   },
 
@@ -7998,6 +8241,24 @@ const methods = {
 
     if (usulan.status !== 'validated_by_admin' && usulan.status !== 'Disetujui' && !['admin', 'super_admin'].includes(decoded.role)) {
       return { success: false, message: 'Perjanjian kerja hanya dapat digenerate setelah usulan divalidasi oleh Admin (status: validated_by_admin).' };
+    }
+
+    if (usulan.layanan === 'Kontrak Tendik') {
+      const isDriver = /pengemudi|sopir|driver/i.test(usulan.form_data?.jabatan || usulan.jabatan || '');
+      const isMedis = /perawat|dokter|medis|apoteker|bidan/i.test(usulan.form_data?.jabatan || usulan.jabatan || '');
+      const reqChecks = [
+        usulan.ktp_approved,
+        usulan.kk_approved,
+        usulan.ijazah_transkrip_approved,
+        usulan.keterangan_sehat_approved,
+        usulan.surat_pengantar_approved
+      ];
+      if (isDriver) reqChecks.push(usulan.sim_ab_approved);
+      if (isMedis) reqChecks.push(usulan.str_aktif_approved);
+
+      if (!reqChecks.every(Boolean)) {
+        return { success: false, message: 'Dokumen Perjanjian Kerja belum dapat dibuat. Seluruh berkas kelengkapan (KTP, KK, Ijazah, Surat Sehat, Surat Pengantar) wajib disetujui terlebih dahulu oleh Admin.' };
+      }
     }
 
     // Call existing generateKontrakFromUsulanVercel
@@ -8182,10 +8443,22 @@ const methods = {
     if (usulan.layanan !== 'Kontrak Tendik') {
       return { success: false, message: 'Sasaran Kinerja Pegawai hanya berlaku untuk Tenaga Kependidikan.' };
     }
-    const allowedSub = ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu'];
-    const currentSub = usulan.sub_menu || usulan.form_data?.status_kepegawaian || '';
-    if (!allowedSub.includes(currentSub)) {
-      return { success: false, message: 'Sasaran Kinerja Pegawai hanya berlaku untuk status Kontrak Penuh Waktu dan Kontrak Paruh Waktu.' };
+
+    // Pastikan seluruh berkas kelengkapan telah disetujui Admin
+    const isDriver = /pengemudi|sopir|driver/i.test(usulan.form_data?.jabatan || usulan.jabatan || '');
+    const isMedis = /perawat|dokter|medis|apoteker|bidan/i.test(usulan.form_data?.jabatan || usulan.jabatan || '');
+    const reqChecks = [
+      usulan.ktp_approved,
+      usulan.kk_approved,
+      usulan.ijazah_transkrip_approved,
+      usulan.keterangan_sehat_approved,
+      usulan.surat_pengantar_approved
+    ];
+    if (isDriver) reqChecks.push(usulan.sim_ab_approved);
+    if (isMedis) reqChecks.push(usulan.str_aktif_approved);
+
+    if (!reqChecks.every(Boolean)) {
+      return { success: false, message: 'Dokumen Sasaran Kinerja Pegawai (SKP) belum dapat dibuat. Seluruh berkas kelengkapan (KTP, KK, Ijazah, Surat Sehat, Surat Pengantar) wajib disetujui terlebih dahulu oleh Admin.' };
     }
 
     // Pastikan usulan telah disetujui
@@ -8214,7 +8487,10 @@ const methods = {
       return { success: false, message: 'Template Sasaran Kinerja Pegawai belum ditemukan di menu Kelola Template.' };
     }
 
-    const payloadData = skpFormData || {};
+    const payloadData = (skpFormData && Object.keys(skpFormData).length > 0) ? skpFormData : (usulan.skp_data || {});
+    if (!payloadData || Object.keys(payloadData).length === 0) {
+      return { success: false, message: 'Data Sasaran Kinerja Pegawai (SKP) belum diisi oleh Atasan Langsung pada tahap evaluasi.' };
+    }
 
     // Hitung tanggal akhir otomatis
     const BULAN_NAMES = ['JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI', 'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'];

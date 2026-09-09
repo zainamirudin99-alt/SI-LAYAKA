@@ -17,13 +17,16 @@ const SUPABASE_URL         = "https://zzppasgblrdvazspynvj.supabase.co"; // Gant
 const SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp6cHBhc2dibHJkdmF6c3B5bnZqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDI3Mzk0NSwiZXhwIjoyMDk5ODQ5OTQ1fQ.AVF1Kr_uYcHMuQCUyAqc9B-UrGSW3outZj3qd1f9-Ig";               // Ganti
 
 // Nama sheet di spreadsheet
-const SHEET_DATA_UTAMA     = 'Data Utama';
-const SHEET_USER_ROLES     = 'User Roles';
-const SHEET_TEMPLATES      = 'Templates';
-const SHEET_USULAN_KP      = 'Usulan KP';
-const SHEET_USULAN_PENSIUN = 'Usulan Pensiun';
-const SHEET_PIMPINAN       = 'Pimpinan';
-const SHEET_JENIS_TUTAM    = 'Jenis tutam';
+const SHEET_DATA_UTAMA       = 'Data Utama';
+const SHEET_USER_ROLES       = 'User Roles';
+const SHEET_TEMPLATES        = 'Templates';
+const SHEET_USULAN_KP        = 'Usulan KP';
+const SHEET_USULAN_PENSIUN   = 'Usulan Pensiun';
+const SHEET_USULAN_KONTRAK   = 'Usulan Kontrak';
+const SHEET_PIMPINAN         = 'Pimpinan';
+const SHEET_JENIS_TUTAM      = 'Jenis tutam';
+const SHEET_ATASAN_LANGSUNG  = 'Atasan Langsung';
+const SHEET_AKSES_KONTRAK    = 'Akses Kontrak Mandiri';
 
 // ============================================================
 // MENU KUSTOM
@@ -32,17 +35,20 @@ function onOpen() {
   const ui = getUiSafe_();
   if (!ui) return;
   ui.createMenu("🛠️ Migrasi Supabase")
-    .addItem("1. Cek Koneksi Supabase",           "cekKoneksi")
+    .addItem("1. Cek Koneksi Supabase",             "cekKoneksi")
     .addSeparator()
-    .addItem("2. Migrasi SEMUA data",             "migrasiSemuaData")
+    .addItem("2. Migrasi SEMUA data",               "migrasiSemuaData")
     .addSeparator()
-    .addItem("3. Migrasi Data Utama saja",        "migrasiDataUtama")
-    .addItem("4. Migrasi User Roles saja",        "migrasiUserRoles")
-    .addItem("5. Migrasi Templates saja",         "migrasiTemplates")
-    .addItem("6. Migrasi Usulan KP saja",         "migrasiUsulanKp")
-    .addItem("7. Migrasi Usulan Pensiun saja",    "migrasiUsulanPensiun")
-    .addItem("8. Migrasi Pimpinan saja",          "migrasiPimpinan")
-    .addItem("9. Migrasi Jenis Tutam saja",       "migrasiJenisTutam")
+    .addItem("3. Migrasi Data Utama saja",          "migrasiDataUtama")
+    .addItem("4. Migrasi User Roles saja",          "migrasiUserRoles")
+    .addItem("5. Migrasi Templates saja",           "migrasiTemplates")
+    .addItem("6. Migrasi Usulan KP saja",           "migrasiUsulanKp")
+    .addItem("7. Migrasi Usulan Pensiun saja",      "migrasiUsulanPensiun")
+    .addItem("8. Migrasi Usulan Kontrak saja",      "migrasiUsulanKontrak")
+    .addItem("9. Migrasi Pimpinan saja",            "migrasiPimpinan")
+    .addItem("10. Migrasi Jenis Tutam saja",        "migrasiJenisTutam")
+    .addItem("11. Migrasi Atasan Langsung saja",    "migrasiAtasanLangsung")
+    .addItem("12. Migrasi Akses Kontrak saja",      "migrasiAksesKontrakMandiri")
     .addToUi();
 }
 
@@ -92,23 +98,28 @@ function cekKoneksi() {
 // ============================================================
 function migrasiSemuaData() {
   if (cekKonfigurasi_()) return;
-  if (!confirmSafe_("Migrasi data (Data Utama, User Roles, Templates, Pimpinan, & Jenis Tutam) ke Supabase?\n(Data Utama lama di Supabase akan terhapus total dan diganti dengan data dari Spreadsheet)", "Konfirmasi")) return;
+  if (!confirmSafe_("Migrasi data (Data Utama, User Roles, Templates, Pimpinan, Jenis Tutam, Atasan Langsung, & Akses Kontrak) ke Supabase?\n(Data Utama lama di Supabase akan terhapus total dan diganti dengan data dari Spreadsheet)", "Konfirmasi")) return;
 
   const r1 = migrasiDataUtama();
   const r2 = migrasiUserRoles();
   const r3 = migrasiTemplates();
   const r4 = migrasiUsulanKp();
   const r5 = migrasiUsulanPensiun();
-  const r6 = migrasiPimpinan();
-  const r7 = migrasiJenisTutam();
+  const r6 = migrasiUsulanKontrak();
+  const r7 = migrasiPimpinan();
+  const r8 = migrasiJenisTutam();
+  const r9 = migrasiAtasanLangsung();
+  const r10 = migrasiAksesKontrakMandiri();
 
   alertSafe_(
-    "Data Utama: "     + r1.berhasil + " OK, " + r1.gagal + " gagal\n" +
-    "User Roles: "     + r2.berhasil + " OK, " + r2.gagal + " gagal\n" +
-    "Templates: "      + r3.berhasil + " OK, " + r3.gagal + " gagal\n" +
-    "Pimpinan: "       + r6.berhasil + " OK, " + r6.gagal + " gagal\n" +
-    "Jenis Tutam: "    + r7.berhasil + " OK, " + r7.gagal + " gagal\n\n" +
-    "Catatan: Sheet Usulan KP & Usulan Pensiun dilewati (hanya struktur kolom database).",
+    "Data Utama: "       + r1.berhasil + " OK, " + r1.gagal + " gagal\n" +
+    "User Roles: "       + r2.berhasil + " OK, " + r2.gagal + " gagal\n" +
+    "Templates: "        + r3.berhasil + " OK, " + r3.gagal + " gagal\n" +
+    "Pimpinan: "         + r7.berhasil + " OK, " + r7.gagal + " gagal\n" +
+    "Jenis Tutam: "      + r8.berhasil + " OK, " + r8.gagal + " gagal\n" +
+    "Atasan Langsung: "  + r9.berhasil + " OK, " + r9.gagal + " gagal\n" +
+    "Akses Kontrak: "    + r10.berhasil + " OK, " + r10.gagal + " gagal\n\n" +
+    "Catatan: Sheet Usulan KP, Usulan Pensiun, & Usulan Kontrak dilewati (dikelola langsung di web).",
     "Selesai!"
   );
 }
@@ -310,6 +321,14 @@ function migrasiUsulanPensiun() {
 }
 
 // ============================================================
+// MIGRASI SHEET: Usulan Kontrak
+// ============================================================
+function migrasiUsulanKontrak() {
+  Logger.log("usulan_kontrak: dilewati (isinya dikelola langsung di sistem web Supabase)");
+  return {berhasil: 0, gagal: 0};
+}
+
+// ============================================================
 // MIGRASI SHEET: Pimpinan
 // ============================================================
 function migrasiPimpinan() {
@@ -462,6 +481,207 @@ function migrasiJenisTutam() {
   flushBatch();
 
   Logger.log("jenis_tutam: " + berhasil + " OK, " + gagal + " gagal");
+  return {berhasil, gagal};
+}
+
+// ============================================================
+// MIGRASI SHEET: Atasan Langsung
+// ============================================================
+function migrasiAtasanLangsung() {
+  const ss = getActiveSpreadsheet_();
+  if (!ss) { Logger.log("Spreadsheet tidak ditemukan"); return {berhasil:0,gagal:0}; }
+  
+  const sheet = ss.getSheetByName(SHEET_ATASAN_LANGSUNG) 
+             || ss.getSheetByName('atasan_langsung') 
+             || ss.getSheetByName('Atasan langsung') 
+             || ss.getSheetByName('Atasan')
+             || ss.getSheetByName('Data Atasan')
+             || ss.getSheetByName('Daftar Atasan');
+             
+  if (!sheet) {
+    Logger.log("Sheet Atasan Langsung tidak ditemukan");
+    return {berhasil:0, gagal:0};
+  }
+
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return {berhasil:0, gagal:0};
+
+  const rawHeaders = values[0];
+  const headers = rawHeaders.map(h => String(h).trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,''));
+
+  // Lookup map dari Sheet Data Utama untuk auto-fill profil atasan jika di sheet Atasan hanya mencantumkan NIP/Prodi
+  const dataUtamaMap = {};
+  try {
+    const duSheet = ss.getSheetByName(SHEET_DATA_UTAMA);
+    if (duSheet) {
+      const duValues = duSheet.getDataRange().getValues();
+      if (duValues.length > 1) {
+        const duHeaders = duValues[0].map(h => String(h).trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,''));
+        const nCol = duHeaders.indexOf('nip');
+        const nlCol = duHeaders.indexOf('nama_lengkap') !== -1 ? duHeaders.indexOf('nama_lengkap') : duHeaders.indexOf('nama');
+        const pCol = duHeaders.indexOf('pangkat');
+        const gCol = duHeaders.indexOf('golongan');
+        const jCol = duHeaders.indexOf('jabatan');
+        const uCol = duHeaders.indexOf('unit_es_ii');
+        for (let j = 1; j < duValues.length; j++) {
+          const r = duValues[j];
+          const duNip = String(r[nCol] || '').trim();
+          if (duNip) {
+            dataUtamaMap[duNip] = {
+              nama: nlCol !== -1 ? String(r[nlCol] || '').trim() : '',
+              pangkat: pCol !== -1 ? String(r[pCol] || '').trim() : '',
+              golongan: gCol !== -1 ? String(r[gCol] || '').trim() : '',
+              jabatan: jCol !== -1 ? String(r[jCol] || '').trim() : '',
+              unit_es_ii: uCol !== -1 ? String(r[uCol] || '').trim() : ''
+            };
+          }
+        }
+      }
+    }
+  } catch(e) {
+    Logger.log("Peringatan membaca Data Utama untuk fallback Atasan: " + e.message);
+  }
+
+  let berhasil = 0, gagal = 0;
+  const BATCH = 50;
+  let batch = [];
+  const seenProdi = new Set();
+
+  function mapHeaderToAtasanCol(hKey) {
+    if (!hKey) return null;
+    if (['nip', 'nip_atasan', 'nip_atasan_langsung', 'nik', 'nip_penilai', 'nip_pejabat_penilai', 'nip_pejabat'].indexOf(hKey) !== -1) return 'nip';
+    if (['nama_lengkap', 'nama', 'nama_atasan', 'nama_atasan_langsung', 'nama_pejabat', 'nama_penilai', 'pejabat_penilai', 'atasan_langsung', 'nama_pejabat_penilai', 'pejabat'].indexOf(hKey) !== -1) return 'nama_lengkap';
+    if (['pangkat', 'pangkat_gol', 'pangkat_atasan'].indexOf(hKey) !== -1) return 'pangkat';
+    if (['golongan', 'gol', 'gol_ruang', 'golongan_atasan'].indexOf(hKey) !== -1) return 'golongan';
+    if (['jabatan', 'jab', 'jabatan_struktural', 'jabatan_atasan', 'jabatan_penilai'].indexOf(hKey) !== -1) return 'jabatan';
+    if (['unit_es_ii', 'unit', 'unit_kerja', 'fakultas', 'unit_eselon_ii', 'unit_es_2'].indexOf(hKey) !== -1) return 'unit_es_ii';
+    if (['prodi', 'program_studi', 'unit_es_iv', 'unit_es_4', 'jurusan', 'bagian', 'departemen', 'unit_eselon_iv', 'unit_kerja_es_iv', 'sub_unit', 'unit_es_iii'].indexOf(hKey) !== -1) return 'prodi';
+    if (['detail_tutam', 'tutam', 'tugas_tambahan', 'detail_tugas_tambahan', 'jabatan_tambahan', 'tutam_atasan_langsung', 'detail_tutam_atasan', 'tutam_atasan'].indexOf(hKey) !== -1) return 'detail_tutam';
+    return null;
+  }
+
+  function flushBatch() {
+    if (!batch.length) return;
+    try {
+      const r = UrlFetchApp.fetch(SUPABASE_URL + "/rest/v1/atasan_langsung?on_conflict=prodi", {
+        method: "POST",
+        headers: Object.assign({}, buildHeaders_(), { "Prefer": "resolution=merge-duplicates" }),
+        payload: JSON.stringify(batch),
+        muteHttpExceptions: true
+      });
+      const code = r.getResponseCode();
+      if (code === 200 || code === 201) { berhasil += batch.length; }
+      else { Logger.log("GAGAL atasan_langsung batch: " + code + " " + r.getContentText()); gagal += batch.length; }
+    } catch(e) { Logger.log("ERROR atasan_langsung: " + e.message); gagal += batch.length; }
+    batch = [];
+    Utilities.sleep(200);
+  }
+
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    if (row.every(c => c === '' || c === null)) continue;
+
+    const obj = {
+      nip: null,
+      nama_lengkap: null,
+      pangkat: null,
+      golongan: null,
+      jabatan: null,
+      unit_es_ii: null,
+      prodi: null,
+      detail_tutam: null
+    };
+
+    headers.forEach((hKey, idx) => {
+      const targetCol = mapHeaderToAtasanCol(hKey);
+      if (targetCol) {
+        const cellVal = safeCellValue_(row[idx]);
+        if (cellVal !== null && cellVal !== '') {
+          obj[targetCol] = cellVal;
+        }
+      }
+    });
+
+    // Auto-fill profil dari Data Utama jika di sheet Atasan sebagian data kosong
+    if (obj.nip && dataUtamaMap[obj.nip]) {
+      const ref = dataUtamaMap[obj.nip];
+      if (!obj.nama_lengkap && ref.nama) obj.nama_lengkap = ref.nama;
+      if (!obj.pangkat && ref.pangkat) obj.pangkat = ref.pangkat;
+      if (!obj.golongan && ref.golongan) obj.golongan = ref.golongan;
+      if (!obj.jabatan && ref.jabatan) obj.jabatan = ref.jabatan;
+      if (!obj.unit_es_ii && ref.unit_es_ii) obj.unit_es_ii = ref.unit_es_ii;
+    }
+
+    // Validasi not-null constraint: prodi, nip, nama_lengkap
+    if (!obj.prodi || !obj.nip || !obj.nama_lengkap) continue;
+
+    // Deduplikasi key 'prodi' agar tidak gagal duplicate key dalam 1 batch
+    const prodiLower = String(obj.prodi).trim().toLowerCase();
+    if (seenProdi.has(prodiLower)) continue;
+    seenProdi.add(prodiLower);
+
+    batch.push(obj);
+    if (batch.length >= BATCH) flushBatch();
+  }
+  flushBatch();
+
+  Logger.log("atasan_langsung: " + berhasil + " OK, " + gagal + " gagal");
+  return {berhasil, gagal};
+}
+
+// ============================================================
+// MIGRASI SHEET: Akses Kontrak Mandiri
+// ============================================================
+function migrasiAksesKontrakMandiri() {
+  const ss = getActiveSpreadsheet_();
+  if (!ss) { Logger.log("Spreadsheet tidak ditemukan"); return {berhasil:0, gagal:0}; }
+
+  const sheet = ss.getSheetByName(SHEET_AKSES_KONTRAK)
+             || ss.getSheetByName('akses_kontrak_mandiri')
+             || ss.getSheetByName('Akses Kontrak')
+             || ss.getSheetByName('Kontrak Mandiri');
+
+  if (!sheet) {
+    Logger.log("Sheet Akses Kontrak Mandiri tidak ditemukan (wajar jika belum diatur)");
+    return {berhasil:0, gagal:0};
+  }
+
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return {berhasil:0, gagal:0};
+
+  let berhasil = 0, gagal = 0;
+  // Ambil baris terakhir untuk tiap kategori status kepegawaian (baris terakhir = status aktif)
+  const peta = {};
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const kat = String(row[0] || '').trim();
+    if (!kat) continue;
+    const isAllowed = row[1] === true || String(row[1]).toUpperCase() === 'TRUE';
+    peta[kat] = {
+      kategori: kat,
+      diizinkan: isAllowed,
+      diubah_oleh: String(row[2] || '').trim() || null,
+      tanggal_diubah: row[3] ? (row[3] instanceof Date ? row[3].toISOString() : new Date(row[3]).toISOString()) : new Date().toISOString()
+    };
+  }
+
+  const payloadList = Object.values(peta);
+  for (const item of payloadList) {
+    try {
+      const r = UrlFetchApp.fetch(SUPABASE_URL + "/rest/v1/akses_kontrak_mandiri?on_conflict=kategori", {
+        method: "POST",
+        headers: Object.assign({}, buildHeaders_(), { "Prefer": "resolution=merge-duplicates" }),
+        payload: JSON.stringify(item),
+        muteHttpExceptions: true
+      });
+      const code = r.getResponseCode();
+      if (code === 200 || code === 201) berhasil++;
+      else { Logger.log("GAGAL akses_kontrak " + item.kategori + ": " + code + " " + r.getContentText()); gagal++; }
+    } catch(e) { Logger.log("ERROR akses_kontrak " + item.kategori + ": " + e.message); gagal++; }
+    Utilities.sleep(50);
+  }
+
+  Logger.log("akses_kontrak_mandiri: " + berhasil + " OK, " + gagal + " gagal");
   return {berhasil, gagal};
 }
 

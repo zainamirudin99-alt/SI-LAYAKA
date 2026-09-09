@@ -2909,6 +2909,7 @@
                    <div class="stack-field">
                      <label>Jenis Usulan</label>
                      <select id="kontrakUser_jenisUsulan" class="field-input" onchange="toggleEvaluasiKinerjaUser()" required>
+                       <option value="Pembaruan Kontrak" selected>Pembaruan Kontrak</option>
                        <option value="Perpanjangan">Perpanjangan</option>
                        <option value="Baru">Usulan Baru</option>
                      </select>
@@ -2937,7 +2938,15 @@
                      </select>
                    </div>
 
-                   <!-- ATASAN LANGSUNG SELECTOR (KHUSUS TENDIK) -->
+                   <!-- ATASAN LANGSUNG AUTO-NOTICE (TENDIK) & SELECTOR (DOSEN) -->
+                   <div class="stack-field grid-full" id="kontrakUser_atasanAutoNotice" style="display:none; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:14px; margin-top:8px; margin-bottom:8px;">
+                     <div style="display:flex; align-items:center; gap:8px; font-weight:700; color:#1d4ed8; font-size:13.5px;">
+                       <span>ðŸ¤– Penugasan Atasan Langsung Otomatis Sistem</span>
+                     </div>
+                     <div style="font-size:12.5px; color:#1e40af; margin-top:4px; line-height:1.5;">
+                       Atasan Langsung penilai evaluasi kinerja Anda akan dideteksi dan ditetapkan secara otomatis oleh sistem berdasarkan kecocokan unit kerja (unit_es_iv) Anda. Anda tidak perlu memilih atasan langsung secara manual.
+                     </div>
+                   </div>
                    <div class="stack-field autocomplete-wrap grid-full" id="kontrakUser_atasanWrap" style="display:none; background:var(--surface-alt); border:1px solid var(--primary); border-radius:10px; padding:14px; margin-top:8px; margin-bottom:8px;">
                      <label style="font-weight:700; color:var(--primary); display:flex; align-items:center; gap:6px;">
                        <span>👔 Cari &amp; Pilih Atasan Langsung (Penilai Evaluasi Kinerja)</span>
@@ -3620,13 +3629,13 @@
   </div>
 
   <!-- ======================= MODAL EVALUASI KINERJA TKK (7 KRITERIA) ======================= -->
-  <div class="modal-overlay" id="modalEvaluasiTkk" style="display:none;">
-    <div class="modal-box" style="max-width:850px; width:95%; max-height:90vh; overflow-y:auto;">
-      <div class="modal-header">
+    <div class="modal-overlay" id="modalEvaluasiTkk" style="display:none; z-index:9990;">
+    <div class="modal-box" style="max-width:980px; width:95%; max-height:92vh; overflow-y:auto;">
+      <div class="modal-header" style="position:sticky; top:0; background:var(--surface); z-index:10; border-bottom:1px solid var(--border); padding:14px 20px;">
         <strong style="font-size:16px; color:var(--text); display:flex; align-items:center; gap:8px;">
-          <span>📋 Formulir Evaluasi Kinerja Tenaga Kependidikan (TKK)</span>
+          <span>ðŸ“‹ Formulir Evaluasi Kinerja &amp; SKP Tenaga Kependidikan</span>
         </strong>
-        <button type="button" class="btn btn-secondary" onclick="tutupModalEvaluasiTkk()" style="padding:4px 10px; font-size:13px;">✕ Tutup</button>
+        <button type="button" class="btn btn-secondary" onclick="tutupModalEvaluasiTkk()" style="padding:4px 10px; font-size:13px;">âœ• Tutup</button>
       </div>
       <div class="modal-body" style="padding:20px 24px;">
         <div id="evalTkkPegawaiInfo" style="background:var(--surface-alt); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:20px;"></div>
@@ -3642,170 +3651,253 @@
           </div>
         </div>
 
-        <h4 style="margin-top:10px; margin-bottom:12px; border-bottom:2px solid var(--primary); padding-bottom:6px; color:var(--primary);">
-          A. Penilaian 7 Kriteria Kinerja (Skor: 1 = Kurang, 2 = Baik, 3 = Sangat Baik)
-        </h4>
-
-        <div class="table-responsive" style="overflow-x:auto; margin-bottom:20px;">
-          <table class="table-list" style="width:100%; text-align:left; border-collapse:collapse;">
-            <thead>
-              <tr style="background:var(--surface-alt);">
-                <th style="width:40px; padding:10px; text-align:center;">No</th>
-                <th style="padding:10px;">Kriteria Penilaian</th>
-                <th style="width:240px; padding:10px; text-align:center;">Skor Penilaian</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style="text-align:center; padding:10px;">1</td>
-                <td style="padding:10px;"><strong>Orientasi Pelayanan</strong><br><small style="color:var(--text-muted);">Sikap dan perilaku kerja dalam memberikan pelayanan terbaik kepada pihak yang dilayani.</small></td>
-                <td style="padding:10px; text-align:center;">
-                  <div style="display:flex; justify-content:center; gap:12px;">
-                    <label><input type="radio" name="eval_p1" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
-                    <label><input type="radio" name="eval_p1" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
-                    <label><input type="radio" name="eval_p1" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td style="text-align:center; padding:10px;">2</td>
-                <td style="padding:10px;"><strong>Inisiatif Kerja</strong><br><small style="color:var(--text-muted);">Kemauan dan kemampuan untuk mengambil tindakan proaktif tanpa harus selalu menunggu instruksi.</small></td>
-                <td style="padding:10px; text-align:center;">
-                  <div style="display:flex; justify-content:center; gap:12px;">
-                    <label><input type="radio" name="eval_p2" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
-                    <label><input type="radio" name="eval_p2" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
-                    <label><input type="radio" name="eval_p2" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td style="text-align:center; padding:10px;">3</td>
-                <td style="padding:10px;"><strong>Komitmen</strong><br><small style="color:var(--text-muted);">Kesungguhan dan tanggung jawab dalam menjalankan tugas kedinasan dan menjaga nama baik institusi.</small></td>
-                <td style="padding:10px; text-align:center;">
-                  <div style="display:flex; justify-content:center; gap:12px;">
-                    <label><input type="radio" name="eval_p3" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
-                    <label><input type="radio" name="eval_p3" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
-                    <label><input type="radio" name="eval_p3" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td style="text-align:center; padding:10px;">4</td>
-                <td style="padding:10px;"><strong>Kerjasama</strong><br><small style="color:var(--text-muted);">Kemampuan bekerja sama dalam tim dan bersinergi dengan rekan kerja maupun unit lain.</small></td>
-                <td style="padding:10px; text-align:center;">
-                  <div style="display:flex; justify-content:center; gap:12px;">
-                    <label><input type="radio" name="eval_p4" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
-                    <label><input type="radio" name="eval_p4" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
-                    <label><input type="radio" name="eval_p4" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td style="text-align:center; padding:10px;">5</td>
-                <td style="padding:10px;"><strong>Kehadiran</strong><br><small style="color:var(--text-muted);">Ketepatan waktu dan tingkat kehadiran kerja sesuai jam operasional dinas.</small></td>
-                <td style="padding:10px; text-align:center;">
-                  <div style="display:flex; justify-content:center; gap:12px;">
-                    <label><input type="radio" name="eval_p5" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
-                    <label><input type="radio" name="eval_p5" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
-                    <label><input type="radio" name="eval_p5" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td style="text-align:center; padding:10px;">6</td>
-                <td style="padding:10px;"><strong>Disiplin</strong><br><small style="color:var(--text-muted);">Ketaatan terhadap tata tertib, peraturan kepegawaian, dan etika profesi.</small></td>
-                <td style="padding:10px; text-align:center;">
-                  <div style="display:flex; justify-content:center; gap:12px;">
-                    <label><input type="radio" name="eval_p6" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
-                    <label><input type="radio" name="eval_p6" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
-                    <label><input type="radio" name="eval_p6" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td style="text-align:center; padding:10px;">7</td>
-                <td style="padding:10px;"><strong>Kesesuaian Hasil Kerja dengan Tupoksi</strong><br><small style="color:var(--text-muted);">Kualitas dan kuantitas target capaian kinerja sesuai uraian tugas pokok dan fungsi jabatan.</small></td>
-                <td style="padding:10px; text-align:center;">
-                  <div style="display:flex; justify-content:center; gap:12px;">
-                    <label><input type="radio" name="eval_p7" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
-                    <label><input type="radio" name="eval_p7" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
-                    <label><input type="radio" name="eval_p7" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Total Skor & Rekomendasi Box -->
-        <div style="background:var(--surface-alt); border:2px solid var(--primary); border-radius:12px; padding:18px; margin-bottom:20px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-            <div>
-              <div style="font-size:13px; font-weight:600; color:var(--text-muted);">TOTAL SKOR KINERJA (MAKSIMAL 21):</div>
-              <div id="evalTkk_totalSkorDisplay" style="font-size:24px; font-weight:800; color:var(--primary);">14 / 21</div>
-            </div>
-            <div style="text-align:right;">
-              <div style="font-size:13px; font-weight:600; color:var(--text-muted);">REKOMENDASI ATASAN LANGSUNG:</div>
-              <div id="evalTkk_rekomendasiDisplay" style="font-size:16px; font-weight:700; color:#16a34a;">Diperpanjang Kontrak s.d. 31 Desember 2027</div>
-            </div>
+        <!-- PILIHAN KEPUTUSAN ATASAN LANGSUNG -->
+        <div style="background:var(--surface-alt, #f8fafc); border:2px solid var(--primary, #2563eb); border-radius:12px; padding:18px; margin-bottom:22px;">
+          <div style="font-size:14px; font-weight:800; color:var(--primary, #1e40af); margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+            <span>âš–ï¸ Keputusan Evaluasi Atasan Langsung:</span>
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px;">
+            <label class="eval-decision-card" id="evalTkk_card_diperbarui" style="display:block; cursor:pointer; padding:14px; border:2px solid #10b981; background:#f0fdf4; border-radius:10px; transition:all 0.2s;">
+              <div style="display:flex; align-items:flex-start; gap:8px;">
+                <input type="radio" name="evalTkk_keputusan" id="evalTkk_keputusan_diperbarui" value="diperbarui" checked onchange="onEvalTkkKeputusanChange()" style="margin-top:3px;" />
+                <div>
+                  <strong style="color:#047857; font-size:14px;">ðŸŸ¢ Diperbarui</strong>
+                  <div style="font-size:12px; color:#065f46; margin-top:3px; line-height:1.4;">Usulan disetujui. Lanjut mengisi 7 kriteria &amp; Sasaran Kinerja Pegawai (SKP).</div>
+                </div>
+              </div>
+            </label>
+            <label class="eval-decision-card" id="evalTkk_card_tidak_diperbarui" style="display:block; cursor:pointer; padding:14px; border:2px solid #cbd5e1; background:#fff; border-radius:10px; transition:all 0.2s;">
+              <div style="display:flex; align-items:flex-start; gap:8px;">
+                <input type="radio" name="evalTkk_keputusan" id="evalTkk_keputusan_tidak_diperbarui" value="tidak_diperbarui" onchange="onEvalTkkKeputusanChange()" style="margin-top:3px;" />
+                <div>
+                  <strong style="color:#dc2626; font-size:14px;">ðŸ”´ Tidak Diperbarui</strong>
+                  <div style="font-size:12px; color:#991b1b; margin-top:3px; line-height:1.4;">Usulan ditolak / kontrak tidak dilanjutkan (wajib sertakan alasan).</div>
+                </div>
+              </div>
+            </label>
+            <label class="eval-decision-card" id="evalTkk_card_perlu_perbaikan" style="display:block; cursor:pointer; padding:14px; border:2px solid #cbd5e1; background:#fff; border-radius:10px; transition:all 0.2s;">
+              <div style="display:flex; align-items:flex-start; gap:8px;">
+                <input type="radio" name="evalTkk_keputusan" id="evalTkk_keputusan_perlu_perbaikan" value="perlu_perbaikan" onchange="onEvalTkkKeputusanChange()" style="margin-top:3px;" />
+                <div>
+                  <strong style="color:#d97706; font-size:14px;">ðŸŸ¡ Perlu Perbaikan</strong>
+                  <div style="font-size:12px; color:#92400e; margin-top:3px; line-height:1.4;">Kembalikan usulan ke pengusul untuk perbaikan berkas lampiran.</div>
+                </div>
+              </div>
+            </label>
           </div>
         </div>
 
-        <h4 style="margin-top:10px; margin-bottom:12px; border-bottom:2px solid var(--primary); padding-bottom:6px; color:var(--primary);">
-          B. Tanda Tangan Atasan Langsung (Penilai)
-        </h4>
-        <div style="margin-bottom:20px;">
-          <div class="helper-text" style="margin-bottom:8px;">Bubuhkan tanda tangan Anda menggunakan mouse atau layar sentuh pada kotak di bawah:</div>
-          <div style="display:inline-block; border:2px dashed #94a3b8; border-radius:8px; background:#fff; position:relative;">
-            <canvas id="evalTkkSignaturePad" width="420" height="160" style="touch-action:none; cursor:crosshair; display:block;"></canvas>
-          </div>
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; flex-wrap:wrap; gap:10px;">
-            <button type="button" class="btn btn-secondary" onclick="clearEvalTkkSignature()" style="padding:6px 14px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:6px;">
-              <span>🗑️</span> Hapus / Ulangi Tanda Tangan
-            </button>
-            <div style="display:inline-flex; align-items:center; gap:8px; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:4px 10px;">
-              <label for="evalTkk_lineWidthSelect" style="font-size:12px; font-weight:600; color:#334155; margin:0; white-space:nowrap;">
-                ✏️ Ketebalan Goresan:
-              </label>
-              <select id="evalTkk_lineWidthSelect" onchange="changeEvalTkkLineWidth(this.value)" style="padding:3px 8px; font-size:12px; font-weight:600; border:1px solid #94a3b8; border-radius:4px; background:#ffffff; color:#0f172a; cursor:pointer; height:28px;">
-                <option value="0.5">0.5 (Sangat Tipis)</option>
-                <option value="1.0">1.0</option>
-                <option value="1.5">1.5</option>
-                <option value="2.0">2.0</option>
-                <option value="2.5" selected>2.5 (Standar)</option>
-                <option value="3.0">3.0</option>
-                <option value="3.5">3.5</option>
-                <option value="4.0">4.0 (Tebal)</option>
-                <option value="4.5">4.5</option>
-                <option value="5.0">5.0 (Sangat Tebal)</option>
-              </select>
-            </div>
-          </div>
-          <div style="font-size:11.5px; color:#64748b; margin-top:5px;">
-            ℹ️ Tanda tangan diposisikan rapi satu garis lurus di atas teks nama penandatangan dengan ketebalan proporsional.
-          </div>
+        <!-- WRAP ALASAN TIDAK DIPERBARUI -->
+        <div id="evalTkk_tidakDiperbaruiWrap" style="display:none; background:#fef2f2; border:1px solid #f87171; border-radius:10px; padding:16px; margin-bottom:20px;">
+          <label style="font-weight:700; color:#b91c1c; font-size:13.5px; display:block; margin-bottom:6px;">
+            ðŸ“ Catatan Alasan Tidak Diperbarui <span style="color:red;">*</span>
+          </label>
+          <textarea id="evalTkk_alasanTidakDiperbarui" class="field-input" rows="3" placeholder="Jelaskan alasan atau pertimbangan mengapa kontrak pegawai tidak diperbarui..."></textarea>
+          <div style="font-size:11.5px; color:#991b1b; margin-top:4px;">Catatan ini akan diteruskan ke Admin Kepegawaian dan menjadi dasar penutupan usulan.</div>
         </div>
 
+        <!-- WRAP CATATAN PERBAIKAN -->
+        <div id="evalTkk_perluPerbaikanWrap" style="display:none; background:#fffbeb; border:1px solid #fbbf24; border-radius:10px; padding:16px; margin-bottom:20px;">
+          <label style="font-weight:700; color:#b45309; font-size:13.5px; display:block; margin-bottom:6px;">
+            âœï¸ Catatan Perbaikan Berkas untuk Pengusul <span style="color:red;">*</span>
+          </label>
+          <textarea id="evalTkk_catatanPerbaikan" class="field-input" rows="3" placeholder="Tuliskan instruksi berkas yang buram, salah upload, atau dokumen yang perlu diperbaiki oleh pengusul..."></textarea>
+          <div style="font-size:11.5px; color:#92400e; margin-top:4px;">Usulan akan dikembalikan ke akun pengusul dengan status 'Perlu Perbaikan (Koreksi Atasan)'.</div>
+        </div>
+
+        <!-- SEKSI KRITERIA & SKOR -->
+        <div id="evalTkk_kriteriaSection">
+          <h4 style="margin-top:10px; margin-bottom:12px; border-bottom:2px solid var(--primary); padding-bottom:6px; color:var(--primary);">
+            A. Penilaian 7 Kriteria Kinerja (Skor: 1 = Kurang, 2 = Baik, 3 = Sangat Baik)
+          </h4>
+
+          <div class="table-responsive" style="overflow-x:auto; margin-bottom:20px;">
+            <table class="table-list" style="width:100%; text-align:left; border-collapse:collapse;">
+              <thead>
+                <tr style="background:var(--surface-alt);">
+                  <th style="width:40px; padding:10px; text-align:center;">No</th>
+                  <th style="padding:10px;">Kriteria Penilaian</th>
+                  <th style="width:240px; padding:10px; text-align:center;">Skor Penilaian</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="text-align:center; padding:10px;">1</td>
+                  <td style="padding:10px;"><strong>Orientasi Pelayanan</strong><br><small style="color:var(--text-muted);">Sikap dan perilaku kerja dalam memberikan pelayanan terbaik kepada pihak yang dilayani.</small></td>
+                  <td style="padding:10px; text-align:center;">
+                    <div style="display:flex; justify-content:center; gap:12px;">
+                      <label><input type="radio" name="eval_p1" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
+                      <label><input type="radio" name="eval_p1" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
+                      <label><input type="radio" name="eval_p1" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:center; padding:10px;">2</td>
+                  <td style="padding:10px;"><strong>Inisiatif Kerja</strong><br><small style="color:var(--text-muted);">Kemauan dan kemampuan untuk mengambil tindakan proaktif tanpa harus selalu menunggu instruksi.</small></td>
+                  <td style="padding:10px; text-align:center;">
+                    <div style="display:flex; justify-content:center; gap:12px;">
+                      <label><input type="radio" name="eval_p2" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
+                      <label><input type="radio" name="eval_p2" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
+                      <label><input type="radio" name="eval_p2" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:center; padding:10px;">3</td>
+                  <td style="padding:10px;"><strong>Komitmen</strong><br><small style="color:var(--text-muted);">Kesungguhan dan tanggung jawab dalam menjalankan tugas kedinasan dan menjaga nama baik institusi.</small></td>
+                  <td style="padding:10px; text-align:center;">
+                    <div style="display:flex; justify-content:center; gap:12px;">
+                      <label><input type="radio" name="eval_p3" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
+                      <label><input type="radio" name="eval_p3" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
+                      <label><input type="radio" name="eval_p3" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:center; padding:10px;">4</td>
+                  <td style="padding:10px;"><strong>Kerjasama</strong><br><small style="color:var(--text-muted);">Kemampuan bekerja sama dalam tim dan bersinergi dengan rekan kerja maupun unit lain.</small></td>
+                  <td style="padding:10px; text-align:center;">
+                    <div style="display:flex; justify-content:center; gap:12px;">
+                      <label><input type="radio" name="eval_p4" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
+                      <label><input type="radio" name="eval_p4" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
+                      <label><input type="radio" name="eval_p4" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:center; padding:10px;">5</td>
+                  <td style="padding:10px;"><strong>Kehadiran</strong><br><small style="color:var(--text-muted);">Ketepatan waktu dan tingkat kehadiran kerja sesuai jam operasional dinas.</small></td>
+                  <td style="padding:10px; text-align:center;">
+                    <div style="display:flex; justify-content:center; gap:12px;">
+                      <label><input type="radio" name="eval_p5" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
+                      <label><input type="radio" name="eval_p5" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
+                      <label><input type="radio" name="eval_p5" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:center; padding:10px;">6</td>
+                  <td style="padding:10px;"><strong>Disiplin</strong><br><small style="color:var(--text-muted);">Ketaatan terhadap tata tertib, peraturan kepegawaian, dan etika profesi.</small></td>
+                  <td style="padding:10px; text-align:center;">
+                    <div style="display:flex; justify-content:center; gap:12px;">
+                      <label><input type="radio" name="eval_p6" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
+                      <label><input type="radio" name="eval_p6" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
+                      <label><input type="radio" name="eval_p6" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align:center; padding:10px;">7</td>
+                  <td style="padding:10px;"><strong>Kesesuaian Hasil Kerja dengan Tupoksi</strong><br><small style="color:var(--text-muted);">Kualitas dan kuantitas target capaian kinerja sesuai uraian tugas pokok dan fungsi jabatan.</small></td>
+                  <td style="padding:10px; text-align:center;">
+                    <div style="display:flex; justify-content:center; gap:12px;">
+                      <label><input type="radio" name="eval_p7" value="1" onchange="hitungTotalSkorEvaluasiTkk()"> 1</label>
+                      <label><input type="radio" name="eval_p7" value="2" onchange="hitungTotalSkorEvaluasiTkk()" checked> 2</label>
+                      <label><input type="radio" name="eval_p7" value="3" onchange="hitungTotalSkorEvaluasiTkk()"> 3</label>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Total Skor & Rekomendasi Box -->
+          <div style="background:var(--surface-alt); border:2px solid var(--primary); border-radius:12px; padding:18px; margin-bottom:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+              <div>
+                <div style="font-size:13px; font-weight:600; color:var(--text-muted);">TOTAL SKOR KINERJA (MAKSIMAL 21):</div>
+                <div id="evalTkk_totalSkorDisplay" style="font-size:24px; font-weight:800; color:var(--primary);">14 / 21</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:13px; font-weight:600; color:var(--text-muted);">REKOMENDASI ATASAN LANGSUNG:</div>
+                <div id="evalTkk_rekomendasiDisplay" style="font-size:16px; font-weight:700; color:#16a34a;">Diperbarui Kontrak s.d. 31 Desember 2027</div>
+              </div>
+            </div>
+          </div>
+        </div> <!-- End evalTkk_kriteriaSection -->
+
+        <!-- CONTAINER FORM SKP TENDIK (DIISI ATASAN SAAT DIPERBARUI) -->
+        <div id="evalTkk_skpSection" style="margin-bottom:20px;"></div>
+
+        <!-- SEKSI TANDA TANGAN ATASAN LANGSUNG -->
+        <div id="evalTkk_signatureSection">
+          <h4 style="margin-top:10px; margin-bottom:12px; border-bottom:2px solid var(--primary); padding-bottom:6px; color:var(--primary);">
+            B. Tanda Tangan Atasan Langsung (Penilai)
+          </h4>
+          <div style="margin-bottom:20px;">
+            <div class="helper-text" style="margin-bottom:8px;">Bubuhkan tanda tangan Anda menggunakan mouse atau layar sentuh pada kotak di bawah:</div>
+            <div style="display:inline-block; border:2px dashed #94a3b8; border-radius:8px; background:#fff; position:relative;">
+              <canvas id="evalTkkSignaturePad" width="420" height="160" style="touch-action:none; cursor:crosshair; display:block;"></canvas>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; flex-wrap:wrap; gap:10px;">
+              <button type="button" class="btn btn-secondary" onclick="clearEvalTkkSignature()" style="padding:6px 14px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:6px;">
+                <span>ðŸ—‘ï¸</span> Hapus / Ulangi Tanda Tangan
+              </button>
+              <div style="display:inline-flex; align-items:center; gap:8px; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:4px 10px;">
+                <label for="evalTkk_lineWidthSelect" style="font-size:12px; font-weight:600; color:#334155; margin:0; white-space:nowrap;">
+                  âœï¸ Ketebalan Goresan:
+                </label>
+                <select id="evalTkk_lineWidthSelect" onchange="changeEvalTkkLineWidth(this.value)" style="padding:3px 8px; font-size:12px; font-weight:600; border:1px solid #94a3b8; border-radius:4px; background:#ffffff; color:#0f172a; cursor:pointer; height:28px;">
+                  <option value="0.5">0.5 (Sangat Tipis)</option>
+                  <option value="1.0">1.0</option>
+                  <option value="1.5">1.5</option>
+                  <option value="2.0">2.0</option>
+                  <option value="2.5" selected>2.5 (Standar)</option>
+                  <option value="3.0">3.0</option>
+                  <option value="3.5">3.5</option>
+                  <option value="4.0">4.0 (Tebal)</option>
+                  <option value="4.5">4.5</option>
+                  <option value="5.0">5.0 (Sangat Tebal)</option>
+                </select>
+              </div>
+            </div>
+            <div style="font-size:11.5px; color:#64748b; margin-top:5px;">
+              â„¹ï¸ Tanda tangan diposisikan rapi satu garis lurus di atas teks nama penandatangan dengan ketebalan proporsional.
+            </div>
+          </div>
+        </div> <!-- End evalTkk_signatureSection -->
+
+        <!-- BARIS TOMBOL AKSI -->
         <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:16px; flex-wrap:wrap; gap:12px;">
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button type="button" class="btn btn-secondary" onclick="tutupModalEvaluasiTkk()">Batal</button>
-            <button type="button" class="btn btn-outline" onclick="koreksiUsulanBawahanTkk()" style="border-color:#f59e0b; color:#d97706; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
-              <span>✏️</span> Koreksi Usulan
-            </button>
-            <button type="button" class="btn btn-outline" onclick="hapusUsulanBawahanTkk()" style="border-color:#ef4444; color:#dc2626; background:#fff5f5; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
-              <span>🗑️</span> Hapus Usulan
+            <button type="button" class="btn btn-outline" id="btnHapusUsulanBawahan" onclick="hapusUsulanBawahanTkk()" style="border-color:#ef4444; color:#dc2626; background:#fff5f5; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+              <span>ðŸ—‘ï¸</span> Hapus Usulan
             </button>
           </div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button type="button" class="btn btn-outline" onclick="previewDocxEvaluasiTkk()">👁️ Preview Dokumen</button>
-            <button type="button" id="btnSimpanEvaluasiTkk" class="btn btn-secondary" onclick="simpanEvaluasiTkkFinal(false)" style="font-weight:600;">💾 Simpan &amp; Generate (.docx)</button>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;" id="evalTkk_btnPreviewSimpanWrap">
+            <button type="button" class="btn btn-outline" onclick="previewDocxEvaluasiTkk()">ðŸ‘ï¸ Preview Evaluasi</button>
+            <button type="button" id="btnSimpanEvaluasiTkk" class="btn btn-secondary" onclick="simpanEvaluasiTkkFinal(false)" style="font-weight:600;">ðŸ’¾ Simpan Draft (.docx)</button>
           </div>
         </div>
         <div style="margin-top:12px;">
           <button type="button" id="btnValidasiEvaluasiTkk" class="btn btn-primary" onclick="validasiDanKirimEvaluasiTkk()" style="width:100%; font-weight:700; background:#059669; border-color:#059669; box-shadow:0 4px 12px rgba(5,150,105,0.25); padding:10px 16px; font-size:14px;">
-            ✅ Validasi &amp; Kirim ke Admin
+            âœ… Validasi &amp; Kirim Keputusan Evaluasi ke Admin
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL POP-UP INTERAKTIF: NOTIFIKASI KELAYAKAN PEMBARUAN KONTRAK TENDIK -->
+  <div class="modal-overlay" id="modalNotifikasiKelayakanTendik" style="display:none; z-index:9999;">
+    <div class="modal-box" style="max-width:550px; width:92%; text-align:center; padding:28px 24px; border-radius:14px; box-shadow:0 12px 32px rgba(0,0,0,0.25);">
+      <div style="font-size:48px; margin-bottom:12px;">ðŸŽ‰</div>
+      <div class="badge" style="background:#10b981; color:#fff; font-size:13px; padding:6px 14px; border-radius:8px; font-weight:700; display:inline-block; margin-bottom:12px;">
+        âœ… Memenuhi Syarat Pembaruan Kontrak
+      </div>
+      <h3 style="margin:0 0 10px 0; color:var(--text); font-size:20px; font-weight:800;">
+        Selamat! Usulan Pembaruan Kontrak Anda Disetujui
+      </h3>
+      <p style="margin:0 0 18px 0; color:var(--text-muted); font-size:14px; line-height:1.6;">
+        Hasil evaluasi kinerja Anda telah <strong>divalidasi &amp; disetujui</strong> oleh Atasan Langsung dan Admin Kepegawaian.<br><br>
+        Silakan lengkapi <strong>Berkas Persyaratan Final</strong> (KTP, KK, Ijazah &amp; Transkrip, Surat Sehat, Surat Pengantar) agar Dokumen Perjanjian Kerja &amp; SKP dapat diterbitkan.
+      </p>
+      <div style="display:flex; justify-content:center; gap:12px;">
+        <button type="button" class="btn btn-primary" onclick="tutupNotifikasiKelayakanDanLengkapi()" style="padding:12px 28px; font-weight:700; font-size:14px; border-radius:8px; box-shadow:0 4px 14px rgba(37,99,235,0.3);">
+          ðŸš€ Lengkapi Berkas Sekarang
+        </button>
       </div>
     </div>
   </div>
@@ -12892,45 +12984,103 @@ function toggleEvaluasiKinerjaUser() {
 }
 
 function onKontrakUserLayananChange() {
-  const layanan = document.getElementById('kontrakUser_layanan').value;
+  const layanan = document.getElementById('kontrakUser_layanan')?.value || '';
   const subMenuSelect = document.getElementById('kontrakUser_subMenu');
   const atasanWrap = document.getElementById('kontrakUser_atasanWrap');
+  const autoNotice = document.getElementById('kontrakUser_atasanAutoNotice');
+  const isTendik = (layanan === 'Kontrak Tendik');
 
+  if (autoNotice) {
+    autoNotice.style.display = isTendik ? 'block' : 'none';
+  }
   if (atasanWrap) {
-    atasanWrap.style.display = (layanan === 'Kontrak Tendik') ? 'block' : 'none';
-    if (layanan === 'Kontrak Tendik') {
-      bindAtasanLangsungSearch();
+    atasanWrap.style.display = 'none'; // Tendik is auto-assigned by unit_es_iv; manual search hidden
+  }
+
+  // Tampilkan/sembunyikan berkas awal
+  // Untuk Tendik: HANYA Surat Lamaran & Hasil Kerja yang diunggah saat pengusulan awal!
+  const dFiles = [
+    'kontrakUser_file_ktp',
+    'kontrakUser_file_kk',
+    'kontrakUser_file_pas_foto',
+    'kontrakUser_file_ijazah',
+    'kontrakUser_file_surat_pengantar',
+    'kontrakUser_file_ket_sehat'
+  ];
+
+  dFiles.forEach(id => {
+    const el = document.getElementById(id);
+    const wrap = el ? el.closest('.stack-field') : null;
+    if (wrap) {
+      wrap.style.display = isTendik ? 'none' : 'block';
+    }
+    if (el) {
+      if (isTendik) {
+        el.removeAttribute('required');
+        el.value = '';
+      } else {
+        el.setAttribute('required', 'required');
+      }
+    }
+  });
+
+  // SIM & STR
+  const jabVal = document.getElementById('kontrakUser_jabatan')?.value || '';
+  const isDriver = String(jabVal).toLowerCase().includes('pengemudi');
+  const isMedis = (typeof isJabatanMedis === 'function') ? isJabatanMedis(jabVal) : false;
+
+  const simWrap = document.getElementById('kontrakUser_simWrap');
+  const simInput = document.getElementById('kontrakUser_file_sim');
+  if (simWrap) {
+    simWrap.style.display = (!isTendik && isDriver) ? 'block' : 'none';
+    if (simInput) {
+      if (!isTendik && isDriver) simInput.setAttribute('required', 'required');
+      else simInput.removeAttribute('required');
     }
   }
 
+  const strWrap = document.getElementById('kontrakUser_strWrap');
+  const strInput = document.getElementById('kontrakUser_file_str');
+  if (strWrap) {
+    strWrap.style.display = (!isTendik && isMedis) ? 'block' : 'none';
+    if (strInput) {
+      if (!isTendik && isMedis) strInput.setAttribute('required', 'required');
+      else strInput.removeAttribute('required');
+    }
+  }
+
+  // Hasil Kerja (Khusus Tendik)
   const hasilKerjaWrap = document.getElementById('kontrakUser_hasilKerjaWrap');
   const hasilKerjaInput = document.getElementById('kontrakUser_file_hasil_kerja');
   if (hasilKerjaWrap) {
-    hasilKerjaWrap.style.display = (layanan === 'Kontrak Tendik') ? 'block' : 'none';
+    hasilKerjaWrap.style.display = isTendik ? 'block' : 'none';
     if (hasilKerjaInput) {
-      if (layanan === 'Kontrak Tendik') {
-        hasilKerjaInput.setAttribute('required', 'required');
-      } else {
+      if (isTendik) hasilKerjaInput.setAttribute('required', 'required');
+      else {
         hasilKerjaInput.removeAttribute('required');
         hasilKerjaInput.value = '';
       }
     }
   }
-  
+
+  // Surat Lamaran (Keduanya wajib)
+  const lamaranInput = document.getElementById('kontrakUser_file_surat_lamaran');
+  if (lamaranInput) {
+    lamaranInput.setAttribute('required', 'required');
+  }
+
   if (!subMenuSelect) return;
-  
   if (!layanan) {
     subMenuSelect.innerHTML = '<option value="">Pilih Kategori Pegawai Dahulu...</option>';
     return;
   }
-  
-  const list = (layanan === 'Kontrak Tendik') 
+
+  const list = isTendik
     ? (kontrakFormOptionsCache?.subMenuTendik || ['Tenaga Profesional', 'Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan', 'Calon Pegawai Tetap Undip NON ASN']) 
     : (kontrakFormOptionsCache?.subMenuDosen || ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan', 'Calon Pegawai Tetap Undip NON ASN']);
     
   subMenuSelect.innerHTML = list.map(item => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join('');
 }
-
 function bindAtasanLangsungSearch() {
   const input = document.getElementById('kontrakUser_atasanSearch');
   const listEl = document.getElementById('kontrakUser_atasanSearchList');
@@ -13052,52 +13202,61 @@ async function submitUsulanKontrak(e) {
     const unit = document.getElementById('kontrakUser_unit').value;
     const email = document.getElementById('kontrakUser_email').value;
     const tahun = document.getElementById('kontrakUser_tahun').value;
-    const jenis_usulan = document.getElementById('kontrakUser_jenisUsulan').value;
-    const evaluasi_kinerja = (jenis_usulan === 'Perpanjangan') ? document.getElementById('kontrakUser_evaluasiKinerja').value : '';
+    const jenis_usulan = document.getElementById('kontrakUser_jenisUsulan').value || 'Pembaruan Kontrak';
+    const evaluasi_kinerja = (jenis_usulan === 'Perpanjangan' || jenis_usulan === 'Pembaruan Kontrak') ? document.getElementById('kontrakUser_evaluasiKinerja').value : '';
     const layanan = document.getElementById('kontrakUser_layanan').value;
     const sub_menu = document.getElementById('kontrakUser_subMenu').value;
-    const atasan_nip = document.getElementById('kontrakUser_atasanNip') ? document.getElementById('kontrakUser_atasanNip').value : '';
+    const isTendik = (layanan === 'Kontrak Tendik');
 
-    if (layanan === 'Kontrak Tendik' && !atasan_nip) {
-      setBtnLoading(btn, false, 'Ajukan Usulan');
-      showToast('error', 'Silakan cari dan pilih Atasan Langsung penilai evaluasi kinerja Anda terlebih dahulu.');
-      return;
-    }
-    
     const jabVal = document.getElementById('kontrakUser_jabatan')?.value || '';
     const isDriver = String(jabVal).toLowerCase().includes('pengemudi');
-    const isMedis = isJabatanMedis(jabVal);
+    const isMedis = (typeof isJabatanMedis === 'function') ? isJabatanMedis(jabVal) : false;
 
-    // Validasi dan ambil URL langsung ke file Google Drive (bukan link folder)
-    const ktp_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_ktp')?.value, 'KTP', true);
-    const kk_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_kk')?.value, 'Kartu Keluarga', true);
-    const pas_foto_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_pas_foto')?.value, 'Pas Foto Terbaru', true);
-    const ijazah_transkrip_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_ijazah')?.value, 'Ijazah & Transkrip Terakhir', true);
-    const surat_pengantar_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_surat_pengantar')?.value, 'Surat Pengantar Pimpinan Unit', true);
+    // Untuk Tendik: Hanya Surat Lamaran & Bukti Hasil Kerja yang diminta pada tahap pengusulan awal!
     const surat_lamaran_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_surat_lamaran')?.value, 'Surat Lamaran', true);
-    const keterangan_sehat_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_ket_sehat')?.value, 'Surat Keterangan Sehat', true);
-    const sim_ab_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_sim')?.value, 'SIM A & B', isDriver);
-    const str_aktif_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_str')?.value, 'STR Aktif', isMedis);
-    const hasil_kerja_url = (layanan === 'Kontrak Tendik')
+    const hasil_kerja_url = isTendik
       ? validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_hasil_kerja')?.value, 'Bukti/Hasil Kerja (Dokumentasi/PPT)', true)
       : '';
+
+    let ktp_url = '';
+    let kk_url = '';
+    let pas_foto_url = '';
+    let ijazah_transkrip_url = '';
+    let surat_pengantar_url = '';
+    let keterangan_sehat_url = '';
+    let sim_ab_url = '';
+    let str_aktif_url = '';
+
+    if (!isTendik) {
+      ktp_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_ktp')?.value, 'KTP', true);
+      kk_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_kk')?.value, 'Kartu Keluarga', true);
+      pas_foto_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_pas_foto')?.value, 'Pas Foto Terbaru', true);
+      ijazah_transkrip_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_ijazah')?.value, 'Ijazah & Transkrip Terakhir', true);
+      surat_pengantar_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_surat_pengantar')?.value, 'Surat Pengantar Pimpinan Unit', true);
+      keterangan_sehat_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_ket_sehat')?.value, 'Surat Keterangan Sehat', true);
+      sim_ab_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_sim')?.value, 'SIM A & B', isDriver);
+      str_aktif_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_str')?.value, 'STR Aktif', isMedis);
+    }
 
     setBtnLoading(btn, true, 'Menyimpan Usulan...');
 
     const payload = {
-      nip, nama, unit, email, tahun, jenis_usulan, evaluasi_kinerja, layanan, sub_menu, atasan_nip,
-      ktp_url, kk_url, pas_foto_url, ijazah_transkrip_url, surat_pengantar_url, surat_lamaran_url, keterangan_sehat_url, sim_ab_url, str_aktif_url, hasil_kerja_url,
+      nip, nama, unit, email, tahun,
+      jenis_usulan: isTendik ? 'Pembaruan Kontrak' : jenis_usulan,
+      evaluasi_kinerja, layanan, sub_menu,
+      ktp_url, kk_url, pas_foto_url, ijazah_transkrip_url, surat_pengantar_url,
+      surat_lamaran_url, keterangan_sehat_url, sim_ab_url, str_aktif_url, hasil_kerja_url,
       form_data: {
-        nip, nama_lengkap: nama, unit_es_ii: unit, jabatan: jabVal, email, atasan_nip,
+        nip, nama_lengkap: nama, unit_es_ii: unit, jabatan: jabVal, email,
         status_kepegawaian: sub_menu
       }
     };
 
-    const rpcMethod = (layanan === 'Kontrak Tendik') ? 'ajukanUsulanKontrakTendik' : 'ajukanUsulanKontrak';
+    const rpcMethod = isTendik ? 'ajukanUsulanKontrakTendik' : 'ajukanUsulanKontrak';
     const res = await rpc(rpcMethod, [SESSION.token, payload]);
     setBtnLoading(btn, false, 'Ajukan Usulan');
     if (res && res.success) {
-      showToast('success', res.message);
+      showToast('success', res.message || 'Usulan berhasil diajukan.');
       const tabStatus = document.getElementById('tabBtnKontrakUserStatus');
       if (tabStatus) tabStatus.click();
       else loadUsulanKontrakSaya();
@@ -13109,7 +13268,6 @@ async function submitUsulanKontrak(e) {
     showToast('error', err.message || err);
   }
 }
-
 async function populateKontrakUserFormProfile() {
   const role = (SESSION.user && SESSION.user.role) ? SESSION.user.role : 'normal';
   const isNormalUser = role === 'normal' || role === 'user' || !['admin', 'super_admin'].includes(role);
@@ -13281,6 +13439,49 @@ async function loadUsulanKontrakSaya() {
   }
 }
 
+let activeUsulanSayaId = null;
+window.currentUsulanSaya = null;
+
+async function tutupNotifikasiKelayakanDanLengkapi() {
+  const modal = document.getElementById('modalNotifikasiKelayakanTendik');
+  if (modal) modal.style.display = 'none';
+
+  if (activeUsulanSayaId) {
+    try {
+      await rpc('tandaiNotifikasiKelayakanDilihat', [SESSION.token, activeUsulanSayaId]);
+    } catch (_) {}
+  }
+
+  const el = document.getElementById('kontrakUser_kelengkapanSection');
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+async function submitSingleBerkasKelengkapan(usulanId, docKey, inputId) {
+  const inputEl = document.getElementById(inputId);
+  const rawUrl = inputEl ? inputEl.value.trim() : '';
+  if (!rawUrl) {
+    showToast('error', 'Silakan masukkan tautan Google Drive file berkas.');
+    return;
+  }
+
+  const cleanUrl = validateAndCleanGdriveFileUrl(rawUrl, docKey, true);
+  showToast('info', 'Mengunggah dan memperbarui berkas...');
+
+  try {
+    const res = await rpc('submitBerkasKelengkapanTendik', [SESSION.token, usulanId, { [docKey]: cleanUrl }]);
+    if (res && res.success) {
+      showToast('success', res.message || 'Berkas berhasil disimpan dan dikirim untuk verifikasi Admin.');
+      loadUsulanKontrakSaya();
+    } else {
+      showToast('error', res?.message || 'Gagal menyimpan berkas.');
+    }
+  } catch (err) {
+    showToast('error', err.message || err);
+  }
+}
+
 function handleUsulanKontrakSayaResult(res) {
   const statusState = document.getElementById('kontrakUserStatusState');
   const formState = document.getElementById('kontrakUserFormState');
@@ -13292,71 +13493,163 @@ function handleUsulanKontrakSayaResult(res) {
   }
   
   if (!res.usulan) {
-    // Show Form & Populate Profile with locks
+    window.currentUsulanSaya = null;
     formState.style.display = 'block';
     populateKontrakUserFormProfile();
     toggleEvaluasiKinerjaUser();
     onKontrakUserLayananChange();
   } else {
-    // Show Status
     statusState.style.display = 'block';
     const card = document.getElementById('kontrakUserStatusCard');
+    const u = res.usulan;
+    activeUsulanSayaId = u.id;
+    window.currentUsulanSaya = u;
+    const isTendik = (u.layanan === 'Kontrak Tendik');
     
     let statusBadge = `<span class="badge" style="background:#ff9800; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">Diajukan</span>`;
-    const st = res.usulan.status;
+    const st = u.status;
     let catatanKoreksiHtml = '';
+
     if (st === 'submitted_to_atasan') {
-      statusBadge = `<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">⏳ Menunggu Evaluasi Atasan Langsung</span>`;
+      statusBadge = `<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">â³ Menunggu Evaluasi Atasan Langsung</span>`;
     } else if (st === 'under_atasan_review') {
-      statusBadge = `<span class="badge" style="background:#3b82f6; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">🔍 Sedang Ditinjau Atasan Langsung</span>`;
+      statusBadge = `<span class="badge" style="background:#3b82f6; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">ðŸ” Sedang Ditinjau Atasan Langsung</span>`;
     } else if (st === 'perlu_perbaikan' || st === 'koreksi_atasan') {
-      statusBadge = `<span class="badge" style="background:#d97706; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">⚠️ Perlu Perbaikan (Koreksi Atasan)</span>`;
-      const noteText = res.usulan.catatan || res.usulan.evaluasi_data?.catatan_koreksi || '';
+      statusBadge = `<span class="badge" style="background:#d97706; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">âš ï¸ Perlu Perbaikan (Koreksi Atasan)</span>`;
+      const noteText = u.catatan || u.evaluasi_data?.catatan_koreksi || u.evaluasi_rekomendasi || '';
       if (noteText) {
         catatanKoreksiHtml = `
           <div style="margin-top:12px; padding:12px 16px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; color:#92400e; font-size:13px; text-align:left;">
-            <strong>⚠️ Catatan Koreksi dari Atasan Langsung:</strong>
+            <strong>âš ï¸ Catatan Koreksi dari Atasan Langsung:</strong>
             <div style="margin-top:4px; font-weight:600; white-space:pre-wrap;">${escapeHtml(noteText)}</div>
             <div style="margin-top:8px; font-size:12px; color:#b45309;">Silakan hubungi atasan langsung atau perbaiki berkas usulan Anda sesuai instruksi di atas.</div>
           </div>
         `;
       }
-    } else if (st === 'validated_by_atasan') {
-      statusBadge = `<span class="badge" style="background:#059669; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">📨 Sudah Divalidasi Atasan Langsung (Menunggu Verifikasi Admin)</span>`;
-    } else if (st === 'evaluated_extend') {
-      statusBadge = `<span class="badge" style="background:#8b5cf6; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">📋 Dievaluasi Atasan (Rekomendasi Diperpanjang) - Menunggu Validasi Admin</span>`;
-    } else if (st === 'evaluated_not_extend') {
-      statusBadge = `<span class="badge" style="background:#ef4444; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">❌ Evaluasi Selesai (Rekomendasi Tidak Diperpanjang)</span>`;
+    } else if (st === 'validated_by_atasan' || st === 'evaluated_renewed' || st === 'evaluated_extend') {
+      statusBadge = `<span class="badge" style="background:#059669; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">ðŸ“¨ Sudah Divalidasi Atasan (Rekomendasi Diperbarui) â€” Menunggu Validasi Admin</span>`;
+    } else if (st === 'evaluated_not_renewed' || st === 'evaluated_not_extend') {
+      statusBadge = `<span class="badge" style="background:#ef4444; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">âŒ Evaluasi Selesai (Rekomendasi Tidak Diperbarui)</span>`;
     } else if (st === 'validated_by_admin' || st === 'Disetujui') {
-      statusBadge = `<span class="badge" style="background:#10b981; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">✅ Divalidasi Admin (Siap Buat Dokumen Perjanjian)</span>`;
-    } else if (st === 'contract_generated' || st === 'Selesai' || !!res.usulan.perjanjian_dibuat) {
-      statusBadge = `<span class="badge" style="background:#2563eb; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">🎉 Perjanjian Kerja Selesai Dibuat</span>`;
-    } else if (st === 'closed_not_extended' || st === 'Ditolak') {
-      statusBadge = `<span class="badge" style="background:#64748b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">🚫 Selesai (Tidak Diperpanjang)</span>`;
+      statusBadge = `<span class="badge" style="background:#10b981; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">âœ… Divalidasi Admin (Memenuhi Syarat Pembaruan)</span>`;
+    } else if (st === 'contract_generated' || st === 'Selesai' || !!u.perjanjian_dibuat) {
+      statusBadge = `<span class="badge" style="background:#2563eb; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">ðŸŽ‰ Perjanjian Kerja &amp; SKP Selesai Dibuat</span>`;
+    } else if (st === 'closed_not_renewed' || st === 'closed_not_extended' || st === 'Ditolak') {
+      statusBadge = `<span class="badge" style="background:#64748b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">ðŸš« Selesai (Tidak Diperbarui)</span>`;
+    }
+
+    // Interactive Pop-Up Modal on User Account
+    if (isTendik && st === 'validated_by_admin' && !u.notifikasi_kelayakan_dilihat) {
+      setTimeout(() => {
+        const popModal = document.getElementById('modalNotifikasiKelayakanTendik');
+        if (popModal) popModal.style.display = 'flex';
+      }, 500);
     }
     
     let generateBtnHtml = '';
     let readOnlyCardHtml = '';
     let skpFormHtml = '';
 
-    const u = res.usulan;
     const fd = u.form_data || {};
-    const subMenuNormalized = String(u.sub_menu || fd.status_kepegawaian || '').trim();
+    const jabVal = fd.jabatan || u.jabatan || '';
+    const isDriver = String(jabVal).toLowerCase().includes('pengemudi');
+    const isMedis = (typeof isJabatanMedis === 'function') ? isJabatanMedis(jabVal) : false;
 
-    // Verifikasi status approval:
-    // 1. Disetujui/divalidasi oleh admin
+    // Cek kelengkapan berkas pasca-approval
+    const KELENGKAPAN_DEFS = [
+      { key: 'ktp', label: 'KTP (PDF/Gambar)', required: true },
+      { key: 'kk', label: 'Kartu Keluarga (PDF/Gambar)', required: true },
+      { key: 'ijazah_transkrip', label: 'Ijazah & Transkrip Terakhir (PDF)', required: true },
+      { key: 'keterangan_sehat', label: 'Surat Keterangan Sehat (PDF/Gambar)', required: true },
+      { key: 'surat_pengantar', label: 'Surat Pengantar Pimpinan Unit (PDF)', required: true },
+      { key: 'sim_ab', label: 'SIM A & B (Khusus Pengemudi)', required: isDriver },
+      { key: 'str_aktif', label: 'STR Aktif (Khusus Tenaga Medis)', required: isMedis }
+    ];
+
+    const activeRequiredDefs = KELENGKAPAN_DEFS.filter(d => d.required);
+    const bKelengkapan = u.berkas_kelengkapan || {};
+
+    const allKelengkapanApproved = isTendik
+      ? activeRequiredDefs.every(d => {
+          const item = bKelengkapan[d.key];
+          return item && (item.approved === true || item.status === 'verified');
+        })
+      : true;
+
+    // Pasca-approval Berkas Kelengkapan Section HTML for Tendik
+    let kelengkapanSectionHtml = '';
+    if (isTendik && (st === 'validated_by_admin' || st === 'contract_generated' || st === 'Selesai')) {
+      kelengkapanSectionHtml = `
+        <div id="kontrakUser_kelengkapanSection" style="margin-top:24px; padding:20px; background:var(--surface); border:2px solid #3b82f6; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.05);">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--border); padding-bottom:12px; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+            <div>
+              <h3 style="margin:0; color:var(--text); font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
+                <span>ðŸ“ Berkas Kelengkapan Persyaratan Final (Tahap Pasca-Approval)</span>
+              </h3>
+              <div style="font-size:12.5px; color:var(--text-muted); margin-top:3px;">
+                Usulan Anda telah disetujui. Lengkapi berkas persyaratan berikut untuk penerbitan dokumen Perjanjian Kerja dan SKP.
+              </div>
+            </div>
+            ${allKelengkapanApproved 
+              ? '<span class="badge" style="background:#10b981; color:#fff; padding:6px 14px; border-radius:8px; font-weight:700;">âœ… Seluruh Berkas Disetujui</span>' 
+              : '<span class="badge" style="background:#f59e0b; color:#fff; padding:6px 14px; border-radius:8px; font-weight:700;">â³ Menunggu Kelengkapan &amp; Verifikasi</span>'}
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            ${activeRequiredDefs.map(d => {
+              const bItem = bKelengkapan[d.key] || {};
+              const curUrl = bItem.url || u[d.key + '_url'] || '';
+              const isAppr = bItem.approved === true || bItem.status === 'verified';
+              const isRej = bItem.status === 'rejected';
+              const isWait = !!curUrl && !isAppr && !isRej;
+
+              let itemBadge = '<span class="badge" style="background:#94a3b8; color:#fff; font-size:11.5px; padding:3px 8px; border-radius:6px;">Belum Diunggah</span>';
+              if (isAppr) itemBadge = '<span class="badge" style="background:#10b981; color:#fff; font-size:11.5px; padding:3px 8px; border-radius:6px; font-weight:700;">âœ… Disetujui Admin</span>';
+              else if (isRej) itemBadge = '<span class="badge" style="background:#ef4444; color:#fff; font-size:11.5px; padding:3px 8px; border-radius:6px; font-weight:700;">âŒ Ditolak / Perlu Perbaikan</span>';
+              else if (isWait) itemBadge = '<span class="badge" style="background:#3b82f6; color:#fff; font-size:11.5px; padding:3px 8px; border-radius:6px; font-weight:600;">â³ Menunggu Verifikasi</span>';
+
+              return `
+                <div style="border:1px solid var(--border); border-radius:8px; padding:14px; background:var(--surface-alt);">
+                  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+                    <div>
+                      <strong style="font-size:13.5px; color:var(--text);">${escapeHtml(d.label)}</strong>
+                      ${d.required ? '<span style="color:red; margin-left:2px;">*</span>' : ''}
+                    </div>
+                    <div>${itemBadge}</div>
+                  </div>
+
+                  ${isRej && bItem.rejection_reason ? `
+                    <div style="background:#fef2f2; border:1px solid #fca5a5; border-radius:6px; padding:8px 12px; margin-bottom:10px; font-size:12.5px; color:#991b1b;">
+                      <strong>âš ï¸ Catatan Penolakan / Perbaikan:</strong> ${escapeHtml(bItem.rejection_reason)}
+                      <div style="font-size:11.5px; margin-top:2px; color:#b91c1c;">Silakan unggah ulang link berkas yang jelas/benar pada input di bawah.</div>
+                    </div>
+                  ` : ''}
+
+                  <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                    <input type="url" id="kelengkapan_input_${d.key}" class="field-input" style="flex:1; min-width:240px; font-size:12.5px;" placeholder="Tautan Google Drive (file langsung)..." value="${escapeHtml(curUrl)}" ${isAppr ? 'disabled' : ''} />
+                    ${!isAppr ? `
+                      <button type="button" class="btn btn-primary kp-small-btn" style="padding:7px 16px; font-weight:600;" onclick="submitSingleBerkasKelengkapan('${u.id}', '${d.key}', 'kelengkapan_input_${d.key}')">
+                        ${isRej ? 'ðŸ”„ Unggah Ulang' : (curUrl ? 'ðŸ’¾ Simpan Perubahan' : 'ðŸ“¤ Unggah Berkas')}
+                      </button>
+                    ` : ''}
+                    ${curUrl ? `
+                      <a href="${escapeHtml(curUrl)}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn" style="padding:7px 12px; font-weight:600; text-decoration:none;">
+                        ðŸ“„ Buka File â†—
+                      </a>
+                    ` : ''}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+
     const isApprovedByAdmin = (st === 'validated_by_admin' || st === 'Disetujui' || st === 'Selesai' || st === 'contract_generated' || !!u.perjanjian_dibuat);
-    // 2. Formulir evaluasi atasan langsung sudah diisi & disetujui (bukan menunggu atau koreksi atasan)
-    const isEvaluasiAtasanDone = Boolean(u.evaluasi_skor && st !== 'submitted_to_atasan' && st !== 'under_atasan_review' && st !== 'perlu_perbaikan' && st !== 'koreksi_atasan');
+    const canGenerateFinal = isApprovedByAdmin && (!isTendik || allKelengkapanApproved);
 
-    // Sasaran Kinerja Pegawai (SKP) HANYA untuk Tendik berkategori Kontrak Penuh Waktu atau Kontrak Paruh Waktu,
-    // dan HANYA bisa diakses setelah usulannya disetujui (approved) oleh atasan langsung DAN admin.
-    // Untuk Tenaga Profesional, Dosen, atau usulan yang belum di-approve: canAccessSkp = false.
-    const isTendikPenuhParuh = (u.layanan === 'Kontrak Tendik' && ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu'].includes(subMenuNormalized));
-    const canAccessSkp = isTendikPenuhParuh && isApprovedByAdmin && isEvaluasiAtasanDone;
-
-    const isApprovedOrCompleted = isApprovedByAdmin;
-    if (isApprovedOrCompleted) {
+    if (isApprovedByAdmin) {
       let savedTmtBulan = normalizeMonth(u.tmt_bulan || fd.tmt_bulan);
       let savedTmtTahun = u.tmt_tahun || fd.tmt_tahun || '';
       let savedTstBulan = normalizeMonth(u.tst_bulan || fd.tst_bulan);
@@ -13389,7 +13682,7 @@ function handleUsulanKontrakSayaResult(res) {
       }
 
       const pendStr = String(fd.pendidikan || u.pendidikan || '').toUpperCase().replace(/[\s.\-]/g, '');
-      let besaranUpahStr = 'Pendidikan belum dikenali (harus S2/Sp1 atau S3/Sp2) — besaran upah tidak bisa dihitung otomatis.';
+      let besaranUpahStr = 'Pendidikan belum dikenali (harus S2/Sp1 atau S3/Sp2) â€” besaran upah tidak bisa dihitung otomatis.';
       if (pendStr === 'S2' || pendStr === 'SP1') {
         besaranUpahStr = 'Rp 2.903.600,- (dua juta sembilan ratus tiga ribu enam ratus rupiah)';
       } else if (pendStr === 'S3' || pendStr === 'SP2') {
@@ -13403,148 +13696,203 @@ function handleUsulanKontrakSayaResult(res) {
               <input type="text" value="${escapeHtml(besaranUpahStr)}" readonly disabled class="field-input-dark" />
             </div>` : '';
 
-      if (canAccessSkp) {
-        skpFormHtml = renderSkpFormHtml(u);
-      }
-
       const isAlreadySelesai = (u.status === 'Selesai' || u.status === 'contract_generated' || !!u.perjanjian_dibuat);
-      const genBtnText = isAlreadySelesai ? '🔄 Generate Ulang Dokumen Perjanjian Kerja' : '🚀 Buat Dokumen Perjanjian Kerja Final';
+      const genBtnText = isAlreadySelesai ? 'ðŸ”„ Generate Ulang Dokumen Perjanjian Kerja' : 'ðŸš€ Buat Dokumen Perjanjian Kerja Final';
+
+      const lockBannerHtml = (!canGenerateFinal && isTendik) ? `
+        <div style="margin-top:20px; padding:16px 20px; background:#fffbeb; border:1px solid #fde68a; border-left:4px solid #f59e0b; border-radius:10px; color:#92400e; font-size:13.5px; line-height:1.6;">
+          <strong style="font-size:14px; display:flex; align-items:center; gap:8px;">
+            <span>ðŸ”’</span> Penerbitan Dokumen Perjanjian Kerja &amp; SKP Terkunci
+          </strong>
+          <div style="margin-top:4px;">
+            Penerbitan dokumen kontrak final hanya dapat diproses setelah <strong>seluruh Berkas Kelengkapan di atas berstatus Disetujui (âœ…)</strong> oleh Admin Kepegawaian. Silakan lengkapi berkas yang belum diunggah atau perbaiki berkas yang ditolak.
+          </div>
+        </div>
+      ` : '';
 
       readOnlyCardHtml = `
         <div class="kontrak-form-wrap" style="margin-top:24px; padding:24px; background:var(--surface); border:1px solid var(--border); border-radius:12px;">
           <h3 style="margin-top:0; margin-bottom:18px; color:var(--text); border-bottom:1px solid var(--border); padding-bottom:10px;">
-            📝 Formulir Perjanjian Kerja / Kontrak
+            ðŸ“ Formulir Perjanjian Kerja / Kontrak
           </h3>
 
-          <!-- CARI PEGAWAI (INFO DISPLAY) -->
-          <div class="stack-field" style="margin-bottom:16px;">
-            <label>CARI PEGAWAI</label>
-            <input type="text" value="${escapeHtml((u.nama || SESSION.user?.nama || SESSION.user?.nama_lengkap || '') + ' (' + (u.nip || SESSION.user?.nip || '') + ')')}" readonly disabled class="field-input-dark" />
-          </div>
+          ${lockBannerHtml}
 
-          <div class="grid-2 kp-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-bottom:16px;">
-            <div class="stack-field">
-              <label>NIP/NIK</label>
-              <input type="text" value="${escapeHtml(u.nip || SESSION.user?.nip || '')}" readonly disabled class="field-input-dark" />
+          <div style="${!canGenerateFinal ? 'opacity:0.6; pointer-events:none;' : ''}">
+            <div class="stack-field" style="margin-bottom:16px; margin-top:14px;">
+              <label>DATA PEGAWAI</label>
+              <input type="text" value="${escapeHtml((u.nama || SESSION.user?.nama || SESSION.user?.nama_lengkap || '') + ' (' + (u.nip || SESSION.user?.nip || '') + ')')}" readonly disabled class="field-input-dark" />
             </div>
-            <div class="stack-field">
-              <label>NAMA LENGKAP</label>
-              <input type="text" value="${escapeHtml(u.nama || SESSION.user?.nama || SESSION.user?.nama_lengkap || '')}" readonly disabled class="field-input-dark" />
-            </div>
-            <div class="stack-field">
-              <label>TEMPAT LAHIR</label>
-              <input type="text" value="${escapeHtml(fd.tmp_lhr || u.tempat_lahir || SESSION.user?.tmp_lhr || SESSION.user?.tempat_lahir || '-')}" readonly disabled class="field-input-dark" />
-            </div>
-            <div class="stack-field">
-              <label>TANGGAL LAHIR</label>
-              <input type="text" value="${escapeHtml(fd.tgl_lhr || u.tanggal_lahir || SESSION.user?.tgl_lhr || SESSION.user?.tanggal_lahir || '-')}" readonly disabled class="field-input-dark" />
-            </div>
-            <div class="stack-field">
-              <label>PENDIDIKAN</label>
-              <input type="text" value="${escapeHtml(fd.pendidikan || u.pendidikan || SESSION.user?.pendidikan || '-')}" readonly disabled class="field-input-dark" />
-            </div>
-            <div class="stack-field">
-              <label>JURUSAN</label>
-              <input type="text" value="${escapeHtml(fd.jurusan || u.jurusan || SESSION.user?.jurusan || '-')}" readonly disabled class="field-input-dark" />
-            </div>
-            <div class="stack-field">
-              <label>UNIT KERJA</label>
-              <input type="text" value="${escapeHtml(u.unit || SESSION.user?.unit_es_ii || '-')}" readonly disabled class="field-input-dark" />
-            </div>
-            <div class="stack-field">
-              <label>JABATAN</label>
-              <input type="text" value="${escapeHtml(fd.jabatan || u.jabatan || '-')}" readonly disabled class="field-input-dark" />
-            </div>
-          </div>
 
-          <!-- ALAMAT (EDITABLE BY USER) -->
-          <div class="stack-field" style="margin-bottom:16px;">
-            <label>ALAMAT <span style="color:#ef4444;">*</span></label>
-            <textarea id="usulan_alamat_${u.id}" class="field-input-dark" rows="2" placeholder="Ketik alamat lengkap...">${escapeHtml(fd.alamat || u.alamat || '')}</textarea>
-            <div style="font-size:11px; color:#64748b; margin-top:4px;">*Dapat Anda ubah/lengkapi bila perlu sebelum generate.</div>
-          </div>
-
-          <!-- NOMOR TELEPON & EMAIL (EDITABLE BY USER) & NOMOR SURAT -->
-          <div class="grid-2 kp-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-bottom:16px;">
-            <div class="stack-field">
-              <label>NOMOR TELEPON</label>
-              <input type="text" id="usulan_nomorTelepon_${u.id}" class="field-input-dark" value="${escapeHtml(fd.nomor_telepon || u.nomor_telepon || '')}" placeholder="Ketik nomor telepon..." />
-            </div>
-            <div class="stack-field">
-              <label>EMAIL</label>
-              <input type="text" id="usulan_email_${u.id}" class="field-input-dark" value="${escapeHtml(fd.email || u.email || SESSION.user?.email || '')}" placeholder="Ketik email..." />
-            </div>
-            <div class="stack-field grid-full" style="grid-column: 1 / -1;">
-              <label>NOMOR SURAT PERJANJIAN (OPSIONAL)</label>
-              <input type="text" id="usulan_nomorSurat_${u.id}" class="field-input-dark" value="${escapeHtml(u.nomor_surat || fd.nomor_surat || fd.nomor_surat_perjanjian || '')}" placeholder="Kosongkan bila belum ada" />
-            </div>
-          </div>
-
-          <!-- TMT & TST KONTRAK (PRESET ADMIN) -->
-          <div class="grid-2 kp-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-bottom:16px;">
-            <div class="stack-field">
-              <label>TMT KONTRAK (MULAI)</label>
-              <div style="display:flex; gap:10px;">
-                <select id="usulan_tmtBulan_${u.id}" class="kontrak-select-dark" disabled style="opacity:1; cursor:not-allowed;">
-                  <option value="">Bulan...</option>
-                  ${BULAN_NAMES.map((b, i) => `<option value="${i+1}" ${String(savedTmtBulan) === String(i+1) ? 'selected' : ''}>${b}</option>`).join('')}
-                </select>
-                <select id="usulan_tmtTahun_${u.id}" class="kontrak-select-dark" disabled style="opacity:1; cursor:not-allowed;">
-                  <option value="">Tahun...</option>
-                  ${years.map(y => `<option value="${y}" ${String(savedTmtTahun) === String(y) ? 'selected' : ''}>${y}</option>`).join('')}
-                </select>
+            <div class="grid-2 kp-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-bottom:16px;">
+              <div class="stack-field">
+                <label>NIP/NIK</label>
+                <input type="text" value="${escapeHtml(u.nip || SESSION.user?.nip || '')}" readonly disabled class="field-input-dark" />
+              </div>
+              <div class="stack-field">
+                <label>NAMA LENGKAP</label>
+                <input type="text" value="${escapeHtml(u.nama || SESSION.user?.nama || SESSION.user?.nama_lengkap || '')}" readonly disabled class="field-input-dark" />
+              </div>
+              <div class="stack-field">
+                <label>TEMPAT LAHIR</label>
+                <input type="text" value="${escapeHtml(fd.tmp_lhr || u.tempat_lahir || SESSION.user?.tmp_lhr || SESSION.user?.tempat_lahir || '-')}" readonly disabled class="field-input-dark" />
+              </div>
+              <div class="stack-field">
+                <label>TANGGAL LAHIR</label>
+                <input type="text" value="${escapeHtml(fd.tgl_lhr || u.tanggal_lahir || SESSION.user?.tgl_lhr || SESSION.user?.tanggal_lahir || '-')}" readonly disabled class="field-input-dark" />
+              </div>
+              <div class="stack-field">
+                <label>PENDIDIKAN</label>
+                <input type="text" value="${escapeHtml(fd.pendidikan || u.pendidikan || SESSION.user?.pendidikan || '-')}" readonly disabled class="field-input-dark" />
+              </div>
+              <div class="stack-field">
+                <label>JURUSAN</label>
+                <input type="text" value="${escapeHtml(fd.jurusan || u.jurusan || SESSION.user?.jurusan || '-')}" readonly disabled class="field-input-dark" />
+              </div>
+              <div class="stack-field">
+                <label>UNIT KERJA</label>
+                <input type="text" value="${escapeHtml(u.unit || SESSION.user?.unit_es_ii || '-')}" readonly disabled class="field-input-dark" />
+              </div>
+              <div class="stack-field">
+                <label>JABATAN</label>
+                <input type="text" value="${escapeHtml(fd.jabatan || u.jabatan || '-')}" readonly disabled class="field-input-dark" />
               </div>
             </div>
-            <div class="stack-field">
-              <label>TST KONTRAK (SELESAI)</label>
-              <div style="display:flex; gap:10px;">
-                <select id="usulan_tstBulan_${u.id}" class="kontrak-select-dark" disabled style="opacity:1; cursor:not-allowed;">
-                  <option value="">Bulan...</option>
-                  ${BULAN_NAMES.map((b, i) => `<option value="${i+1}" ${String(savedTstBulan) === String(i+1) ? 'selected' : ''}>${b}</option>`).join('')}
-                </select>
-                <select id="usulan_tstTahun_${u.id}" class="kontrak-select-dark" disabled style="opacity:1; cursor:not-allowed;">
-                  <option value="">Tahun...</option>
-                  ${years.map(y => `<option value="${y}" ${String(savedTstTahun) === String(y) ? 'selected' : ''}>${y}</option>`).join('')}
-                </select>
+
+            <div class="stack-field" style="margin-bottom:16px;">
+              <label>ALAMAT <span style="color:#ef4444;">*</span></label>
+              <textarea id="usulan_alamat_${u.id}" class="field-input-dark" rows="2" placeholder="Ketik alamat lengkap...">${escapeHtml(fd.alamat || u.alamat || '')}</textarea>
+              <div style="font-size:11px; color:#64748b; margin-top:4px;">*Dapat Anda ubah/lengkapi bila perlu sebelum generate.</div>
+            </div>
+
+            <div class="grid-2 kp-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-bottom:16px;">
+              <div class="stack-field">
+                <label>NOMOR TELEPON</label>
+                <input type="text" id="usulan_nomorTelepon_${u.id}" class="field-input-dark" value="${escapeHtml(fd.nomor_telepon || u.nomor_telepon || '')}" placeholder="Ketik nomor telepon..." />
+              </div>
+              <div class="stack-field">
+                <label>EMAIL</label>
+                <input type="text" id="usulan_email_${u.id}" class="field-input-dark" value="${escapeHtml(fd.email || u.email || SESSION.user?.email || '')}" placeholder="Ketik email..." />
+              </div>
+              <div class="stack-field grid-full" style="grid-column: 1 / -1;">
+                <label>NOMOR SURAT PERJANJIAN (OPSIONAL)</label>
+                <input type="text" id="usulan_nomorSurat_${u.id}" class="field-input-dark" value="${escapeHtml(u.nomor_surat || fd.nomor_surat || fd.nomor_surat_perjanjian || '')}" placeholder="Kosongkan bila belum ada" />
               </div>
             </div>
-            <div class="stack-field">
-              <label>JANGKA WAKTU KONTRAK</label>
-              <input type="text" value="${escapeHtml(jangkaWaktuStr)}" readonly disabled class="field-input-dark" />
+
+            <div class="grid-2 kp-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-bottom:16px;">
+              <div class="stack-field">
+                <label>TMT KONTRAK (MULAI)</label>
+                <div style="display:flex; gap:10px;">
+                  <select id="usulan_tmtBulan_${u.id}" class="kontrak-select-dark" disabled style="opacity:1; cursor:not-allowed;">
+                    <option value="">Bulan...</option>
+                    ${BULAN_NAMES.map((b, i) => `<option value="${i+1}" ${String(savedTmtBulan) === String(i+1) ? 'selected' : ''}>${b}</option>`).join('')}
+                  </select>
+                  <select id="usulan_tmtTahun_${u.id}" class="kontrak-select-dark" disabled style="opacity:1; cursor:not-allowed;">
+                    <option value="">Tahun...</option>
+                    ${years.map(y => `<option value="${y}" ${String(savedTmtTahun) === String(y) ? 'selected' : ''}>${y}</option>`).join('')}
+                  </select>
+                </div>
+              </div>
+              <div class="stack-field">
+                <label>TST KONTRAK (SELESAI)</label>
+                <div style="display:flex; gap:10px;">
+                  <select id="usulan_tstBulan_${u.id}" class="kontrak-select-dark" disabled style="opacity:1; cursor:not-allowed;">
+                    <option value="">Bulan...</option>
+                    ${BULAN_NAMES.map((b, i) => `<option value="${i+1}" ${String(savedTstBulan) === String(i+1) ? 'selected' : ''}>${b}</option>`).join('')}
+                  </select>
+                  <select id="usulan_tstTahun_${u.id}" class="kontrak-select-dark" disabled style="opacity:1; cursor:not-allowed;">
+                    <option value="">Tahun...</option>
+                    ${years.map(y => `<option value="${y}" ${String(savedTstTahun) === String(y) ? 'selected' : ''}>${y}</option>`).join('')}
+                  </select>
+                </div>
+              </div>
+              <div class="stack-field">
+                <label>JANGKA WAKTU KONTRAK</label>
+                <input type="text" value="${escapeHtml(jangkaWaktuStr)}" readonly disabled class="field-input-dark" />
+              </div>
+              ${besaranUpahHtml}
             </div>
-            ${besaranUpahHtml}
-          </div>
 
-          <!-- TEMPLATE SELECTOR & ACTIONS -->
-          <div class="stack-field" style="margin-top:20px; margin-bottom:16px;">
-            <label style="font-weight:700; margin-bottom:8px; display:block;">PILIH TIPE & TEMPLATE KONTRAK</label>
-            <div id="usulan_tplSelectorWrap_${u.id}"></div>
-          </div>
+            <div class="stack-field" style="margin-top:20px; margin-bottom:16px;">
+              <label style="font-weight:700; margin-bottom:8px; display:block;">PILIH TIPE &amp; TEMPLATE KONTRAK</label>
+              <div id="usulan_tplSelectorWrap_${u.id}"></div>
+            </div>
 
-          <div class="actions-bar" style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
-            <button type="button" class="btn btn-outline" style="padding:10px 20px; font-weight:600;" onclick="previewKontrakUserSelf('${u.id}')">👁️ Preview</button>
-            <button type="button" class="btn btn-primary" id="usulan_genBtn_${u.id}" style="padding:10px 24px; font-weight:600;" onclick="generateKontrakUserSelf('${u.id}')">${genBtnText}</button>
+            <div class="actions-bar" style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
+              <button type="button" class="btn btn-outline" style="padding:10px 20px; font-weight:600;" onclick="previewKontrakUserSelf('${u.id}')">ðŸ‘ï¸ Preview</button>
+              <button type="button" class="btn btn-primary" id="usulan_genBtn_${u.id}" style="padding:10px 24px; font-weight:600;" onclick="generateKontrakUserSelf('${u.id}')">${genBtnText}</button>
+            </div>
           </div>
         </div>
       `;
+
+      if (isTendik) {
+        const skpSaved = u.skp_data || {};
+        skpFormHtml = `
+          <div class="kontrak-form-wrap" style="margin-top:24px; padding:24px; background:var(--surface); border:1px solid var(--border); border-radius:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--border); padding-bottom:12px; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+              <div>
+                <h3 style="margin:0; color:var(--text); font-size:18px; font-weight:800; display:flex; align-items:center; gap:8px;">
+                  ðŸ“Š Sasaran Kinerja Pegawai (SKP) Tendik
+                </h3>
+                <div style="font-size:12.5px; color:var(--text-muted); margin-top:4px;">
+                  Formulir SKP telah diisi &amp; ditandatangani oleh Atasan Langsung penilai kinerja pada Tahap Evaluasi.
+                </div>
+              </div>
+              ${u.skp_dibuat ? '<span class="badge" style="background:#059669; color:#fff; padding:6px 12px; border-radius:8px; font-weight:700;">âœ… Dokumen SKP Pernah Dibuat</span>' : ''}
+            </div>
+
+            ${lockBannerHtml}
+
+            <div style="${!canGenerateFinal ? 'opacity:0.6; pointer-events:none;' : ''}">
+              <div style="background:var(--surface-alt); border:1px solid var(--border); border-radius:10px; padding:18px; margin-bottom:20px;">
+                <h4 style="margin:0 0 12px 0; color:var(--primary); font-size:14px; font-weight:700;">Ringkasan Data SKP Terisi:</h4>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; font-size:13px;">
+                  <div><strong>Periode Penilaian:</strong> ${escapeHtml(skpSaved.bulan_awal_penilaian || 'JANUARI')} s.d ${escapeHtml(skpSaved.hari_akhir_penilaian || '31')} ${escapeHtml(skpSaved.bulan_akhir_penilaian || 'DESEMBER')} ${escapeHtml(skpSaved.tahun_penilaian || u.tahun || '')}</div>
+                  <div><strong>Capaian Organisasi:</strong> ${escapeHtml(skpSaved.capaian_kinerja_organisasi || 'BAIK')}</div>
+                  <div><strong>Predikat Kinerja Pegawai:</strong> <strong style="color:#16a34a;">${escapeHtml(skpSaved.predikat_kinerja_pegawai || 'BAIK')}</strong></div>
+                  <div><strong>Atasan Penilai:</strong> ${escapeHtml(skpSaved.nama_lengkap_atasan_langsung || u.atasan_nama || '-')} (NIP: ${escapeHtml(skpSaved.nip_atasan_langsung || u.atasan_nip || '-')})</div>
+                  <div><strong>Atasan Pejabat:</strong> ${escapeHtml(skpSaved.nama_lengkap_pejabat || '-')} (NIP: ${escapeHtml(skpSaved.nip_pejabat || '-')})</div>
+                  <div><strong>Catatan Rekomendasi:</strong> ${escapeHtml(skpSaved.catatan_rekomendasi || u.evaluasi_rekomendasi || '-')}</div>
+                </div>
+              </div>
+
+              <div class="stack-field" style="margin-top:20px; margin-bottom:16px;">
+                <label style="font-weight:700; margin-bottom:8px; display:block;">PILIH TEMPLATE SASARAN KINERJA PEGAWAI (SKP)</label>
+                <div id="skp_tplSelectorWrap_${u.id}"></div>
+              </div>
+
+              <div class="actions-bar" style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px; border-top:1px solid var(--border); padding-top:16px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-outline" style="padding:10px 20px; font-weight:600;" onclick="previewSkpTendikSelf('${u.id}')">
+                  ðŸ‘ï¸ Preview SKP (.docx)
+                </button>
+                <button type="button" class="btn btn-primary" id="skp_genBtn_${u.id}" style="padding:10px 24px; font-weight:700; background:#2563eb; border-color:#2563eb;" onclick="generateSkpTendikSelf('${u.id}')">
+                  ðŸš€ Buat Sasaran Kinerja Pegawai (SKP)
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
     }
 
-    const nipVal = SESSION.user?.nip || res.usulan.nip || '';
-    const namaVal = SESSION.user?.nama || SESSION.user?.nama_lengkap || res.usulan.nama || '';
+    const nipVal = SESSION.user?.nip || u.nip || '';
+    const namaVal = SESSION.user?.nama || SESSION.user?.nama_lengkap || u.nama || '';
 
-    const evaluasiInfoHtml = res.usulan.evaluasi_skor ? `
+    const evaluasiInfoHtml = u.evaluasi_skor ? `
       <div style="background:var(--surface-alt); border:2px solid var(--primary); border-radius:10px; padding:16px; margin-top:16px; margin-bottom:16px;">
         <div style="font-weight:700; color:var(--primary); font-size:15px; margin-bottom:8px;">
-          📋 Hasil Evaluasi Kinerja (Atasan Langsung: ${escapeHtml(res.usulan.atasan_nama || res.usulan.atasan_nip || '-')})
+          ðŸ“‹ Hasil Evaluasi Kinerja (Atasan Langsung: ${escapeHtml(u.atasan_nama || u.atasan_nip || '-')})
         </div>
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px; font-size:13.5px;">
-          <div><strong>Total Skor (7 Kriteria):</strong> <span style="font-size:16px; font-weight:800; color:var(--primary);">${escapeHtml(res.usulan.evaluasi_skor)} / 21</span></div>
-          <div><strong>Rekomendasi:</strong> <span style="font-weight:700; color:${res.usulan.evaluasi_skor > 10 ? '#16a34a' : '#dc2626'};">${escapeHtml(res.usulan.evaluasi_rekomendasi || '-')}</span></div>
+          <div><strong>Total Skor (7 Kriteria):</strong> <span style="font-size:16px; font-weight:800; color:var(--primary);">${escapeHtml(u.evaluasi_skor)} / 21</span></div>
+          <div><strong>Rekomendasi:</strong> <span style="font-weight:700; color:${u.evaluasi_skor > 10 ? '#16a34a' : '#dc2626'};">${escapeHtml(u.evaluasi_rekomendasi || '-')}</span></div>
         </div>
-        ${res.usulan.evaluasi_doc_url ? `
+        ${u.evaluasi_doc_url ? `
           <div style="margin-top:12px;">
-            <a href="${res.usulan.evaluasi_doc_url}" target="_blank" class="btn btn-outline kp-small-btn" style="color:var(--primary); border-color:var(--primary); font-weight:600;">
-              📥 Unduh Dokumen Formulir Evaluasi (.docx)
+            <a href="${u.evaluasi_doc_url}" target="_blank" class="btn btn-outline kp-small-btn" style="color:var(--primary); border-color:var(--primary); font-weight:600;">
+              ðŸ“¥ Unduh Dokumen Formulir Evaluasi (.docx)
             </a>
           </div>` : ''}
       </div>
@@ -13552,61 +13900,63 @@ function handleUsulanKontrakSayaResult(res) {
     
     card.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:10px; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
-        <div><strong>Tahun Kontrak:</strong> ${escapeHtml(res.usulan.tahun)}</div>
+        <div><strong>Tahun Kontrak:</strong> ${escapeHtml(u.tahun)}</div>
         <div>${statusBadge}</div>
       </div>
       <div class="grid-2" style="font-size:14px; gap:10px; margin-bottom:16px;">
         <div><strong>NIP:</strong> ${escapeHtml(nipVal)}</div>
         <div><strong>Nama:</strong> ${escapeHtml(namaVal)}</div>
-        <div><strong>Jenis Usulan:</strong> ${escapeHtml(res.usulan.jenis_usulan)}</div>
-        <div><strong>Tanggal Diajukan:</strong> ${escapeHtml(res.usulan.tanggal_diajukan)}</div>
-        <div><strong>Kategori:</strong> ${escapeHtml(res.usulan.layanan)}</div>
-        <div><strong>Jenis Kontrak:</strong> ${escapeHtml(res.usulan.sub_menu)}</div>
+        <div><strong>Jenis Usulan:</strong> ${escapeHtml(u.jenis_usulan)}</div>
+        <div><strong>Tanggal Diajukan:</strong> ${escapeHtml(u.tanggal_diajukan)}</div>
+        <div><strong>Kategori:</strong> ${escapeHtml(u.layanan)}</div>
+        <div><strong>Jenis Kontrak:</strong> ${escapeHtml(u.sub_menu)}</div>
       </div>
 
+      ${catatanKoreksiHtml}
       ${evaluasiInfoHtml}
       
-      <h4 style="border-bottom:1px solid #eee; padding-bottom:6px; margin-bottom:10px;">Status Persetujuan Lampiran</h4>
+      <h4 style="border-bottom:1px solid #eee; padding-bottom:6px; margin-bottom:10px;">Status Lampiran Usulan Awal</h4>
       <div class="ce-dashboard-list" style="gap:8px;">
-        ${(res.usulan.lampiran || []).map(l => {
+        ${(u.lampiran || []).map(l => {
           const label = String(l.key || '').replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
-          const icon = l.approved ? `<span style="color:#4caf50; font-weight:bold;">✅ Disetujui</span>` : `<span style="color:#ff9800; font-weight:bold;">⏳ Menunggu Review</span>`;
-          const linkButton = l.url ? `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:#2563eb; font-size:12px; margin-left:8px; font-weight:600; display:inline-flex; align-items:center; gap:3px;">(Buka Link GDrive ↗)</a>` : '';
+          const icon = l.approved ? `<span style="color:#4caf50; font-weight:bold;">âœ… Disetujui</span>` : `<span style="color:#ff9800; font-weight:bold;">â³ Menunggu Review</span>`;
+          const linkButton = l.url ? `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:#2563eb; font-size:12px; margin-left:8px; font-weight:600; display:inline-flex; align-items:center; gap:3px;">(Buka Link GDrive â†—)</a>` : '';
           return `
             <div class="ce-dashboard-list-item" style="cursor:default; display:flex; justify-content:space-between; align-items:center; padding:10px 14px;">
-              <div>📄 ${escapeHtml(label)} ${linkButton}</div>
+              <div>ðŸ“„ ${escapeHtml(label)} ${linkButton}</div>
               <div>${icon}</div>
             </div>`;
         }).join('')}
       </div>
 
-      ${canAccessSkp ? `
+      ${kelengkapanSectionHtml}
+
+      ${isTendik && isApprovedByAdmin ? `
         <div style="margin-top:24px; margin-bottom:16px; display:flex; gap:10px; background:var(--surface-alt); padding:6px; border-radius:10px; border:1px solid var(--border); width:fit-content; max-width:100%;">
-          <button type="button" id="tabDocGenPerjanjian_${res.usulan.id}" class="btn btn-primary" style="padding:8px 18px; font-weight:700; border-radius:8px;" onclick="switchKontrakDocTab('${res.usulan.id}', 'perjanjian')">
-            📄 Dokumen Perjanjian Kerja
+          <button type="button" id="tabDocGenPerjanjian_${u.id}" class="btn btn-primary" style="padding:8px 18px; font-weight:700; border-radius:8px;" onclick="switchKontrakDocTab('${u.id}', 'perjanjian')">
+            ðŸ“„ Dokumen Perjanjian Kerja
           </button>
-          <button type="button" id="tabDocGenSkp_${res.usulan.id}" class="btn btn-outline" style="padding:8px 18px; font-weight:700; border-radius:8px;" onclick="switchKontrakDocTab('${res.usulan.id}', 'skp')">
-            📊 Sasaran Kinerja Pegawai (SKP)
+          <button type="button" id="tabDocGenSkp_${u.id}" class="btn btn-outline" style="padding:8px 18px; font-weight:700; border-radius:8px;" onclick="switchKontrakDocTab('${u.id}', 'skp')">
+            ðŸ“Š Sasaran Kinerja Pegawai (SKP)
           </button>
         </div>
-        <div id="wrapDocGenPerjanjian_${res.usulan.id}">
+        <div id="wrapDocGenPerjanjian_${u.id}">
           ${readOnlyCardHtml}
         </div>
-        <div id="wrapDocGenSkp_${res.usulan.id}" style="display:none;">
+        <div id="wrapDocGenSkp_${u.id}" style="display:none;">
           ${skpFormHtml}
         </div>
-      ` : (isApprovedOrCompleted ? readOnlyCardHtml : '')}
+      ` : (isApprovedByAdmin ? readOnlyCardHtml : '')}
     `;
 
-    if (isApprovedOrCompleted) {
-      renderTemplateSelectorForUsulan(res.usulan.layanan, res.usulan.sub_menu, 'usulan_tplSelectorWrap_' + res.usulan.id, null, null, res.usulan.id);
-      if (canAccessSkp) {
-        initSkpFormHandlers(res.usulan.id, res.usulan);
+    if (isApprovedByAdmin) {
+      renderTemplateSelectorForUsulan(u.layanan, u.sub_menu, 'usulan_tplSelectorWrap_' + u.id, null, null, u.id);
+      if (isTendik) {
+        renderTemplateSelectorForSkp(u.layanan, 'Sasaran Kinerja Pegawai', 'skp_tplSelectorWrap_' + u.id, u.id);
       }
     }
   }
 }
-
 async function previewKontrakUserSelf(usulanId) {
   const selectEl = document.getElementById(`usulan_templateSelect_${usulanId}`);
   const templateRef = selectEl ? selectEl.value : '';
@@ -13744,7 +14094,7 @@ async function openModalEvaluasiTkk(usulanId) {
   
   if (!modal || !infoEl) return;
   modal.style.display = 'flex';
-  infoEl.innerHTML = '<div style="text-align:center; padding:10px;">Memuat data pegawai...</div>';
+  infoEl.innerHTML = '<div style="text-align:center; padding:10px;">Memuat data pegawai & formulir...</div>';
 
   try {
     const res = await rpc('getDetailEvaluasiKontrak', [SESSION.token, usulanId]);
@@ -13759,21 +14109,21 @@ async function openModalEvaluasiTkk(usulanId) {
     const at = res.atasan_info || res.atasan || {};
 
     const LAMP_KEYS = [
+      { key: 'surat_lamaran_url', label: 'Surat Lamaran' },
+      { key: 'hasil_kerja_url', label: 'Bukti Hasil Kerja (PPT/Dokumentasi)' },
       { key: 'ktp_url', label: 'KTP' },
       { key: 'kk_url', label: 'Kartu Keluarga' },
       { key: 'pas_foto_url', label: 'Pas Foto' },
       { key: 'ijazah_transkrip_url', label: 'Ijazah & Transkrip' },
       { key: 'surat_pengantar_url', label: 'Surat Pengantar Unit' },
-      { key: 'surat_lamaran_url', label: 'Surat Lamaran' },
       { key: 'keterangan_sehat_url', label: 'Surat Keterangan Sehat' },
       { key: 'sim_ab_url', label: 'SIM' },
-      { key: 'str_aktif_url', label: 'STR Aktif' },
-      { key: 'hasil_kerja_url', label: 'Hasil Kerja (Dokumentasi/PPT)' }
+      { key: 'str_aktif_url', label: 'STR Aktif' }
     ];
 
     const filesHtml = LAMP_KEYS.filter(f => u[f.key]).map(f => `
       <a href="${escapeHtml(u[f.key])}" target="_blank" rel="noopener" style="text-decoration:none; display:inline-flex; align-items:center; gap:4px; background:#fff; border:1px solid #cbd5e1; padding:4px 10px; border-radius:6px; font-size:12px; color:#2563eb; font-weight:600;">
-        📄 ${escapeHtml(f.label)} ↗
+        ðŸ“„ ${escapeHtml(f.label)} â†—
       </a>
     `).join('');
 
@@ -13788,7 +14138,7 @@ async function openModalEvaluasiTkk(usulanId) {
       </div>
       ${filesHtml ? `
         <div style="border-top:1px solid #e2e8f0; padding-top:10px; margin-top:10px;">
-          <div style="font-size:12px; font-weight:700; color:#475569; margin-bottom:6px;">📎 Berkas Lampiran Usulan Pegawai:</div>
+          <div style="font-size:12px; font-weight:700; color:#475569; margin-bottom:6px;">ðŸ“Ž Berkas Lampiran Usulan Pegawai:</div>
           <div style="display:flex; flex-wrap:wrap; gap:8px;">${filesHtml}</div>
         </div>
       ` : ''}
@@ -13799,6 +14149,23 @@ async function openModalEvaluasiTkk(usulanId) {
     }
     if (nomorSuratEl) {
       nomorSuratEl.value = u.evaluasi_nomor_surat || u.nomor_surat || '';
+    }
+
+    // Reset dan atur pilihan keputusan
+    let curKeputusan = 'diperbarui';
+    if (u.status === 'perlu_perbaikan' || u.status === 'koreksi_atasan') {
+      curKeputusan = 'perlu_perbaikan';
+    } else if (u.status === 'evaluated_not_renewed' || u.status === 'evaluated_not_extend') {
+      curKeputusan = 'tidak_diperbarui';
+    }
+    pilihKeputusanEvaluasiTkk(curKeputusan);
+
+    if (u.status === 'perlu_perbaikan' || u.status === 'koreksi_atasan') {
+      const catEl = document.getElementById('evalTkk_catatanPerbaikan');
+      if (catEl) catEl.value = u.catatan || u.evaluasi_data?.catatan_koreksi || '';
+    } else if (u.status === 'evaluated_not_renewed' || u.status === 'evaluated_not_extend') {
+      const alsEl = document.getElementById('evalTkk_alasanTidakDiperbarui');
+      if (alsEl) alsEl.value = u.evaluasi_rekomendasi || u.evaluasi_data?.alasan_tidak_diperbarui || '';
     }
 
     // Fill existing criteria scores if available
@@ -13819,6 +14186,43 @@ async function openModalEvaluasiTkk(usulanId) {
     }
 
     hitungTotalSkorEvaluasiTkk();
+
+    // Render Formulir SKP 33 Placeholder di dalam Modal Evaluasi Atasan
+    const skpWrap = document.getElementById('evalTkk_skpSection');
+    if (skpWrap) {
+      skpWrap.innerHTML = renderSkpFormHtml(u);
+      initSkpFormHandlers(u.id, u);
+
+      // Pre-fill Atasan Langsung fields di form SKP dengan data Atasan penilai
+      setTimeout(() => {
+        const atNama = at.nama || SESSION.user?.nama || SESSION.user?.nama_lengkap || '';
+        const atNip = at.nip || SESSION.user?.nip || '';
+        const atGol = at.golongan || '';
+        const atPangkat = at.pangkat || (typeof getPangkatForGolongan === 'function' ? getPangkatForGolongan(atGol) : '');
+        const atUnit = at.unit_es_ii || at.unit || SESSION.user?.unit_es_ii || '';
+        const atTutam = at.detail_tutam || at.jabatan || '';
+
+        if (document.getElementById('skp_namaAtasan_' + u.id) && !document.getElementById('skp_namaAtasan_' + u.id).value) {
+          document.getElementById('skp_namaAtasan_' + u.id).value = atNama;
+        }
+        if (document.getElementById('skp_nipAtasan_' + u.id) && !document.getElementById('skp_nipAtasan_' + u.id).value) {
+          document.getElementById('skp_nipAtasan_' + u.id).value = atNip;
+        }
+        if (document.getElementById('skp_pangkatAtasan_' + u.id) && !document.getElementById('skp_pangkatAtasan_' + u.id).value) {
+          document.getElementById('skp_pangkatAtasan_' + u.id).value = atPangkat;
+        }
+        if (document.getElementById('skp_golonganAtasan_' + u.id) && !document.getElementById('skp_golonganAtasan_' + u.id).value) {
+          document.getElementById('skp_golonganAtasan_' + u.id).value = atGol;
+        }
+        if (document.getElementById('skp_unitAtasan_' + u.id) && !document.getElementById('skp_unitAtasan_' + u.id).value) {
+          document.getElementById('skp_unitAtasan_' + u.id).value = atUnit;
+        }
+        if (document.getElementById('skp_tutamAtasan_' + u.id) && !document.getElementById('skp_tutamAtasan_' + u.id).value) {
+          document.getElementById('skp_tutamAtasan_' + u.id).value = atTutam;
+        }
+      }, 100);
+    }
+
     setTimeout(() => {
       initEvalTkkSignaturePad();
       if (u.evaluasi_data?.ttd_base64 || u.evaluasi_data?.ttd) {
@@ -13832,10 +14236,84 @@ async function openModalEvaluasiTkk(usulanId) {
         };
         img.src = existingSig;
       }
-    }, 120);
+    }, 150);
   } catch (err) {
     showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
     tutupModalEvaluasiTkk();
+  }
+}
+
+function pilihKeputusanEvaluasiTkk(val) {
+  const r = document.getElementById('evalTkk_keputusan_' + val);
+  if (r) r.checked = true;
+  onEvalTkkKeputusanChange();
+}
+
+function onEvalTkkKeputusanChange() {
+  const sel = document.querySelector('input[name="evalTkk_keputusan"]:checked');
+  const val = sel ? sel.value : 'diperbarui';
+
+  const cardDiperbarui = document.getElementById('evalTkk_card_diperbarui');
+  const cardTidakDiperbarui = document.getElementById('evalTkk_card_tidak_diperbarui');
+  const cardPerluPerbaikan = document.getElementById('evalTkk_card_perlu_perbaikan');
+
+  const wrapTidak = document.getElementById('evalTkk_tidakDiperbaruiWrap');
+  const wrapPerbaikan = document.getElementById('evalTkk_perluPerbaikanWrap');
+  const secKriteria = document.getElementById('evalTkk_kriteriaSection');
+  const secSkp = document.getElementById('evalTkk_skpSection');
+  const secSig = document.getElementById('evalTkk_signatureSection');
+  const btnWrap = document.getElementById('evalTkk_btnPreviewSimpanWrap');
+  const btnSubmit = document.getElementById('btnValidasiEvaluasiTkk');
+
+  if (cardDiperbarui) {
+    cardDiperbarui.style.borderColor = (val === 'diperbarui') ? '#10b981' : '#cbd5e1';
+    cardDiperbarui.style.background = (val === 'diperbarui') ? '#f0fdf4' : '#fff';
+  }
+  if (cardTidakDiperbarui) {
+    cardTidakDiperbarui.style.borderColor = (val === 'tidak_diperbarui') ? '#ef4444' : '#cbd5e1';
+    cardTidakDiperbarui.style.background = (val === 'tidak_diperbarui') ? '#fef2f2' : '#fff';
+  }
+  if (cardPerluPerbaikan) {
+    cardPerluPerbaikan.style.borderColor = (val === 'perlu_perbaikan') ? '#f59e0b' : '#cbd5e1';
+    cardPerluPerbaikan.style.background = (val === 'perlu_perbaikan') ? '#fffbeb' : '#fff';
+  }
+
+  if (val === 'diperbarui') {
+    if (wrapTidak) wrapTidak.style.display = 'none';
+    if (wrapPerbaikan) wrapPerbaikan.style.display = 'none';
+    if (secKriteria) secKriteria.style.display = 'block';
+    if (secSkp) secSkp.style.display = 'block';
+    if (secSig) secSig.style.display = 'block';
+    if (btnWrap) btnWrap.style.display = 'flex';
+    if (btnSubmit) {
+      btnSubmit.style.background = '#059669';
+      btnSubmit.style.borderColor = '#059669';
+      btnSubmit.innerHTML = 'âœ… Validasi &amp; Kirim Rekomendasi Diperbarui ke Admin';
+    }
+  } else if (val === 'tidak_diperbarui') {
+    if (wrapTidak) wrapTidak.style.display = 'block';
+    if (wrapPerbaikan) wrapPerbaikan.style.display = 'none';
+    if (secKriteria) secKriteria.style.display = 'none';
+    if (secSkp) secSkp.style.display = 'none';
+    if (secSig) secSig.style.display = 'block'; // Tanda tangan penolakan tetap dibubuhkan
+    if (btnWrap) btnWrap.style.display = 'none';
+    if (btnSubmit) {
+      btnSubmit.style.background = '#dc2626';
+      btnSubmit.style.borderColor = '#dc2626';
+      btnSubmit.innerHTML = 'ðŸš« Kirim Keputusan Tidak Diperbarui ke Admin';
+    }
+  } else if (val === 'perlu_perbaikan') {
+    if (wrapTidak) wrapTidak.style.display = 'none';
+    if (wrapPerbaikan) wrapPerbaikan.style.display = 'block';
+    if (secKriteria) secKriteria.style.display = 'none';
+    if (secSkp) secSkp.style.display = 'none';
+    if (secSig) secSig.style.display = 'none';
+    if (btnWrap) btnWrap.style.display = 'none';
+    if (btnSubmit) {
+      btnSubmit.style.background = '#d97706';
+      btnSubmit.style.borderColor = '#d97706';
+      btnSubmit.innerHTML = 'â†©ï¸ Kembalikan Usulan ke Pengusul untuk Perbaikan';
+    }
   }
 }
 
@@ -13864,10 +14342,10 @@ function hitungTotalSkorEvaluasiTkk() {
 
   if (rekDisplay) {
     if (total > 10.5) {
-      rekDisplay.textContent = `Diperpanjang Kontrak s.d. 31 Desember ${nextTahun}`;
+      rekDisplay.textContent = `Diperbarui Kontrak s.d. 31 Desember ${nextTahun}`;
       rekDisplay.style.color = '#16a34a';
     } else {
-      rekDisplay.textContent = 'Tidak Diperpanjang';
+      rekDisplay.textContent = 'Tidak Diperbarui';
       rekDisplay.style.color = '#dc2626';
     }
   }
@@ -13973,7 +14451,7 @@ function trimCanvas_(canvas) {
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const alpha = data[(y * width + x) * 4 + 3];
-      if (alpha > 15) { // piksel tinta terdeteksi
+      if (alpha > 15) {
         hasPixel = true;
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
@@ -13985,7 +14463,6 @@ function trimCanvas_(canvas) {
 
   if (!hasPixel) return canvas.toDataURL('image/png');
 
-  // Berikan padding tipis 8px agar goresan tepi tidak terpotong
   const pad = 8;
   minX = Math.max(0, minX - pad);
   minY = Math.max(0, minY - pad);
@@ -14005,6 +14482,34 @@ function trimCanvas_(canvas) {
 }
 
 function collectEvaluasiTkkPayload() {
+  const sel = document.querySelector('input[name="evalTkk_keputusan"]:checked');
+  const keputusan = sel ? sel.value : 'diperbarui';
+
+  let ttdBase64 = '';
+  if (evalTkkCanvas && evalTkkHasDrawn) {
+    ttdBase64 = trimCanvas_(evalTkkCanvas);
+  } else if (activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd) {
+    ttdBase64 = activeEvaluasiDetail.evaluasi_data.ttd_base64 || activeEvaluasiDetail.evaluasi_data.ttd;
+  }
+
+  if (keputusan === 'perlu_perbaikan') {
+    const catatan = (document.getElementById('evalTkk_catatanPerbaikan')?.value || '').trim();
+    return {
+      keputusan,
+      catatan_koreksi: catatan
+    };
+  }
+
+  if (keputusan === 'tidak_diperbarui') {
+    const alasan = (document.getElementById('evalTkk_alasanTidakDiperbarui')?.value || '').trim();
+    return {
+      keputusan,
+      alasan_tidak_diperbarui: alasan,
+      ttd_base64: ttdBase64
+    };
+  }
+
+  // Keputusan: 'diperbarui'
   const kriteria = [];
   for (let i = 1; i <= 7; i++) {
     const selected = document.querySelector(`input[name="eval_p${i}"]:checked`);
@@ -14015,19 +14520,17 @@ function collectEvaluasiTkkPayload() {
   const nomorSurat = (document.getElementById('evalTkk_nomorSurat')?.value || '').trim();
   const tahun = (document.getElementById('evalTkk_tahunEvaluasi')?.value || '').trim();
 
-  let ttdBase64 = '';
-  if (evalTkkCanvas && evalTkkHasDrawn) {
-    ttdBase64 = trimCanvas_(evalTkkCanvas);
-  } else if (activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd) {
-    ttdBase64 = activeEvaluasiDetail.evaluasi_data.ttd_base64 || activeEvaluasiDetail.evaluasi_data.ttd;
-  }
+  // Kumpulkan 33 placeholder Sasaran Kinerja Pegawai (SKP)
+  const skpData = collectSkpFormData(activeEvaluasiUsulanId);
 
   return {
+    keputusan,
     kriteria,
     total_skor: totalSkor,
     nomor_surat: nomorSurat,
     tahun: tahun,
-    ttd_base64: ttdBase64
+    ttd_base64: ttdBase64,
+    skp_data: skpData
   };
 }
 
@@ -14071,11 +14574,11 @@ function openEvaluasiResultModal(res, isPreview = false, isValidatedToAdmin = fa
   modalOverlay.style.zIndex = '9999';
 
   if (isValidatedToAdmin) {
-    modalTitle.textContent = '🎉 Usulan Berhasil Divalidasi & Terkirim ke Admin!';
+    modalTitle.textContent = 'ðŸŽ‰ Usulan Berhasil Divalidasi & Terkirim ke Admin!';
   } else {
     modalTitle.textContent = isPreview 
-      ? '👁️ Pratinjau Formulir Evaluasi Kinerja Tenaga Kependidikan'
-      : '🎉 Formulir Evaluasi Kinerja Berhasil Digenerate';
+      ? 'ðŸ‘ï¸ Pratinjau Formulir Evaluasi Kinerja Tenaga Kependidikan'
+      : 'ðŸŽ‰ Formulir Evaluasi Kinerja Berhasil Digenerate';
   }
 
   const gdocsUrl = res.gdocsUrl || (res.viewUrl && res.viewUrl.includes('docs.google.com') ? res.viewUrl : '');
@@ -14087,21 +14590,21 @@ function openEvaluasiResultModal(res, isPreview = false, isValidatedToAdmin = fa
   if (pdfUrl) {
     buttonsHtml += `
       <a href="${pdfUrl}" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none; padding:10px 22px; font-weight:700; font-size:13.5px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);">
-        📄 Buka / Unduh Dokumen PDF ↗
+        ðŸ“„ Buka / Unduh Dokumen PDF â†—
       </a>
     `;
   }
   if (res.base64) {
     buttonsHtml += `
       <button type="button" class="btn btn-primary" style="padding:10px 22px; font-weight:700; font-size:13.5px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" onclick="downloadBase64File_('${res.base64}', '${escHtml(fileName)}')">
-        📥 Unduh Dokumen Word (.docx)
+        ðŸ“¥ Unduh Dokumen Word (.docx)
       </button>
     `;
   }
   if (isGdocs) {
     buttonsHtml += `
       <a href="${gdocsUrl}" target="_blank" rel="noopener" class="btn btn-secondary" style="text-decoration:none; padding:10px 22px; font-weight:700; font-size:13.5px; border-radius:8px; display:inline-flex; align-items:center; gap:8px;">
-        📄 Buka Google Docs ↗
+        ðŸ“„ Buka Google Docs â†—
       </a>
     `;
   }
@@ -14109,7 +14612,7 @@ function openEvaluasiResultModal(res, isPreview = false, isValidatedToAdmin = fa
   const iframeSrc = pdfUrl || (isGdocs ? gdocsUrl.replace('/edit', '/preview') : '');
 
   const descText = isValidatedToAdmin
-    ? 'Berkas usulan bawahan beserta Formulir Evaluasi Kinerja yang telah ditandatangani berhasil divalidasi dan dikirim ke akun Admin & Super Admin untuk diverifikasi serta diterbitkan perjanjian kerja.'
+    ? 'Keputusan evaluasi kinerja Anda telah berhasil disimpan dan diteruskan ke Admin & Super Admin untuk diverifikasi serta diterbitkan perjanjian kerja.'
     : (isPreview 
         ? 'Berikut pratinjau dokumen formulir evaluasi kinerja lengkap dengan skor dan tanda tangan digital. Anda dapat membukanya atau mengunduhnya di bawah ini.' 
         : 'Dokumen evaluasi kinerja telah berhasil dibuat dan disimpan.');
@@ -14117,9 +14620,9 @@ function openEvaluasiResultModal(res, isPreview = false, isValidatedToAdmin = fa
   modalBody.innerHTML = `
     <div style="padding:20px 24px;">
       <div style="text-align:center; margin-bottom:18px;">
-        <div style="font-size:36px; margin-bottom:8px;">${isValidatedToAdmin ? '🚀' : (isPreview ? '📋' : '🎉')}</div>
+        <div style="font-size:36px; margin-bottom:8px;">${isValidatedToAdmin ? 'ðŸš€' : (isPreview ? 'ðŸ“‹' : 'ðŸŽ‰')}</div>
         <h3 style="margin:0 0 6px 0; color:var(--text, #0f172a); font-size:17px; font-weight:700;">
-          ${isValidatedToAdmin ? 'Usulan & Evaluasi Kinerja Siap Diproses Admin' : (isPreview ? 'Dokumen Pratinjau Evaluasi Kinerja (TKK)' : 'Formulir Evaluasi Kinerja Siap Digunakan')}
+          ${isValidatedToAdmin ? 'Evaluasi Kinerja Berhasil Divalidasi' : (isPreview ? 'Dokumen Pratinjau Evaluasi Kinerja (TKK)' : 'Formulir Evaluasi Kinerja Siap Digunakan')}
         </h3>
         <p style="margin:0; color:var(--text-muted, #64748b); font-size:13px;">
           ${descText}
@@ -14129,7 +14632,7 @@ function openEvaluasiResultModal(res, isPreview = false, isValidatedToAdmin = fa
       <div style="background:var(--surface-alt, #f8fafc); border:1px solid var(--border, #e2e8f0); border-radius:10px; padding:14px 18px; margin-bottom:18px; font-size:13px;">
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px;">
           <div><strong>Total Skor Kinerja:</strong> <span style="color:#2563eb; font-weight:700;">${escHtml(String(res.totalSkor || '-'))} / 21</span></div>
-          <div><strong>Rekomendasi Atasan:</strong> <span style="font-weight:700; color:${res.status === 'validated_by_atasan' || res.status === 'evaluated_extend' || Number(res.totalSkor) >= 11 ? '#16a34a' : '#dc2626'};">${escHtml(res.rekomendasi || '-')}</span></div>
+          <div><strong>Rekomendasi Atasan:</strong> <span style="font-weight:700; color:${res.status === 'validated_by_atasan' || res.status === 'evaluated_renewed' || Number(res.totalSkor) >= 11 ? '#16a34a' : '#dc2626'};">${escHtml(res.rekomendasi || '-')}</span></div>
         </div>
       </div>
 
@@ -14171,18 +14674,18 @@ async function simpanEvaluasiTkkFinal(isKirimAdmin = false) {
   const btn = document.getElementById('btnSimpanEvaluasiTkk');
   const payload = collectEvaluasiTkkPayload();
 
-  if (!payload.ttd_base64) {
+  if (payload.keputusan === 'diperbarui' && !payload.ttd_base64) {
     showToast('error', 'Silakan bubuhkan tanda tangan Atasan Langsung pada kotak signature pad terlebih dahulu.');
     return;
   }
 
-  setBtnLoading(btn, true, 'Menyimpan & Menggenerate...');
+  setBtnLoading(btn, true, 'Menyimpan...');
 
   try {
     const res = await rpc('simpanDanGenerateEvaluasiTkk', [SESSION.token, activeEvaluasiUsulanId, payload, false, isKirimAdmin]);
-    setBtnLoading(btn, false, '💾 Simpan & Generate Dokumen (.docx)');
+    setBtnLoading(btn, false, 'ðŸ’¾ Simpan Draft (.docx)');
     if (res && res.success) {
-      showToast('success', res.message || 'Evaluasi kinerja berhasil disimpan & dokumen tergenerate.');
+      showToast('success', res.message || 'Evaluasi kinerja berhasil disimpan.');
       tutupModalEvaluasiTkk();
       loadKontrakAtasanReviewList();
       openEvaluasiResultModal(res, false, isKirimAdmin);
@@ -14190,7 +14693,7 @@ async function simpanEvaluasiTkkFinal(isKirimAdmin = false) {
       showToast('error', res?.message || 'Gagal menyimpan evaluasi.');
     }
   } catch (err) {
-    setBtnLoading(btn, false, '💾 Simpan & Generate Dokumen (.docx)');
+    setBtnLoading(btn, false, 'ðŸ’¾ Simpan Draft (.docx)');
     showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
   }
 }
@@ -14200,58 +14703,70 @@ async function validasiDanKirimEvaluasiTkk() {
   const btn = document.getElementById('btnValidasiEvaluasiTkk');
   const payload = collectEvaluasiTkkPayload();
 
-  if (!payload.ttd_base64) {
-    showToast('error', 'Silakan bubuhkan tanda tangan Atasan Langsung pada kotak signature pad terlebih dahulu.');
-    return;
+  if (payload.keputusan === 'perlu_perbaikan') {
+    if (!payload.catatan_koreksi) {
+      showToast('error', 'Catatan perbaikan berkas untuk pengusul wajib diisi.');
+      document.getElementById('evalTkk_catatanPerbaikan')?.focus();
+      return;
+    }
+    const confirmMsg = 'Apakah Anda yakin ingin mengembalikan usulan ini ke pengusul untuk diperbaiki?';
+    if (!confirm(confirmMsg)) return;
+  } else if (payload.keputusan === 'tidak_diperbarui') {
+    if (!payload.alasan_tidak_diperbarui) {
+      showToast('error', 'Catatan alasan tidak diperbarui wajib diisi.');
+      document.getElementById('evalTkk_alasanTidakDiperbarui')?.focus();
+      return;
+    }
+    if (!payload.ttd_base64) {
+      showToast('error', 'Silakan bubuhkan tanda tangan Atasan Langsung pada kotak signature pad terlebih dahulu.');
+      return;
+    }
+    const confirmMsg = 'Apakah Anda yakin ingin mengirim keputusan TIDAK DIPERBARUI ke Admin Kepegawaian?';
+    if (!confirm(confirmMsg)) return;
+  } else {
+    // Keputusan: 'diperbarui'
+    if (!payload.ttd_base64) {
+      showToast('error', 'Silakan bubuhkan tanda tangan Atasan Langsung pada kotak signature pad terlebih dahulu.');
+      return;
+    }
+    const skp = payload.skp_data || {};
+    if (!skp.nama_lengkap || !skp.nip) {
+      showToast('error', 'Data Pegawai pada Formulir SKP belum lengkap.');
+      return;
+    }
+    if (!skp.nama_lengkap_atasan_langsung || !skp.nip_atasan_langsung) {
+      showToast('error', 'Data Atasan Langsung pada Formulir SKP belum lengkap.');
+      return;
+    }
+    const confirmMsg = 'Apakah Anda yakin ingin MEMVALIDASI dan MENGIRIM berkas usulan beserta formulir evaluasi & SKP bertanda tangan ini ke akun Admin?';
+    if (!confirm(confirmMsg)) return;
   }
 
-  const confirmMsg = 'Apakah Anda yakin ingin MEMVALIDASI dan MENGIRIM berkas usulan beserta formulir evaluasi kinerja bertanda tangan ini ke akun Admin & Super Admin?';
-  if (!confirm(confirmMsg)) return;
-
-  setBtnLoading(btn, true, 'Memvalidasi & Mengirim...');
+  setBtnLoading(btn, true, 'Memproses & Mengirim...');
 
   try {
     const res = await rpc('simpanDanGenerateEvaluasiTkk', [SESSION.token, activeEvaluasiUsulanId, payload, false, true]);
-    setBtnLoading(btn, false, '✅ Validasi & Kirim ke Admin');
+    setBtnLoading(btn, false, 'âœ… Validasi & Kirim Keputusan');
     if (res && res.success) {
-      showToast('success', res.message || 'Usulan berkas dan Formulir Evaluasi berhasil divalidasi dan dikirim ke Admin & Super Admin.');
+      showToast('success', res.message || 'Keputusan evaluasi berhasil divalidasi dan dikirim.');
       tutupModalEvaluasiTkk();
       loadKontrakAtasanReviewList();
-      openEvaluasiResultModal(res, false, true);
+      if (payload.keputusan === 'diperbarui') {
+        openEvaluasiResultModal(res, false, true);
+      }
     } else {
-      showToast('error', res?.message || 'Gagal memvalidasi dan mengirim evaluasi.');
+      showToast('error', res?.message || 'Gagal mengirim evaluasi.');
     }
   } catch (err) {
-    setBtnLoading(btn, false, '✅ Validasi & Kirim ke Admin');
+    setBtnLoading(btn, false, 'âœ… Validasi & Kirim Keputusan');
     showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
   }
 }
 
 async function koreksiUsulanBawahanTkk() {
-  if (!activeEvaluasiUsulanId) return;
-
-  const catatan = prompt('Masukkan keterangan berkas/file yang salah atau catatan perbaikan untuk bawahan (wajib diisi):');
-  if (catatan === null) return; // Pengguna membatalkan
-
-  const trimmedCatatan = String(catatan || '').trim();
-  if (!trimmedCatatan) {
-    showToast('error', 'Keterangan berkas yang salah / catatan perbaikan wajib diisi agar bawahan dapat memperbaikinya.');
-    return;
-  }
-
-  showToast('info', 'Mengembalikan usulan ke bawahan untuk dikoreksi...');
-  try {
-    const res = await rpc('koreksiUsulanKontrakByAtasan', [SESSION.token, activeEvaluasiUsulanId, trimmedCatatan]);
-    if (res && res.success) {
-      showToast('success', res.message || 'Usulan berhasil dikembalikan ke bawahan untuk diperbaiki.');
-      tutupModalEvaluasiTkk();
-      loadKontrakAtasanReviewList();
-    } else {
-      showToast('error', res?.message || 'Gagal mengirim koreksi usulan.');
-    }
-  } catch (err) {
-    showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
-  }
+  pilihKeputusanEvaluasiTkk('perlu_perbaikan');
+  const catEl = document.getElementById('evalTkk_catatanPerbaikan');
+  if (catEl) catEl.focus();
 }
 
 async function hapusUsulanBawahanTkk() {
@@ -14273,7 +14788,6 @@ async function hapusUsulanBawahanTkk() {
     showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
   }
 }
-
 async function adminValidasiUsulanTendik(usulanId, isExtend) {
   const confirmMsg = isExtend 
     ? 'Apakah Anda yakin ingin memvalidasi usulan ini untuk DIPERPANJANG? Pegawai akan dapat membuat perjanjian kerja.' 
@@ -14482,11 +14996,44 @@ async function viewKontrakReviewDetail(usulanId) {
   }
 }
 
+async function approveBerkasKelengkapanAdmin(usulanId, docKey, isApprove, catatan = '') {
+  if (!isApprove && !catatan) {
+    catatan = prompt('Masukkan alasan penolakan berkas untuk diinfokan ke pengusul (misal: scan buram/halaman terpotong):');
+    if (catatan === null) return;
+    if (!catatan.trim()) {
+      showToast('error', 'Alasan penolakan berkas wajib diisi.');
+      return;
+    }
+  }
+
+  showToast('info', isApprove ? 'Menyetujui berkas...' : 'Menolak berkas...');
+  try {
+    const res = await rpc('approveBerkasKelengkapanItem', [SESSION.token, usulanId, docKey, isApprove, catatan]);
+    if (res && res.success) {
+      showToast('success', res.message || 'Status berkas berhasil diperbarui.');
+      viewKontrakReviewDetail(usulanId);
+    } else {
+      showToast('error', res?.message || 'Gagal memperbarui status berkas.');
+    }
+  } catch (err) {
+    showToast('error', err.message || err);
+  }
+}
+
 function renderKontrakReviewDetailContent_(u) {
   const el = document.getElementById('kontrakReviewDetailContent');
   if (!el || !u) return;
 
-  const LAMP_DEFINITIONS = [
+  const isTendik = (u.layanan === 'Kontrak Tendik');
+  const fd = u.form_data || {};
+  const jabVal = fd.jabatan || u.jabatan || '';
+  const isDriver = String(jabVal).toLowerCase().includes('pengemudi');
+  const isMedis = (typeof isJabatanMedis === 'function') ? isJabatanMedis(jabVal) : false;
+
+  const LAMP_DEFINITIONS = isTendik ? [
+    { key: 'surat_lamaran', label: 'Surat Lamaran' },
+    { key: 'hasil_kerja', label: 'Hasil Kerja (Dokumentasi/PPT)' }
+  ] : [
     { key: 'ktp', label: 'KTP' },
     { key: 'kk', label: 'Kartu Keluarga' },
     { key: 'pas_foto', label: 'Pas Foto Terbaru' },
@@ -14516,12 +15063,12 @@ function renderKontrakReviewDetailContent_(u) {
   });
 
   const presentList = lampiranList.filter(l => l.url !== '');
-  const allApproved = presentList.length > 0 ? presentList.every(l => l.approved) : u.status === 'Disetujui';
+  const allApproved = presentList.length > 0 ? presentList.every(l => l.approved) : (u.status === 'Disetujui' || u.status === 'validated_by_admin');
 
-  const approveAllBtnHtml = u.status !== 'Disetujui' && !allApproved ? `
+  const approveAllBtnHtml = (!allApproved && u.status !== 'Disetujui' && u.status !== 'validated_by_admin') ? `
     <button type="button" class="btn btn-primary" style="background:#4caf50; border-color:#4caf50; font-weight:700; font-size:14px; padding:10px 18px;" onclick="approveAllUsulanKontrakAttachments('${u.id}')">
-      ✅ Setujui Semua Lampiran & Usulan
-    </button>` : `<span class="badge" style="background:#4caf50; color:#fff; padding:6px 14px; font-size:13px; border-radius:6px; font-weight:bold;">✅ Usulan & Lampiran Disetujui</span>`;
+      âœ… Setujui Semua Lampiran Awal
+    </button>` : `<span class="badge" style="background:#4caf50; color:#fff; padding:6px 14px; font-size:13px; border-radius:6px; font-weight:bold;">âœ… Lampiran Awal Disetujui</span>`;
 
   let savedTmtBulan = u.tmt_bulan || u.form_data?.tmt_bulan || '';
   let savedTmtTahun = u.tmt_tahun || u.form_data?.tmt_tahun || '';
@@ -14529,7 +15076,7 @@ function renderKontrakReviewDetailContent_(u) {
   let savedTstTahun = u.tst_tahun || u.form_data?.tst_tahun || '';
 
   if (!savedTmtBulan || !savedTmtTahun || !savedTstBulan || !savedTstTahun) {
-    const parsed = parsePeriodeKontrakString(u.periode_kontrak || u.form_data?.periode_kontrak || '');
+    const parsed = (typeof parsePeriodeKontrakString === 'function') ? parsePeriodeKontrakString(u.periode_kontrak || u.form_data?.periode_kontrak || '') : { tmtBulan:'', tmtTahun:'', tstBulan:'', tstTahun:'' };
     if (!savedTmtBulan) savedTmtBulan = parsed.tmtBulan;
     if (!savedTmtTahun) savedTmtTahun = parsed.tmtTahun;
     if (!savedTstBulan) savedTstBulan = parsed.tstBulan;
@@ -14549,7 +15096,7 @@ function renderKontrakReviewDetailContent_(u) {
   const periodeInputHtml = `
     <div style="margin-top:20px; padding:16px; background:var(--surface-alt); border:1px solid var(--border); border-radius:8px;">
       <label style="font-weight:700; font-size:14px; color:var(--text); display:block; margin-bottom:12px;">
-        📅 Periode Kontrak (TMT Mulai & TST Selesai):
+        ðŸ“… Periode Kontrak (TMT Mulai &amp; TST Selesai):
       </label>
       <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:16px; margin-bottom:12px;">
         <div>
@@ -14583,52 +15130,132 @@ function renderKontrakReviewDetailContent_(u) {
         ${(savedTmtBulan && savedTmtTahun && savedTstBulan && savedTstTahun) ? `Preview Terformat: 1 ${BULAN_NAMES[parseInt(savedTmtBulan, 10)-1]} ${savedTmtTahun} s.d 31 ${BULAN_NAMES[parseInt(savedTstBulan, 10)-1]} ${savedTstTahun}` : 'Pilih bulan & tahun TMT Mulai serta TST Selesai untuk melihat preview.'}
       </div>
       <div style="display:flex; justify-content:flex-end;">
-        <button type="button" class="btn btn-primary" style="font-weight:600;" onclick="saveKontrakPeriodeAdmin('${u.id}')">💾 Simpan Periode Kontrak</button>
+        <button type="button" class="btn btn-primary" style="font-weight:600;" onclick="saveKontrakPeriodeAdmin('${u.id}')">ðŸ’¾ Simpan Periode Kontrak</button>
       </div>
     </div>
   `;
 
-    const isTendik = (u.layanan === 'Kontrak Tendik');
-    const tendikEvalCardHtml = isTendik ? `
-      <div style="margin-top:20px; padding:18px; background:var(--surface-alt); border:2px solid var(--primary); border-radius:10px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
-          <h4 style="margin:0; color:var(--primary);">👔 Penilaian Evaluasi Kinerja (Atasan Langsung)</h4>
-          <div>
-            ${u.status === 'validated_by_atasan' ? '<span class="badge" style="background:#059669; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">📨 Divalidasi Atasan Langsung &amp; Terkirim ke Admin</span>' : ''}
-            ${u.status === 'evaluated_extend' ? '<span class="badge" style="background:#8b5cf6; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Sudah Dinilai (Rekomendasi Diperpanjang)</span>' : ''}
-            ${u.status === 'evaluated_not_extend' ? '<span class="badge" style="background:#ef4444; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Sudah Dinilai (Tidak Diperpanjang)</span>' : ''}
-            ${u.status === 'submitted_to_atasan' || u.status === 'under_atasan_review' ? '<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Menunggu Penilaian Atasan</span>' : ''}
-            ${u.status === 'validated_by_admin' ? '<span class="badge" style="background:#10b981; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Tervalidasi Admin</span>' : ''}
-          </div>
+  const tendikEvalCardHtml = isTendik ? `
+    <div style="margin-top:20px; padding:18px; background:var(--surface-alt); border:2px solid var(--primary); border-radius:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+        <h4 style="margin:0; color:var(--primary);">ðŸ‘” Penilaian Evaluasi Kinerja (Atasan Langsung)</h4>
+        <div>
+          ${u.status === 'validated_by_atasan' || u.status === 'evaluated_renewed' ? '<span class="badge" style="background:#059669; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">ðŸ“¨ Divalidasi Atasan (Rekomendasi Diperbarui)</span>' : ''}
+          ${u.status === 'evaluated_not_renewed' || u.status === 'evaluated_not_extend' ? '<span class="badge" style="background:#ef4444; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Sudah Dinilai (Tidak Diperbarui)</span>' : ''}
+          ${u.status === 'submitted_to_atasan' || u.status === 'under_atasan_review' ? '<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Menunggu Penilaian Atasan</span>' : ''}
+          ${u.status === 'validated_by_admin' ? '<span class="badge" style="background:#10b981; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">âœ… Tervalidasi Admin</span>' : ''}
         </div>
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; font-size:13.5px; margin-bottom:14px;">
-          <div><strong>Atasan Langsung:</strong> ${escapeHtml(u.atasan_nama || u.atasan_nip || '-')} (NIP: ${escapeHtml(u.atasan_nip || '-')})</div>
-          <div><strong>Total Skor (7 Kriteria):</strong> <strong style="color:var(--primary); font-size:16px;">${escapeHtml(u.evaluasi_skor || '-')} / 21</strong></div>
-          <div><strong>Rekomendasi:</strong> <strong style="color:${(u.evaluasi_skor || 0) > 10 ? '#16a34a' : '#dc2626'};">${escapeHtml(u.evaluasi_rekomendasi || '-')}</strong></div>
-          <div><strong>Nomor Surat Evaluasi:</strong> ${escapeHtml(u.evaluasi_nomor_surat || '-')}</div>
+      </div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; font-size:13.5px; margin-bottom:14px;">
+        <div><strong>Atasan Langsung:</strong> ${escapeHtml(u.atasan_nama || u.atasan_nip || '-')} (NIP: ${escapeHtml(u.atasan_nip || '-')})</div>
+        <div><strong>Total Skor (7 Kriteria):</strong> <strong style="color:var(--primary); font-size:16px;">${escapeHtml(u.evaluasi_skor || '-')} / 21</strong></div>
+        <div><strong>Rekomendasi:</strong> <strong style="color:${(u.evaluasi_skor || 0) > 10 ? '#16a34a' : '#dc2626'};">${escapeHtml(u.evaluasi_rekomendasi || '-')}</strong></div>
+        <div><strong>Nomor Surat Evaluasi:</strong> ${escapeHtml(u.evaluasi_nomor_surat || '-')}</div>
+      </div>
+      ${u.evaluasi_doc_url ? `
+        <div style="margin-bottom:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <a href="${u.evaluasi_doc_url}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn" style="color:var(--primary); border-color:var(--primary); font-weight:700;">
+            ðŸ“„ Buka / Unduh Formulir Evaluasi Kinerja (Bertanda Tangan) â†—
+          </a>
+        </div>` : ''}
+
+      ${u.skp_data && u.skp_data.nama_lengkap ? `
+        <div style="background:#fff; border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:14px; font-size:13px;">
+          <div style="font-weight:700; color:#1e40af; margin-bottom:4px;">ðŸ“Š Formulir SKP (Diisi &amp; Ditandatangani Atasan Langsung):</div>
+          <div>Periode: <strong>${escapeHtml(u.skp_data.bulan_awal_penilaian || '')} s.d ${escapeHtml(u.skp_data.bulan_akhir_penilaian || '')} ${escapeHtml(u.skp_data.tahun_penilaian || '')}</strong> &bull; Predikat: <strong style="color:#059669;">${escapeHtml(u.skp_data.predikat_kinerja_pegawai || 'BAIK')}</strong> &bull; Pejabat Penilai: <strong>${escapeHtml(u.skp_data.nama_lengkap_pejabat || '-')}</strong></div>
         </div>
-        ${u.evaluasi_doc_url ? `
-          <div style="margin-bottom:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-            <a href="${u.evaluasi_doc_url}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn" style="color:var(--primary); border-color:var(--primary); font-weight:700;">
-              📄 Buka / Unduh Formulir Evaluasi Kinerja (Bertanda Tangan) ↗
-            </a>
-          </div>` : ''}
-        
-        <div style="display:flex; gap:10px; flex-wrap:wrap; border-top:1px solid var(--border); padding-top:12px;">
+      ` : ''}
+      
+      <div style="display:flex; gap:10px; flex-wrap:wrap; border-top:1px solid var(--border); padding-top:12px;">
+        ${(u.status === 'evaluated_renewed' || u.status === 'validated_by_atasan' || u.status === 'evaluated_extend') ? `
           <button type="button" class="btn btn-primary" style="background:#10b981; border-color:#10b981; font-weight:700;" onclick="adminValidasiUsulanTendik('${u.id}', true)">
-            ✅ Validasi &amp; Setujui Usulan Tendik (Dapat Buat Perjanjian)
+            âœ… Validasi &amp; Setujui Usulan (Beri Akses Kelengkapan Berkas)
           </button>
           <button type="button" class="btn btn-outline" style="color:#ef4444; border-color:#ef4444; font-weight:600;" onclick="adminValidasiUsulanTendik('${u.id}', false)">
-            ❌ Tutup Usulan (Tidak Diperpanjang)
+            âŒ Tutup Usulan (Tidak Diperbarui)
           </button>
-        
-          ${(u.layanan === 'Kontrak Tendik' && ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu'].includes(u.sub_menu || u.form_data?.status_kepegawaian) && Boolean(u.evaluasi_skor)) ? `
-            <button type="button" class="btn btn-secondary" style="font-weight:700; background:#4338ca; color:#fff; border-color:#4338ca; margin-left:8px;" onclick="bukaModalGenerateSkp('${u.id}')">
-              📊 Buat Sasaran Kinerja Pegawai (SKP)
-            </button>
-          ` : ''}</div>
+        ` : ''}
       </div>
-    ` : '';
+    </div>
+  ` : '';
+
+  let adminKelengkapanHtml = '';
+  if (isTendik && (u.status === 'validated_by_admin' || u.status === 'contract_generated' || u.status === 'Selesai')) {
+    const KELENGKAPAN_DEFS = [
+      { key: 'ktp', label: 'KTP (PDF/Gambar)', required: true },
+      { key: 'kk', label: 'Kartu Keluarga (PDF/Gambar)', required: true },
+      { key: 'ijazah_transkrip', label: 'Ijazah & Transkrip Terakhir (PDF)', required: true },
+      { key: 'keterangan_sehat', label: 'Surat Keterangan Sehat (PDF/Gambar)', required: true },
+      { key: 'surat_pengantar', label: 'Surat Pengantar Unit (PDF)', required: true },
+      { key: 'sim_ab', label: 'SIM A & B (Khusus Pengemudi)', required: isDriver },
+      { key: 'str_aktif', label: 'STR Aktif (Khusus Tenaga Medis)', required: isMedis }
+    ];
+
+    const activeDefs = KELENGKAPAN_DEFS.filter(d => d.required);
+    const bKel = u.berkas_kelengkapan || {};
+
+    adminKelengkapanHtml = `
+      <div style="margin-top:24px; padding:18px; background:var(--surface); border:2px solid #2563eb; border-radius:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+          <div>
+            <h4 style="margin:0; color:#1d4ed8; font-size:16px;">ðŸ“ Verifikasi Berkas Kelengkapan Final (Tahap Pasca-Approval)</h4>
+            <div style="font-size:12.5px; color:var(--text-muted); margin-top:2px;">
+              Periksa dan setujui setiap berkas persyaratan pengusul di bawah ini satu per satu. Jika file buram/salah, klik Tolak untuk meminta pengusul mengunggah ulang hanya berkas tersebut.
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          ${activeDefs.map(d => {
+            const itemData = bKel[d.key] || {};
+            const itemUrl = itemData.url || u[d.key + '_url'] || '';
+            const isAppr = itemData.approved === true || itemData.status === 'verified';
+            const isRej = itemData.status === 'rejected';
+            const isWait = !!itemUrl && !isAppr && !isRej;
+
+            let stBadge = '<span class="badge" style="background:#94a3b8; color:#fff;">âš ï¸ Belum Diunggah</span>';
+            if (isAppr) stBadge = '<span class="badge" style="background:#10b981; color:#fff; font-weight:700;">âœ… Disetujui</span>';
+            else if (isRej) stBadge = '<span class="badge" style="background:#ef4444; color:#fff; font-weight:700;">âŒ Ditolak (Minta Reupload)</span>';
+            else if (isWait) stBadge = '<span class="badge" style="background:#f59e0b; color:#fff; font-weight:600;">â³ Menunggu Verifikasi Admin</span>';
+
+            return `
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:var(--surface-alt); border:1px solid var(--border); border-radius:8px; flex-wrap:wrap; gap:12px;">
+                <div style="flex:1; min-width:240px;">
+                  <div style="font-weight:700; font-size:13.5px; color:var(--text);">
+                    ðŸ“„ ${escapeHtml(d.label)}
+                  </div>
+                  ${itemUrl ? `
+                    <div style="margin-top:4px;">
+                      <a href="${escapeHtml(itemUrl)}" target="_blank" rel="noopener" style="text-decoration:none; color:#2563eb; font-size:12.5px; font-weight:600;">
+                        ðŸ”— Buka File Google Drive â†—
+                      </a>
+                    </div>
+                  ` : '<div style="font-size:12px; color:#94a3b8; font-style:italic; margin-top:2px;">Pegawai belum mengunggah berkas ini</div>'}
+                  ${isRej && itemData.rejection_reason ? `
+                    <div style="font-size:11.5px; color:#b91c1c; margin-top:4px;">Alasan Penolakan: "${escapeHtml(itemData.rejection_reason)}"</div>
+                  ` : ''}
+                </div>
+
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                  <div>${stBadge}</div>
+                  ${itemUrl ? `
+                    <div style="display:flex; gap:6px;">
+                      <button type="button" class="btn btn-primary kp-small-btn" style="background:#10b981; border-color:#10b981; padding:5px 12px; font-size:12px;" onclick="approveBerkasKelengkapanAdmin('${u.id}', '${d.key}', true)">
+                        âœ… Setujui
+                      </button>
+                      <button type="button" class="btn btn-outline kp-small-btn" style="color:#ef4444; border-color:#fca5a5; padding:5px 12px; font-size:12px;" onclick="approveBerkasKelengkapanAdmin('${u.id}', '${d.key}', false)">
+                        âŒ Tolak (Reupload)
+                      </button>
+                    </div>
+                  ` : ''}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
 
   el.innerHTML = `
     <div class="grid-2" style="font-size:14px; gap:10px; margin-bottom:20px; border:1px solid #ddd; padding:16px; border-radius:8px; background:var(--surface);">
@@ -14641,30 +15268,31 @@ function renderKontrakReviewDetailContent_(u) {
       <div><strong>Evaluasi Kinerja:</strong> ${escapeHtml(u.evaluasi_kinerja || '-')}</div>
       <div><strong>Kategori:</strong> ${escapeHtml(u.layanan || '-')}</div>
       <div><strong>Jenis Kontrak:</strong> ${escapeHtml(u.sub_menu || '-')}</div>
-      <div><strong>Status Usulan:</strong> <strong style="color:${u.status === 'Selesai' ? '#2196f3' : (u.status === 'Disetujui' || u.status === 'validated_by_admin' ? '#4caf50' : (u.status === 'Ditolak' || u.status === 'closed_not_extended' ? '#f44336' : '#ff9800'))}">${escapeHtml(u.status || 'Diajukan')}</strong></div>
+      <div><strong>Status Usulan:</strong> <strong style="color:${u.status === 'Selesai' ? '#2196f3' : (u.status === 'Disetujui' || u.status === 'validated_by_admin' ? '#4caf50' : (u.status === 'Ditolak' || u.status === 'closed_not_renewed' || u.status === 'closed_not_extended' ? '#f44336' : '#ff9800'))}">${escapeHtml(u.status || 'Diajukan')}</strong></div>
     </div>
 
     ${tendikEvalCardHtml}
+    ${adminKelengkapanHtml}
     
     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
-      <h4 style="margin:0;">Persetujuan File Lampiran Pegawai</h4>
+      <h4 style="margin:0;">Persetujuan File Lampiran Pegawai (Awal)</h4>
       <div>${approveAllBtnHtml}</div>
     </div>
 
     <div class="ce-dashboard-list" style="margin-top:10px; gap:10px;">
-            ${lampiranList.map(l => {
+      ${lampiranList.map(l => {
         const linkHtml = l.url 
           ? `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:#1d4ed8; font-weight:600; font-size:14px; display:inline-flex; align-items:center; gap:6px;" title="Klik untuk membuka berkas Google Drive di tab baru">
-              <span style="font-size:16px;">📄</span>
+              <span style="font-size:16px;">ðŸ“„</span>
               <span>${escapeHtml(l.label)}</span>
               <span style="font-size:12px; font-weight:700; color:#1d4ed8; background:#eff6ff; border:1px solid #bfdbfe; padding:2px 8px; border-radius:4px; display:inline-flex; align-items:center; gap:3px;">
-                Buka Link Google Drive ↗
+                Buka Link Google Drive â†—
               </span>
             </a>`
-          : `<span style="color:#64748b; font-size:14px; font-weight:500;">📄 ${escapeHtml(l.label)}</span>`;
+          : `<span style="color:#64748b; font-size:14px; font-weight:500;">ðŸ“„ ${escapeHtml(l.label)}</span>`;
         
         const previewBtnHtml = l.url
-          ? `<button type="button" class="btn btn-outline" style="padding:3px 10px; font-size:12px;" onclick="openPreviewModal('${escapeHtml(l.url)}')">👁️ Preview</button>`
+          ? `<button type="button" class="btn btn-outline" style="padding:3px 10px; font-size:12px;" onclick="openPreviewModal('${escapeHtml(l.url)}')">ðŸ‘ï¸ Preview</button>`
           : `<span style="font-size:12px; color:#94a3b8; font-style:italic;">(Tidak diunggah)</span>`;
 
         return `
@@ -14675,25 +15303,24 @@ function renderKontrakReviewDetailContent_(u) {
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
               <input type="checkbox" onchange="toggleAttachmentApproval('${u.id}', '${l.key}', this.checked)" ${l.approved ? 'checked' : ''} style="width:20px; height:20px; cursor:pointer;" />
-              <span style="font-size:14px; font-weight:600; color:${l.approved ? '#4caf50' : '#64748b'};">${l.approved ? '✅ Disetujui' : 'Setujui'}</span>
+              <span style="font-size:14px; font-weight:600; color:${l.approved ? '#4caf50' : '#64748b'};">${l.approved ? 'âœ… Disetujui' : 'Setujui'}</span>
             </div>
           </div>`;
-      }).join('')}}
+      }).join('')}
     </div>
 
     ${periodeInputHtml}
 
     <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px; border-top:1px solid #eee; padding-top:16px; flex-wrap:wrap;">
       <button type="button" class="btn btn-outline" style="color:var(--danger); border-color:var(--danger); font-weight:600;" onclick="adminRejectUsulanKontrak('${u.id}')">
-        🚫 Tolak Usulan
+        ðŸš« Tolak Usulan
       </button>
       <button type="button" class="btn btn-outline" style="color:#b91c1c; border-color:#b91c1c; background:#fee2e2; font-weight:700;" onclick="adminDeleteUsulanKontrak('${u.id}')">
-        🗑️ Hapus Usulan
+        ðŸ—‘ï¸ Hapus Usulan
       </button>
     </div>
   `;
 }
-
 async function approveAllUsulanKontrakAttachments(usulanId) {
   showToast('info', 'Menyetujui semua lampiran...');
   try {
@@ -18563,7 +19190,21 @@ function renderTemplateSelectorForSkp(layanan, subMenu, wrapId, usulanId) {
   loadTmpl();
 }
 
+function downloadDocxFromBase64(base64Data, filename) {
+  if (typeof downloadBase64File_ === 'function') {
+    downloadBase64File_(base64Data, filename);
+  }
+}
+
 function collectSkpFormData(usulanId) {
+  const pegEl = document.getElementById('skp_nama_' + usulanId);
+  if (!pegEl) {
+    // Di Tahap 3 Tendik, form SKP telah diisi & ditandatangani Atasan Langsung pada Tahap Evaluasi
+    if (window.currentUsulanSaya && window.currentUsulanSaya.skp_data) {
+      return Object.assign({}, window.currentUsulanSaya.skp_data);
+    }
+  }
+
   const blnAwal = document.getElementById('skp_blnAwal_' + usulanId)?.value || 'Januari';
   const blnAkhir = document.getElementById('skp_blnAkhir_' + usulanId)?.value || 'Desember';
   const thn = document.getElementById('skp_thnPenilaian_' + usulanId)?.value || new Date().getFullYear();
@@ -18670,7 +19311,7 @@ async function previewSkpTendikSelf(usulanId) {
     return;
   }
 
-  const payloadData = collectSkpFormData(usulanId);
+  const payloadData = collectSkpFormData(usulanId) || {};
   payloadData.is_preview = true;
 
   showToast('info', 'Menyiapkan preview SKP...');
@@ -18678,7 +19319,8 @@ async function previewSkpTendikSelf(usulanId) {
     const res = await rpc('generateSkpTendik', [SESSION.token, templateRef, usulanId, payloadData]);
     if (res && res.success) {
       if (res.base64) {
-        openDocxPreviewModal(res.base64, res.fileName || 'Preview_SKP.docx');
+        downloadBase64File_(res.base64, res.fileName || 'Preview_SKP.docx');
+        showToast('success', 'Pratinjau dokumen SKP (.docx) berhasil diunduh.');
       } else if (res.viewUrl || res.pdfUrl) {
         window.open(res.viewUrl || res.pdfUrl, '_blank');
       } else {
@@ -18700,32 +19342,22 @@ async function generateSkpTendikSelf(usulanId) {
     return;
   }
 
-  const payloadData = collectSkpFormData(usulanId);
-  if (!payloadData.nama_lengkap || !payloadData.nip) {
-    showToast('error', 'Data pegawai (Nama & NIP) wajib diisi.');
-    return;
-  }
-  if (!payloadData.nama_lengkap_atasan_langsung || !payloadData.nip_atasan_langsung) {
-    showToast('error', 'Data atasan langsung penilai kinerja wajib diisi.');
-    return;
-  }
-
+  const payloadData = collectSkpFormData(usulanId) || {};
   const btn = document.getElementById('skp_genBtn_' + usulanId);
-  setBtnLoading(btn, true, 'Membuat SKP...');
+  if (btn) setBtnLoading(btn, true, 'Membuat SKP...');
 
   try {
     const res = await rpc('generateSkpTendik', [SESSION.token, templateRef, usulanId, payloadData]);
-    setBtnLoading(btn, false, '🚀 Buat Sasaran Kinerja Pegawai (SKP)');
+    if (btn) setBtnLoading(btn, false, 'ðŸš€ Buat Sasaran Kinerja Pegawai (SKP)');
     if (res && res.success) {
       showToast('success', res.message || 'Sasaran Kinerja Pegawai berhasil dibuat.');
-      if (res.outputType === 'docx' && res.base64) {
-        downloadDocxFromBase64(res.base64, res.fileName || 'SKP_' + payloadData.nama_lengkap + '.docx');
+      if (res.base64) {
+        downloadBase64File_(res.base64, res.fileName || 'SKP_' + (payloadData.nama_lengkap || 'Tendik') + '.docx');
       } else if (res.outputType === 'pdf' && res.pdfUrl) {
         window.open(res.pdfUrl, '_blank');
       } else if (res.viewUrl) {
         window.open(res.viewUrl, '_blank');
       }
-      // Refresh usulan jika di halaman usulan saya
       if (typeof loadUsulanKontrakSaya === 'function') {
         loadUsulanKontrakSaya();
       }
@@ -18733,11 +19365,10 @@ async function generateSkpTendikSelf(usulanId) {
       showToast('error', res?.message || 'Gagal generate SKP.');
     }
   } catch (err) {
-    setBtnLoading(btn, false, '🚀 Buat Sasaran Kinerja Pegawai (SKP)');
+    if (btn) setBtnLoading(btn, false, 'ðŸš€ Buat Sasaran Kinerja Pegawai (SKP)');
     showToast('error', 'Gagal generate SKP: ' + (err.message || err));
   }
 }
-
 async function bukaModalGenerateSkp(usulanId) {
   showToast('info', 'Memuat data usulan untuk formulir SKP...');
   try {
