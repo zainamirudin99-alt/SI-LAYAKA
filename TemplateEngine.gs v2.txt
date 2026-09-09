@@ -442,6 +442,8 @@ function evaluateAndFormat_(rawExpr, dataContext) {
       value = 0; // gagal hitung -> jangan gagalkan seluruh dokumen, default 0
     }
     dataContext[setInfo.varName] = value;
+    dataContext[setInfo.varName.toLowerCase()] = value;
+    dataContext[setInfo.varName.toUpperCase()] = value;
     return '';
   }
 
@@ -600,7 +602,19 @@ function evaluateExpression_(expr, dataContext) {
     while (peek() && peek().type === 'op' && (peek().value === '+' || peek().value === '-')) {
       const op = next().value;
       const right = parseMultiplicative();
-      left = op === '+' ? (typeof left === 'string' || typeof right === 'string' ? String(left) + String(right) : left + right) : left - right;
+      if (op === '+') {
+        const numLeft = Number(left);
+        const numRight = Number(right);
+        if (!isNaN(numLeft) && !isNaN(numRight) && left !== '' && right !== '' && left !== null && right !== null) {
+          left = numLeft + numRight;
+        } else if (typeof left === 'string' || typeof right === 'string') {
+          left = String(left ?? '') + String(right ?? '');
+        } else {
+          left = templateNum_(left) + templateNum_(right);
+        }
+      } else {
+        left = templateNum_(left) - templateNum_(right);
+      }
     }
     return left;
   }

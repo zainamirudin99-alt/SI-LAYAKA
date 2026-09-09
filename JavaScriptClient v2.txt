@@ -10646,7 +10646,8 @@ function collectEvaluasiTkkPayload() {
   const totalSkor = hitungTotalSkorEvaluasiTkk();
   const keputusan = totalSkor >= 11 ? 'diperbarui' : 'tidak_diperbarui';
   const nomorSurat = (document.getElementById('evalTkk_nomorSurat')?.value || '').trim();
-  const tahun = (document.getElementById('evalTkk_tahunEvaluasi')?.value || '').trim();
+  const tahunRaw = (document.getElementById('evalTkk_tahunEvaluasi')?.value || '').trim();
+  const tahunNum = parseInt(tahunRaw, 10) || new Date().getFullYear();
 
   // Kumpulkan 33 placeholder Sasaran Kinerja Pegawai (SKP)
   let skpData = {};
@@ -10661,7 +10662,8 @@ function collectEvaluasiTkkPayload() {
     kriteria,
     total_skor: totalSkor,
     nomor_surat: nomorSurat,
-    tahun: tahun,
+    tahun: tahunNum,
+    tahun_evaluasi: tahunNum,
     ttd_base64: ttdBase64,
     skp_data: skpData
   };

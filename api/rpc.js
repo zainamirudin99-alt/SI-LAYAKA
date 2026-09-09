@@ -723,7 +723,7 @@ function createDefaultSkDocxBuffer(jenis_sk, dataCtx) {
 
 function buildEvaluasiTkkDataContext(usulan, evalData, empData, atasanEmp) {
   const now = new Date();
-  const tahunEvaluasi = Number((evalData && evalData.tahun_evaluasi) || (usulan && usulan.tahun) || now.getFullYear());
+  const tahunEvaluasi = Number((evalData && (evalData.tahun_evaluasi || evalData.tahun)) || (usulan && (usulan.tahun_evaluasi || usulan.tahun)) || now.getFullYear());
   const tglBuat = (evalData && evalData.tgl_buat) || formatTanggalIndonesia(now);
 
   const ed = evalData || {};
@@ -757,7 +757,10 @@ function buildEvaluasiTkkDataContext(usulan, evalData, empData, atasanEmp) {
     nomor_surat: ed.nomor_surat || u.nomor_surat || '',
     tgl_buat: tglBuat,
     status_kepegawaian: ed.status_kepegawaian || u.status_kepegawaian || emp.status_kepegawaian || 'Tenaga Profesional',
-    tahun_evaluasi: String(tahunEvaluasi),
+    tahun_evaluasi: tahunEvaluasi,
+    tahun_evaluasi_str: String(tahunEvaluasi),
+    tahun: tahunEvaluasi,
+    tahun_kontrak: tahunEvaluasi,
     bulan_terakhir_kontrak: ed.bulan_terakhir_kontrak || 'Desember',
     nama_lengkap: namaPemohon,
     nama: namaPemohon,
@@ -777,8 +780,10 @@ function buildEvaluasiTkkDataContext(usulan, evalData, empData, atasanEmp) {
     total_skor: totalSkor,
     atasan_langsung: namaAtasan,
     nip_atasan_langsung: nipAtasan,
-    total_tahun_perpanjangan: String(totalTahunPerpanjangan),
-    total_tahun_pembaruan: String(totalTahunPembaruan),
+    total_tahun_perpanjangan: totalTahunPerpanjangan,
+    total_tahun_pembaruan: totalTahunPembaruan,
+    total_tahun_perpanjangan_str: String(totalTahunPerpanjangan),
+    total_tahun_pembaruan_str: String(totalTahunPembaruan),
     rekomendasi: rekomendasi,
     ttd: ed.ttd || ed.ttd_base64 || ''
   };
@@ -971,6 +976,10 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
       sanitizedData[k.toUpperCase()] = arrSan;
     } else if (typeof v === 'object' && v !== null) {
       sanitizedData[k] = v;
+    } else if (typeof v === 'number') {
+      sanitizedData[k] = v;
+      sanitizedData[k.toLowerCase()] = v;
+      sanitizedData[k.toUpperCase()] = v;
     } else {
       let valStr = '';
       if (v !== null && v !== undefined) {
@@ -1327,6 +1336,34 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = n
 
     // 1. Bersihkan pecahan tag XML di dalam kurung kurawal per paragraf
     xml = cleanWordXmlParagraphBraces(xml);
+
+    // 1b. Tangani ekspresi {{ set nama = ekspresi }} di dalam template jika ada pada regex fallback
+    xml = xml.replace(/\{\{\s*set\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^{}]+?)\s*\}\}/gi, (match, varName, rhsExpr) => {
+      try {
+        let val = docxEvaluateExpression(rhsExpr, fullData);
+        val = docxCeil2Decimal(val);
+        fullData[varName] = escapeXmlText(String(val ?? ''));
+        fullData[varName.toLowerCase()] = fullData[varName];
+        fullData[varName.toUpperCase()] = fullData[varName];
+        sanitizedData[varName] = val;
+      } catch (e) {
+        console.warn('[replaceDocxPlaceholdersDirectly] Error evaluating set tag:', match, e.message);
+      }
+      return '';
+    });
+    xml = xml.replace(/\{\s*set\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^{}]+?)\s*\}/gi, (match, varName, rhsExpr) => {
+      try {
+        let val = docxEvaluateExpression(rhsExpr, fullData);
+        val = docxCeil2Decimal(val);
+        fullData[varName] = escapeXmlText(String(val ?? ''));
+        fullData[varName.toLowerCase()] = fullData[varName];
+        fullData[varName.toUpperCase()] = fullData[varName];
+        sanitizedData[varName] = val;
+      } catch (e) {
+        console.warn('[replaceDocxPlaceholdersDirectly] Error evaluating set tag:', match, e.message);
+      }
+      return '';
+    });
 
     // 2. Ganti presisi setiap placeholder teks {{ key }} atau { key }
     for (const [k, val] of Object.entries(fullData)) {
@@ -2128,8 +2165,12 @@ function docxEvaluateExpression(expr, dataCtx) {
     while (peek() && peek().type === 'op' && (peek().value === '+' || peek().value === '-')) {
       const op = next().value; const right = parseMul();
       if (op === '+') {
-        if (typeof left === 'string' && typeof right === 'string' && isNaN(Number(left)) && isNaN(Number(right))) {
-          left = left + right;
+        const numLeft = Number(left);
+        const numRight = Number(right);
+        if (!isNaN(numLeft) && !isNaN(numRight) && left !== '' && right !== '' && left !== null && right !== null) {
+          left = numLeft + numRight;
+        } else if (typeof left === 'string' || typeof right === 'string') {
+          left = String(left ?? '') + String(right ?? '');
         } else {
           left = docxNum(left) + docxNum(right);
         }
