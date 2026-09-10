@@ -633,6 +633,116 @@ function cleanDocxTableCellLeadingEmptyParagraphs(xml) {
   return xml;
 }
 
+function docxProcessTableLoops(xml, dataCtx) {
+  if (!xml || typeof xml !== 'string' || !xml.includes('<w:tbl')) return xml;
+
+  return xml.replace(/<w:tbl\b[^>]*>[\s\S]*?<\/w:tbl>/gi, (tableXml) => {
+    const trRegex = /<w:tr\b[^>]*>[\s\S]*?<\/w:tr>/gi;
+    const rows = [];
+    let match;
+    while ((match = trRegex.exec(tableXml)) !== null) {
+      rows.push({
+        raw: match[0],
+        index: match.index,
+        length: match[0].length
+      });
+    }
+
+    if (rows.length === 0) return tableXml;
+
+    // Deteksi blok loop (mendukung single row maupun multi-row bertingkat seperti SKP 3 baris)
+    const loopBlocks = [];
+    for (let i = 0; i < rows.length; i++) {
+      const openMatch = rows[i].raw.match(/\{\{\s*#([a-zA-Z0-9_]+)\s*\}\}|\{\s*#([a-zA-Z0-9_]+)\s*\}/);
+      if (openMatch) {
+        const loopName = openMatch[1] || openMatch[2];
+        const closeRegex = new RegExp(`\\{\\{\\s*\\/\\s*${loopName}\\s*\\}\\}|\\{\\s*\\/\\s*${loopName}\\s*\\}`);
+        let closeRowIdx = -1;
+        for (let j = i; j < rows.length; j++) {
+          if (closeRegex.test(rows[j].raw)) {
+            closeRowIdx = j;
+            break;
+          }
+        }
+        if (closeRowIdx !== -1) {
+          loopBlocks.push({
+            loopName,
+            startIdx: i,
+            endIdx: closeRowIdx
+          });
+          i = closeRowIdx; // Lewati sampai baris penutup
+        }
+      }
+    }
+
+    if (loopBlocks.length === 0) return tableXml;
+
+    // Proses blok loop dari indeks paling bawah ke atas agar posisi index substring aman
+    let modifiedTableXml = tableXml;
+    for (let b = loopBlocks.length - 1; b >= 0; b--) {
+      const { loopName, startIdx, endIdx } = loopBlocks[b];
+      const items = dataCtx[loopName] || dataCtx[loopName.toLowerCase()] || dataCtx[loopName.toUpperCase()];
+
+      const startPos = rows[startIdx].index;
+      const endPos = rows[endIdx].index + rows[endIdx].length;
+      const blockRaw = tableXml.substring(startPos, endPos);
+
+      let renderedRows = '';
+      if (Array.isArray(items) && items.length > 0) {
+        renderedRows = items.map((item, itemIdx) => {
+          let itemXml = blockRaw;
+
+          // Hapus penanda loop pembuka dan penutup
+          const reOpen = new RegExp(`\\{\\{\\s*#${loopName}\\s*\\}\\}|\\{\\s*#${loopName}\\s*\\}`, 'g');
+          const reClose = new RegExp(`\\{\\{\\s*\\/${loopName}\\s*\\}\\}|\\{\\s*\\/${loopName}\\s*\\}`, 'g');
+          itemXml = itemXml.replace(reOpen, '');
+          itemXml = itemXml.replace(reClose, '');
+
+          // Ganti {{no}} dengan nomor urut
+          const itemNo = item.no || (itemIdx + 1);
+          itemXml = itemXml.replace(/\{\{\s*no\s*\}\}|\{\s*no\s*\}/gi, String(itemNo));
+
+          // Ganti setiap field item
+          const itemObj = (typeof item === 'object' && item !== null) ? item : { value: item };
+          for (const [k, v] of Object.entries(itemObj)) {
+            const valStr = escapeXmlText(v ?? '');
+            const reKeyDouble = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
+            const reKeySingle = new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi');
+            itemXml = itemXml.replace(reKeyDouble, valStr);
+            itemXml = itemXml.replace(reKeySingle, valStr);
+
+            // Toleransi jika placeholder di Word template memuat spasi (misal {{ukuran keberhasilan hasil kerja utama}})
+            const kWithSpaces = k.replace(/_/g, '\\s+');
+            if (kWithSpaces !== k) {
+              const reSpaceDouble = new RegExp(`\\{\\{\\s*${kWithSpaces}\\s*\\}\\}`, 'gi');
+              const reSpaceSingle = new RegExp(`\\{\\s*${kWithSpaces}\\s*\\}`, 'gi');
+              itemXml = itemXml.replace(reSpaceDouble, valStr);
+              itemXml = itemXml.replace(reSpaceSingle, valStr);
+            }
+          }
+
+          // Jika kolom nomor di baris pertama belum memuat angka nomor dan tidak ada {{no}}, sisipkan angka nomor secara otomatis
+          if (!/\{\{\s*no\s*\}\}/i.test(blockRaw) && !/\{\s*no\s*\}/i.test(blockRaw)) {
+            itemXml = itemXml.replace(/(<w:tc\b[^>]*>(?:(?!<w:tc\b)[\s\S])*?<w:p\b[^>]*>)(<\/w:p>)/i, (m, pOpen, pClose) => {
+              return `${pOpen}<w:r><w:t>${itemNo}</w:t></w:r>${pClose}`;
+            });
+          }
+
+          return itemXml;
+        }).join('');
+      } else {
+        const reOpen = new RegExp(`\\{\\{\\s*#${loopName}\\s*\\}\\}|\\{\\s*#${loopName}\\s*\\}`, 'g');
+        const reClose = new RegExp(`\\{\\{\\s*\\/${loopName}\\s*\\}\\}|\\{\\s*\\/${loopName}\\s*\\}`, 'g');
+        renderedRows = blockRaw.replace(reOpen, '').replace(reClose, '');
+      }
+
+      modifiedTableXml = modifiedTableXml.substring(0, startPos) + renderedRows + modifiedTableXml.substring(endPos);
+    }
+
+    return modifiedTableXml;
+  });
+}
+
 function createDefaultSkDocxBuffer(jenis_sk, dataCtx) {
   const PizZip = require('pizzip');
   const zip = new PizZip();
@@ -919,6 +1029,7 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
         content = docxCleanMassalLoops(content);
         content = cleanWordXmlParagraphBraces(content);
         content = cleanDocxTableCellLeadingEmptyParagraphs(content);
+        content = docxProcessTableLoops(content, dataCtx);
         zip.file(fileName, content);
       }
     }
@@ -1336,6 +1447,7 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = n
 
     // 1. Bersihkan pecahan tag XML di dalam kurung kurawal per paragraf
     xml = cleanWordXmlParagraphBraces(xml);
+    xml = docxProcessTableLoops(xml, dataCtx);
 
     // 1b. Tangani ekspresi {{ set nama = ekspresi }} di dalam template jika ada pada regex fallback
     xml = xml.replace(/\{\{\s*set\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^{}]+?)\s*\}\}/gi, (match, varName, rhsExpr) => {
@@ -8663,20 +8775,40 @@ const methods = {
 
     // Siapkan baris looping
     const hasilUtamaList = Array.isArray(payloadData.hasil_kerja_utama) && payloadData.hasil_kerja_utama.length > 0
-      ? payloadData.hasil_kerja_utama.map((item, idx) => ({
-          no: idx + 1,
-          nama_hasil_kerja_utama: String(item.nama_hasil_kerja_utama || '').trim(),
-          ukuran_keberhasilan_hasil_kerja_utama: String(item.ukuran_keberhasilan_hasil_kerja_utama || '').trim()
-        }))
-      : [{ no: 1, nama_hasil_kerja_utama: '-', ukuran_keberhasilan_hasil_kerja_utama: '-' }];
+      ? payloadData.hasil_kerja_utama.map((item, idx) => {
+          const n = String(item.nama_hasil_kerja_utama || '').trim();
+          const u = String(item.ukuran_keberhasilan_hasil_kerja_utama || '').trim();
+          return {
+            no: idx + 1,
+            NO: idx + 1,
+            'NO.': idx + 1,
+            nama_hasil_kerja_utama: n,
+            NAMA_HASIL_KERJA_UTAMA: n,
+            'nama hasil kerja utama': n,
+            ukuran_keberhasilan_hasil_kerja_utama: u,
+            UKURAN_KEBERHASILAN_HASIL_KERJA_UTAMA: u,
+            'ukuran keberhasilan hasil kerja utama': u
+          };
+        })
+      : [{ no: 1, NO: 1, 'NO.': 1, nama_hasil_kerja_utama: '-', NAMA_HASIL_KERJA_UTAMA: '-', 'nama hasil kerja utama': '-', ukuran_keberhasilan_hasil_kerja_utama: '-', UKURAN_KEBERHASILAN_HASIL_KERJA_UTAMA: '-', 'ukuran keberhasilan hasil kerja utama': '-' }];
 
     const hasilTambahanList = Array.isArray(payloadData.hasil_kerja_tambahan) && payloadData.hasil_kerja_tambahan.length > 0
-      ? payloadData.hasil_kerja_tambahan.map((item, idx) => ({
-          no: idx + 1,
-          nama_hasil_kerja_tambahan: String(item.nama_hasil_kerja_tambahan || '').trim(),
-          ukuran_keberhasilan_hasil_kerja_tambahan: String(item.ukuran_keberhasilan_hasil_kerja_tambahan || '').trim()
-        }))
-      : [{ no: 1, nama_hasil_kerja_tambahan: '-', ukuran_keberhasilan_hasil_kerja_tambahan: '-' }];
+      ? payloadData.hasil_kerja_tambahan.map((item, idx) => {
+          const n = String(item.nama_hasil_kerja_tambahan || '').trim();
+          const u = String(item.ukuran_keberhasilan_hasil_kerja_tambahan || '').trim();
+          return {
+            no: idx + 1,
+            NO: idx + 1,
+            'NO.': idx + 1,
+            nama_hasil_kerja_tambahan: n,
+            NAMA_HASIL_KERJA_TAMBAHAN: n,
+            'nama hasil kerja tambahan': n,
+            ukuran_keberhasilan_hasil_kerja_tambahan: u,
+            UKURAN_KEBERHASILAN_HASIL_KERJA_TAMBAHAN: u,
+            'ukuran keberhasilan hasil kerja tambahan': u
+          };
+        })
+      : [{ no: 1, NO: 1, 'NO.': 1, nama_hasil_kerja_tambahan: '-', NAMA_HASIL_KERJA_TAMBAHAN: '-', 'nama hasil kerja tambahan': '-', ukuran_keberhasilan_hasil_kerja_tambahan: '-', UKURAN_KEBERHASILAN_HASIL_KERJA_TAMBAHAN: '-', 'ukuran keberhasilan hasil kerja tambahan': '-' }];
 
     const capaianOrg = String(payloadData.capaian_kinerja_organisasi || 'BAIK').trim().toUpperCase();
     const predikatPeg = String(payloadData.predikat_kinerja_pegawai || 'BAIK').trim().toUpperCase();
@@ -8729,7 +8861,11 @@ const methods = {
 
       // Looping baris
       hasil_kerja_utama: hasilUtamaList,
+      HASIL_KERJA_UTAMA: hasilUtamaList,
+      'hasil kerja utama': hasilUtamaList,
       hasil_kerja_tambahan: hasilTambahanList,
+      HASIL_KERJA_TAMBAHAN: hasilTambahanList,
+      'hasil kerja tambahan': hasilTambahanList,
 
       // Core Values BerAKHLAK (Disediakan format {{variabel}} maupun {{ekspektasi_variabel}})
       berorientasi_pelayanan: String(payloadData.berorientasi_pelayanan || payloadData.ekspektasi_berorientasi_pelayanan || '').trim(),

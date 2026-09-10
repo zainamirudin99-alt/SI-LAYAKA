@@ -929,6 +929,26 @@ function findLoopMarkersInRow_(row) {
   return null;
 }
 
+function matchLoopOpenInRow_(row) {
+  const numCells = row.getNumCells();
+  for (let c = 0; c < numCells; c++) {
+    const text = row.getCell(c).getText();
+    const oi = matchLoopOpen_(text);
+    if (oi) return oi;
+  }
+  return null;
+}
+
+function matchLoopCloseInRow_(row, expectedName) {
+  const numCells = row.getNumCells();
+  for (let c = 0; c < numCells; c++) {
+    const text = row.getCell(c).getText();
+    const ci = matchLoopClose_(text);
+    if (ci && (!expectedName || ci.name === expectedName)) return ci;
+  }
+  return null;
+}
+
 function processTableLoopInTable_(table, dataContext) {
   let again = true;
   while (again) {
@@ -938,13 +958,63 @@ function processTableLoopInTable_(table, dataContext) {
       const row = table.getRow(r);
       if (row.getNumCells() === 0) continue;
 
+      // 1. Cek loop pada baris tunggal (single row loop)
       const found = findLoopMarkersInRow_(row);
       if (found) {
         processOneLoopRow_(table, row, r, found.openInfo, found.closeInfo, dataContext);
         again = true; // struktur tabel berubah -> mulai scan ulang dari baris awal
         break;
       }
+
+      // 2. Cek loop multi-baris (multi-row loop block, mis. template SKP baris bertingkat 3 baris)
+      const openInfo = matchLoopOpenInRow_(row);
+      if (openInfo) {
+        let rEnd = -1;
+        let closeInfo = null;
+        for (let r2 = r; r2 < numRows; r2++) {
+          const ci = matchLoopCloseInRow_(table.getRow(r2), openInfo.name);
+          if (ci) {
+            rEnd = r2;
+            closeInfo = ci;
+            break;
+          }
+        }
+        if (rEnd >= r && closeInfo) {
+          processMultiLoopRows_(table, r, rEnd, openInfo, closeInfo, dataContext);
+          again = true;
+          break;
+        }
+      }
     }
+  }
+}
+
+function processMultiLoopRows_(table, rStart, rEnd, openInfo, closeInfo, dataContext) {
+  const loopName = openInfo.name;
+  const items = dataContext[loopName] || dataContext[loopName.toLowerCase()] || dataContext[loopName.toUpperCase()];
+  const blockLength = rEnd - rStart + 1;
+
+  if (Array.isArray(items) && items.length > 0) {
+    items.forEach((item, i) => {
+      for (let offset = 0; offset < blockLength; offset++) {
+        const srcRow = table.getRow(rStart + offset);
+        table.appendTableRow(srcRow.copy());
+        const lastIndex = table.getNumRows() - 1;
+        const targetIndex = rStart + (blockLength * (i + 1)) + offset;
+        if (lastIndex !== targetIndex) {
+          const detached = table.getRow(lastIndex).copy();
+          table.removeRow(lastIndex);
+          table.insertTableRow(targetIndex, detached);
+        }
+        const merged = Object.assign({}, dataContext, item, { no: i + 1, NO: i + 1 });
+        fillRowPlaceholders_(table.getRow(targetIndex), merged, openInfo, closeInfo, item);
+      }
+    });
+  }
+
+  // Hapus blok baris template asli
+  for (let offset = 0; offset < blockLength; offset++) {
+    table.removeRow(rStart);
   }
 }
 
@@ -1009,7 +1079,16 @@ function fillRowPlaceholders_(row, mergedContext, openInfo, closeInfo, item) {
         if (rawExpr === openMarkerExpr || rawExpr === closeMarkerExpr) {
           value = ''; // marker loop itu sendiri -> tidak dicetak, bukan ekspresi
         } else {
-          try { value = evaluateAndFormat_(rawExpr, mergedContext); } catch (e) { value = ''; }
+          try { 
+            value = evaluateAndFormat_(rawExpr, mergedContext); 
+          } catch (e) { 
+            // Toleransi jika variabel template menggunakan spasi (misal {{ukuran keberhasilan hasil kerja utama}})
+            try {
+              value = evaluateAndFormat_(rawExpr.replace(/\s+/g, '_'), mergedContext);
+            } catch (e2) {
+              value = ''; 
+            }
+          }
           const setInfo = parseSetExpr_(normalizeSmartQuotes_(rawExpr).trim());
           if (setInfo && item) {
             item[setInfo.varName] = mergedContext[setInfo.varName];
@@ -1021,6 +1100,10 @@ function fillRowPlaceholders_(row, mergedContext, openInfo, closeInfo, item) {
           paragraph.replaceText(pattern, repVal);
         } catch (e) {
           paragraph.replaceText(pattern, repVal === '' ? ' ' : repVal);
+        }
+        if (rawExpr.includes('_')) {
+          const patternSpace = '\\{\\{\\s*' + escapeRegex_(rawExpr).replace(/_/g, '\\s+') + '\\s*\\}\\}';
+          try { paragraph.replaceText(patternSpace, repVal); } catch (e) {}
         }
       }
 
