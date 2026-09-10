@@ -8000,122 +8000,95 @@ const methods = {
     const dataCtx = buildEvaluasiTkkDataContext(usulan, Object.assign({}, ed, { ttd: ttdSig }), empData, atasanEmp);
     const gasUrl = process.env.GOOGLE_SCRIPT_URL;
 
-    // Cari template kustom di database tabel templates
     let renderedBuffer = null;
     let usedCustomTemplate = false;
     let gdocsViewUrl = '';
+    let evalDocUrl = usulan.evaluasi_doc_url || '';
 
-    try {
-      const { data: tmplList } = await db.from('templates')
-        .select('*')
-        .or('layanan.ilike.%Kontrak Tendik%,layanan.ilike.%Tendik%,layanan.ilike.%Kontrak%,layanan.ilike.%Evaluasi%')
-        .ilike('sub_menu', '%Evaluasi%')
-        .order('dibuat_pada', { ascending: false })
-        .limit(1);
+    // Hanya generate dokumen evaluasi jika belum pernah ada atau jika mode pratinjau (preview)
+    if (!evalDocUrl || isPreviewOnly) {
+      try {
+        const { data: tmplList } = await db.from('templates')
+          .select('*')
+          .or('layanan.ilike.%Kontrak Tendik%,layanan.ilike.%Tendik%,layanan.ilike.%Kontrak%,layanan.ilike.%Evaluasi%')
+          .ilike('sub_menu', '%Evaluasi%')
+          .order('dibuat_pada', { ascending: false })
+          .limit(1);
 
-      if (tmplList && tmplList.length > 0 && tmplList[0].file_id) {
-        const tmpl = tmplList[0];
+        if (tmplList && tmplList.length > 0 && tmplList[0].file_id) {
+          const tmpl = tmplList[0];
 
-        // Jika template berupa Google Docs dan GAS aktif, buat salinan Google Docs untuk pratinjau langsung di iframe
-        if (tmpl.tipe === 'gdocs' && gasUrl) {
-          try {
-            const shortId = uuidv4();
-            const gasResp = await fetch(gasUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                method: 'generateKontrakFromUsulan',
-                params: [shortId, tmpl.file_id, Object.assign({}, dataCtx, {
-                  namaPegawai: usulan.nama,
-                  nipPegawai: usulan.nip,
-                  fileName: `Evaluasi_${usulan.nama}_${usulan.nip}`
-                })],
-                remoteSession: { id: shortId, data: { nip: decoded.nip, nama: decoded.nama, role: 'admin' } }
-              })
-            });
-            const gasJson = await gasResp.json();
-            if (gasJson && gasJson.success) {
-              gdocsViewUrl = gasJson.viewUrl || gasJson.docViewUrl || gasJson.url || (gasJson.fileId ? `https://docs.google.com/document/d/${gasJson.fileId}/edit` : '');
+          // Jika template berupa Google Docs dan GAS aktif, buat salinan Google Docs untuk pratinjau
+          if (tmpl.tipe === 'gdocs' && gasUrl) {
+            try {
+              const shortId = uuidv4();
+              const ctrl = new AbortController();
+              const timeoutId = setTimeout(() => ctrl.abort(), 10000);
+              const gasResp = await fetch(gasUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  method: 'generateKontrakFromUsulan',
+                  params: [shortId, tmpl.file_id, Object.assign({}, dataCtx, {
+                    namaPegawai: usulan.nama,
+                    nipPegawai: usulan.nip,
+                    fileName: `Evaluasi_${usulan.nama}_${usulan.nip}`
+                  })],
+                  remoteSession: { id: shortId, data: { nip: decoded.nip, nama: decoded.nama, role: 'admin' } }
+                }),
+                signal: ctrl.signal
+              });
+              clearTimeout(timeoutId);
+              const gasJson = await gasResp.json();
+              if (gasJson && gasJson.success) {
+                gdocsViewUrl = gasJson.viewUrl || gasJson.docViewUrl || gasJson.url || (gasJson.fileId ? `https://docs.google.com/document/d/${gasJson.fileId}/edit` : '');
+              }
+            } catch (gErr) {
+              console.warn('[simpanDanGenerateEvaluasiTkk] GAS Google Docs generation notice:', gErr.message);
             }
-          } catch (gErr) {
-            console.warn('[simpanDanGenerateEvaluasiTkk] GAS Google Docs generation notice:', gErr.message);
+          }
+
+          const tmplBuf = await downloadTemplateBuffer(tmpl.file_id);
+          if (tmplBuf) {
+            renderedBuffer = docxRenderTemplate(tmplBuf, dataCtx);
+            usedCustomTemplate = true;
           }
         }
-
-        const tmplBuf = await downloadTemplateBuffer(tmpl.file_id);
-        if (tmplBuf) {
-          renderedBuffer = docxRenderTemplate(tmplBuf, dataCtx);
-          usedCustomTemplate = true;
-        }
+      } catch (tmplE) {
+        console.warn('[simpanDanGenerateEvaluasiTkk] Custom template fetch warning:', tmplE.message);
       }
-    } catch (tmplE) {
-      console.warn('[simpanDanGenerateEvaluasiTkk] Custom template fetch warning:', tmplE.message);
-    }
 
-    if (!renderedBuffer) {
-      renderedBuffer = generateEvaluasiTkkDocxFallback(dataCtx);
-    }
-
-    let pdfUrl = '';
-
-    if (isPreviewOnly) {
-      return {
-        success: true,
-        isPreview: true,
-        base64: renderedBuffer ? renderedBuffer.toString('base64') : null,
-        fileName: `Preview_Evaluasi_${usulan.nama}_${usulan.nip}.docx`,
-        pdfUrl: pdfUrl,
-        gdocsUrl: gdocsViewUrl,
-        viewUrl: pdfUrl || gdocsViewUrl || null,
-        docUrl: pdfUrl || gdocsViewUrl || null,
-        totalSkor,
-        rekomendasi: dataCtx.rekomendasi,
-        status: newStatus
-      };
-    }
-
-    // Upload dokumen hasil evaluasi ke Supabase Storage
-    const fileNameSafe = `Formulir_Evaluasi_TKK_${String(usulan.nama).replace(/[^a-zA-Z0-9_-]/g, '_')}_${usulan.nip}.docx`;
-    const docB64 = renderedBuffer ? renderedBuffer.toString('base64') : '';
-    const docDataUrl = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${docB64}`;
-    let evalDocUrl = pdfUrl || gdocsViewUrl || '';
-    try {
-      if (docB64) {
-        const supUrl = await uploadLampiran(docDataUrl, fileNameSafe, 'evaluasi-tkk');
-        if (!evalDocUrl) evalDocUrl = supUrl;
+      if (!renderedBuffer) {
+        renderedBuffer = generateEvaluasiTkkDocxFallback(dataCtx);
       }
-    } catch (eUp) {
-      console.warn('[simpanDanGenerateEvaluasiTkk] Supabase upload warning:', eUp.message);
-    }
 
-    // Upload & simpan ke Google Drive folder root (1i6ePepJQzOm2HxVzevvEYWF5L6xR5Bue)
-    let gdriveFolderId = '', gdriveFileId = '';
-    if (gasUrl && docB64) {
+      if (isPreviewOnly) {
+        return {
+          success: true,
+          isPreview: true,
+          base64: renderedBuffer ? renderedBuffer.toString('base64') : null,
+          fileName: `Preview_Evaluasi_${usulan.nama}_${usulan.nip}.docx`,
+          pdfUrl: '',
+          gdocsUrl: gdocsViewUrl,
+          viewUrl: gdocsViewUrl || null,
+          docUrl: gdocsViewUrl || null,
+          totalSkor,
+          rekomendasi: dataCtx.rekomendasi,
+          status: newStatus
+        };
+      }
+
+      // Upload dokumen hasil evaluasi ke Supabase Storage
+      const fileNameSafe = `Formulir_Evaluasi_TKK_${String(usulan.nama).replace(/[^a-zA-Z0-9_-]/g, '_')}_${usulan.nip}.docx`;
+      const docB64 = renderedBuffer ? renderedBuffer.toString('base64') : '';
+      const docDataUrl = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${docB64}`;
       try {
-        const shortId = uuidv4();
-        const gasResp = await fetch(gasUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            method: 'simpanEvaluasiTkkDrive',
-            params: [shortId, {
-              rootFolderId: CONFIG.FOLDER_EVALUASI_TKK_ROOT,
-              namaPegawai: usulan.nama,
-              nipPegawai: usulan.nip,
-              fileName: fileNameSafe,
-              fileBase64: docB64
-            }],
-            remoteSession: { id: shortId, data: { nip: decoded.nip, nama: decoded.nama } }
-          })
-        });
-        const gasJson = await gasResp.json();
-        if (gasJson && gasJson.success) {
-          gdriveFolderId = gasJson.folderId || '';
-          gdriveFileId = gasJson.fileId || '';
-          if (gasJson.fileUrl) evalDocUrl = gasJson.fileUrl;
+        if (docB64) {
+          const supUrl = await uploadLampiran(docDataUrl, fileNameSafe, 'evaluasi-tkk');
+          evalDocUrl = gdocsViewUrl || supUrl || evalDocUrl;
         }
-      } catch (gErr) {
-        console.warn('[simpanDanGenerateEvaluasiTkk] GAS Drive upload notice:', gErr.message);
+      } catch (eUp) {
+        console.warn('[simpanDanGenerateEvaluasiTkk] Supabase upload warning:', eUp.message);
       }
     }
 
@@ -8131,15 +8104,17 @@ const methods = {
         divalidasi_oleh: kirimAdminFlag ? (decoded.nama || decoded.nip) : null
       }),
       evaluasi_doc_url: evalDocUrl,
-      evaluasi_gdrive_folder_id: gdriveFolderId || CONFIG.FOLDER_EVALUASI_TKK_ROOT,
-      evaluasi_gdrive_file_id: gdriveFileId || null,
-      evaluasi_dibuat_pada: new Date().toISOString(),
+      evaluasi_gdrive_folder_id: usulan.evaluasi_gdrive_folder_id || CONFIG.FOLDER_EVALUASI_TKK_ROOT,
+      evaluasi_dibuat_pada: usulan.evaluasi_dibuat_pada || new Date().toISOString(),
       status: newStatus
     };
 
     if (ed.skp_data && isRenew) {
       updatePayload.skp_data = ed.skp_data;
       updatePayload.skp_dibuat = true;
+    }
+    if (ed.skp_file_url) {
+      updatePayload.skp_file_url = ed.skp_file_url;
     }
 
     const { error: updErr } = await db.from('usulan_kontrak').update(updatePayload).eq('id', usulanId);
@@ -8609,8 +8584,11 @@ const methods = {
       return { success: false, message: 'Sasaran Kinerja Pegawai hanya berlaku untuk Tenaga Kependidikan.' };
     }
 
+    const payloadData = (skpFormData && Object.keys(skpFormData).length > 0) ? skpFormData : (usulan.skp_data || {});
     const isPreview = Boolean(payloadData && payloadData.is_preview);
-    const isAtasanReviewing = (usulan.atasan_nip === decoded.nip || ['admin', 'super_admin'].includes(decoded.role));
+    const cleanNip = String(decoded.nip || '').trim();
+    const rowAtasanNip = String(usulan?.atasan_nip || '').trim();
+    const isAtasanReviewing = (rowAtasanNip === cleanNip || rowAtasanNip.includes(cleanNip) || cleanNip.includes(rowAtasanNip) || ['admin', 'super_admin'].includes(decoded.role));
 
     if (!isPreview && !isAtasanReviewing) {
       // Pastikan seluruh berkas kelengkapan telah disetujui Admin jika bukan mode preview / evaluasi atasan
@@ -8645,11 +8623,21 @@ const methods = {
     // Ambil template: bisa dari templateRef atau default untuk Layanan Kontrak Tendik - Sasaran Kinerja Pegawai
     let tmplRow = null;
     if (templateRef) {
-      const { data } = await db.from('templates').select('*').or(`id.eq.${templateRef},file_id.eq.${templateRef}`).maybeSingle();
-      tmplRow = data;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(templateRef).trim());
+      if (isUuid) {
+        const { data } = await db.from('templates').select('*').eq('id', templateRef).maybeSingle();
+        tmplRow = data;
+      }
+      if (!tmplRow) {
+        const { data } = await db.from('templates').select('*').eq('file_id', templateRef).maybeSingle();
+        tmplRow = data;
+      }
     }
     if (!tmplRow) {
-      const { data } = await db.from('templates').select('*').eq('layanan', 'Kontrak Tendik').eq('sub_menu', 'Sasaran Kinerja Pegawai').order('dibuat_pada', { ascending: false }).limit(1).maybeSingle();
+      const { data } = await db.from('templates').select('*')
+        .ilike('layanan', '%Tendik%')
+        .ilike('sub_menu', '%Sasaran%')
+        .order('dibuat_pada', { ascending: false }).limit(1).maybeSingle();
       tmplRow = data;
     }
 
@@ -8657,7 +8645,6 @@ const methods = {
       return { success: false, message: 'Template Sasaran Kinerja Pegawai belum ditemukan di menu Kelola Template.' };
     }
 
-    const payloadData = (skpFormData && Object.keys(skpFormData).length > 0) ? skpFormData : (usulan.skp_data || {});
     if (!payloadData || Object.keys(payloadData).length === 0) {
       return { success: false, message: 'Data Sasaran Kinerja Pegawai (SKP) belum diisi oleh Atasan Langsung pada tahap evaluasi.' };
     }
@@ -8702,16 +8689,20 @@ const methods = {
       'bulan_akhir_penilaian | upper': blnAkhir,
       hari_akhir_penilaian: hariAkhir,
       tahun_penilaian: String(thnPenilaian),
+      tahun: String(thnPenilaian),
       tgl_buat: tglBuatStr,
       tanggal_buat: tglBuatStr,
 
       // Pegawai
       nama_lengkap: String(payloadData.nama_lengkap || usulan.nama || '').trim(),
+      nama: String(payloadData.nama_lengkap || usulan.nama || '').trim(),
       nip: String(payloadData.nip || usulan.nip || '').trim(),
       pangkat: (payloadData.pangkat && payloadData.pangkat.trim() !== '' && payloadData.pangkat !== '-' && payloadData.pangkat !== 'null') ? payloadData.pangkat.trim() : (usulan.pangkat || 'Tanpa Golongan'),
       golongan: (payloadData.golongan && payloadData.golongan.trim() !== '' && payloadData.golongan !== '-' && payloadData.golongan !== 'null') ? payloadData.golongan.trim() : (usulan.golongan || 'Tanpa Golongan'),
       jabatan: String(payloadData.jabatan || usulan.form_data?.jabatan || '').trim(),
       unit_es_ii: String(payloadData.unit_es_ii || usulan.unit || '').trim(),
+      layanan: 'Kontrak Tendik',
+      sub_menu: 'Sasaran Kinerja Pegawai',
 
       // Atasan Langsung
       nama_lengkap_atasan_langsung: String(payloadData.nama_lengkap_atasan_langsung || usulan.atasan_nama || '').trim(),
@@ -8785,39 +8776,60 @@ const methods = {
         if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi.' };
         const shortId = uuidv4();
         const remoteSession = { id: shortId, data: { nip: decoded.nip, nama_lengkap: decoded.nama, nama: decoded.nama, role: 'admin' } };
-        const response = await fetch(gasUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            method: 'convertDocxToPdf',
-            params: [shortId, renderedBuffer.toString('base64'), `SKP_${dataCtx.nama_lengkap}_${thnPenilaian}.docx`],
-            remoteSession
-          })
-        });
-        const gasResult = await response.json();
-        if (!gasResult.success) return gasResult;
+        const ctrl = new AbortController();
+        const timeoutId = setTimeout(() => ctrl.abort(), 25000);
+        try {
+          const response = await fetch(gasUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              method: 'convertDocxToPdf',
+              params: [shortId, renderedBuffer.toString('base64'), `SKP_${dataCtx.nama_lengkap}_${thnPenilaian}.docx`],
+              remoteSession
+            }),
+            signal: ctrl.signal
+          });
+          clearTimeout(timeoutId);
+          const gasResult = await response.json();
+          if (!gasResult.success) return gasResult;
 
-        await db.from('usulan_kontrak').update({
-          skp_dibuat: true,
-          skp_data: payloadData,
-          skp_file_url: gasResult.pdfUrl
-        }).eq('id', usulanId);
+          await db.from('usulan_kontrak').update({
+            skp_dibuat: true,
+            skp_data: payloadData,
+            skp_file_url: gasResult.pdfUrl
+          }).eq('id', usulanId);
 
-        return { success: true, outputType: 'pdf', pdfUrl: gasResult.pdfUrl, fileName: gasResult.fileName };
+          return { success: true, outputType: 'pdf', pdfUrl: gasResult.pdfUrl, fileName: gasResult.fileName };
+        } catch (pdfErr) {
+          clearTimeout(timeoutId);
+          console.warn('[generateSkpTendik] convertDocxToPdf timeout/error:', pdfErr.message);
+        }
       }
 
-      // Output Word (.docx)
+      // Output Word (.docx) & simpan ke Supabase Storage
       const base64Out = renderedBuffer.toString('base64');
+      const fileNameSafe = `SKP_${String(dataCtx.nama_lengkap || 'Tendik').replace(/[^a-zA-Z0-9_-]/g, '_')}_${thnPenilaian}.docx`;
+      let docUrl = '';
+      try {
+        const docDataUrl = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${base64Out}`;
+        docUrl = await uploadLampiran(docDataUrl, fileNameSafe, 'skp-tendik');
+      } catch (upErr) {
+        console.warn('[generateSkpTendik] uploadLampiran skp warning:', upErr.message);
+      }
+
       await db.from('usulan_kontrak').update({
         skp_dibuat: true,
-        skp_data: payloadData
+        skp_data: payloadData,
+        skp_file_url: docUrl || null
       }).eq('id', usulanId);
 
       return {
         success: true,
         outputType: 'docx',
         base64: base64Out,
-        fileName: `SKP_${dataCtx.nama_lengkap}_${thnPenilaian}.docx`,
+        fileUrl: docUrl,
+        viewUrl: docUrl,
+        fileName: fileNameSafe,
         mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         message: 'Dokumen Sasaran Kinerja Pegawai (Word) berhasil digenerate.'
       };
@@ -8833,39 +8845,57 @@ const methods = {
       data: { nip: decoded.nip || '', nama_lengkap: decoded.nama || '', nama: decoded.nama || '', role: 'admin' }
     };
 
+    const ctrl = new AbortController();
+    const timeoutId = setTimeout(() => ctrl.abort(), 25000);
+
     try {
       const response = await fetch(gasUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           method: 'generateKontrakFromUsulan',
-          params: [shortId, tmplRow.file_id, dataCtx],
+          params: [shortId, tmplRow.file_id, Object.assign({}, dataCtx, {
+            tahun: String(thnPenilaian),
+            nip: dataCtx.nip,
+            nama: dataCtx.nama_lengkap,
+            namaPegawai: dataCtx.nama_lengkap,
+            nipPegawai: dataCtx.nip,
+            fileName: `SKP_${String(dataCtx.nama_lengkap).replace(/[^a-zA-Z0-9_-]/g, '_')}_${thnPenilaian}`
+          })],
           remoteSession
-        })
+        }),
+        signal: ctrl.signal
       });
+      clearTimeout(timeoutId);
       const gasResult = await response.json();
       if (!gasResult.success) return gasResult;
 
       const resViewUrl = gasResult.viewUrl || gasResult.docViewUrl || (gasResult.docFileId ? `https://docs.google.com/document/d/${gasResult.docFileId}/edit` : '');
       const resPdfUrl = gasResult.pdfViewUrl || gasResult.pdfDownloadUrl || (gasResult.pdfFileId ? `https://drive.google.com/file/d/${gasResult.pdfFileId}/view` : '');
+      const finalUrl = resViewUrl || resPdfUrl;
 
-      await db.from('usulan_kontrak').update({
-        skp_dibuat: true,
-        skp_data: payloadData,
-        skp_file_url: resViewUrl || resPdfUrl
-      }).eq('id', usulanId);
+      if (!isPreview) {
+        await db.from('usulan_kontrak').update({
+          skp_dibuat: true,
+          skp_data: payloadData,
+          skp_file_url: finalUrl
+        }).eq('id', usulanId);
+      }
 
       return Object.assign({
         success: true,
         fileId: gasResult.fileId || gasResult.docFileId || '',
         viewUrl: resViewUrl,
         pdfUrl: resPdfUrl,
+        fileUrl: finalUrl,
         fileName: `SKP_${dataCtx.nama_lengkap}_${thnPenilaian}`,
-        message: 'Dokumen Sasaran Kinerja Pegawai (Google Docs) berhasil dibuat.',
+        message: isPreview ? 'Pratinjau Sasaran Kinerja Pegawai (Google Docs) berhasil disiapkan.' : 'Dokumen Sasaran Kinerja Pegawai (Google Docs) berhasil dibuat.',
         outputType: gasResult.outputType || 'gdocs'
       }, gasResult);
     } catch (err) {
-      return { success: false, message: 'Gagal generate SKP via Google Docs: ' + err.message };
+      clearTimeout(timeoutId);
+      const msg = err.name === 'AbortError' ? 'Koneksi ke Google Apps Script timeout (25 detik).' : err.message;
+      return { success: false, message: 'Gagal generate SKP via Google Docs: ' + msg };
     }
   },
 
