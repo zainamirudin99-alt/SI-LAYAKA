@@ -10202,6 +10202,7 @@ async function previewKontrakUserSelf(usulanId) {
 
 let activeEvaluasiUsulanId = null;
 let activeEvaluasiDetail = null;
+let lastGeneratedEvaluasiResult = null;
 let evalTkkCanvas = null;
 let evalTkkCtx = null;
 let evalTkkIsDrawing = false;
@@ -10291,6 +10292,8 @@ function renderKontrakAtasanReviewList(daftar) {
 
 async function openModalEvaluasiTkk(usulanId) {
   activeEvaluasiUsulanId = usulanId;
+  lastGeneratedEvaluasiResult = null;
+  window.lastGeneratedEvaluasiResult = null;
   const modal = document.getElementById('modalEvaluasiTkk');
   const infoEl = document.getElementById('evalTkkPegawaiInfo');
   const nomorSuratEl = document.getElementById('evalTkk_nomorSurat');
@@ -10311,6 +10314,22 @@ async function openModalEvaluasiTkk(usulanId) {
     activeEvaluasiDetail = res.data || res.usulan;
     const u = res.data || res.usulan;
     const at = res.atasan_info || res.atasan || {};
+
+    const existingDocUrl = u.evaluasi_doc_url || u.evaluasi_data?.evaluasi_doc_url || u.doc_evaluasi_url || '';
+    if (existingDocUrl) {
+      lastGeneratedEvaluasiResult = {
+        success: true,
+        viewUrl: existingDocUrl,
+        docUrl: existingDocUrl,
+        pdfUrl: (existingDocUrl.includes('/file/d/') || existingDocUrl.endsWith('.pdf')) ? existingDocUrl : '',
+        gdocsUrl: existingDocUrl.includes('docs.google.com') ? existingDocUrl : '',
+        fileName: 'Formulir_Evaluasi_' + (u.nama || 'Pegawai').replace(/[^a-zA-Z0-9]/g, '_') + '.docx',
+        totalSkor: u.evaluasi_data?.total_skor || u.evaluasi_skor,
+        rekomendasi: u.evaluasi_data?.rekomendasi || u.evaluasi_rekomendasi
+      };
+      window.lastGeneratedEvaluasiResult = lastGeneratedEvaluasiResult;
+      activeEvaluasiDetail.lastGeneratedEvaluasiResult = lastGeneratedEvaluasiResult;
+    }
 
     if (tahunEl) {
       tahunEl.value = u.evaluasi_data?.tahun_evaluasi || u.tahun || u.tahun_kontrak || u.form_data?.tahun || new Date().getFullYear();
@@ -10509,15 +10528,21 @@ async function generateEvaluasiDanLanjutKeSkp() {
   try {
     const payload = collectEvaluasiTkkPayload();
     const res = await rpc('simpanDanGenerateEvaluasiTkk', [SESSION.token, activeEvaluasiUsulanId, payload, false, false]);
-    if (btn) setBtnLoading(btn, false, '⚡ Generate Form Evaluasi & Lanjut ke SKP &rarr;');
+    if (btn) setBtnLoading(btn, false, 'Generate Form Evaluasi & Lanjut ke SKP &rarr;');
     if (res && res.success) {
+      lastGeneratedEvaluasiResult = res;
+      window.lastGeneratedEvaluasiResult = res;
+      if (activeEvaluasiDetail) {
+        activeEvaluasiDetail.evaluasi_doc_url = res.docUrl || res.viewUrl || activeEvaluasiDetail.evaluasi_doc_url;
+        activeEvaluasiDetail.lastGeneratedEvaluasiResult = res;
+      }
       showToast('success', 'Formulir evaluasi kinerja berhasil disimpan. Lanjut mengisi Sasaran Kinerja Pegawai (SKP).');
       switchEvalModalStep(2);
     } else {
       showToast('error', res?.message || 'Gagal menyimpan evaluasi.');
     }
   } catch (err) {
-    if (btn) setBtnLoading(btn, false, '⚡ Generate Form Evaluasi & Lanjut ke SKP &rarr;');
+    if (btn) setBtnLoading(btn, false, 'Generate Form Evaluasi & Lanjut ke SKP &rarr;');
     showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
   }
 }
@@ -10834,19 +10859,19 @@ function openEvaluasiResultModal(res, isPreview = false, isValidatedToAdmin = fa
   modalOverlay.style.zIndex = '9999';
 
   if (isValidatedToAdmin) {
-    modalTitle.textContent = '🎉 Usulan Berhasil Divalidasi & Terkirim ke Admin!';
+    modalTitle.textContent = 'Usulan Berhasil Divalidasi & Terkirim ke Admin';
   } else if (isPreview) {
     modalTitle.textContent = previewType === 'skp'
-      ? '👁️ Pratinjau Formulir Sasaran Kinerja Pegawai (SKP)'
-      : '👁️ Pratinjau Formulir Evaluasi Kinerja Tenaga Kependidikan';
+      ? 'Pratinjau Formulir Sasaran Kinerja Pegawai (SKP)'
+      : 'Pratinjau Formulir Evaluasi Kinerja Tenaga Kependidikan';
   } else {
     modalTitle.textContent = previewType === 'skp'
-      ? '🎉 Dokumen SKP Berhasil Dibuat'
-      : '🎉 Formulir Berhasil Disimpan';
+      ? 'Dokumen Sasaran Kinerja Pegawai (SKP)'
+      : 'Dokumen Formulir Evaluasi Kinerja';
   }
 
   const gdocsUrl = res.gdocsUrl || (res.viewUrl && res.viewUrl.includes('docs.google.com') ? res.viewUrl : '');
-  const pdfUrl = res.pdfUrl || (res.viewUrl && res.viewUrl.includes('/file/d/') ? res.viewUrl : '');
+  const pdfUrl = res.pdfUrl || (res.viewUrl && (res.viewUrl.includes('/file/d/') || res.viewUrl.endsWith('.pdf')) ? res.viewUrl : (res.docUrl && (res.docUrl.includes('/file/d/') || res.docUrl.endsWith('.pdf')) ? res.docUrl : ''));
   const isGdocs = Boolean(gdocsUrl);
   const fileName = res.fileName || (previewType === 'skp' ? 'SKP_Tendik.docx' : 'Formulir_Evaluasi.docx');
 
@@ -10854,21 +10879,21 @@ function openEvaluasiResultModal(res, isPreview = false, isValidatedToAdmin = fa
   if (pdfUrl) {
     buttonsHtml += `
       <a href="${pdfUrl}" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none; padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(37,99,235,0.25);">
-        📄 Buka / Unduh Dokumen PDF ↗
+        Buka / Unduh Dokumen PDF &nearr;
       </a>
     `;
   }
   if (res.base64) {
     buttonsHtml += `
       <button type="button" class="btn btn-primary" style="padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" onclick="downloadBase64File_('${res.base64}', '${escHtml(fileName)}')">
-        📥 Unduh Dokumen Word (.docx)
+        Unduh Dokumen Word (.docx)
       </button>
     `;
   }
   if (isGdocs) {
     buttonsHtml += `
       <a href="${gdocsUrl}" target="_blank" rel="noopener" class="btn btn-secondary" style="text-decoration:none; padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; background:#2563eb; color:#fff; border-color:#2563eb;">
-        📄 Buka Google Docs ↗
+        Buka Google Docs &nearr;
       </a>
     `;
   }
@@ -10878,7 +10903,7 @@ function openEvaluasiResultModal(res, isPreview = false, isValidatedToAdmin = fa
     const skpUrl = res.skpRes.viewUrl || res.skpRes.pdfUrl;
     buttonsHtml += `
       <a href="${skpUrl}" target="_blank" rel="noopener" class="btn btn-secondary" style="text-decoration:none; padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; background:#059669; color:#fff; border-color:#059669;">
-        📊 Buka Dokumen SKP (GDocs) ↗
+        Buka Dokumen SKP (GDocs) &nearr;
       </a>
     `;
   }
@@ -10888,13 +10913,13 @@ function openEvaluasiResultModal(res, isPreview = false, isValidatedToAdmin = fa
     if (previewType === 'evaluasi') {
       buttonsHtml += `
         <button type="button" class="btn btn-primary" onclick="submitFromPreviewEvaluasi()" style="background:#2563eb; border-color:#2563eb; padding:10px 22px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 14px rgba(37,99,235,0.3);">
-          ⚡ Lanjut ke Form Sasaran Kinerja Pegawai (SKP) &rarr;
+          Lanjut ke Form Sasaran Kinerja Pegawai (SKP) &rarr;
         </button>
       `;
     } else {
       buttonsHtml += `
         <button type="button" class="btn btn-primary" onclick="submitFromPreviewSkp()" style="background:#059669; border-color:#059669; padding:10px 22px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 14px rgba(5,150,105,0.3);">
-          ✅ Simpan &amp; Kirim Usulan ke Admin Kepegawaian
+          Simpan &amp; Kirim Usulan ke Admin Kepegawaian
         </button>
       `;
     }
@@ -10906,14 +10931,20 @@ function openEvaluasiResultModal(res, isPreview = false, isValidatedToAdmin = fa
     ? 'Keputusan evaluasi kinerja &amp; dokumen SKP telah berhasil dibuat dan diteruskan ke Admin Kepegawaian.'
     : (isPreview 
         ? 'Pratinjau dokumen di bawah ini. Anda dapat mengunduhnya atau langsung menekan tombol aksi untuk melanjutkan proses.' 
-        : (previewType === 'skp' ? 'Dokumen Sasaran Kinerja Pegawai (SKP) berhasil dibuat dan tersimpan.' : 'Dokumen evaluasi kinerja telah berhasil dibuat dan disimpan.'));
+        : (previewType === 'skp' ? 'Dokumen Sasaran Kinerja Pegawai (SKP) berhasil dibuat dan tersimpan.' : 'Dokumen formulir evaluasi kinerja telah berhasil dibuat dan disimpan.'));
+
+  const statusBadgeColor = isValidatedToAdmin ? '#16a34a' : '#2563eb';
+  const statusBadgeBg = isValidatedToAdmin ? '#dcfce7' : '#dbeafe';
+  const statusIcon = isValidatedToAdmin ? '&#10003;' : (isPreview ? '&#9776;' : '&#10003;');
 
   modalBody.innerHTML = `
     <div style="padding:20px 24px;">
       <div style="text-align:center; margin-bottom:18px;">
-        <div style="font-size:36px; margin-bottom:8px;">${isValidatedToAdmin ? '🚀' : (isPreview ? '📄' : '🎉')}</div>
+        <div style="width:46px; height:46px; margin:0 auto 10px auto; border-radius:50%; background:${statusBadgeBg}; color:${statusBadgeColor}; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:700;">
+          ${statusIcon}
+        </div>
         <h3 style="margin:0 0 6px 0; color:var(--text, #0f172a); font-size:17px; font-weight:700;">
-          ${isValidatedToAdmin ? 'Usulan Berhasil Divalidasi &amp; Terkirim' : (isPreview ? (previewType === 'skp' ? 'Pratinjau Dokumen SKP' : 'Pratinjau Formulir Evaluasi') : (previewType === 'skp' ? 'Dokumen SKP Siap Digunakan' : 'Formulir Siap Digunakan'))}
+          ${isValidatedToAdmin ? 'Usulan Berhasil Divalidasi &amp; Terkirim' : (isPreview ? (previewType === 'skp' ? 'Pratinjau Dokumen SKP' : 'Pratinjau Formulir Evaluasi') : (previewType === 'skp' ? 'Dokumen SKP Siap Digunakan' : 'Dokumen Formulir Evaluasi Kinerja'))}
         </h3>
         <p style="margin:0; color:var(--text-muted, #64748b); font-size:13px;">
           ${descText}
@@ -10937,9 +10968,31 @@ function openEvaluasiResultModal(res, isPreview = false, isValidatedToAdmin = fa
         <div style="margin-top:14px; border:1px solid var(--border, #cbd5e1); border-radius:8px; overflow:hidden; height:480px; background:#fff;">
           <iframe src="${iframeSrc}" style="width:100%; height:100%; border:none;" title="Preview Dokumen"></iframe>
         </div>
-      ` : ''}
+      ` : (res.base64 ? `
+        <div id="evalDocxPreviewWrap" style="margin-top:14px; border:1px solid var(--border, #cbd5e1); border-radius:8px; overflow:auto; height:480px; background:#f8fafc; padding:16px;"></div>
+      ` : '')}
     </div>
   `;
+
+  if (!iframeSrc && res.base64 && typeof docx !== 'undefined') {
+    const wrap = document.getElementById('evalDocxPreviewWrap');
+    if (wrap) {
+      try {
+        const byteCharacters = atob(res.base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+        docx.renderAsync(blob, wrap).catch(e => {
+          wrap.innerHTML = '<div style="padding:16px; color:#64748b; text-align:center;">Pratinjau dokumen docx tidak dapat ditampilkan langsung di browser. Silakan unduh dokumen melalui tombol di atas.</div>';
+        });
+      } catch (err) {
+        wrap.innerHTML = '<div style="padding:16px; color:#64748b; text-align:center;">Pratinjau dokumen docx tidak dapat ditampilkan langsung di browser. Silakan unduh dokumen melalui tombol di atas.</div>';
+      }
+    }
+  }
 
   modalOverlay.style.display = 'flex';
 }
@@ -10958,6 +11011,26 @@ function submitFromPreviewSkp() {
 
 async function previewDocxEvaluasiTkk() {
   if (!activeEvaluasiUsulanId) return;
+
+  // Jika formulir evaluasi sudah digenerate (dari Langkah 1 atau data tersimpan sebelumnya), langsung buka dokumen tanpa generate ulang
+  const cached = lastGeneratedEvaluasiResult || 
+    window.lastGeneratedEvaluasiResult || 
+    activeEvaluasiDetail?.lastGeneratedEvaluasiResult || 
+    (activeEvaluasiDetail?.evaluasi_doc_url ? {
+      success: true,
+      viewUrl: activeEvaluasiDetail.evaluasi_doc_url,
+      docUrl: activeEvaluasiDetail.evaluasi_doc_url,
+      pdfUrl: (activeEvaluasiDetail.evaluasi_doc_url.includes('/file/d/') || activeEvaluasiDetail.evaluasi_doc_url.endsWith('.pdf')) ? activeEvaluasiDetail.evaluasi_doc_url : '',
+      gdocsUrl: activeEvaluasiDetail.evaluasi_doc_url.includes('docs.google.com') ? activeEvaluasiDetail.evaluasi_doc_url : '',
+      fileName: 'Formulir_Evaluasi_' + (activeEvaluasiDetail?.nama || 'Pegawai').replace(/[^a-zA-Z0-9]/g, '_') + '.docx',
+      totalSkor: activeEvaluasiDetail?.evaluasi_data?.total_skor || activeEvaluasiDetail?.evaluasi_skor,
+      rekomendasi: activeEvaluasiDetail?.evaluasi_data?.rekomendasi || activeEvaluasiDetail?.evaluasi_rekomendasi
+    } : null);
+
+  if (cached && (cached.viewUrl || cached.docUrl || cached.base64)) {
+    openEvaluasiResultModal(cached, false, false, 'evaluasi');
+    return;
+  }
 
   try {
     const payload = collectEvaluasiTkkPayload();
