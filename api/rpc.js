@@ -8116,6 +8116,9 @@ const methods = {
     let usedCustomTemplate = false;
     let gdocsViewUrl = '';
     let evalDocUrl = usulan.evaluasi_doc_url || '';
+    let docB64 = '';
+    let pdfUrl = '';
+    const fileNameSafe = `Formulir_Evaluasi_TKK_${String(usulan.nama).replace(/[^a-zA-Z0-9_-]/g, '_')}_${usulan.nip}.docx`;
 
     // Hanya generate dokumen evaluasi jika belum pernah ada atau jika mode pratinjau (preview)
     if (!evalDocUrl || isPreviewOnly) {
@@ -8191,8 +8194,7 @@ const methods = {
       }
 
       // Upload dokumen hasil evaluasi ke Supabase Storage
-      const fileNameSafe = `Formulir_Evaluasi_TKK_${String(usulan.nama).replace(/[^a-zA-Z0-9_-]/g, '_')}_${usulan.nip}.docx`;
-      const docB64 = renderedBuffer ? renderedBuffer.toString('base64') : '';
+      docB64 = renderedBuffer ? renderedBuffer.toString('base64') : '';
       const docDataUrl = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${docB64}`;
       try {
         if (docB64) {
