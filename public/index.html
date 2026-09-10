@@ -2941,10 +2941,10 @@
                     <div class="stack-field grid-full" id="kontrakUser_atasanAutoNotice" style="display:none; background:var(--surface-alt, #f8fafc); border:1.5px solid #cbd5e1; border-radius:10px; padding:16px; margin-top:8px; margin-bottom:8px;">
                       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                         <label style="font-weight:700; color:var(--text, #1e293b); font-size:13.5px; display:flex; align-items:center; gap:6px; margin:0;">
-                          <span>&#128084; Atasan Langsung (Penilai Evaluasi Kinerja)</span>
+                          <span>Atasan Langsung (Penilai Evaluasi Kinerja)</span>
                         </label>
                         <span style="font-size:11.5px; background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; border-radius:6px; padding:3px 8px; font-weight:600; display:flex; align-items:center; gap:4px;">
-                          &#128274; Otomatis Sistem (Terkunci)
+                          Otomatis Sistem (Terkunci)
                         </span>
                       </div>
 
@@ -2967,7 +2967,7 @@
                       <!-- Error / Not Found State -->
                       <div id="kontrakUser_atasanErrorCard" style="display:none; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:12px 14px; color:#991b1b; font-size:13px; line-height:1.5;">
                         <div style="font-weight:700; margin-bottom:2px; display:flex; align-items:center; gap:6px;">
-                          <span>&#9888;&#65039;</span> Atasan Langsung Belum Terdaftar
+                          <span>Atasan Langsung Belum Terdaftar</span>
                         </div>
                         <div id="kontrakUser_atasanErrorMsg">Atasan Langsung untuk Unit Kerja / Prodi Anda belum terdaftar di sistem. Silakan hubungi Administrator Kepegawaian untuk mendaftarkan Atasan Langsung Anda.</div>
                       </div>
@@ -3692,9 +3692,9 @@
     <div class="modal-box" style="max-width:980px; width:95%; max-height:92vh; overflow-y:auto;">
       <div class="modal-header" style="position:sticky; top:0; background:var(--surface); z-index:10; border-bottom:1px solid var(--border); padding:14px 20px;">
         <strong style="font-size:16px; color:var(--text); display:flex; align-items:center; gap:8px;">
-          <span>&#128221; Formulir Evaluasi Kinerja &amp; Sasaran Kinerja Pegawai (SKP)</span>
+          <span>Formulir Evaluasi Kinerja &amp; Sasaran Kinerja Pegawai (SKP)</span>
         </strong>
-        <button type="button" class="btn btn-secondary" onclick="tutupModalEvaluasiTkk()" style="padding:4px 10px; font-size:13px;">&#10005; Tutup</button>
+        <button type="button" class="btn btn-secondary" onclick="tutupModalEvaluasiTkk()" style="padding:4px 10px; font-size:13px;">&times; Tutup</button>
       </div>
 
       <!-- STEPPER WIZARD INDICATOR -->
@@ -3854,11 +3854,11 @@
               </div>
               <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; flex-wrap:wrap; gap:10px;">
                 <button type="button" class="btn btn-secondary" onclick="clearEvalTkkSignature()" style="padding:6px 14px; font-size:12px; display:inline-flex; align-items:center; gap:6px; border-radius:6px;">
-                  <span>&#128465;&#65039;</span> Hapus / Ulangi Tanda Tangan
+                  Hapus / Ulangi Tanda Tangan
                 </button>
                 <div style="display:inline-flex; align-items:center; gap:8px; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:4px 10px;">
                   <label for="evalTkk_lineWidthSelect" style="font-size:12px; font-weight:600; color:#334155; margin:0; white-space:nowrap;">
-                    &#9999;&#65039; Ketebalan Goresan:
+                    Ketebalan Goresan:
                   </label>
                   <select id="evalTkk_lineWidthSelect" onchange="changeEvalTkkLineWidth(this.value)" style="padding:3px 8px; font-size:12px; font-weight:600; border:1px solid #94a3b8; border-radius:4px; background:#ffffff; color:#0f172a; cursor:pointer; height:28px;">
                     <option value="0.5">0.5 (Sangat Tipis)</option>
@@ -3875,7 +3875,7 @@
                 </div>
               </div>
               <div style="font-size:11.5px; color:#64748b; margin-top:5px;">
-                &#8505;&#65039; Tanda tangan diposisikan rapi satu garis lurus di atas teks nama penandatangan dengan ketebalan proporsional.
+                Tanda tangan diposisikan rapi satu garis lurus di atas teks nama penandatangan dengan ketebalan proporsional.
               </div>
             </div>
           </div> <!-- End evalTkk_signatureSection -->
@@ -3885,18 +3885,18 @@
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
               <button type="button" class="btn btn-secondary" onclick="tutupModalEvaluasiTkk()">Batal</button>
               <button type="button" class="btn btn-outline" id="btnHapusUsulanBawahan" onclick="hapusUsulanBawahanTkk()" style="border-color:#ef4444; color:#dc2626; background:#fff5f5; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
-                <span>&#128465;&#65039;</span> Hapus Usulan
+                Hapus Usulan
               </button>
             </div>
             <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
               <button type="button" class="btn btn-outline" onclick="previewDocxEvaluasiTkk()" style="font-weight:600; display:inline-flex; align-items:center; gap:6px;">
-                <span>&#128065;&#65039;</span> Preview Evaluasi
+                Preview Evaluasi
               </button>
               <button type="button" class="btn btn-outline" onclick="bukaModalPerbaikanBerkasTkk()" style="border-color:#f59e0b; color:#b45309; background:#fffbeb; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
-                <span>&#9888;&#65039;</span> Perbaikan
+                Perbaikan
               </button>
               <button type="button" id="btnGenerateLanjutSkp" class="btn btn-primary" onclick="generateEvaluasiDanLanjutKeSkp()" style="font-weight:700; background:#2563eb; border-color:#2563eb; box-shadow:0 4px 14px rgba(37,99,235,0.25); display:inline-flex; align-items:center; gap:8px; padding:10px 18px;">
-                <span>&#9889;</span> Generate Form Evaluasi &amp; Lanjut ke SKP &rarr;
+                Generate Form Evaluasi &amp; Lanjut ke SKP &rarr;
               </button>
             </div>
           </div>
@@ -3907,7 +3907,6 @@
           <!-- BANNER HASIL EVALUASI LANGKAH 1 -->
           <div style="background:#ecfdf5; border:1px solid #6ee7b7; border-radius:10px; padding:14px 18px; margin-bottom:18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
             <div style="display:flex; align-items:center; gap:10px;">
-              <span style="font-size:24px;">&#9989;</span>
               <div>
                 <div style="font-weight:800; color:#065f46; font-size:14px;">Formulir Evaluasi Kinerja Siap!</div>
                 <div style="font-size:12.5px; color:#047857; margin-top:2px;">
@@ -3916,7 +3915,7 @@
               </div>
             </div>
             <button type="button" class="btn btn-outline" onclick="previewDocxEvaluasiTkk()" style="font-size:12px; padding:4px 10px; background:#fff; font-weight:600;">
-              &#128065;&#65039; Lihat Dokumen Evaluasi
+              Lihat Dokumen Evaluasi
             </button>
           </div>
 
@@ -3932,13 +3931,13 @@
             </div>
             <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
               <button type="button" class="btn btn-outline" onclick="previewSkpTendikModal()" style="font-weight:600; display:inline-flex; align-items:center; gap:6px;">
-                <span>&#128065;&#65039;</span> Preview Dokumen SKP
+                Preview Dokumen SKP
               </button>
               <button type="button" id="btnBuatDokumenSkpModal" class="btn btn-primary" onclick="buatDokumenSkpModal()" style="font-weight:700; background:#2563eb; border-color:#2563eb; box-shadow:0 4px 14px rgba(37,99,235,0.25); display:inline-flex; align-items:center; gap:6px;">
-                <span>&#9889;</span> Buat Dokumen SKP
+                Buat Dokumen SKP
               </button>
               <button type="button" id="btnValidasiEvaluasiTkk" class="btn btn-primary" onclick="validasiDanKirimEvaluasiTkk()" style="font-weight:700; background:#059669; border-color:#059669; box-shadow:0 4px 14px rgba(5,150,105,0.25); padding:10px 22px; font-size:14px; display:inline-flex; align-items:center; gap:8px;">
-                <span>&#9989;</span> Simpan &amp; Kirim Usulan ke Admin Kepegawaian
+                Simpan &amp; Kirim Usulan ke Admin Kepegawaian
               </button>
             </div>
           </div>
@@ -3952,7 +3951,6 @@
   <div class="modal-overlay" id="modalCatatanPerbaikanTkk" style="display:none; z-index:9995;">
     <div class="modal-box" style="max-width:560px; width:92%; padding:24px; border-radius:12px;">
       <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:12px;">
-        <span style="font-size:24px;">&#9888;&#65039;</span>
         <div>
           <h3 style="margin:0; font-size:16px; font-weight:800; color:var(--text);">Kembalikan untuk Perbaikan Berkas</h3>
           <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Usulan akan dikembalikan ke pengusul untuk memperbaiki berkas lampiran yang tidak sesuai.</div>
@@ -3970,7 +3968,7 @@
       <div style="display:flex; justify-content:flex-end; gap:10px;">
         <button type="button" class="btn btn-secondary" onclick="tutupModalPerbaikanBerkasTkk()">Batal</button>
         <button type="button" id="btnKirimPerbaikanModal" class="btn btn-primary" onclick="kirimPerbaikanBerkasTkk()" style="background:#d97706; border-color:#d97706; font-weight:700;">
-          &#11013;&#65039; Kembalikan ke Pengusul
+          Kembalikan ke Pengusul
         </button>
       </div>
     </div>
@@ -14331,31 +14329,31 @@ function renderKontrakAtasanReviewList(daftar) {
   }
 
   el.innerHTML = daftar.map(u => {
-    let badgeHtml = `<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">⏳ Belum Dinilai</span>`;
-    let actionBtnText = '✍️ Lakukan Penilaian Kinerja';
+    let badgeHtml = `<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">Belum Dinilai</span>`;
+    let actionBtnText = 'Lakukan Penilaian Kinerja';
     let actionBtnClass = 'btn btn-primary';
 
     if (u.status === 'under_atasan_review') {
-      badgeHtml = `<span class="badge" style="background:#3b82f6; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">🔍 Sedang Ditinjau</span>`;
+      badgeHtml = `<span class="badge" style="background:#3b82f6; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">Sedang Ditinjau</span>`;
     } else if (u.status === 'perlu_perbaikan' || u.status === 'koreksi_atasan') {
-      badgeHtml = `<span class="badge" style="background:#d97706; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:700;">⚠️ Dikembalikan untuk Koreksi</span>`;
-      actionBtnText = '✏️ Lihat / Ubah Penilaian';
+      badgeHtml = `<span class="badge" style="background:#d97706; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:700;">Dikembalikan untuk Koreksi</span>`;
+      actionBtnText = 'Lihat / Ubah Penilaian';
       actionBtnClass = 'btn btn-outline';
     } else if (u.status === 'validated_by_atasan') {
-      badgeHtml = `<span class="badge" style="background:#059669; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:700;">✅ Sudah Divalidasi &amp; Terkirim ke Admin</span>`;
-      actionBtnText = '👁️ Buka / Ubah Penilaian';
+      badgeHtml = `<span class="badge" style="background:#059669; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:700;">Sudah Divalidasi &amp; Terkirim ke Admin</span>`;
+      actionBtnText = 'Buka / Ubah Penilaian';
       actionBtnClass = 'btn btn-outline';
     } else if (u.status === 'evaluated_extend') {
-      badgeHtml = `<span class="badge" style="background:#8b5cf6; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">✅ Selesai Dinilai (Diperpanjang)</span>`;
-      actionBtnText = '🔄 Ubah / Buka Penilaian';
+      badgeHtml = `<span class="badge" style="background:#8b5cf6; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">Selesai Dinilai (Diperbarui)</span>`;
+      actionBtnText = 'Ubah / Buka Penilaian';
       actionBtnClass = 'btn btn-outline';
     } else if (u.status === 'evaluated_not_extend') {
-      badgeHtml = `<span class="badge" style="background:#ef4444; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">❌ Selesai Dinilai (Tidak Diperpanjang)</span>`;
-      actionBtnText = '🔄 Ubah / Buka Penilaian';
+      badgeHtml = `<span class="badge" style="background:#ef4444; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">Selesai Dinilai (Tidak Diperbarui)</span>`;
+      actionBtnText = 'Ubah / Buka Penilaian';
       actionBtnClass = 'btn btn-outline';
     } else if (u.status === 'validated_by_admin' || u.status === 'contract_generated' || u.status === 'Disetujui' || u.status === 'Selesai') {
-      badgeHtml = `<span class="badge" style="background:#10b981; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">🎉 Divalidasi Admin</span>`;
-      actionBtnText = '👁️ Lihat Formulir Evaluasi';
+      badgeHtml = `<span class="badge" style="background:#10b981; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">Divalidasi Admin</span>`;
+      actionBtnText = 'Lihat Formulir Evaluasi';
       actionBtnClass = 'btn btn-secondary';
     }
 
@@ -14403,6 +14401,13 @@ async function openModalEvaluasiTkk(usulanId) {
     const u = res.data || res.usulan;
     const at = res.atasan_info || res.atasan || {};
 
+    if (tahunEl) {
+      tahunEl.value = u.evaluasi_data?.tahun_evaluasi || u.tahun || u.tahun_kontrak || u.form_data?.tahun || new Date().getFullYear();
+    }
+    if (nomorSuratEl) {
+      nomorSuratEl.value = u.evaluasi_data?.nomor_surat || u.nomor_surat || '';
+    }
+
     const LAMP_KEYS = [
       { key: 'surat_lamaran_url', label: 'Surat Lamaran' },
       { key: 'hasil_kerja_url', label: 'Bukti Hasil Kerja (PPT/Dokumentasi)' },
@@ -14418,7 +14423,7 @@ async function openModalEvaluasiTkk(usulanId) {
 
     const filesHtml = LAMP_KEYS.filter(f => u[f.key]).map(f => `
       <a href="${escapeHtml(u[f.key])}" target="_blank" rel="noopener" style="text-decoration:none; display:inline-flex; align-items:center; gap:4px; background:#fff; border:1px solid #cbd5e1; padding:4px 10px; border-radius:6px; font-size:12px; color:#2563eb; font-weight:600;">
-        ðŸ“„ ${escapeHtml(f.label)} â†—
+        ${escapeHtml(f.label)}
       </a>
     `).join('');
 
@@ -15714,12 +15719,12 @@ function renderKontrakReviewDetailContent_(u) {
               <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:var(--surface-alt); border:1px solid var(--border); border-radius:8px; flex-wrap:wrap; gap:12px;">
                 <div style="flex:1; min-width:240px;">
                   <div style="font-weight:700; font-size:13.5px; color:var(--text);">
-                    ðŸ“„ ${escapeHtml(d.label)}
+                    ${escapeHtml(d.label)}
                   </div>
                   ${itemUrl ? `
                     <div style="margin-top:4px;">
                       <a href="${escapeHtml(itemUrl)}" target="_blank" rel="noopener" style="text-decoration:none; color:#2563eb; font-size:12.5px; font-weight:600;">
-                        ðŸ”— Buka File Google Drive â†—
+                        Buka File Google Drive
                       </a>
                     </div>
                   ` : '<div style="font-size:12px; color:#94a3b8; font-style:italic; margin-top:2px;">Pegawai belum mengunggah berkas ini</div>'}
@@ -15733,10 +15738,10 @@ function renderKontrakReviewDetailContent_(u) {
                   ${itemUrl ? `
                     <div style="display:flex; gap:6px;">
                       <button type="button" class="btn btn-primary kp-small-btn" style="background:#10b981; border-color:#10b981; padding:5px 12px; font-size:12px;" onclick="approveBerkasKelengkapanAdmin('${u.id}', '${d.key}', true)">
-                        âœ… Setujui
+                        Setujui
                       </button>
                       <button type="button" class="btn btn-outline kp-small-btn" style="color:#ef4444; border-color:#fca5a5; padding:5px 12px; font-size:12px;" onclick="approveBerkasKelengkapanAdmin('${u.id}', '${d.key}', false)">
-                        âŒ Tolak (Reupload)
+                        Tolak (Reupload)
                       </button>
                     </div>
                   ` : ''}
@@ -15775,16 +15780,15 @@ function renderKontrakReviewDetailContent_(u) {
       ${lampiranList.map(l => {
         const linkHtml = l.url 
           ? `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:#1d4ed8; font-weight:600; font-size:14px; display:inline-flex; align-items:center; gap:6px;" title="Klik untuk membuka berkas Google Drive di tab baru">
-              <span style="font-size:16px;">ðŸ“„</span>
               <span>${escapeHtml(l.label)}</span>
               <span style="font-size:12px; font-weight:700; color:#1d4ed8; background:#eff6ff; border:1px solid #bfdbfe; padding:2px 8px; border-radius:4px; display:inline-flex; align-items:center; gap:3px;">
-                Buka Link Google Drive â†—
+                Buka Link Google Drive
               </span>
             </a>`
-          : `<span style="color:#64748b; font-size:14px; font-weight:500;">ðŸ“„ ${escapeHtml(l.label)}</span>`;
+          : `<span style="color:#64748b; font-size:14px; font-weight:500;">${escapeHtml(l.label)}</span>`;
         
         const previewBtnHtml = l.url
-          ? `<button type="button" class="btn btn-outline" style="padding:3px 10px; font-size:12px;" onclick="openPreviewModal('${escapeHtml(l.url)}')">ðŸ‘ï¸ Preview</button>`
+          ? `<button type="button" class="btn btn-outline" style="padding:3px 10px; font-size:12px;" onclick="openPreviewModal('${escapeHtml(l.url)}')">Preview</button>`
           : `<span style="font-size:12px; color:#94a3b8; font-style:italic;">(Tidak diunggah)</span>`;
 
         return `
@@ -19151,13 +19155,13 @@ function renderSkpFormHtml(u, atasanParam = null) {
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--border); padding-bottom:12px; margin-bottom:18px; flex-wrap:wrap; gap:10px;">
         <div>
           <h3 style="margin:0; color:var(--text); font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
-            <span>📊</span> Formulir Sasaran Kinerja Pegawai (SKP)
+            <span>Formulir Sasaran Kinerja Pegawai (SKP)</span>
           </h3>
           <div style="font-size:12px; color:var(--text-muted); margin-top:3px;">
             Lengkapi data sasaran kinerja pegawai. Data identitas pegawai dan atasan langsung telah terisi otomatis dan terkunci.
           </div>
         </div>
-        ${u.skp_dibuat ? '<span class="badge" style="background:#059669; color:#fff; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700;">✅ SKP Pernah Dibuat</span>' : ''}
+        ${u.skp_dibuat ? '<span class="badge" style="background:#059669; color:#fff; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700;">SKP Pernah Dibuat</span>' : ''}
       </div>
 
       <!-- 1. PERIODE & TANGGAL PENILAIAN -->

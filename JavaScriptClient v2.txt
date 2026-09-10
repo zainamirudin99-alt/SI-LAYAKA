@@ -10240,31 +10240,31 @@ function renderKontrakAtasanReviewList(daftar) {
   }
 
   el.innerHTML = daftar.map(u => {
-    let badgeHtml = `<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">⏳ Belum Dinilai</span>`;
-    let actionBtnText = '✍️ Lakukan Penilaian Kinerja';
+    let badgeHtml = `<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">Belum Dinilai</span>`;
+    let actionBtnText = 'Lakukan Penilaian Kinerja';
     let actionBtnClass = 'btn btn-primary';
 
     if (u.status === 'under_atasan_review') {
-      badgeHtml = `<span class="badge" style="background:#3b82f6; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">🔍 Sedang Ditinjau</span>`;
+      badgeHtml = `<span class="badge" style="background:#3b82f6; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">Sedang Ditinjau</span>`;
     } else if (u.status === 'perlu_perbaikan' || u.status === 'koreksi_atasan') {
-      badgeHtml = `<span class="badge" style="background:#d97706; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:700;">⚠️ Dikembalikan untuk Koreksi</span>`;
-      actionBtnText = '✏️ Lihat / Ubah Penilaian';
+      badgeHtml = `<span class="badge" style="background:#d97706; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:700;">Dikembalikan untuk Koreksi</span>`;
+      actionBtnText = 'Lihat / Ubah Penilaian';
       actionBtnClass = 'btn btn-outline';
     } else if (u.status === 'validated_by_atasan') {
-      badgeHtml = `<span class="badge" style="background:#059669; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:700;">✅ Sudah Divalidasi &amp; Terkirim ke Admin</span>`;
-      actionBtnText = '👁️ Buka / Ubah Penilaian';
+      badgeHtml = `<span class="badge" style="background:#059669; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:700;">Sudah Divalidasi &amp; Terkirim ke Admin</span>`;
+      actionBtnText = 'Buka / Ubah Penilaian';
       actionBtnClass = 'btn btn-outline';
     } else if (u.status === 'evaluated_extend') {
-      badgeHtml = `<span class="badge" style="background:#8b5cf6; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">✅ Selesai Dinilai (Diperpanjang)</span>`;
-      actionBtnText = '🔄 Ubah / Buka Penilaian';
+      badgeHtml = `<span class="badge" style="background:#8b5cf6; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">Selesai Dinilai (Diperbarui)</span>`;
+      actionBtnText = 'Ubah / Buka Penilaian';
       actionBtnClass = 'btn btn-outline';
     } else if (u.status === 'evaluated_not_extend') {
-      badgeHtml = `<span class="badge" style="background:#ef4444; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">❌ Selesai Dinilai (Tidak Diperpanjang)</span>`;
-      actionBtnText = '🔄 Ubah / Buka Penilaian';
+      badgeHtml = `<span class="badge" style="background:#ef4444; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">Selesai Dinilai (Tidak Diperbarui)</span>`;
+      actionBtnText = 'Ubah / Buka Penilaian';
       actionBtnClass = 'btn btn-outline';
     } else if (u.status === 'validated_by_admin' || u.status === 'contract_generated' || u.status === 'Disetujui' || u.status === 'Selesai') {
-      badgeHtml = `<span class="badge" style="background:#10b981; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">🎉 Divalidasi Admin</span>`;
-      actionBtnText = '👁️ Lihat Formulir Evaluasi';
+      badgeHtml = `<span class="badge" style="background:#10b981; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">Divalidasi Admin</span>`;
+      actionBtnText = 'Lihat Formulir Evaluasi';
       actionBtnClass = 'btn btn-secondary';
     }
 
@@ -10312,6 +10312,13 @@ async function openModalEvaluasiTkk(usulanId) {
     const u = res.data || res.usulan;
     const at = res.atasan_info || res.atasan || {};
 
+    if (tahunEl) {
+      tahunEl.value = u.evaluasi_data?.tahun_evaluasi || u.tahun || u.tahun_kontrak || u.form_data?.tahun || new Date().getFullYear();
+    }
+    if (nomorSuratEl) {
+      nomorSuratEl.value = u.evaluasi_data?.nomor_surat || u.nomor_surat || '';
+    }
+
     const LAMP_KEYS = [
       { key: 'surat_lamaran_url', label: 'Surat Lamaran' },
       { key: 'hasil_kerja_url', label: 'Bukti Hasil Kerja (PPT/Dokumentasi)' },
@@ -10327,7 +10334,7 @@ async function openModalEvaluasiTkk(usulanId) {
 
     const filesHtml = LAMP_KEYS.filter(f => u[f.key]).map(f => `
       <a href="${escapeHtml(u[f.key])}" target="_blank" rel="noopener" style="text-decoration:none; display:inline-flex; align-items:center; gap:4px; background:#fff; border:1px solid #cbd5e1; padding:4px 10px; border-radius:6px; font-size:12px; color:#2563eb; font-weight:600;">
-        ðŸ“„ ${escapeHtml(f.label)} â†—
+        ${escapeHtml(f.label)}
       </a>
     `).join('');
 
@@ -11623,12 +11630,12 @@ function renderKontrakReviewDetailContent_(u) {
               <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:var(--surface-alt); border:1px solid var(--border); border-radius:8px; flex-wrap:wrap; gap:12px;">
                 <div style="flex:1; min-width:240px;">
                   <div style="font-weight:700; font-size:13.5px; color:var(--text);">
-                    ðŸ“„ ${escapeHtml(d.label)}
+                    ${escapeHtml(d.label)}
                   </div>
                   ${itemUrl ? `
                     <div style="margin-top:4px;">
                       <a href="${escapeHtml(itemUrl)}" target="_blank" rel="noopener" style="text-decoration:none; color:#2563eb; font-size:12.5px; font-weight:600;">
-                        ðŸ”— Buka File Google Drive â†—
+                        Buka File Google Drive
                       </a>
                     </div>
                   ` : '<div style="font-size:12px; color:#94a3b8; font-style:italic; margin-top:2px;">Pegawai belum mengunggah berkas ini</div>'}
@@ -11642,10 +11649,10 @@ function renderKontrakReviewDetailContent_(u) {
                   ${itemUrl ? `
                     <div style="display:flex; gap:6px;">
                       <button type="button" class="btn btn-primary kp-small-btn" style="background:#10b981; border-color:#10b981; padding:5px 12px; font-size:12px;" onclick="approveBerkasKelengkapanAdmin('${u.id}', '${d.key}', true)">
-                        âœ… Setujui
+                        Setujui
                       </button>
                       <button type="button" class="btn btn-outline kp-small-btn" style="color:#ef4444; border-color:#fca5a5; padding:5px 12px; font-size:12px;" onclick="approveBerkasKelengkapanAdmin('${u.id}', '${d.key}', false)">
-                        âŒ Tolak (Reupload)
+                        Tolak (Reupload)
                       </button>
                     </div>
                   ` : ''}
@@ -11684,16 +11691,15 @@ function renderKontrakReviewDetailContent_(u) {
       ${lampiranList.map(l => {
         const linkHtml = l.url 
           ? `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:#1d4ed8; font-weight:600; font-size:14px; display:inline-flex; align-items:center; gap:6px;" title="Klik untuk membuka berkas Google Drive di tab baru">
-              <span style="font-size:16px;">ðŸ“„</span>
               <span>${escapeHtml(l.label)}</span>
               <span style="font-size:12px; font-weight:700; color:#1d4ed8; background:#eff6ff; border:1px solid #bfdbfe; padding:2px 8px; border-radius:4px; display:inline-flex; align-items:center; gap:3px;">
-                Buka Link Google Drive â†—
+                Buka Link Google Drive
               </span>
             </a>`
-          : `<span style="color:#64748b; font-size:14px; font-weight:500;">ðŸ“„ ${escapeHtml(l.label)}</span>`;
+          : `<span style="color:#64748b; font-size:14px; font-weight:500;">${escapeHtml(l.label)}</span>`;
         
         const previewBtnHtml = l.url
-          ? `<button type="button" class="btn btn-outline" style="padding:3px 10px; font-size:12px;" onclick="openPreviewModal('${escapeHtml(l.url)}')">ðŸ‘ï¸ Preview</button>`
+          ? `<button type="button" class="btn btn-outline" style="padding:3px 10px; font-size:12px;" onclick="openPreviewModal('${escapeHtml(l.url)}')">Preview</button>`
           : `<span style="font-size:12px; color:#94a3b8; font-style:italic;">(Tidak diunggah)</span>`;
 
         return `
@@ -15060,13 +15066,13 @@ function renderSkpFormHtml(u, atasanParam = null) {
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--border); padding-bottom:12px; margin-bottom:18px; flex-wrap:wrap; gap:10px;">
         <div>
           <h3 style="margin:0; color:var(--text); font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
-            <span>📊</span> Formulir Sasaran Kinerja Pegawai (SKP)
+            <span>Formulir Sasaran Kinerja Pegawai (SKP)</span>
           </h3>
           <div style="font-size:12px; color:var(--text-muted); margin-top:3px;">
             Lengkapi data sasaran kinerja pegawai. Data identitas pegawai dan atasan langsung telah terisi otomatis dan terkunci.
           </div>
         </div>
-        ${u.skp_dibuat ? '<span class="badge" style="background:#059669; color:#fff; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700;">✅ SKP Pernah Dibuat</span>' : ''}
+        ${u.skp_dibuat ? '<span class="badge" style="background:#059669; color:#fff; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700;">SKP Pernah Dibuat</span>' : ''}
       </div>
 
       <!-- 1. PERIODE & TANGGAL PENILAIAN -->
