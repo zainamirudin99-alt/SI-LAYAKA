@@ -3979,9 +3979,8 @@
   <!-- MODAL POP-UP INTERAKTIF: NOTIFIKASI KELAYAKAN PEMBARUAN KONTRAK TENDIK -->
   <div class="modal-overlay" id="modalNotifikasiKelayakanTendik" style="display:none; z-index:9999;">
     <div class="modal-box" style="max-width:550px; width:92%; text-align:center; padding:28px 24px; border-radius:14px; box-shadow:0 12px 32px rgba(0,0,0,0.25);">
-      <div style="font-size:48px; margin-bottom:12px;">ðŸŽ‰</div>
       <div class="badge" style="background:#10b981; color:#fff; font-size:13px; padding:6px 14px; border-radius:8px; font-weight:700; display:inline-block; margin-bottom:12px;">
-        âœ… Memenuhi Syarat Pembaruan Kontrak
+        Memenuhi Syarat Pembaruan Kontrak
       </div>
       <h3 style="margin:0 0 10px 0; color:var(--text); font-size:20px; font-weight:800;">
         Selamat! Usulan Pembaruan Kontrak Anda Disetujui
@@ -3992,7 +3991,7 @@
       </p>
       <div style="display:flex; justify-content:center; gap:12px;">
         <button type="button" class="btn btn-primary" onclick="tutupNotifikasiKelayakanDanLengkapi()" style="padding:12px 28px; font-weight:700; font-size:14px; border-radius:8px; box-shadow:0 4px 14px rgba(37,99,235,0.3);">
-          ðŸš€ Lengkapi Berkas Sekarang
+          Lengkapi Berkas Sekarang
         </button>
       </div>
     </div>
@@ -13801,31 +13800,31 @@ function handleUsulanKontrakSayaResult(res) {
     let catatanKoreksiHtml = '';
 
     if (st === 'submitted_to_atasan') {
-      statusBadge = `<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">â³ Menunggu Evaluasi Atasan Langsung</span>`;
+      statusBadge = `<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">Menunggu Evaluasi Atasan Langsung</span>`;
     } else if (st === 'under_atasan_review') {
-      statusBadge = `<span class="badge" style="background:#3b82f6; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">ðŸ” Sedang Ditinjau Atasan Langsung</span>`;
+      statusBadge = `<span class="badge" style="background:#3b82f6; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">Sedang Ditinjau Atasan Langsung</span>`;
     } else if (st === 'perlu_perbaikan' || st === 'koreksi_atasan') {
-      statusBadge = `<span class="badge" style="background:#d97706; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">âš ï¸ Perlu Perbaikan (Koreksi Atasan)</span>`;
+      statusBadge = `<span class="badge" style="background:#d97706; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Perlu Perbaikan (Koreksi Atasan)</span>`;
       const noteText = u.catatan || u.evaluasi_data?.catatan_koreksi || u.evaluasi_rekomendasi || '';
       if (noteText) {
         catatanKoreksiHtml = `
           <div style="margin-top:12px; padding:12px 16px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; color:#92400e; font-size:13px; text-align:left;">
-            <strong>âš ï¸ Catatan Koreksi dari Atasan Langsung:</strong>
+            <strong>Catatan Koreksi dari Atasan Langsung:</strong>
             <div style="margin-top:4px; font-weight:600; white-space:pre-wrap;">${escapeHtml(noteText)}</div>
             <div style="margin-top:8px; font-size:12px; color:#b45309;">Silakan hubungi atasan langsung atau perbaiki berkas usulan Anda sesuai instruksi di atas.</div>
           </div>
         `;
       }
     } else if (st === 'validated_by_atasan' || st === 'evaluated_renewed' || st === 'evaluated_extend') {
-      statusBadge = `<span class="badge" style="background:#059669; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">ðŸ“¨ Sudah Divalidasi Atasan (Rekomendasi Diperbarui) â€” Menunggu Validasi Admin</span>`;
+      statusBadge = `<span class="badge" style="background:#059669; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">Sudah Divalidasi Atasan (Rekomendasi Diperbarui) &mdash; Menunggu Validasi Admin</span>`;
     } else if (st === 'evaluated_not_renewed' || st === 'evaluated_not_extend') {
-      statusBadge = `<span class="badge" style="background:#ef4444; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">âŒ Evaluasi Selesai (Rekomendasi Tidak Diperbarui)</span>`;
+      statusBadge = `<span class="badge" style="background:#ef4444; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">Evaluasi Selesai (Rekomendasi Tidak Diperbarui)</span>`;
     } else if (st === 'validated_by_admin' || st === 'Disetujui') {
-      statusBadge = `<span class="badge" style="background:#10b981; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">âœ… Divalidasi Admin (Memenuhi Syarat Pembaruan)</span>`;
+      statusBadge = `<span class="badge" style="background:#10b981; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">Divalidasi Admin (Memenuhi Syarat Pembaruan)</span>`;
     } else if (st === 'contract_generated' || st === 'Selesai' || !!u.perjanjian_dibuat) {
-      statusBadge = `<span class="badge" style="background:#2563eb; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">ðŸŽ‰ Perjanjian Kerja &amp; SKP Selesai Dibuat</span>`;
+      statusBadge = `<span class="badge" style="background:#2563eb; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">Perjanjian Kerja &amp; SKP Selesai Dibuat</span>`;
     } else if (st === 'closed_not_renewed' || st === 'closed_not_extended' || st === 'Ditolak') {
-      statusBadge = `<span class="badge" style="background:#64748b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">ðŸš« Selesai (Tidak Diperbarui)</span>`;
+      statusBadge = `<span class="badge" style="background:#64748b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">Selesai (Tidak Diperbarui)</span>`;
     }
 
     // Interactive Pop-Up Modal on User Account
@@ -13874,15 +13873,15 @@ function handleUsulanKontrakSayaResult(res) {
           <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--border); padding-bottom:12px; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
             <div>
               <h3 style="margin:0; color:var(--text); font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
-                <span>ðŸ“ Berkas Kelengkapan Persyaratan Final (Tahap Pasca-Approval)</span>
+                <span>Berkas Kelengkapan Persyaratan Final (Tahap Pasca-Approval)</span>
               </h3>
               <div style="font-size:12.5px; color:var(--text-muted); margin-top:3px;">
                 Usulan Anda telah disetujui. Lengkapi berkas persyaratan berikut untuk penerbitan dokumen Perjanjian Kerja dan SKP.
               </div>
             </div>
             ${allKelengkapanApproved 
-              ? '<span class="badge" style="background:#10b981; color:#fff; padding:6px 14px; border-radius:8px; font-weight:700;">âœ… Seluruh Berkas Disetujui</span>' 
-              : '<span class="badge" style="background:#f59e0b; color:#fff; padding:6px 14px; border-radius:8px; font-weight:700;">â³ Menunggu Kelengkapan &amp; Verifikasi</span>'}
+              ? '<span class="badge" style="background:#10b981; color:#fff; padding:6px 14px; border-radius:8px; font-weight:700;">Seluruh Berkas Disetujui</span>' 
+              : '<span class="badge" style="background:#f59e0b; color:#fff; padding:6px 14px; border-radius:8px; font-weight:700;">Menunggu Kelengkapan &amp; Verifikasi</span>'}'
           </div>
 
           <div style="display:flex; flex-direction:column; gap:12px;">
@@ -13894,9 +13893,9 @@ function handleUsulanKontrakSayaResult(res) {
               const isWait = !!curUrl && !isAppr && !isRej;
 
               let itemBadge = '<span class="badge" style="background:#94a3b8; color:#fff; font-size:11.5px; padding:3px 8px; border-radius:6px;">Belum Diunggah</span>';
-              if (isAppr) itemBadge = '<span class="badge" style="background:#10b981; color:#fff; font-size:11.5px; padding:3px 8px; border-radius:6px; font-weight:700;">âœ… Disetujui Admin</span>';
-              else if (isRej) itemBadge = '<span class="badge" style="background:#ef4444; color:#fff; font-size:11.5px; padding:3px 8px; border-radius:6px; font-weight:700;">âŒ Ditolak / Perlu Perbaikan</span>';
-              else if (isWait) itemBadge = '<span class="badge" style="background:#3b82f6; color:#fff; font-size:11.5px; padding:3px 8px; border-radius:6px; font-weight:600;">â³ Menunggu Verifikasi</span>';
+              if (isAppr) itemBadge = '<span class="badge" style="background:#10b981; color:#fff; font-size:11.5px; padding:3px 8px; border-radius:6px; font-weight:700;">Disetujui Admin</span>';
+              else if (isRej) itemBadge = '<span class="badge" style="background:#ef4444; color:#fff; font-size:11.5px; padding:3px 8px; border-radius:6px; font-weight:700;">Ditolak / Perlu Perbaikan</span>';
+              else if (isWait) itemBadge = '<span class="badge" style="background:#3b82f6; color:#fff; font-size:11.5px; padding:3px 8px; border-radius:6px; font-weight:600;">Menunggu Verifikasi</span>';
 
               return `
                 <div style="border:1px solid var(--border); border-radius:8px; padding:14px; background:var(--surface-alt);">
@@ -13910,7 +13909,7 @@ function handleUsulanKontrakSayaResult(res) {
 
                   ${isRej && bItem.rejection_reason ? `
                     <div style="background:#fef2f2; border:1px solid #fca5a5; border-radius:6px; padding:8px 12px; margin-bottom:10px; font-size:12.5px; color:#991b1b;">
-                      <strong>âš ï¸ Catatan Penolakan / Perbaikan:</strong> ${escapeHtml(bItem.rejection_reason)}
+                      <strong>Catatan Penolakan / Perbaikan:</strong> ${escapeHtml(bItem.rejection_reason)}
                       <div style="font-size:11.5px; margin-top:2px; color:#b91c1c;">Silakan unggah ulang link berkas yang jelas/benar pada input di bawah.</div>
                     </div>
                   ` : ''}
@@ -13919,12 +13918,12 @@ function handleUsulanKontrakSayaResult(res) {
                     <input type="url" id="kelengkapan_input_${d.key}" class="field-input" style="flex:1; min-width:240px; font-size:12.5px;" placeholder="Tautan Google Drive (file langsung)..." value="${escapeHtml(curUrl)}" ${isAppr ? 'disabled' : ''} />
                     ${!isAppr ? `
                       <button type="button" class="btn btn-primary kp-small-btn" style="padding:7px 16px; font-weight:600;" onclick="submitSingleBerkasKelengkapan('${u.id}', '${d.key}', 'kelengkapan_input_${d.key}')">
-                        ${isRej ? 'ðŸ”„ Unggah Ulang' : (curUrl ? 'ðŸ’¾ Simpan Perubahan' : 'ðŸ“¤ Unggah Berkas')}
+                        ${isRej ? 'Unggah Ulang' : (curUrl ? 'Simpan Perubahan' : 'Unggah Berkas')}
                       </button>
                     ` : ''}
                     ${curUrl ? `
                       <a href="${escapeHtml(curUrl)}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn" style="padding:7px 12px; font-weight:600; text-decoration:none;">
-                        ðŸ“„ Buka File â†—
+                        Buka File
                       </a>
                     ` : ''}
                   </div>
@@ -13972,7 +13971,7 @@ function handleUsulanKontrakSayaResult(res) {
       }
 
       const pendStr = String(fd.pendidikan || u.pendidikan || '').toUpperCase().replace(/[\s.\-]/g, '');
-      let besaranUpahStr = 'Pendidikan belum dikenali (harus S2/Sp1 atau S3/Sp2) â€” besaran upah tidak bisa dihitung otomatis.';
+      let besaranUpahStr = 'Pendidikan belum dikenali (harus S2/Sp1 atau S3/Sp2) - besaran upah tidak bisa dihitung otomatis.';
       if (pendStr === 'S2' || pendStr === 'SP1') {
         besaranUpahStr = 'Rp 2.903.600,- (dua juta sembilan ratus tiga ribu enam ratus rupiah)';
       } else if (pendStr === 'S3' || pendStr === 'SP2') {
@@ -13987,15 +13986,15 @@ function handleUsulanKontrakSayaResult(res) {
             </div>` : '';
 
       const isAlreadySelesai = (u.status === 'Selesai' || u.status === 'contract_generated' || !!u.perjanjian_dibuat);
-      const genBtnText = isAlreadySelesai ? 'ðŸ”„ Generate Ulang Dokumen Perjanjian Kerja' : 'ðŸš€ Buat Dokumen Perjanjian Kerja Final';
+      const genBtnText = isAlreadySelesai ? 'Generate Ulang Dokumen Perjanjian Kerja' : 'Buat Dokumen Perjanjian Kerja Final';
 
       const lockBannerHtml = (!canGenerateFinal && isTendik) ? `
         <div style="margin-top:20px; padding:16px 20px; background:#fffbeb; border:1px solid #fde68a; border-left:4px solid #f59e0b; border-radius:10px; color:#92400e; font-size:13.5px; line-height:1.6;">
           <strong style="font-size:14px; display:flex; align-items:center; gap:8px;">
-            <span>ðŸ”’</span> Penerbitan Dokumen Perjanjian Kerja &amp; SKP Terkunci
+            Penerbitan Dokumen Perjanjian Kerja &amp; SKP Terkunci
           </strong>
           <div style="margin-top:4px;">
-            Penerbitan dokumen kontrak final hanya dapat diproses setelah <strong>seluruh Berkas Kelengkapan di atas berstatus Disetujui (âœ…)</strong> oleh Admin Kepegawaian. Silakan lengkapi berkas yang belum diunggah atau perbaiki berkas yang ditolak.
+            Penerbitan dokumen kontrak final hanya dapat diproses setelah <strong>seluruh Berkas Kelengkapan di atas berstatus Disetujui</strong> oleh Admin Kepegawaian. Silakan lengkapi berkas yang belum diunggah atau perbaiki berkas yang ditolak.
           </div>
         </div>
       ` : '';
@@ -14003,7 +14002,7 @@ function handleUsulanKontrakSayaResult(res) {
       readOnlyCardHtml = `
         <div class="kontrak-form-wrap" style="margin-top:24px; padding:24px; background:var(--surface); border:1px solid var(--border); border-radius:12px;">
           <h3 style="margin-top:0; margin-bottom:18px; color:var(--text); border-bottom:1px solid var(--border); padding-bottom:10px;">
-            ðŸ“ Formulir Perjanjian Kerja / Kontrak
+            Formulir Perjanjian Kerja / Kontrak
           </h3>
 
           ${lockBannerHtml}
@@ -14124,13 +14123,13 @@ function handleUsulanKontrakSayaResult(res) {
             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--border); padding-bottom:12px; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
               <div>
                 <h3 style="margin:0; color:var(--text); font-size:18px; font-weight:800; display:flex; align-items:center; gap:8px;">
-                  ðŸ“Š Sasaran Kinerja Pegawai (SKP) Tendik
+                  Sasaran Kinerja Pegawai (SKP) Tendik
                 </h3>
                 <div style="font-size:12.5px; color:var(--text-muted); margin-top:4px;">
                   Formulir SKP telah diisi &amp; ditandatangani oleh Atasan Langsung penilai kinerja pada Tahap Evaluasi.
                 </div>
               </div>
-              ${u.skp_dibuat ? '<span class="badge" style="background:#059669; color:#fff; padding:6px 12px; border-radius:8px; font-weight:700;">âœ… Dokumen SKP Pernah Dibuat</span>' : ''}
+              ${u.skp_dibuat ? '<span class="badge" style="background:#059669; color:#fff; padding:6px 12px; border-radius:8px; font-weight:700;">Dokumen SKP Pernah Dibuat</span>' : ''}
             </div>
 
             ${lockBannerHtml}
@@ -14155,10 +14154,10 @@ function handleUsulanKontrakSayaResult(res) {
 
               <div class="actions-bar" style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px; border-top:1px solid var(--border); padding-top:16px; flex-wrap:wrap;">
                 <button type="button" class="btn btn-outline" style="padding:10px 20px; font-weight:600;" onclick="previewSkpTendikSelf('${u.id}')">
-                  ðŸ‘ï¸ Preview SKP (.docx)
+                  Preview SKP (.docx)
                 </button>
                 <button type="button" class="btn btn-primary" id="skp_genBtn_${u.id}" style="padding:10px 24px; font-weight:700; background:#2563eb; border-color:#2563eb;" onclick="generateSkpTendikSelf('${u.id}')">
-                  ðŸš€ Buat Sasaran Kinerja Pegawai (SKP)
+                  Buat Sasaran Kinerja Pegawai (SKP)
                 </button>
               </div>
             </div>
@@ -14215,11 +14214,11 @@ function handleUsulanKontrakSayaResult(res) {
       <div class="ce-dashboard-list" style="gap:8px;">
         ${(u.lampiran || []).map(l => {
           const label = String(l.key || '').replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
-          const icon = l.approved ? `<span style="color:#4caf50; font-weight:bold;">âœ… Disetujui</span>` : `<span style="color:#ff9800; font-weight:bold;">â³ Menunggu Review</span>`;
-          const linkButton = l.url ? `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:#2563eb; font-size:12px; margin-left:8px; font-weight:600; display:inline-flex; align-items:center; gap:3px;">(Buka Link GDrive â†—)</a>` : '';
+          const icon = l.approved ? `<span style="color:#16a34a; font-weight:bold;">Disetujui</span>` : `<span style="color:#d97706; font-weight:bold;">Menunggu Review</span>`;
+          const linkButton = l.url ? `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:#2563eb; font-size:12px; margin-left:8px; font-weight:600; display:inline-flex; align-items:center;">(Buka Link GDrive)</a>` : '';
           return `
             <div class="ce-dashboard-list-item" style="cursor:default; display:flex; justify-content:space-between; align-items:center; padding:10px 14px;">
-              <div>ðŸ“„ ${escapeHtml(label)} ${linkButton}</div>
+              <div>${escapeHtml(label)} ${linkButton}</div>
               <div>${icon}</div>
             </div>`;
         }).join('')}
@@ -14230,10 +14229,10 @@ function handleUsulanKontrakSayaResult(res) {
       ${isTendik && isApprovedByAdmin ? `
         <div style="margin-top:24px; margin-bottom:16px; display:flex; gap:10px; background:var(--surface-alt); padding:6px; border-radius:10px; border:1px solid var(--border); width:fit-content; max-width:100%;">
           <button type="button" id="tabDocGenPerjanjian_${u.id}" class="btn btn-primary" style="padding:8px 18px; font-weight:700; border-radius:8px;" onclick="switchKontrakDocTab('${u.id}', 'perjanjian')">
-            ðŸ“„ Dokumen Perjanjian Kerja
+            Dokumen Perjanjian Kerja
           </button>
           <button type="button" id="tabDocGenSkp_${u.id}" class="btn btn-outline" style="padding:8px 18px; font-weight:700; border-radius:8px;" onclick="switchKontrakDocTab('${u.id}', 'skp')">
-            ðŸ“Š Sasaran Kinerja Pegawai (SKP)
+            Sasaran Kinerja Pegawai (SKP)
           </button>
         </div>
         <div id="wrapDocGenPerjanjian_${u.id}">

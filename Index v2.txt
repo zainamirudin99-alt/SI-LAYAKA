@@ -2555,9 +2555,8 @@
   <!-- MODAL POP-UP INTERAKTIF: NOTIFIKASI KELAYAKAN PEMBARUAN KONTRAK TENDIK -->
   <div class="modal-overlay" id="modalNotifikasiKelayakanTendik" style="display:none; z-index:9999;">
     <div class="modal-box" style="max-width:550px; width:92%; text-align:center; padding:28px 24px; border-radius:14px; box-shadow:0 12px 32px rgba(0,0,0,0.25);">
-      <div style="font-size:48px; margin-bottom:12px;">ðŸŽ‰</div>
       <div class="badge" style="background:#10b981; color:#fff; font-size:13px; padding:6px 14px; border-radius:8px; font-weight:700; display:inline-block; margin-bottom:12px;">
-        âœ… Memenuhi Syarat Pembaruan Kontrak
+        Memenuhi Syarat Pembaruan Kontrak
       </div>
       <h3 style="margin:0 0 10px 0; color:var(--text); font-size:20px; font-weight:800;">
         Selamat! Usulan Pembaruan Kontrak Anda Disetujui
@@ -2568,7 +2567,7 @@
       </p>
       <div style="display:flex; justify-content:center; gap:12px;">
         <button type="button" class="btn btn-primary" onclick="tutupNotifikasiKelayakanDanLengkapi()" style="padding:12px 28px; font-weight:700; font-size:14px; border-radius:8px; box-shadow:0 4px 14px rgba(37,99,235,0.3);">
-          ðŸš€ Lengkapi Berkas Sekarang
+          Lengkapi Berkas Sekarang
         </button>
       </div>
     </div>
