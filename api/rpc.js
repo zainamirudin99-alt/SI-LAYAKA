@@ -1277,21 +1277,25 @@ function injectDocxImage(zip, dataCtx) {
 
   // 2. Deteksi Tanda Tangan Pegawai ({{ttd_pegawai}}, {{tanda_tangan_pegawai}})
   let ttdPegawaiDataUrl = '';
-  const rawTtdPegawai = dataCtx.ttd_pegawai || dataCtx.tanda_tangan_pegawai || dataCtx.ttd_pengusul || '';
+  const rawTtdPegawai = dataCtx.ttd_pegawai || dataCtx.tanda_tangan_pegawai || dataCtx.ttd_pengusul || (dataCtx.form_data && (dataCtx.form_data.ttd_pegawai || dataCtx.form_data.tanda_tangan_pegawai)) || '';
   if (rawTtdPegawai && typeof rawTtdPegawai === 'string') {
     const vStr = rawTtdPegawai.trim();
     if (vStr.startsWith('data:') || vStr.includes('base64,')) {
       ttdPegawaiDataUrl = vStr.startsWith('data:') ? vStr : `data:image/png;base64,${vStr}`;
+    } else if (vStr.length > 200) {
+      ttdPegawaiDataUrl = `data:image/png;base64,${vStr}`;
     }
   }
 
   // 3. Deteksi Tanda Tangan Atasan Langsung ({{ttd_atasan_langsung}}, {{ttd_atasan}}, {{ttd}}, dll.)
   let ttdAtasanDataUrl = '';
-  const rawTtdAtasan = dataCtx.ttd_atasan_langsung || dataCtx.ttd_atasan || dataCtx.ttd_penilai || dataCtx.ttd || dataCtx.tanda_tangan || dataCtx.signature || '';
+  const rawTtdAtasan = dataCtx.ttd_atasan_langsung || dataCtx.ttd_atasan || dataCtx.ttd_penilai || dataCtx.ttd || dataCtx.tanda_tangan || dataCtx.signature || (dataCtx.evaluasi_data && (dataCtx.evaluasi_data.ttd_base64 || dataCtx.evaluasi_data.ttd || dataCtx.evaluasi_data.signature)) || '';
   if (rawTtdAtasan && typeof rawTtdAtasan === 'string') {
     const vStr = rawTtdAtasan.trim();
     if (vStr.startsWith('data:') || vStr.includes('base64,')) {
       ttdAtasanDataUrl = vStr.startsWith('data:') ? vStr : `data:image/png;base64,${vStr}`;
+    } else if (vStr.length > 200) {
+      ttdAtasanDataUrl = `data:image/png;base64,${vStr}`;
     }
   }
 
@@ -8053,6 +8057,19 @@ const methods = {
     if (error) throw error;
     if (!data) return { success: false, message: 'Usulan tidak ditemukan.' };
 
+    if (data.form_data && typeof data.form_data === 'string') {
+      try { data.form_data = JSON.parse(data.form_data); } catch (_) {}
+    }
+    if (data.evaluasi_data && typeof data.evaluasi_data === 'string') {
+      try { data.evaluasi_data = JSON.parse(data.evaluasi_data); } catch (_) {}
+    }
+    if (data.skp_data && typeof data.skp_data === 'string') {
+      try { data.skp_data = JSON.parse(data.skp_data); } catch (_) {}
+    }
+
+    data.ttd_pegawai = data.form_data?.ttd_pegawai || data.ttd_pegawai || '';
+    data.ttd_atasan = data.evaluasi_data?.ttd_base64 || data.evaluasi_data?.ttd || data.ttd_atasan || '';
+
     const cleanNip = String(decoded.nip || '').trim();
     if (data.atasan_nip !== cleanNip && !String(data.atasan_nip).includes(cleanNip) && !['admin', 'super_admin'].includes(decoded.role)) {
       throw new Error('Anda tidak memiliki hak akses untuk mengevaluasi usulan ini.');
@@ -8894,11 +8911,21 @@ const methods = {
     const capaianOrg = String(payloadData.capaian_kinerja_organisasi || 'BAIK').trim().toUpperCase();
     const predikatPeg = String(payloadData.predikat_kinerja_pegawai || 'BAIK').trim().toUpperCase();
 
+    // Safely parse form_data and evaluasi_data in usulan if stored as strings
+    let formDataObj = usulan.form_data || {};
+    if (typeof formDataObj === 'string') {
+      try { formDataObj = JSON.parse(formDataObj); } catch (_) {}
+    }
+    let evaluasiDataObj = usulan.evaluasi_data || {};
+    if (typeof evaluasiDataObj === 'string') {
+      try { evaluasiDataObj = JSON.parse(evaluasiDataObj); } catch (_) {}
+    }
+
     // Tanda Tangan Pegawai (diambil dari submission awal form_data.ttd_pegawai atau payloadData)
-    const ttdPegawai = payloadData.ttd_pegawai || payloadData.tanda_tangan_pegawai || usulan.form_data?.ttd_pegawai || usulan.ttd_pegawai || '';
+    const ttdPegawai = payloadData.ttd_pegawai || payloadData.tanda_tangan_pegawai || payloadData.ttd_pengusul || formDataObj.ttd_pegawai || formDataObj.tanda_tangan_pegawai || usulan.ttd_pegawai || '';
 
     // Tanda Tangan Atasan Langsung (diambil dari langkah 1 validasi evaluasi / evaluasi_data.ttd_base64 / payloadData)
-    const ttdAtasan = payloadData.ttd_atasan_langsung || payloadData.ttd_atasan || payloadData.ttd || usulan.evaluasi_data?.ttd_base64 || usulan.evaluasi_data?.ttd || usulan.evaluasi_data?.signature || '';
+    const ttdAtasan = payloadData.ttd_atasan_langsung || payloadData.ttd_atasan || payloadData.ttd || evaluasiDataObj.ttd_base64 || evaluasiDataObj.ttd || evaluasiDataObj.signature || usulan.ttd_atasan || '';
 
     const dataCtx = {
       // Periode & Tanggal
@@ -8946,12 +8973,18 @@ const methods = {
       'predikat_kinerja_pegawai | upper': predikatPeg,
       catatan_rekomendasi: String(payloadData.catatan_rekomendasi || '').trim(),
 
-      // Tanda Tangan
+      // Tanda Tangan Pegawai & Atasan (Semua variasi placeholder template)
       ttd_pegawai: ttdPegawai,
       tanda_tangan_pegawai: ttdPegawai,
+      ttd_pengusul: ttdPegawai,
+      TTD_PEGAWAI: ttdPegawai,
+      TANDA_TANGAN_PEGAWAI: ttdPegawai,
       ttd_atasan_langsung: ttdAtasan,
       ttd_atasan: ttdAtasan,
       ttd: ttdAtasan,
+      TTD_ATASAN_LANGSUNG: ttdAtasan,
+      TTD_ATASAN: ttdAtasan,
+      TTD: ttdAtasan,
 
       // Looping baris
       hasil_kerja_utama: hasilUtamaList,
@@ -9090,7 +9123,17 @@ const methods = {
             nama: dataCtx.nama_lengkap,
             namaPegawai: dataCtx.nama_lengkap,
             nipPegawai: dataCtx.nip,
-            fileName: `SKP_${String(dataCtx.nama_lengkap).replace(/[^a-zA-Z0-9_-]/g, '_')}_${thnPenilaian}`
+            fileName: `SKP_${String(dataCtx.nama_lengkap).replace(/[^a-zA-Z0-9_-]/g, '_')}_${thnPenilaian}`,
+            ttd_pegawai: ttdPegawai,
+            tanda_tangan_pegawai: ttdPegawai,
+            ttd_pengusul: ttdPegawai,
+            TTD_PEGAWAI: ttdPegawai,
+            ttd_atasan_langsung: ttdAtasan,
+            ttd_atasan: ttdAtasan,
+            ttd: ttdAtasan,
+            TTD_ATASAN_LANGSUNG: ttdAtasan,
+            form_data: Object.assign({}, formDataObj, { ttd_pegawai: ttdPegawai, tanda_tangan_pegawai: ttdPegawai }),
+            evaluasi_data: Object.assign({}, evaluasiDataObj, { ttd_base64: ttdAtasan, ttd: ttdAtasan, ttd_atasan_langsung: ttdAtasan })
           })],
           remoteSession
         }),

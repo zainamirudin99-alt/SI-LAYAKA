@@ -10313,6 +10313,19 @@ async function openModalEvaluasiTkk(usulanId) {
 
     activeEvaluasiDetail = res.data || res.usulan;
     const u = res.data || res.usulan;
+    if (u) {
+      if (typeof u.form_data === 'string') {
+        try { u.form_data = JSON.parse(u.form_data); } catch (_) {}
+      }
+      if (typeof u.evaluasi_data === 'string') {
+        try { u.evaluasi_data = JSON.parse(u.evaluasi_data); } catch (_) {}
+      }
+      if (typeof u.skp_data === 'string') {
+        try { u.skp_data = JSON.parse(u.skp_data); } catch (_) {}
+      }
+      window.activeTtdPegawai = u.form_data?.ttd_pegawai || u.ttd_pegawai || '';
+      window.activeTtdAtasan = u.evaluasi_data?.ttd_base64 || u.evaluasi_data?.ttd || u.ttd_atasan || '';
+    }
     const at = res.atasan_info || res.atasan || {};
 
     const existingDocUrl = u.evaluasi_doc_url || u.evaluasi_data?.evaluasi_doc_url || u.doc_evaluasi_url || '';
@@ -10521,6 +10534,13 @@ async function generateEvaluasiDanLanjutKeSkp() {
   if (!ttdBase64) {
     showToast('error', 'Silakan bubuhkan tanda tangan Atasan Langsung pada kotak signature pad terlebih dahulu.');
     return;
+  }
+
+  window.activeTtdAtasan = ttdBase64;
+  if (activeEvaluasiDetail) {
+    if (!activeEvaluasiDetail.evaluasi_data) activeEvaluasiDetail.evaluasi_data = {};
+    activeEvaluasiDetail.evaluasi_data.ttd_base64 = ttdBase64;
+    activeEvaluasiDetail.evaluasi_data.ttd = ttdBase64;
   }
 
   if (btn) setBtnLoading(btn, true, 'Menyiapkan Evaluasi & Lanjut...');
@@ -10779,8 +10799,12 @@ function collectEvaluasiTkkPayload() {
   let ttdBase64 = '';
   if (evalTkkCanvas && evalTkkHasDrawn) {
     ttdBase64 = typeof trimCanvas_ === 'function' ? trimCanvas_(evalTkkCanvas) : (evalTkkCanvas.toDataURL ? evalTkkCanvas.toDataURL('image/png') : '');
-  } else if (activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd) {
-    ttdBase64 = activeEvaluasiDetail.evaluasi_data.ttd_base64 || activeEvaluasiDetail.evaluasi_data.ttd;
+  }
+  if (!ttdBase64 && window.activeTtdAtasan) {
+    ttdBase64 = window.activeTtdAtasan;
+  }
+  if (!ttdBase64 && (activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd || activeEvaluasiDetail?.ttd_atasan)) {
+    ttdBase64 = activeEvaluasiDetail.evaluasi_data?.ttd_base64 || activeEvaluasiDetail.evaluasi_data?.ttd || activeEvaluasiDetail.ttd_atasan;
   }
 
   const kriteria = [];
@@ -11061,8 +11085,13 @@ async function previewSkpTendikModal() {
 
   // Sertakan tanda tangan atasan langsung & tanda tangan pegawai untuk pratinjau
   const evalPayload = collectEvaluasiTkkPayload();
-  payloadData.ttd_atasan_langsung = evalPayload.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd || '';
-  payloadData.ttd_pegawai = activeEvaluasiDetail?.form_data?.ttd_pegawai || activeEvaluasiDetail?.ttd_pegawai || '';
+  const ttdAtasanVal = window.activeTtdAtasan || evalPayload.ttd_base64 || (evalTkkCanvas && evalTkkHasDrawn ? trimCanvas_(evalTkkCanvas) : '') || activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd || '';
+  const ttdPegawaiVal = window.activeTtdPegawai || activeEvaluasiDetail?.form_data?.ttd_pegawai || activeEvaluasiDetail?.ttd_pegawai || '';
+  payloadData.ttd_atasan_langsung = ttdAtasanVal;
+  payloadData.ttd_atasan = ttdAtasanVal;
+  payloadData.ttd = ttdAtasanVal;
+  payloadData.ttd_pegawai = ttdPegawaiVal;
+  payloadData.tanda_tangan_pegawai = ttdPegawaiVal;
 
   showToast('info', 'Menyiapkan pratinjau dokumen SKP...');
   try {
@@ -11092,8 +11121,13 @@ async function buatDokumenSkpModal() {
 
   // Sertakan tanda tangan atasan langsung & tanda tangan pegawai
   const evalPayload = collectEvaluasiTkkPayload();
-  payloadData.ttd_atasan_langsung = evalPayload.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd || '';
-  payloadData.ttd_pegawai = activeEvaluasiDetail?.form_data?.ttd_pegawai || activeEvaluasiDetail?.ttd_pegawai || '';
+  const ttdAtasanVal = window.activeTtdAtasan || evalPayload.ttd_base64 || (evalTkkCanvas && evalTkkHasDrawn ? trimCanvas_(evalTkkCanvas) : '') || activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd || '';
+  const ttdPegawaiVal = window.activeTtdPegawai || activeEvaluasiDetail?.form_data?.ttd_pegawai || activeEvaluasiDetail?.ttd_pegawai || '';
+  payloadData.ttd_atasan_langsung = ttdAtasanVal;
+  payloadData.ttd_atasan = ttdAtasanVal;
+  payloadData.ttd = ttdAtasanVal;
+  payloadData.ttd_pegawai = ttdPegawaiVal;
+  payloadData.tanda_tangan_pegawai = ttdPegawaiVal;
 
   const btn = document.getElementById('btnBuatDokumenSkpModal');
   if (btn) setBtnLoading(btn, true, 'Membuat SKP...');
@@ -11200,8 +11234,13 @@ async function validasiDanKirimEvaluasiTkk() {
   try {
     // 1. Pada Langkah 2, generate dokumen SKP saja (karena formulir evaluasi sudah digenerate di Langkah 1)
     showToast('info', 'Membuat dokumen Sasaran Kinerja Pegawai (SKP)...');
-    skp.ttd_atasan_langsung = payload.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd || '';
-    skp.ttd_pegawai = activeEvaluasiDetail?.form_data?.ttd_pegawai || activeEvaluasiDetail?.ttd_pegawai || '';
+    const ttdAtasanVal = window.activeTtdAtasan || payload.ttd_base64 || (evalTkkCanvas && evalTkkHasDrawn ? trimCanvas_(evalTkkCanvas) : '') || activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd || '';
+    const ttdPegawaiVal = window.activeTtdPegawai || activeEvaluasiDetail?.form_data?.ttd_pegawai || activeEvaluasiDetail?.ttd_pegawai || '';
+    skp.ttd_atasan_langsung = ttdAtasanVal;
+    skp.ttd_atasan = ttdAtasanVal;
+    skp.ttd = ttdAtasanVal;
+    skp.ttd_pegawai = ttdPegawaiVal;
+    skp.tanda_tangan_pegawai = ttdPegawaiVal;
 
     const skpRes = await rpc('generateSkpTendik', [SESSION.token, templateRef, activeEvaluasiUsulanId, skp]);
     if (!skpRes || !skpRes.success) {

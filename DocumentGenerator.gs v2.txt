@@ -575,6 +575,18 @@ function generateKontrakFromUsulan(sessionToken, templateFileId, usulanData) {
         }
       }
     }
+    if (usulanData.evaluasi_data) {
+      for (const k in usulanData.evaluasi_data) {
+        if (usulanData.evaluasi_data[k] !== undefined && usulanData.evaluasi_data[k] !== null && String(usulanData.evaluasi_data[k]).trim() !== '') {
+          dataContext[k] = usulanData.evaluasi_data[k];
+        }
+      }
+    }
+    if (usulanData.ttd_pegawai) dataContext.ttd_pegawai = usulanData.ttd_pegawai;
+    if (usulanData.tanda_tangan_pegawai) dataContext.tanda_tangan_pegawai = usulanData.tanda_tangan_pegawai;
+    if (usulanData.ttd_atasan_langsung) dataContext.ttd_atasan_langsung = usulanData.ttd_atasan_langsung;
+    if (usulanData.ttd_atasan) dataContext.ttd_atasan = usulanData.ttd_atasan;
+    if (usulanData.ttd) dataContext.ttd = usulanData.ttd;
 
     const namaFile = sanitizeFileName_(String(nip + '-' + (dataContext.nama_lengkap || usulanData.nama || 'kontrak') + '-' + (usulanData.tahun || '')));
     const docCopy = renderTemplateCopy_(fileId, dataContext, namaFile);

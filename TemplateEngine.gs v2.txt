@@ -141,7 +141,7 @@ function processSignaturePlaceholderInBody_(container, dataContext) {
   const ttdPegawaiKeys = ['ttd_pegawai', 'tanda_tangan_pegawai', 'ttd_pengusul', 'TTD_PEGAWAI', 'TANDA_TANGAN_PEGAWAI'];
   let ttdPegawaiBase64 = '';
   for (const k of ttdPegawaiKeys) {
-    const val = dataContext[k];
+    const val = dataContext[k] || (dataContext.form_data && dataContext.form_data[k]);
     if (val && typeof val === 'string' && (val.startsWith('data:') || val.includes('base64,') || val.length > 200)) {
       if (!ttdPegawaiBase64) ttdPegawaiBase64 = val;
       dataContext[k] = '';
@@ -152,7 +152,7 @@ function processSignaturePlaceholderInBody_(container, dataContext) {
   const ttdAtasanKeys = ['ttd_atasan_langsung', 'ttd_atasan', 'ttd_penilai', 'ttd', 'ttd_base64', 'tanda_tangan', 'signature', 'TTD_ATASAN_LANGSUNG', 'TTD_ATASAN', 'TTD', 'TANDA_TANGAN', 'SIGNATURE'];
   let ttdAtasanBase64 = '';
   for (const k of ttdAtasanKeys) {
-    const val = dataContext[k];
+    const val = dataContext[k] || (dataContext.evaluasi_data && dataContext.evaluasi_data[k]);
     if (val && typeof val === 'string' && (val.startsWith('data:') || val.includes('base64,') || val.length > 200)) {
       if (!ttdAtasanBase64) ttdAtasanBase64 = val;
       dataContext[k] = '';
@@ -165,9 +165,10 @@ function processSignaturePlaceholderInBody_(container, dataContext) {
         let found = container.findText(tagText);
         while (found) {
           const textObj = found.getElement();
-          const parentParagraph = textObj.getParent().asParagraph();
-          if (sigBase64) {
-            let cleanBase64 = sigBase64.trim();
+          const parentEl = textObj.getParent();
+          const parentParagraph = parentEl.asParagraph ? parentEl.asParagraph() : (parentEl.getParent && parentEl.getParent().asParagraph ? parentEl.getParent().asParagraph() : null);
+          if (sigBase64 && parentParagraph) {
+            let cleanBase64 = sigBase64.trim().replace(/[\r\n\s]+/g, '');
             let contentType = 'image/png';
             if (cleanBase64.startsWith('data:')) {
               const matches = cleanBase64.match(/^data:([^;]+);base64,(.+)$/);
@@ -180,7 +181,9 @@ function processSignaturePlaceholderInBody_(container, dataContext) {
             }
 
             const imageBlob = Utilities.newBlob(Utilities.base64Decode(cleanBase64), contentType, docName || 'tanda_tangan.png');
-            const inlineImage = parentParagraph.appendInlineImage(imageBlob);
+            let childIdx = parentParagraph.getChildIndex(textObj);
+            if (childIdx < 0) childIdx = 0;
+            const inlineImage = parentParagraph.insertInlineImage(childIdx, imageBlob);
             inlineImage.setWidth(155);
             inlineImage.setHeight(72);
             textObj.setText(' ');
