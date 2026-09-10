@@ -9074,6 +9074,17 @@ function onKontrakUserLayananChange() {
     }
   }
 
+  // Tanda Tangan Digital Pegawai (Khusus Tendik)
+  const ttdPegawaiWrap = document.getElementById('kontrakUser_ttdPegawaiWrap');
+  if (ttdPegawaiWrap) {
+    ttdPegawaiWrap.style.display = isTendik ? 'block' : 'none';
+    if (isTendik) {
+      setTimeout(initKontrakUserTtdPad, 150);
+    } else {
+      clearKontrakUserTtdPad();
+    }
+  }
+
   // Surat Lamaran (Keduanya wajib)
   const lamaranInput = document.getElementById('kontrakUser_file_surat_lamaran');
   if (lamaranInput) {
@@ -9270,6 +9281,78 @@ function validateAndCleanGdriveFileUrl(url, label, isRequired = true) {
   }
   return clean;
 }
+
+let kontrakUserCanvas = null;
+let kontrakUserCtx = null;
+let kontrakUserIsDrawing = false;
+let kontrakUserHasDrawn = false;
+
+function initKontrakUserTtdPad() {
+  kontrakUserCanvas = document.getElementById('kontrakUserTtdPad');
+  if (!kontrakUserCanvas) return;
+
+  kontrakUserCtx = kontrakUserCanvas.getContext('2d');
+  kontrakUserCtx.strokeStyle = '#000000';
+  kontrakUserCtx.lineWidth = 2.5;
+  kontrakUserCtx.lineCap = 'round';
+  kontrakUserCtx.lineJoin = 'round';
+
+  if (kontrakUserCanvas._boundEvents) return;
+  kontrakUserCanvas._boundEvents = true;
+
+  function getPos(e) {
+    const rect = kontrakUserCanvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: (clientX - rect.left) * (kontrakUserCanvas.width / rect.width),
+      y: (clientY - rect.top) * (kontrakUserCanvas.height / rect.height)
+    };
+  }
+
+  function startDraw(e) {
+    kontrakUserIsDrawing = true;
+    kontrakUserHasDrawn = true;
+    kontrakUserCtx.strokeStyle = '#000000';
+    kontrakUserCtx.lineWidth = 3.0;
+    const pos = getPos(e);
+    kontrakUserCtx.beginPath();
+    kontrakUserCtx.moveTo(pos.x, pos.y);
+    if (e.cancelable && e.type.startsWith('touch')) e.preventDefault();
+  }
+
+  function draw(e) {
+    if (!kontrakUserIsDrawing) return;
+    const pos = getPos(e);
+    kontrakUserCtx.lineTo(pos.x, pos.y);
+    kontrakUserCtx.stroke();
+    if (e.cancelable && e.type.startsWith('touch')) e.preventDefault();
+  }
+
+  function stopDraw() {
+    kontrakUserIsDrawing = false;
+  }
+
+  kontrakUserCanvas.addEventListener('mousedown', startDraw);
+  kontrakUserCanvas.addEventListener('mousemove', draw);
+  window.addEventListener('mouseup', stopDraw);
+
+  kontrakUserCanvas.addEventListener('touchstart', startDraw, { passive: false });
+  kontrakUserCanvas.addEventListener('touchmove', draw, { passive: false });
+  kontrakUserCanvas.addEventListener('touchend', stopDraw);
+}
+
+function clearKontrakUserTtdPad() {
+  if (!kontrakUserCanvas || !kontrakUserCtx) {
+    kontrakUserCanvas = document.getElementById('kontrakUserTtdPad');
+    if (kontrakUserCanvas) kontrakUserCtx = kontrakUserCanvas.getContext('2d');
+  }
+  if (kontrakUserCanvas && kontrakUserCtx) {
+    kontrakUserCtx.clearRect(0, 0, kontrakUserCanvas.width, kontrakUserCanvas.height);
+  }
+  kontrakUserHasDrawn = false;
+}
+
 async function submitUsulanKontrak(e) {
   e.preventDefault();
   const btn = document.getElementById('kontrakUser_submitBtn');
@@ -9300,11 +9383,21 @@ async function submitUsulanKontrak(e) {
       return;
     }
 
-    // Untuk Tendik: Hanya Surat Lamaran & Bukti Hasil Kerja yang diminta pada tahap pengusulan awal!
+    // Untuk Tendik: Hanya Surat Lamaran, Bukti Hasil Kerja, dan Tanda Tangan Digital yang diminta pada tahap pengusulan awal!
     const surat_lamaran_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_surat_lamaran')?.value, 'Surat Lamaran', true);
     const hasil_kerja_url = isTendik
       ? validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_hasil_kerja')?.value, 'Bukti/Hasil Kerja (Dokumentasi/PPT)', true)
       : '';
+
+    let ttd_pegawai = '';
+    if (isTendik) {
+      if (!kontrakUserHasDrawn) {
+        showToast('error', 'Silakan bubuhkan tanda tangan digital Anda pada kotak tanda tangan terlebih dahulu.');
+        setBtnLoading(btn, false, 'Ajukan Usulan');
+        return;
+      }
+      ttd_pegawai = typeof trimCanvas_ === 'function' ? trimCanvas_(kontrakUserCanvas) : (kontrakUserCanvas.toDataURL ? kontrakUserCanvas.toDataURL('image/png') : '');
+    }
 
     let ktp_url = '';
     let kk_url = '';
@@ -9335,10 +9428,12 @@ async function submitUsulanKontrak(e) {
       evaluasi_kinerja, layanan, sub_menu,
       ktp_url, kk_url, pas_foto_url, ijazah_transkrip_url, surat_pengantar_url,
       surat_lamaran_url, keterangan_sehat_url, sim_ab_url, str_aktif_url, hasil_kerja_url,
+      ttd_pegawai,
       form_data: {
         nip, nama_lengkap: nama, unit_es_ii: unit, jabatan: jabVal, email,
         atasan_nip, atasan_nama,
-        status_kepegawaian: sub_menu
+        status_kepegawaian: sub_menu,
+        ttd_pegawai
       }
     };
 
@@ -10871,6 +10966,11 @@ async function previewSkpTendikModal() {
   const payloadData = collectSkpFormData(activeEvaluasiUsulanId) || {};
   payloadData.is_preview = true;
 
+  // Sertakan tanda tangan atasan langsung & tanda tangan pegawai untuk pratinjau
+  const evalPayload = collectEvaluasiTkkPayload();
+  payloadData.ttd_atasan_langsung = evalPayload.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd || '';
+  payloadData.ttd_pegawai = activeEvaluasiDetail?.form_data?.ttd_pegawai || activeEvaluasiDetail?.ttd_pegawai || '';
+
   showToast('info', 'Menyiapkan pratinjau dokumen SKP...');
   try {
     const res = await rpc('generateSkpTendik', [SESSION.token, templateRef, activeEvaluasiUsulanId, payloadData]);
@@ -10896,6 +10996,11 @@ async function buatDokumenSkpModal() {
 
   const payloadData = collectSkpFormData(activeEvaluasiUsulanId) || {};
   payloadData.is_preview = false;
+
+  // Sertakan tanda tangan atasan langsung & tanda tangan pegawai
+  const evalPayload = collectEvaluasiTkkPayload();
+  payloadData.ttd_atasan_langsung = evalPayload.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd || '';
+  payloadData.ttd_pegawai = activeEvaluasiDetail?.form_data?.ttd_pegawai || activeEvaluasiDetail?.ttd_pegawai || '';
 
   const btn = document.getElementById('btnBuatDokumenSkpModal');
   if (btn) setBtnLoading(btn, true, 'Membuat SKP...');
@@ -11002,6 +11107,9 @@ async function validasiDanKirimEvaluasiTkk() {
   try {
     // 1. Pada Langkah 2, generate dokumen SKP saja (karena formulir evaluasi sudah digenerate di Langkah 1)
     showToast('info', 'Membuat dokumen Sasaran Kinerja Pegawai (SKP)...');
+    skp.ttd_atasan_langsung = payload.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd || '';
+    skp.ttd_pegawai = activeEvaluasiDetail?.form_data?.ttd_pegawai || activeEvaluasiDetail?.ttd_pegawai || '';
+
     const skpRes = await rpc('generateSkpTendik', [SESSION.token, templateRef, activeEvaluasiUsulanId, skp]);
     if (!skpRes || !skpRes.success) {
       if (btn) setBtnLoading(btn, false, '✅ Simpan & Kirim Usulan ke Admin Kepegawaian');

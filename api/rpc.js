@@ -1042,7 +1042,7 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
   const sanitizedData = {};
   for (const [k, v] of Object.entries(dataCtx || {})) {
     const kLower = String(k).toLowerCase();
-    if (kLower.includes('foto') || kLower.includes('photo') || kLower.includes('pas_foto') || kLower.includes('pasfoto')) {
+    if (kLower.includes('foto') || kLower.includes('photo') || kLower.includes('pas_foto') || kLower.includes('pasfoto') || kLower.includes('ttd') || kLower.includes('signature')) {
       sanitizedData[k] = '';
       continue;
     }
@@ -1124,7 +1124,7 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
   const customParser = tag => ({
     get(scope, context) {
       const tagLower = String(tag || '').trim().toLowerCase();
-      if (tagLower.includes('foto') || tagLower.includes('photo') || tagLower.includes('pas_foto') || tagLower.includes('pasfoto')) {
+      if (tagLower.includes('foto') || tagLower.includes('photo') || tagLower.includes('pas_foto') || tagLower.includes('pasfoto') || tagLower.includes('ttd') || tagLower.includes('signature')) {
         return '';
       }
       const ctx = Object.assign({}, sanitizedData, typeof scope === 'object' && scope !== null ? scope : {});
@@ -1275,16 +1275,37 @@ function injectDocxImage(zip, dataCtx) {
     }
   }
 
-  // 2. Deteksi dan proses Tanda Tangan / Signature ({{ttd}}, {{tanda_tangan}}, {{signature}})
-  let ttdDataUrl = '';
-  for (const [k, v] of Object.entries(dataCtx)) {
-    if (!v) continue;
-    const kLower = String(k).toLowerCase();
-    const vStr = String(v).trim();
-    if (kLower === 'ttd' || kLower === 'tanda_tangan' || kLower === 'signature' || kLower.includes('ttd_') || kLower.includes('signature_')) {
-      if (vStr.startsWith('data:') || vStr.includes('base64,')) {
-        ttdDataUrl = vStr.startsWith('data:') ? vStr : `data:image/png;base64,${vStr}`;
-        break;
+  // 2. Deteksi Tanda Tangan Pegawai ({{ttd_pegawai}}, {{tanda_tangan_pegawai}})
+  let ttdPegawaiDataUrl = '';
+  const rawTtdPegawai = dataCtx.ttd_pegawai || dataCtx.tanda_tangan_pegawai || dataCtx.ttd_pengusul || '';
+  if (rawTtdPegawai && typeof rawTtdPegawai === 'string') {
+    const vStr = rawTtdPegawai.trim();
+    if (vStr.startsWith('data:') || vStr.includes('base64,')) {
+      ttdPegawaiDataUrl = vStr.startsWith('data:') ? vStr : `data:image/png;base64,${vStr}`;
+    }
+  }
+
+  // 3. Deteksi Tanda Tangan Atasan Langsung ({{ttd_atasan_langsung}}, {{ttd_atasan}}, {{ttd}}, dll.)
+  let ttdAtasanDataUrl = '';
+  const rawTtdAtasan = dataCtx.ttd_atasan_langsung || dataCtx.ttd_atasan || dataCtx.ttd_penilai || dataCtx.ttd || dataCtx.tanda_tangan || dataCtx.signature || '';
+  if (rawTtdAtasan && typeof rawTtdAtasan === 'string') {
+    const vStr = rawTtdAtasan.trim();
+    if (vStr.startsWith('data:') || vStr.includes('base64,')) {
+      ttdAtasanDataUrl = vStr.startsWith('data:') ? vStr : `data:image/png;base64,${vStr}`;
+    }
+  }
+
+  // Fallback jika hanya ada satu signature generik di dataCtx yang belum teridentifikasi
+  if (!ttdAtasanDataUrl && !ttdPegawaiDataUrl) {
+    for (const [k, v] of Object.entries(dataCtx)) {
+      if (!v) continue;
+      const kLower = String(k).toLowerCase();
+      const vStr = String(v).trim();
+      if (kLower === 'ttd' || kLower === 'tanda_tangan' || kLower === 'signature' || kLower.includes('ttd_') || kLower.includes('signature_')) {
+        if (vStr.startsWith('data:') || vStr.includes('base64,')) {
+          ttdAtasanDataUrl = vStr.startsWith('data:') ? vStr : `data:image/png;base64,${vStr}`;
+          break;
+        }
       }
     }
   }
@@ -1329,10 +1350,10 @@ function injectDocxImage(zip, dataCtx) {
     }
   }
 
-  let ttdXml = '';
-  if (ttdDataUrl) {
+  let ttdAtasanXml = '';
+  if (ttdAtasanDataUrl) {
     try {
-      const cleanDataUrl = ttdDataUrl.replace(/[\r\n\s]+/g, '');
+      const cleanDataUrl = ttdAtasanDataUrl.replace(/[\r\n\s]+/g, '');
       const matches = cleanDataUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
       if (matches) {
         let ext = matches[1].toLowerCase();
@@ -1362,16 +1383,58 @@ function injectDocxImage(zip, dataCtx) {
           }
         }
 
-        // TTD dibuat In Line with Text (wp:inline) terikat paragraf w:jc center agar 100% pas dan simetris tepat di tengah
-        ttdXml = createDocxInlineImageXml('rIdTtdAtasan99', 155, 72, 'Tanda Tangan Atasan');
+        // TTD Atasan dibuat In Line with Text (wp:inline)
+        ttdAtasanXml = createDocxInlineImageXml('rIdTtdAtasan99', 155, 72, 'Tanda Tangan Atasan');
       }
     } catch (errTtd) {
-      console.warn('[injectDocxImage] Error embedding signature:', errTtd);
+      console.warn('[injectDocxImage] Error embedding atasan signature:', errTtd);
+    }
+  }
+
+  let ttdPegawaiXml = '';
+  if (ttdPegawaiDataUrl) {
+    try {
+      const cleanDataUrl = ttdPegawaiDataUrl.replace(/[\r\n\s]+/g, '');
+      const matches = cleanDataUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+      if (matches) {
+        let ext = matches[1].toLowerCase();
+        if (ext === 'jpeg') ext = 'jpg';
+        const imageBuffer = Buffer.from(matches[2], 'base64');
+        const imageFileName = `word/media/ttd_pegawai.${ext}`;
+        zip.file(imageFileName, imageBuffer);
+
+        const contentTypesFile = zip.file('[Content_Types].xml');
+        if (contentTypesFile) {
+          let ctXml = contentTypesFile.asText();
+          const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+          if (!ctXml.includes(`Extension="${ext}"`)) {
+            ctXml = ctXml.replace('</Types>', `<Default Extension="${ext}" ContentType="${mimeType}"/></Types>`);
+            zip.file('[Content_Types].xml', ctXml);
+          }
+        }
+
+        const relsFile = zip.file('word/_rels/document.xml.rels');
+        if (relsFile) {
+          let relsXml = relsFile.asText();
+          const relId = 'rIdTtdPegawai99';
+          if (!relsXml.includes(relId)) {
+            const newRel = `<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/ttd_pegawai.${ext}"/>`;
+            relsXml = relsXml.replace('</Relationships>', `${newRel}</Relationships>`);
+            zip.file('word/_rels/document.xml.rels', relsXml);
+          }
+        }
+
+        // TTD Pegawai dibuat In Line with Text (wp:inline)
+        ttdPegawaiXml = createDocxInlineImageXml('rIdTtdPegawai99', 155, 72, 'Tanda Tangan Pegawai');
+      }
+    } catch (errTtdP) {
+      console.warn('[injectDocxImage] Error embedding pegawai signature:', errTtdP);
     }
   }
 
   const photoKeys = ['foto', 'pas_foto', 'photo', 'pasfoto', 'foto_pegawai', 'url_foto', 'FOTO', 'PAS_FOTO', 'PHOTO', 'FOTO_PEGAWAI'];
-  const ttdKeys = ['ttd', 'tanda_tangan', 'signature', 'TTD', 'TANDA_TANGAN', 'SIGNATURE', 'ttd_atasan', 'ttd_penilai'];
+  const ttdPegawaiKeys = ['ttd_pegawai', 'tanda_tangan_pegawai', 'ttd_pengusul', 'TTD_PEGAWAI', 'TANDA_TANGAN_PEGAWAI', 'TTD_PENGUSUL'];
+  const ttdAtasanKeys = ['ttd_atasan_langsung', 'TTD_ATASAN_LANGSUNG', 'ttd_atasan', 'TTD_ATASAN', 'ttd_penilai', 'TTD_PENILAI', 'ttd', 'TTD', 'tanda_tangan', 'TANDA_TANGAN', 'signature', 'SIGNATURE'];
 
   // Pindai dan perbarui SELURUH berkas XML di dalam folder word/ (document.xml, header, footer, dsb.)
   const xmlFileNames = Object.keys(zip.files).filter(fn => fn.startsWith('word/') && fn.endsWith('.xml'));
@@ -1390,13 +1453,23 @@ function injectDocxImage(zip, dataCtx) {
       }
     }
 
-    if (ttdXml) {
-      for (const k of ttdKeys) {
+    if (ttdPegawaiXml) {
+      for (const k of ttdPegawaiKeys) {
         const regRunDouble = new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\{\\s*${k}\\s*\\}\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi');
         const regRunSingle = new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\s*${k}\\s*\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi');
-        xml = xml.replace(regRunDouble, ttdXml).replace(regRunSingle, ttdXml)
-                 .replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi'), ttdXml)
-                 .replace(new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi'), ttdXml);
+        xml = xml.replace(regRunDouble, ttdPegawaiXml).replace(regRunSingle, ttdPegawaiXml)
+                 .replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi'), ttdPegawaiXml)
+                 .replace(new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi'), ttdPegawaiXml);
+      }
+    }
+
+    if (ttdAtasanXml) {
+      for (const k of ttdAtasanKeys) {
+        const regRunDouble = new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\{\\s*${k}\\s*\\}\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi');
+        const regRunSingle = new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\s*${k}\\s*\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi');
+        xml = xml.replace(regRunDouble, ttdAtasanXml).replace(regRunSingle, ttdAtasanXml)
+                 .replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi'), ttdAtasanXml)
+                 .replace(new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi'), ttdAtasanXml);
       }
     }
 
@@ -1429,8 +1502,8 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = n
   for (const [k, v] of Object.entries(sanitizedData)) {
     if (Array.isArray(v) || typeof v === 'object') continue;
     const keyLower = String(k).toLowerCase();
-    if (keyLower.includes('foto') || keyLower.includes('photo') || keyLower.includes('pas_foto')) {
-      continue; // Cegah pencetakan teks base64 foto pada dokumen
+    if (keyLower.includes('foto') || keyLower.includes('photo') || keyLower.includes('pas_foto') || keyLower.includes('ttd') || keyLower.includes('signature')) {
+      continue; // Cegah pencetakan teks base64 foto / ttd pada dokumen
     }
     const escapedVal = escapeXmlText(String(v ?? ''));
     fullData[k] = escapedVal;
@@ -7805,7 +7878,7 @@ const methods = {
 
     const {
       nip, nama, unit, email, tahun, jenis_usulan, evaluasi_kinerja, layanan, sub_menu, form_data,
-      suratLamaranBase64, hasilKerjaBase64
+      suratLamaranBase64, hasilKerjaBase64, ttd_pegawai
     } = payload || {};
 
     const targetNip = String(nip || decoded.nip).trim();
@@ -7865,6 +7938,11 @@ const methods = {
     if (!lamaranUrl && !suratLamaranBase64) return { success: false, message: 'Link Google Drive Surat Lamaran wajib diisi.' };
     if (!hasilKerjaUrl && !hasilKerjaBase64) return { success: false, message: 'Link Google Drive Bukti/Hasil Kerja (Dokumentasi/PPT) wajib diisi.' };
 
+    const ttdPegawaiSig = String(ttd_pegawai || form_data?.ttd_pegawai || '').trim();
+    if (!ttdPegawaiSig) {
+      return { success: false, message: 'Tanda tangan digital pegawai wajib dibubuhkan sebelum mengajukan usulan.' };
+    }
+
     try {
       if (!lamaranUrl && suratLamaranBase64) lamaranUrl = await uploadLampiran(suratLamaranBase64, `LAMARAN-${targetNip}`, 'kontrak-tkk');
       if (!hasilKerjaUrl && hasilKerjaBase64) hasilKerjaUrl = await uploadLampiran(hasilKerjaBase64, `HASILKERJA-${targetNip}`, 'kontrak-tkk');
@@ -7880,7 +7958,7 @@ const methods = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             method: 'ajukanUsulanKontrakDrive',
-            params: [shortId, Object.assign({}, payload, { atasan_nip: atasanNip, atasan_nama: atasanNama, hasil_kerja_url: hasilKerjaUrl, surat_lamaran_url: lamaranUrl })],
+            params: [shortId, Object.assign({}, payload, { atasan_nip: atasanNip, atasan_nama: atasanNama, hasil_kerja_url: hasilKerjaUrl, surat_lamaran_url: lamaranUrl, ttd_pegawai: ttdPegawaiSig })],
             remoteSession: { id: shortId, data: { nip: targetNip, nama: targetNama } }
           })
         }).catch(e => console.warn('[GAS Bridge] Notice:', e.message));
@@ -7906,7 +7984,8 @@ const methods = {
         atasan_tutam: atasanTutam,
         unit_es_iv: unitEsIv,
         status_kepegawaian: effectiveStatus,
-        jenis_pegawai: 'Tenaga Kependidikan'
+        jenis_pegawai: 'Tenaga Kependidikan',
+        ttd_pegawai: ttdPegawaiSig
       }),
       surat_lamaran_url: lamaranUrl,
       hasil_kerja_url: hasilKerjaUrl,
@@ -8815,6 +8894,12 @@ const methods = {
     const capaianOrg = String(payloadData.capaian_kinerja_organisasi || 'BAIK').trim().toUpperCase();
     const predikatPeg = String(payloadData.predikat_kinerja_pegawai || 'BAIK').trim().toUpperCase();
 
+    // Tanda Tangan Pegawai (diambil dari submission awal form_data.ttd_pegawai atau payloadData)
+    const ttdPegawai = payloadData.ttd_pegawai || payloadData.tanda_tangan_pegawai || usulan.form_data?.ttd_pegawai || usulan.ttd_pegawai || '';
+
+    // Tanda Tangan Atasan Langsung (diambil dari langkah 1 validasi evaluasi / evaluasi_data.ttd_base64 / payloadData)
+    const ttdAtasan = payloadData.ttd_atasan_langsung || payloadData.ttd_atasan || payloadData.ttd || usulan.evaluasi_data?.ttd_base64 || usulan.evaluasi_data?.ttd || usulan.evaluasi_data?.signature || '';
+
     const dataCtx = {
       // Periode & Tanggal
       bulan_awal_penilaian: blnAwal,
@@ -8860,6 +8945,13 @@ const methods = {
       predikat_kinerja_pegawai: predikatPeg,
       'predikat_kinerja_pegawai | upper': predikatPeg,
       catatan_rekomendasi: String(payloadData.catatan_rekomendasi || '').trim(),
+
+      // Tanda Tangan
+      ttd_pegawai: ttdPegawai,
+      tanda_tangan_pegawai: ttdPegawai,
+      ttd_atasan_langsung: ttdAtasan,
+      ttd_atasan: ttdAtasan,
+      ttd: ttdAtasan,
 
       // Looping baris
       hasil_kerja_utama: hasilUtamaList,
