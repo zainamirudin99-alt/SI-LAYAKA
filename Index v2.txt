@@ -1445,7 +1445,7 @@
              <!-- State: Form Pengajuan Usulan -->
              <div id="kontrakUserFormState" style="display:none;">
                <button type="button" class="ce-dashboard-back" id="btnBackToKontrakStatus" onclick="backToKontrakUserStatus()" style="display:none; margin-bottom:14px;">&larr; Kembali ke Status Usulan</button>
-               <h3>Pengajuan Usulan Kontrak Baru / Perpanjangan</h3>
+               <h3>Pengajuan Usulan Kontrak Baru / Pembaruan</h3>
                <form id="kontrakUserForm" onsubmit="submitUsulanKontrak(event)" style="margin-top:14px;">
                  <div class="grid-2 kp-grid">
                     <div class="stack-field autocomplete-wrap grid-full">
@@ -1486,7 +1486,6 @@
                      <label>Jenis Usulan</label>
                      <select id="kontrakUser_jenisUsulan" class="field-input" onchange="toggleEvaluasiKinerjaUser()" required>
                        <option value="Pembaruan Kontrak" selected>Pembaruan Kontrak</option>
-                       <option value="Perpanjangan">Perpanjangan</option>
                        <option value="Baru">Usulan Baru</option>
                      </select>
                    </div>

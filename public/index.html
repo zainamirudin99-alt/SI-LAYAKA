@@ -2869,7 +2869,7 @@
              <!-- State: Form Pengajuan Usulan -->
              <div id="kontrakUserFormState" style="display:none;">
                <button type="button" class="ce-dashboard-back" id="btnBackToKontrakStatus" onclick="backToKontrakUserStatus()" style="display:none; margin-bottom:14px;">&larr; Kembali ke Status Usulan</button>
-               <h3>Pengajuan Usulan Kontrak Baru / Perpanjangan</h3>
+               <h3>Pengajuan Usulan Kontrak Baru / Pembaruan</h3>
                <form id="kontrakUserForm" onsubmit="submitUsulanKontrak(event)" style="margin-top:14px;">
                  <div class="grid-2 kp-grid">
                     <div class="stack-field autocomplete-wrap grid-full">
@@ -2910,7 +2910,6 @@
                      <label>Jenis Usulan</label>
                      <select id="kontrakUser_jenisUsulan" class="field-input" onchange="toggleEvaluasiKinerjaUser()" required>
                        <option value="Pembaruan Kontrak" selected>Pembaruan Kontrak</option>
-                       <option value="Perpanjangan">Perpanjangan</option>
                        <option value="Baru">Usulan Baru</option>
                      </select>
                    </div>
@@ -13052,10 +13051,10 @@ function backToKontrakUserStatus() {
 }
 
 function toggleEvaluasiKinerjaUser() {
-  const jenis = document.getElementById('kontrakUser_jenisUsulan').value;
+  const jenis = document.getElementById('kontrakUser_jenisUsulan')?.value || '';
   const wrap = document.getElementById('kontrakUser_evaluasiWrap');
   if (wrap) {
-    wrap.style.display = (jenis === 'Perpanjangan') ? 'block' : 'none';
+    wrap.style.display = (jenis === 'Pembaruan Kontrak' || jenis === 'Pembaruan' || jenis === 'Perpanjangan') ? 'block' : 'none';
   }
 }
 
@@ -13436,8 +13435,8 @@ async function submitUsulanKontrak(e) {
     const unit = document.getElementById('kontrakUser_unit').value;
     const email = document.getElementById('kontrakUser_email').value;
     const tahun = document.getElementById('kontrakUser_tahun').value;
-    const jenis_usulan = document.getElementById('kontrakUser_jenisUsulan').value || 'Pembaruan Kontrak';
-    const evaluasi_kinerja = (jenis_usulan === 'Perpanjangan' || jenis_usulan === 'Pembaruan Kontrak') ? document.getElementById('kontrakUser_evaluasiKinerja').value : '';
+    const jenis_usulan = document.getElementById('kontrakUser_jenisUsulan')?.value || 'Pembaruan Kontrak';
+    const evaluasi_kinerja = (jenis_usulan === 'Pembaruan Kontrak' || jenis_usulan === 'Pembaruan' || jenis_usulan === 'Perpanjangan') ? (document.getElementById('kontrakUser_evaluasiKinerja')?.value || '') : '';
     const layanan = document.getElementById('kontrakUser_layanan').value;
     const sub_menu = document.getElementById('kontrakUser_subMenu').value;
     const isTendik = (layanan === 'Kontrak Tendik');
