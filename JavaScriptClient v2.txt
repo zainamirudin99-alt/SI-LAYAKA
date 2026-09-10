@@ -9286,14 +9286,27 @@ let kontrakUserCanvas = null;
 let kontrakUserCtx = null;
 let kontrakUserIsDrawing = false;
 let kontrakUserHasDrawn = false;
+let currentKontrakUserLineWidth = 2.5;
+
+function changeKontrakUserLineWidth(val) {
+  currentKontrakUserLineWidth = parseFloat(val) || 2.5;
+  if (kontrakUserCtx) {
+    kontrakUserCtx.lineWidth = currentKontrakUserLineWidth;
+  }
+}
 
 function initKontrakUserTtdPad() {
   kontrakUserCanvas = document.getElementById('kontrakUserTtdPad');
   if (!kontrakUserCanvas) return;
 
+  const sel = document.getElementById('kontrakUser_lineWidthSelect');
+  if (sel) {
+    currentKontrakUserLineWidth = parseFloat(sel.value) || 2.5;
+  }
+
   kontrakUserCtx = kontrakUserCanvas.getContext('2d');
   kontrakUserCtx.strokeStyle = '#000000';
-  kontrakUserCtx.lineWidth = 2.5;
+  kontrakUserCtx.lineWidth = currentKontrakUserLineWidth || 2.5;
   kontrakUserCtx.lineCap = 'round';
   kontrakUserCtx.lineJoin = 'round';
 
@@ -9314,7 +9327,7 @@ function initKontrakUserTtdPad() {
     kontrakUserIsDrawing = true;
     kontrakUserHasDrawn = true;
     kontrakUserCtx.strokeStyle = '#000000';
-    kontrakUserCtx.lineWidth = 3.0;
+    kontrakUserCtx.lineWidth = currentKontrakUserLineWidth || 2.5;
     const pos = getPos(e);
     kontrakUserCtx.beginPath();
     kontrakUserCtx.moveTo(pos.x, pos.y);
