@@ -7281,7 +7281,7 @@ const methods = {
 
     if (!nip || !nama) return { success: false, message: 'Data pegawai (NIP/Nama) wajib diisi.' };
     if (!email) return { success: false, message: 'Email wajib diisi.' };
-    if (!tahun) return { success: false, message: 'Tahun kontrak wajib diisi.' };
+    if (!tahun && !payload?.tahun_evaluasi) return { success: false, message: 'Tahun evaluasi / kontrak wajib diisi.' };
     if (!ktpUrl && !ktpBase64) return { success: false, message: 'Link Google Drive KTP wajib diisi.' };
     if (!kkUrl && !kkBase64) return { success: false, message: 'Link Google Drive KK wajib diisi.' };
     if (!pasFotoUrl && !pasFotoBase64) return { success: false, message: 'Link Google Drive Pas Foto wajib diisi.' };
@@ -7297,7 +7297,7 @@ const methods = {
         nama: String(nama || '').trim(),
         unit: String(unit || '').trim(),
         email: String(email || '').trim(),
-        tahun: String(tahun || '').trim(),
+        tahun: String(tahun || payload?.tahun_evaluasi || '').trim(),
         jenis_usulan: String(jenis_usulan || '').trim(),
         evaluasi_kinerja: String(evaluasi_kinerja || '').trim(),
         layanan: String(layanan || 'Kontrak Dosen').trim(),
@@ -7974,7 +7974,7 @@ const methods = {
       nama: targetNama,
       unit: String(unit || emp?.unit_es_ii || '').trim(),
       email: String(email || emp?.email || '').trim(),
-      tahun: String(tahun || new Date().getFullYear()).trim(),
+      tahun: String(tahun || payload?.tahun_evaluasi || new Date().getFullYear()).trim(),
       jenis_usulan: 'Pembaruan Kontrak',
       evaluasi_kinerja: String(evaluasi_kinerja || '').trim(),
       layanan: 'Kontrak Tendik',
@@ -7983,6 +7983,8 @@ const methods = {
       atasan_nama: atasanNama,
       status: 'submitted_to_atasan',
       form_data: Object.assign({}, form_data || {}, {
+        tahun: String(tahun || payload?.tahun_evaluasi || new Date().getFullYear()).trim(),
+        tahun_evaluasi: String(tahun || payload?.tahun_evaluasi || new Date().getFullYear()).trim(),
         atasan_nip: atasanNip,
         atasan_nama: atasanNama,
         atasan_tutam: atasanTutam,

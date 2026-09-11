@@ -8985,6 +8985,10 @@ function toggleEvaluasiKinerjaUser() {
   if (wrap) {
     wrap.style.display = (jenis === 'Pembaruan Kontrak' || jenis === 'Pembaruan' || jenis === 'Perpanjangan') ? 'block' : 'none';
   }
+  const tahunLabel = document.getElementById('kontrakUser_tahunLabel');
+  if (tahunLabel) {
+    tahunLabel.textContent = (jenis === 'Baru') ? 'Tahun Kontrak' : 'Tahun Evaluasi';
+  }
 }
 
 function onKontrakUserLayananChange() {
@@ -9435,7 +9439,9 @@ async function submitUsulanKontrak(e) {
     setBtnLoading(btn, true, 'Menyimpan Usulan...');
 
     const payload = {
-      nip, nama, unit, email, tahun,
+      nip, nama, unit, email,
+      tahun,
+      tahun_evaluasi: tahun,
       atasan_nip, atasan_nama,
       jenis_usulan: isTendik ? 'Pembaruan Kontrak' : jenis_usulan,
       evaluasi_kinerja, layanan, sub_menu,
@@ -9444,6 +9450,8 @@ async function submitUsulanKontrak(e) {
       ttd_pegawai,
       form_data: {
         nip, nama_lengkap: nama, unit_es_ii: unit, jabatan: jabVal, email,
+        tahun,
+        tahun_evaluasi: tahun,
         atasan_nip, atasan_nama,
         status_kepegawaian: sub_menu,
         ttd_pegawai
@@ -9531,8 +9539,11 @@ async function populateKontrakUserFormProfile() {
   setFieldLock(emailEl, emailVal, isNormalUser);
 
   if (tahunEl) {
-    tahunEl.value = new Date().getFullYear();
+    if (!tahunEl.value) {
+      tahunEl.value = new Date().getFullYear();
+    }
   }
+  toggleEvaluasiKinerjaUser();
 
   // Auto-detect & Lock Kategori Pegawai (Layanan = jenis_peg) & Jenis Perjanjian Kerja (SubMenu = status_kepegawaian)
   const jenisPeg = String(profile.jenis_peg || profile.jenis_pegawai || jabVal || '').toLowerCase();
@@ -10104,7 +10115,7 @@ function handleUsulanKontrakSayaResult(res) {
     
     card.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:10px; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
-        <div><strong>Tahun Kontrak:</strong> ${escapeHtml(u.tahun)}</div>
+        <div><strong>${(u.jenis_usulan === 'Baru' ? 'Tahun Kontrak' : 'Tahun Evaluasi')}:</strong> ${escapeHtml(u.tahun || u.tahun_evaluasi || '-')}</div>
         <div>${statusBadge}</div>
       </div>
       <div class="grid-2" style="font-size:14px; gap:10px; margin-bottom:16px;">
@@ -11784,7 +11795,7 @@ function renderKontrakReviewDetailContent_(u) {
       <div><strong>Unit Kerja:</strong> ${escapeHtml(u.unit || '-')}</div>
       <div><strong>Email:</strong> ${escapeHtml(u.email || '-')}</div>
       <div><strong>Jenis Usulan:</strong> ${escapeHtml(u.jenis_usulan || '-')}</div>
-      <div><strong>Tahun Kontrak:</strong> ${escapeHtml(u.tahun || '-')}</div>
+      <div><strong>${(u.jenis_usulan === 'Baru' ? 'Tahun Kontrak' : 'Tahun Evaluasi')}:</strong> ${escapeHtml(u.tahun || u.tahun_evaluasi || '-')}</div>
       <div><strong>Evaluasi Kinerja:</strong> ${escapeHtml(u.evaluasi_kinerja || '-')}</div>
       <div><strong>Kategori:</strong> ${escapeHtml(u.layanan || '-')}</div>
       <div><strong>Jenis Kontrak:</strong> ${escapeHtml(u.sub_menu || '-')}</div>

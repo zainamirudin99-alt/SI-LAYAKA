@@ -1479,8 +1479,8 @@
                       <input type="email" id="kontrakUser_email" class="field-input" required placeholder="contoh@email.com" />
                     </div>
                     <div class="stack-field">
-                      <label>Tahun Kontrak</label>
-                      <input type="text" id="kontrakUser_tahun" class="field-input" />
+                      <label id="kontrakUser_tahunLabel">Tahun Evaluasi</label>
+                      <input type="text" id="kontrakUser_tahun" class="field-input" placeholder="2026" />
                     </div>
                    <div class="stack-field">
                      <label>Jenis Usulan</label>
