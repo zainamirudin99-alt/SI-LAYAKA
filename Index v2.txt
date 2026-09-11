@@ -2573,7 +2573,7 @@
       </h3>
       <p style="margin:0 0 18px 0; color:var(--text-muted); font-size:14px; line-height:1.6;">
         Hasil evaluasi kinerja Anda telah <strong>divalidasi &amp; disetujui</strong> oleh Atasan Langsung dan Admin Kepegawaian.<br><br>
-        Silakan lengkapi <strong>Berkas Persyaratan Final</strong> (KTP, KK, Ijazah &amp; Transkrip, Surat Sehat, Surat Pengantar) agar Dokumen Perjanjian Kerja &amp; SKP dapat diterbitkan.
+        Silakan lengkapi <strong>Berkas Persyaratan Final</strong> (Pas Foto, KTP, KK, Ijazah &amp; Transkrip, Surat Sehat, Surat Pengantar) agar Dokumen Perjanjian Kerja &amp; SKP dapat diterbitkan.
       </p>
       <div style="display:flex; justify-content:center; gap:12px;">
         <button type="button" class="btn btn-primary" onclick="tutupNotifikasiKelayakanDanLengkapi()" style="padding:12px 28px; font-weight:700; font-size:14px; border-radius:8px; box-shadow:0 4px 14px rgba(37,99,235,0.3);">

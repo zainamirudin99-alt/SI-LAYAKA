@@ -9766,6 +9766,7 @@ function handleUsulanKontrakSayaResult(res) {
 
     // Cek kelengkapan berkas pasca-approval
     const KELENGKAPAN_DEFS = [
+      { key: 'pas_foto', label: 'Pas Foto Terbaru (Gambar)', required: true },
       { key: 'ktp', label: 'KTP (PDF/Gambar)', required: true },
       { key: 'kk', label: 'Kartu Keluarga (PDF/Gambar)', required: true },
       { key: 'ijazah_transkrip', label: 'Ijazah & Transkrip Terakhir (PDF)', required: true },
@@ -9781,7 +9782,7 @@ function handleUsulanKontrakSayaResult(res) {
     const allKelengkapanApproved = isTendik
       ? activeRequiredDefs.every(d => {
           const item = bKelengkapan[d.key];
-          return item && (item.approved === true || item.status === 'verified');
+          return (item && (item.approved === true || item.status === 'verified')) || u[d.key + '_approved'] === true;
         })
       : true;
 
@@ -9801,14 +9802,24 @@ function handleUsulanKontrakSayaResult(res) {
             </div>
             ${allKelengkapanApproved 
               ? '<span class="badge" style="background:#10b981; color:#fff; padding:6px 14px; border-radius:8px; font-weight:700;">Seluruh Berkas Disetujui</span>' 
-              : '<span class="badge" style="background:#f59e0b; color:#fff; padding:6px 14px; border-radius:8px; font-weight:700;">Menunggu Kelengkapan &amp; Verifikasi</span>'}'
+              : '<span class="badge" style="background:#f59e0b; color:#fff; padding:6px 14px; border-radius:8px; font-weight:700;">Menunggu Kelengkapan &amp; Verifikasi</span>'}
           </div>
 
           <div style="display:flex; flex-direction:column; gap:12px;">
             ${activeRequiredDefs.map(d => {
               const bItem = bKelengkapan[d.key] || {};
-              const curUrl = bItem.url || u[d.key + '_url'] || '';
-              const isAppr = bItem.approved === true || bItem.status === 'verified';
+              let curUrl = bItem.url || u[d.key + '_url'] || '';
+              if (!curUrl && d.key === 'pas_foto') {
+                curUrl = u.pas_foto_url || u.pasfoto_url || u.form_data?.pas_foto_url || u.form_data?.pasfoto || '';
+              }
+              if (!curUrl && d.key === 'ijazah_transkrip') {
+                curUrl = u.ijazah_transkrip_url || u.ijazah_url || u.form_data?.ijazah_transkrip_url || u.form_data?.ijazah_url || '';
+              }
+              if (!curUrl && d.key === 'keterangan_sehat') {
+                curUrl = u.keterangan_sehat_url || u.ket_sehat_url || u.form_data?.keterangan_sehat_url || u.form_data?.ket_sehat || '';
+              }
+              curUrl = String(curUrl || '').trim();
+              const isAppr = bItem.approved === true || bItem.status === 'verified' || u[d.key + '_approved'] === true;
               const isRej = bItem.status === 'rejected';
               const isWait = !!curUrl && !isAppr && !isRej;
 
@@ -11780,6 +11791,7 @@ function renderKontrakReviewDetailContent_(u) {
   let adminKelengkapanHtml = '';
   if (isTendik && (u.status === 'validated_by_admin' || u.status === 'contract_generated' || u.status === 'Selesai')) {
     const KELENGKAPAN_DEFS = [
+      { key: 'pas_foto', label: 'Pas Foto Terbaru (Gambar)', required: true },
       { key: 'ktp', label: 'KTP (PDF/Gambar)', required: true },
       { key: 'kk', label: 'Kartu Keluarga (PDF/Gambar)', required: true },
       { key: 'ijazah_transkrip', label: 'Ijazah & Transkrip Terakhir (PDF)', required: true },
@@ -11806,8 +11818,18 @@ function renderKontrakReviewDetailContent_(u) {
         <div style="display:flex; flex-direction:column; gap:10px;">
           ${activeDefs.map(d => {
             const itemData = bKel[d.key] || {};
-            const itemUrl = itemData.url || u[d.key + '_url'] || '';
-            const isAppr = itemData.approved === true || itemData.status === 'verified';
+            let itemUrl = itemData.url || u[d.key + '_url'] || '';
+            if (!itemUrl && d.key === 'pas_foto') {
+              itemUrl = u.pas_foto_url || u.pasfoto_url || u.form_data?.pas_foto_url || u.form_data?.pasfoto || '';
+            }
+            if (!itemUrl && d.key === 'ijazah_transkrip') {
+              itemUrl = u.ijazah_transkrip_url || u.ijazah_url || u.form_data?.ijazah_transkrip_url || u.form_data?.ijazah_url || '';
+            }
+            if (!itemUrl && d.key === 'keterangan_sehat') {
+              itemUrl = u.keterangan_sehat_url || u.ket_sehat_url || u.form_data?.keterangan_sehat_url || u.form_data?.ket_sehat || '';
+            }
+            itemUrl = String(itemUrl || '').trim();
+            const isAppr = itemData.approved === true || itemData.status === 'verified' || u[d.key + '_approved'] === true;
             const isRej = itemData.status === 'rejected';
             const isWait = !!itemUrl && !isAppr && !isRej;
 

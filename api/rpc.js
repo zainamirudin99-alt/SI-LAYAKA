@@ -8651,27 +8651,33 @@ const methods = {
     }
 
     const bp = berkasPayload || {};
-    const ktpUrl = bp.ktp_url || usulan.ktp_url || '';
-    const kkUrl = bp.kk_url || usulan.kk_url || '';
-    const ijazahUrl = bp.ijazah_transkrip_url || usulan.ijazah_transkrip_url || '';
-    const sehatUrl = bp.keterangan_sehat_url || usulan.keterangan_sehat_url || '';
-    const pengantarUrl = bp.surat_pengantar_url || usulan.surat_pengantar_url || '';
-    const strUrl = bp.str_aktif_url || usulan.str_aktif_url || '';
-    const simUrl = bp.sim_ab_url || usulan.sim_ab_url || '';
+    const pasFotoUrl = bp.pas_foto_url || bp.pas_foto || usulan.pas_foto_url || usulan.pasfoto_url || usulan.form_data?.pas_foto_url || '';
+    const ktpUrl = bp.ktp_url || bp.ktp || usulan.ktp_url || '';
+    const kkUrl = bp.kk_url || bp.kk || usulan.kk_url || '';
+    const ijazahUrl = bp.ijazah_transkrip_url || bp.ijazah_transkrip || usulan.ijazah_transkrip_url || '';
+    const sehatUrl = bp.keterangan_sehat_url || bp.keterangan_sehat || usulan.keterangan_sehat_url || '';
+    const pengantarUrl = bp.surat_pengantar_url || bp.surat_pengantar || usulan.surat_pengantar_url || '';
+    const strUrl = bp.str_aktif_url || bp.str_aktif || usulan.str_aktif_url || '';
+    const simUrl = bp.sim_ab_url || bp.sim_ab || usulan.sim_ab_url || '';
 
-    const allUrls = [ktpUrl, kkUrl, ijazahUrl, sehatUrl, pengantarUrl, strUrl, simUrl].filter(Boolean);
+    const allUrls = [pasFotoUrl, ktpUrl, kkUrl, ijazahUrl, sehatUrl, pengantarUrl, strUrl, simUrl].filter(Boolean);
     if (allUrls.some(u => isGdriveFolderUrl(u))) {
       return { success: false, message: 'Tautan berkas kelengkapan harus langsung menuju ke FILE Google Drive, bukan tautan FOLDER.' };
     }
 
-    if (!ktpUrl) return { success: false, message: 'Link Google Drive KTP wajib diisi.' };
-    if (!kkUrl) return { success: false, message: 'Link Google Drive Kartu Keluarga (KK) wajib diisi.' };
-    if (!ijazahUrl) return { success: false, message: 'Link Google Drive Ijazah & Transkrip Terakhir wajib diisi.' };
-    if (!sehatUrl) return { success: false, message: 'Link Google Drive Surat Keterangan Sehat wajib diisi.' };
-    if (!pengantarUrl) return { success: false, message: 'Link Google Drive Surat Pengantar Pimpinan Unit wajib diisi.' };
+    const isSingleDoc = Object.keys(bp).length === 1;
+    if (!isSingleDoc) {
+      if (!pasFotoUrl) return { success: false, message: 'Link Google Drive Pas Foto Terbaru wajib diisi.' };
+      if (!ktpUrl) return { success: false, message: 'Link Google Drive KTP wajib diisi.' };
+      if (!kkUrl) return { success: false, message: 'Link Google Drive Kartu Keluarga (KK) wajib diisi.' };
+      if (!ijazahUrl) return { success: false, message: 'Link Google Drive Ijazah & Transkrip Terakhir wajib diisi.' };
+      if (!sehatUrl) return { success: false, message: 'Link Google Drive Surat Keterangan Sehat wajib diisi.' };
+      if (!pengantarUrl) return { success: false, message: 'Link Google Drive Surat Pengantar Pimpinan Unit wajib diisi.' };
+    }
 
     const currentData = usulan.berkas_kelengkapan_data || {};
     const updateFields = {
+      pas_foto_url: pasFotoUrl,
       ktp_url: ktpUrl,
       kk_url: kkUrl,
       ijazah_transkrip_url: ijazahUrl,
@@ -8687,13 +8693,22 @@ const methods = {
     };
 
     // Reset approved status jika URL berubah (misal re-upload berkas yang buram/salah)
-    if (bp.ktp_url && bp.ktp_url !== usulan.ktp_url) updateFields.ktp_approved = false;
-    if (bp.kk_url && bp.kk_url !== usulan.kk_url) updateFields.kk_approved = false;
-    if (bp.ijazah_transkrip_url && bp.ijazah_transkrip_url !== usulan.ijazah_transkrip_url) updateFields.ijazah_transkrip_approved = false;
-    if (bp.keterangan_sehat_url && bp.keterangan_sehat_url !== usulan.keterangan_sehat_url) updateFields.keterangan_sehat_approved = false;
-    if (bp.surat_pengantar_url && bp.surat_pengantar_url !== usulan.surat_pengantar_url) updateFields.surat_pengantar_approved = false;
-    if (bp.str_aktif_url && bp.str_aktif_url !== usulan.str_aktif_url) updateFields.str_aktif_approved = false;
-    if (bp.sim_ab_url && bp.sim_ab_url !== usulan.sim_ab_url) updateFields.sim_ab_approved = false;
+    const newPasFoto = bp.pas_foto_url || bp.pas_foto;
+    if (newPasFoto && newPasFoto !== usulan.pas_foto_url) updateFields.pas_foto_approved = false;
+    const newKtp = bp.ktp_url || bp.ktp;
+    if (newKtp && newKtp !== usulan.ktp_url) updateFields.ktp_approved = false;
+    const newKk = bp.kk_url || bp.kk;
+    if (newKk && newKk !== usulan.kk_url) updateFields.kk_approved = false;
+    const newIjazah = bp.ijazah_transkrip_url || bp.ijazah_transkrip;
+    if (newIjazah && newIjazah !== usulan.ijazah_transkrip_url) updateFields.ijazah_transkrip_approved = false;
+    const newSehat = bp.keterangan_sehat_url || bp.keterangan_sehat;
+    if (newSehat && newSehat !== usulan.keterangan_sehat_url) updateFields.keterangan_sehat_approved = false;
+    const newPengantar = bp.surat_pengantar_url || bp.surat_pengantar;
+    if (newPengantar && newPengantar !== usulan.surat_pengantar_url) updateFields.surat_pengantar_approved = false;
+    const newStr = bp.str_aktif_url || bp.str_aktif;
+    if (newStr && newStr !== usulan.str_aktif_url) updateFields.str_aktif_approved = false;
+    const newSim = bp.sim_ab_url || bp.sim_ab;
+    if (newSim && newSim !== usulan.sim_ab_url) updateFields.sim_ab_approved = false;
 
     const { error: updErr } = await db.from('usulan_kontrak').update(updateFields).eq('id', usulanId);
     if (updErr) throw updErr;
@@ -8710,7 +8725,7 @@ const methods = {
     if (fErr) throw fErr;
     if (!usulan) return { success: false, message: 'Usulan tidak ditemukan.' };
 
-    const validKeys = ['ktp', 'kk', 'ijazah_transkrip', 'keterangan_sehat', 'surat_pengantar', 'sim_ab', 'str_aktif'];
+    const validKeys = ['pas_foto', 'ktp', 'kk', 'ijazah_transkrip', 'keterangan_sehat', 'surat_pengantar', 'sim_ab', 'str_aktif'];
     if (!validKeys.includes(berkasKey)) {
       return { success: false, message: `Kunci berkas "${berkasKey}" tidak valid.` };
     }
@@ -8736,6 +8751,7 @@ const methods = {
 
     const state = Object.assign({}, usulan, updateFields);
     const reqChecks = [
+      state.pas_foto_approved,
       state.ktp_approved,
       state.kk_approved,
       state.ijazah_transkrip_approved,
@@ -8788,6 +8804,7 @@ const methods = {
     const notes = bData.catatan || {};
 
     const items = [
+      { key: 'pas_foto', label: 'Pas Foto Terbaru (Gambar)', url: u.pas_foto_url || u.pasfoto_url || u.form_data?.pas_foto_url || '', approved: Boolean(u.pas_foto_approved), catatan: notes.pas_foto || '', required: true },
       { key: 'ktp', label: 'KTP', url: u.ktp_url || '', approved: Boolean(u.ktp_approved), catatan: notes.ktp || '', required: true },
       { key: 'kk', label: 'Kartu Keluarga (KK)', url: u.kk_url || '', approved: Boolean(u.kk_approved), catatan: notes.kk || '', required: true },
       { key: 'ijazah_transkrip', label: 'Ijazah & Transkrip Terakhir', url: u.ijazah_transkrip_url || '', approved: Boolean(u.ijazah_transkrip_approved), catatan: notes.ijazah_transkrip || '', required: true },
@@ -8831,6 +8848,7 @@ const methods = {
       const isDriver = /pengemudi|sopir|driver/i.test(usulan.form_data?.jabatan || usulan.jabatan || '');
       const isMedis = /perawat|dokter|medis|apoteker|bidan/i.test(usulan.form_data?.jabatan || usulan.jabatan || '');
       const reqChecks = [
+        usulan.pas_foto_approved,
         usulan.ktp_approved,
         usulan.kk_approved,
         usulan.ijazah_transkrip_approved,
@@ -8841,7 +8859,7 @@ const methods = {
       if (isMedis) reqChecks.push(usulan.str_aktif_approved);
 
       if (!reqChecks.every(Boolean)) {
-        return { success: false, message: 'Dokumen Perjanjian Kerja belum dapat dibuat. Seluruh berkas kelengkapan (KTP, KK, Ijazah, Surat Sehat, Surat Pengantar) wajib disetujui terlebih dahulu oleh Admin.' };
+        return { success: false, message: 'Dokumen Perjanjian Kerja belum dapat dibuat. Seluruh berkas kelengkapan (Pas Foto, KTP, KK, Ijazah, Surat Sehat, Surat Pengantar) wajib disetujui terlebih dahulu oleh Admin.' };
       }
     }
 
@@ -9039,6 +9057,7 @@ const methods = {
       const isDriver = /pengemudi|sopir|driver/i.test(usulan.form_data?.jabatan || usulan.jabatan || '');
       const isMedis = /perawat|dokter|medis|apoteker|bidan/i.test(usulan.form_data?.jabatan || usulan.jabatan || '');
       const reqChecks = [
+        usulan.pas_foto_approved,
         usulan.ktp_approved,
         usulan.kk_approved,
         usulan.ijazah_transkrip_approved,
@@ -9049,7 +9068,7 @@ const methods = {
       if (isMedis) reqChecks.push(usulan.str_aktif_approved);
 
       if (!reqChecks.every(Boolean)) {
-        return { success: false, message: 'Dokumen Sasaran Kinerja Pegawai (SKP) belum dapat dibuat. Seluruh berkas kelengkapan (KTP, KK, Ijazah, Surat Sehat, Surat Pengantar) wajib disetujui terlebih dahulu oleh Admin.' };
+        return { success: false, message: 'Dokumen Sasaran Kinerja Pegawai (SKP) belum dapat dibuat. Seluruh berkas kelengkapan (Pas Foto, KTP, KK, Ijazah, Surat Sehat, Surat Pengantar) wajib disetujui terlebih dahulu oleh Admin.' };
       }
 
       // Pastikan usulan telah disetujui
