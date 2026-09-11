@@ -8898,6 +8898,26 @@ const methods = {
       usulan.form_data = merged;
     }
 
+    // Validasi berkas kelengkapan untuk Kontrak Tendik
+    if (usulan.layanan === 'Kontrak Tendik') {
+      const isDriver = /pengemudi|sopir|driver/i.test(usulan.form_data?.jabatan || usulan.jabatan || '');
+      const isMedis = /perawat|dokter|medis|apoteker|bidan/i.test(usulan.form_data?.jabatan || usulan.jabatan || '');
+      const reqChecks = [
+        usulan.pas_foto_approved,
+        usulan.ktp_approved,
+        usulan.kk_approved,
+        usulan.ijazah_transkrip_approved,
+        usulan.keterangan_sehat_approved,
+        usulan.surat_pengantar_approved
+      ];
+      if (isDriver) reqChecks.push(usulan.sim_ab_approved);
+      if (isMedis) reqChecks.push(usulan.str_aktif_approved);
+
+      if (!reqChecks.every(Boolean)) {
+        return { success: false, message: 'Dokumen Perjanjian Kerja belum dapat dibuat. Seluruh berkas kelengkapan (Pas Foto, KTP, KK, Ijazah, Surat Sehat, Surat Pengantar) wajib disetujui terlebih dahulu oleh Admin.' };
+      }
+    }
+
     // Pastikan semua lampiran sudah disetujui (hanya wajib untuk admin+)
     if (['admin', 'super_admin'].includes(role)) {
       const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat'];

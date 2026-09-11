@@ -9691,6 +9691,71 @@ async function submitSingleBerkasKelengkapan(usulanId, docKey, inputId) {
   }
 }
 
+async function submitSemuaBerkasKelengkapan(usulanId) {
+  const btn = document.getElementById('btnKirimSemuaBerkasKelengkapan');
+  const u = window.currentUsulanSaya || {};
+  const fd = u.form_data || {};
+  const jabVal = fd.jabatan || u.jabatan || '';
+  const isDriver = String(jabVal).toLowerCase().includes('pengemudi');
+  const isMedis = (typeof isJabatanMedis === 'function') ? isJabatanMedis(jabVal) : false;
+
+  const KELENGKAPAN_DEFS = [
+    { key: 'pas_foto', label: 'Pas Foto Terbaru (Gambar)', required: true },
+    { key: 'ktp', label: 'KTP (PDF/Gambar)', required: true },
+    { key: 'kk', label: 'Kartu Keluarga (PDF/Gambar)', required: true },
+    { key: 'ijazah_transkrip', label: 'Ijazah & Transkrip Terakhir (PDF)', required: true },
+    { key: 'keterangan_sehat', label: 'Surat Keterangan Sehat (PDF/Gambar)', required: true },
+    { key: 'surat_pengantar', label: 'Surat Pengantar Pimpinan Unit (PDF)', required: true },
+    { key: 'sim_ab', label: 'SIM A & B (Khusus Pengemudi)', required: isDriver },
+    { key: 'str_aktif', label: 'STR Aktif (Khusus Tenaga Medis)', required: isMedis }
+  ];
+
+  const payload = {};
+  for (const d of KELENGKAPAN_DEFS) {
+    if (!d.required) continue;
+    const inputEl = document.getElementById('kelengkapan_input_' + d.key);
+    let val = inputEl ? inputEl.value.trim() : '';
+    if (!val) {
+      showToast('error', `Silakan lengkapi tautan untuk ${d.label} terlebih dahulu.`);
+      if (inputEl) inputEl.focus();
+      return;
+    }
+    let cleanUrl = '';
+    try {
+      cleanUrl = validateAndCleanGdriveFileUrl(val, d.label, true);
+    } catch (e) {
+      showToast('error', e.message || `Format tautan ${d.label} tidak valid.`);
+      if (inputEl) inputEl.focus();
+      return;
+    }
+    if (!cleanUrl) {
+      if (inputEl) inputEl.focus();
+      return;
+    }
+    payload[d.key + '_url'] = cleanUrl;
+    payload[d.key] = cleanUrl;
+  }
+
+  if (btn) setBtnLoading(btn, true, 'Mengirim Berkas ke Admin...');
+  showToast('info', 'Mengirim seluruh berkas kelengkapan ke Admin Kepegawaian...');
+
+  try {
+    const res = await rpc('submitBerkasKelengkapanTendik', [SESSION.token, usulanId, payload]);
+    if (btn) setBtnLoading(btn, false, '📤 Unggah & Kirim Seluruh Berkas ke Admin');
+    if (res && res.success) {
+      showToast('success', res.message || 'Seluruh berkas kelengkapan berhasil disimpan dan dikirim ke Admin.');
+      if (typeof loadUsulanKontrakSaya === 'function') {
+        loadUsulanKontrakSaya();
+      }
+    } else {
+      showToast('error', res?.message || 'Gagal mengirim berkas.');
+    }
+  } catch (err) {
+    if (btn) setBtnLoading(btn, false, '📤 Unggah & Kirim Seluruh Berkas ke Admin');
+    showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
+  }
+}
+
 function handleUsulanKontrakSayaResult(res) {
   const statusState = document.getElementById('kontrakUserStatusState');
   const formState = document.getElementById('kontrakUserFormState');
@@ -9847,14 +9912,9 @@ function handleUsulanKontrakSayaResult(res) {
 
                   <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
                     <input type="url" id="kelengkapan_input_${d.key}" class="field-input" style="flex:1; min-width:240px; font-size:12.5px;" placeholder="Tautan Google Drive (file langsung)..." value="${escapeHtml(curUrl)}" ${isAppr ? 'disabled' : ''} />
-                    ${!isAppr ? `
-                      <button type="button" class="btn btn-primary kp-small-btn" style="padding:7px 16px; font-weight:600;" onclick="submitSingleBerkasKelengkapan('${u.id}', '${d.key}', 'kelengkapan_input_${d.key}')">
-                        ${isRej ? 'Unggah Ulang' : (curUrl ? 'Simpan Perubahan' : 'Unggah Berkas')}
-                      </button>
-                    ` : ''}
                     ${curUrl ? `
-                      <a href="${escapeHtml(curUrl)}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn" style="padding:7px 12px; font-weight:600; text-decoration:none;">
-                        Buka File
+                      <a href="${escapeHtml(curUrl)}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn" style="padding:7px 14px; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+                        Buka File ↗
                       </a>
                     ` : ''}
                   </div>
@@ -9862,6 +9922,21 @@ function handleUsulanKontrakSayaResult(res) {
               `;
             }).join('')}
           </div>
+
+          ${!allKelengkapanApproved ? `
+            <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+              <div style="font-size:12.5px; color:var(--text-muted); flex:1; min-width:240px;">
+                💡 <em>Pastikan semua tautan berkas langsung menuju ke file Google Drive dan akses sharing telah dibuka (Viewer / Siapa saja yang memiliki link).</em>
+              </div>
+              <button type="button" id="btnKirimSemuaBerkasKelengkapan" class="btn btn-primary" style="padding:12px 28px; font-weight:700; font-size:14px; border-radius:8px; box-shadow:0 4px 14px rgba(37,99,235,0.25); display:inline-flex; align-items:center; gap:8px;" onclick="submitSemuaBerkasKelengkapan('${u.id}')">
+                📤 Unggah &amp; Kirim Seluruh Berkas ke Admin
+              </button>
+            </div>
+          ` : `
+            <div style="margin-top:16px; padding:12px 16px; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; color:#065f46; font-weight:700; font-size:13.5px; display:flex; align-items:center; gap:8px;">
+              <span>✅ Seluruh berkas persyaratan final telah disetujui oleh Admin Kepegawaian. Silakan terbitkan Dokumen Perjanjian Kerja pada formulir di bawah.</span>
+            </div>
+          `}
         </div>
       `;
     }
@@ -9922,7 +9997,7 @@ function handleUsulanKontrakSayaResult(res) {
       const lockBannerHtml = (!canGenerateFinal && isTendik) ? `
         <div style="margin-top:20px; padding:16px 20px; background:#fffbeb; border:1px solid #fde68a; border-left:4px solid #f59e0b; border-radius:10px; color:#92400e; font-size:13.5px; line-height:1.6;">
           <strong style="font-size:14px; display:flex; align-items:center; gap:8px;">
-            Penerbitan Dokumen Perjanjian Kerja &amp; SKP Terkunci
+            Penerbitan Dokumen Perjanjian Kerja Terkunci
           </strong>
           <div style="margin-top:4px;">
             Penerbitan dokumen kontrak final hanya dapat diproses setelah <strong>seluruh Berkas Kelengkapan di atas berstatus Disetujui</strong> oleh Admin Kepegawaian. Silakan lengkapi berkas yang belum diunggah atau perbaiki berkas yang ditolak.
@@ -10046,55 +10121,6 @@ function handleUsulanKontrakSayaResult(res) {
           </div>
         </div>
       `;
-
-      if (isTendik) {
-        const skpSaved = u.skp_data || {};
-        skpFormHtml = `
-          <div class="kontrak-form-wrap" style="margin-top:24px; padding:24px; background:var(--surface); border:1px solid var(--border); border-radius:12px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--border); padding-bottom:12px; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
-              <div>
-                <h3 style="margin:0; color:var(--text); font-size:18px; font-weight:800; display:flex; align-items:center; gap:8px;">
-                  Sasaran Kinerja Pegawai (SKP) Tendik
-                </h3>
-                <div style="font-size:12.5px; color:var(--text-muted); margin-top:4px;">
-                  Formulir SKP telah diisi &amp; ditandatangani oleh Atasan Langsung penilai kinerja pada Tahap Evaluasi.
-                </div>
-              </div>
-              ${u.skp_dibuat ? '<span class="badge" style="background:#059669; color:#fff; padding:6px 12px; border-radius:8px; font-weight:700;">Dokumen SKP Pernah Dibuat</span>' : ''}
-            </div>
-
-            ${lockBannerHtml}
-
-            <div style="${!canGenerateFinal ? 'opacity:0.6; pointer-events:none;' : ''}">
-              <div style="background:var(--surface-alt); border:1px solid var(--border); border-radius:10px; padding:18px; margin-bottom:20px;">
-                <h4 style="margin:0 0 12px 0; color:var(--primary); font-size:14px; font-weight:700;">Ringkasan Data SKP Terisi:</h4>
-                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; font-size:13px;">
-                  <div><strong>Periode Penilaian:</strong> ${escapeHtml(skpSaved.bulan_awal_penilaian || 'JANUARI')} s.d ${escapeHtml(skpSaved.hari_akhir_penilaian || '31')} ${escapeHtml(skpSaved.bulan_akhir_penilaian || 'DESEMBER')} ${escapeHtml(skpSaved.tahun_penilaian || u.tahun || '')}</div>
-                  <div><strong>Capaian Organisasi:</strong> ${escapeHtml(skpSaved.capaian_kinerja_organisasi || 'BAIK')}</div>
-                  <div><strong>Predikat Kinerja Pegawai:</strong> <strong style="color:#16a34a;">${escapeHtml(skpSaved.predikat_kinerja_pegawai || 'BAIK')}</strong></div>
-                  <div><strong>Atasan Penilai:</strong> ${escapeHtml(skpSaved.nama_lengkap_atasan_langsung || u.atasan_nama || '-')} (NIP: ${escapeHtml(skpSaved.nip_atasan_langsung || u.atasan_nip || '-')})</div>
-                  <div><strong>Atasan Pejabat:</strong> ${escapeHtml(skpSaved.nama_lengkap_pejabat || '-')} (NIP: ${escapeHtml(skpSaved.nip_pejabat || '-')})</div>
-                  <div><strong>Catatan Rekomendasi:</strong> ${escapeHtml(skpSaved.catatan_rekomendasi || u.evaluasi_rekomendasi || '-')}</div>
-                </div>
-              </div>
-
-              <div class="stack-field" style="margin-top:20px; margin-bottom:16px;">
-                <label style="font-weight:700; margin-bottom:8px; display:block;">PILIH TEMPLATE SASARAN KINERJA PEGAWAI (SKP)</label>
-                <div id="skp_tplSelectorWrap_${u.id}"></div>
-              </div>
-
-              <div class="actions-bar" style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px; border-top:1px solid var(--border); padding-top:16px; flex-wrap:wrap;">
-                <button type="button" class="btn btn-outline" style="padding:10px 20px; font-weight:600;" onclick="previewSkpTendikSelf('${u.id}')">
-                  Preview SKP (.docx)
-                </button>
-                <button type="button" class="btn btn-primary" id="skp_genBtn_${u.id}" style="padding:10px 24px; font-weight:700; background:#2563eb; border-color:#2563eb;" onclick="generateSkpTendikSelf('${u.id}')">
-                  Buat Sasaran Kinerja Pegawai (SKP)
-                </button>
-              </div>
-            </div>
-          </div>
-        `;
-      }
     }
 
     const nipVal = SESSION.user?.nip || u.nip || '';
@@ -10155,32 +10181,15 @@ function handleUsulanKontrakSayaResult(res) {
 
       ${kelengkapanSectionHtml}
 
-      ${isTendik && isApprovedByAdmin ? `
-        <div style="margin-top:24px; margin-bottom:16px; display:flex; gap:10px; background:var(--surface-alt); padding:6px; border-radius:10px; border:1px solid var(--border); width:fit-content; max-width:100%;">
-          <button type="button" id="tabDocGenPerjanjian_${u.id}" class="btn btn-primary" style="padding:8px 18px; font-weight:700; border-radius:8px;" onclick="switchKontrakDocTab('${u.id}', 'perjanjian')">
-            Dokumen Perjanjian Kerja
-          </button>
-          <button type="button" id="tabDocGenSkp_${u.id}" class="btn btn-outline" style="padding:8px 18px; font-weight:700; border-radius:8px;" onclick="switchKontrakDocTab('${u.id}', 'skp')">
-            Sasaran Kinerja Pegawai (SKP)
-          </button>
-        </div>
-        <div id="wrapDocGenPerjanjian_${u.id}">
-          ${readOnlyCardHtml}
-        </div>
-        <div id="wrapDocGenSkp_${u.id}" style="display:none;">
-          ${skpFormHtml}
-        </div>
-      ` : (isApprovedByAdmin ? readOnlyCardHtml : '')}
+      ${isApprovedByAdmin ? readOnlyCardHtml : ''}
     `;
 
     if (isApprovedByAdmin) {
       renderTemplateSelectorForUsulan(u.layanan, u.sub_menu, 'usulan_tplSelectorWrap_' + u.id, null, null, u.id);
-      if (isTendik) {
-        renderTemplateSelectorForSkp(u.layanan, 'Sasaran Kinerja Pegawai', 'skp_tplSelectorWrap_' + u.id, u.id);
-      }
     }
   }
 }
+
 async function previewKontrakUserSelf(usulanId) {
   const selectEl = document.getElementById(`usulan_templateSelect_${usulanId}`);
   const templateRef = selectEl ? selectEl.value : '';
