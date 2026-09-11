@@ -7538,33 +7538,76 @@ const methods = {
     const [token] = extractArgs(args);
     requireRole(token, ['admin','super_admin']);
     const db = getDb();
-    const { data } = await db.from('usulan_kontrak').select('unit, status, diajukan_oleh_nip, diproses_oleh_nip').neq('status','Ditolak');
-    const perUnit = {};
+    const { data, error } = await db.from('usulan_kontrak').select('*').neq('status','Ditolak');
+    if (error) {
+      console.warn('[rpc] getUsulanKontrakNotifikasiSummary error:', error.message);
+    }
+    const perUnitTahun = {};
     let totalUsulanBaru = 0;
     (data || []).forEach(u => {
-      // Abaikan usulan yang dibuat langsung oleh admin sendiri (bukan diajukan oleh pegawai untuk direview)
-      if (u.diajukan_oleh_nip && u.diajukan_oleh_nip === u.diproses_oleh_nip && u.status === 'Selesai') return;
-      if (['Diajukan', 'validated_by_atasan', 'evaluated_renewed', 'evaluated_extend', 'evaluated_not_renewed', 'evaluated_not_extend'].includes(u.status)) totalUsulanBaru++;
+      const isPending = ['Diajukan', 'validated_by_atasan', 'evaluated_renewed', 'evaluated_extend', 'evaluated_not_renewed', 'evaluated_not_extend', 'submitted', 'in_review', 'submitted_to_atasan', 'under_atasan_review'].includes(u.status);
+      if (isPending) totalUsulanBaru++;
+      
       const unit = String(u.unit || '(Tanpa Unit)').trim() || '(Tanpa Unit)';
-      perUnit[unit] = (perUnit[unit] || 0) + 1;
+      const tahun = String(u.tahun || u.tahun_evaluasi || u.form_data?.tahun || u.form_data?.tahun_evaluasi || (u.tanggal_diajukan ? new Date(u.tanggal_diajukan).getFullYear() : '') || new Date().getFullYear()).trim();
+      const key = `${unit}___${tahun}`;
+      
+      if (!perUnitTahun[key]) {
+        perUnitTahun[key] = {
+          unit,
+          tahun,
+          jumlah: 0,
+          pending: 0,
+          selesai: 0
+        };
+      }
+      perUnitTahun[key].jumlah++;
+      if (isPending) {
+        perUnitTahun[key].pending++;
+      }
+      if (u.status === 'Selesai' || u.status === 'contract_generated' || !!u.perjanjian_dibuat) {
+        perUnitTahun[key].selesai++;
+      }
     });
-    const daftarUnit = Object.keys(perUnit).sort().map(unit => ({ unit, jumlah: perUnit[unit] }));
-    return { success: true, totalUsulanBaru, daftarUnit };
+
+    const daftarUnit = Object.values(perUnitTahun).sort((a, b) => {
+      if (b.tahun !== a.tahun) {
+        return b.tahun.localeCompare(a.tahun);
+      }
+      return a.unit.localeCompare(b.unit);
+    });
+
+    const daftarTahun = [...new Set(daftarUnit.map(item => item.tahun))].sort().reverse();
+
+    return { success: true, totalUsulanBaru, daftarUnit, daftarTahun };
   },
 
   async getUsulanKontrakListByUnit(args) {
-    const [token, unit] = extractArgs(args);
+    const [token, unit, tahun] = extractArgs(args);
     requireRole(token, ['admin','super_admin']);
     const db = getDb();
-    const { data, error } = await db.from('usulan_kontrak').select('*').neq('status','Ditolak').eq('unit', unit);
+    let query = db.from('usulan_kontrak').select('*').neq('status','Ditolak');
+    if (unit && unit !== 'Semua') {
+      query = query.eq('unit', unit);
+    }
+    const { data, error } = await query;
     if (error) throw error;
+    
+    let filtered = data || [];
+    if (tahun && tahun !== 'Semua') {
+      filtered = filtered.filter(u => {
+        const uTahun = String(u.tahun || u.tahun_evaluasi || u.form_data?.tahun || u.form_data?.tahun_evaluasi || (u.tanggal_diajukan ? new Date(u.tanggal_diajukan).getFullYear() : '') || '').trim();
+        return uTahun === String(tahun).trim();
+      });
+    }
+
     const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat','hasil_kerja'];
-    const daftar = (data || [])
-      .filter(u => !(u.diajukan_oleh_nip && u.diajukan_oleh_nip === u.diproses_oleh_nip && u.status === 'Selesai'))
-      .map(u => ({
+    const daftar = filtered.map(u => ({
       id: u.id, nip: u.nip, nama: u.nama, unit: u.unit, email: u.email,
-      tahun: u.tahun, jenis_usulan: u.jenis_usulan, evaluasi_kinerja: u.evaluasi_kinerja,
+      tahun: u.tahun || u.tahun_evaluasi || u.form_data?.tahun || u.form_data?.tahun_evaluasi || '',
+      jenis_usulan: u.jenis_usulan, evaluasi_kinerja: u.evaluasi_kinerja,
       layanan: u.layanan, sub_menu: u.sub_menu, status: u.status,
+      perjanjian_dibuat: !!u.perjanjian_dibuat,
       nama_pengaju: u.nama_pengaju, tanggal_diajukan: formatTanggalIndonesia(u.tanggal_diajukan),
       skp_dibuat: !!u.skp_dibuat,
       skp_data: u.skp_data || {},
