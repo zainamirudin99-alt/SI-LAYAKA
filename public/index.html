@@ -14899,11 +14899,25 @@ function trimCanvas_(canvas) {
   const trimmedWidth = Math.max(1, maxX - minX);
   const trimmedHeight = Math.max(1, maxY - minY);
 
+  // Optimasi ukuran gambar tanda tangan: batasi dimensi maksimum agar tanda tangan tetap tajam di dokumen,
+  // tetapi ukuran base64 tidak membebani payload jaringan (maks 400x200 px)
+  const maxW = 400;
+  const maxH = 200;
+  let finalWidth = trimmedWidth;
+  let finalHeight = trimmedHeight;
+  if (finalWidth > maxW || finalHeight > maxH) {
+    const ratio = Math.min(maxW / finalWidth, maxH / finalHeight);
+    finalWidth = Math.max(1, Math.round(finalWidth * ratio));
+    finalHeight = Math.max(1, Math.round(finalHeight * ratio));
+  }
+
   const trimmedCanvas = document.createElement('canvas');
-  trimmedCanvas.width = trimmedWidth;
-  trimmedCanvas.height = trimmedHeight;
+  trimmedCanvas.width = finalWidth;
+  trimmedCanvas.height = finalHeight;
   const trimmedCtx = trimmedCanvas.getContext('2d');
-  trimmedCtx.drawImage(canvas, minX, minY, trimmedWidth, trimmedHeight, 0, 0, trimmedWidth, trimmedHeight);
+  trimmedCtx.imageSmoothingEnabled = true;
+  trimmedCtx.imageSmoothingQuality = 'high';
+  trimmedCtx.drawImage(canvas, minX, minY, trimmedWidth, trimmedHeight, 0, 0, finalWidth, finalHeight);
 
   return trimmedCanvas.toDataURL('image/png');
 }
@@ -15218,10 +15232,7 @@ async function previewSkpTendikModal() {
   const ttdAtasanVal = window.activeTtdAtasan || evalPayload.ttd_base64 || (evalTkkCanvas && evalTkkHasDrawn ? trimCanvas_(evalTkkCanvas) : '') || activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd || '';
   const ttdPegawaiVal = window.activeTtdPegawai || activeEvaluasiDetail?.form_data?.ttd_pegawai || activeEvaluasiDetail?.ttd_pegawai || '';
   payloadData.ttd_atasan_langsung = ttdAtasanVal;
-  payloadData.ttd_atasan = ttdAtasanVal;
-  payloadData.ttd = ttdAtasanVal;
   payloadData.ttd_pegawai = ttdPegawaiVal;
-  payloadData.tanda_tangan_pegawai = ttdPegawaiVal;
 
   showToast('info', 'Menyiapkan pratinjau dokumen SKP...');
   try {
@@ -15254,10 +15265,7 @@ async function buatDokumenSkpModal() {
   const ttdAtasanVal = window.activeTtdAtasan || evalPayload.ttd_base64 || (evalTkkCanvas && evalTkkHasDrawn ? trimCanvas_(evalTkkCanvas) : '') || activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd || '';
   const ttdPegawaiVal = window.activeTtdPegawai || activeEvaluasiDetail?.form_data?.ttd_pegawai || activeEvaluasiDetail?.ttd_pegawai || '';
   payloadData.ttd_atasan_langsung = ttdAtasanVal;
-  payloadData.ttd_atasan = ttdAtasanVal;
-  payloadData.ttd = ttdAtasanVal;
   payloadData.ttd_pegawai = ttdPegawaiVal;
-  payloadData.tanda_tangan_pegawai = ttdPegawaiVal;
 
   const btn = document.getElementById('btnBuatDokumenSkpModal');
   if (btn) setBtnLoading(btn, true, 'Membuat SKP...');
@@ -15367,10 +15375,10 @@ async function validasiDanKirimEvaluasiTkk() {
     const ttdAtasanVal = window.activeTtdAtasan || payload.ttd_base64 || (evalTkkCanvas && evalTkkHasDrawn ? trimCanvas_(evalTkkCanvas) : '') || activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd || '';
     const ttdPegawaiVal = window.activeTtdPegawai || activeEvaluasiDetail?.form_data?.ttd_pegawai || activeEvaluasiDetail?.ttd_pegawai || '';
     skp.ttd_atasan_langsung = ttdAtasanVal;
-    skp.ttd_atasan = ttdAtasanVal;
-    skp.ttd = ttdAtasanVal;
     skp.ttd_pegawai = ttdPegawaiVal;
-    skp.tanda_tangan_pegawai = ttdPegawaiVal;
+    delete skp.ttd_atasan;
+    delete skp.ttd;
+    delete skp.tanda_tangan_pegawai;
 
     const skpRes = await rpc('generateSkpTendik', [SESSION.token, templateRef, activeEvaluasiUsulanId, skp]);
     if (!skpRes || !skpRes.success) {
@@ -19979,11 +19987,11 @@ async function generateSkpTendikSelf(usulanId) {
 
   const payloadData = collectSkpFormData(usulanId) || {};
   if (!payloadData.ttd_pegawai && window.activeTtdPegawai) payloadData.ttd_pegawai = window.activeTtdPegawai;
-  if (!payloadData.tanda_tangan_pegawai && payloadData.ttd_pegawai) payloadData.tanda_tangan_pegawai = payloadData.ttd_pegawai;
-  if (!payloadData.ttd_pengusul && payloadData.ttd_pegawai) payloadData.ttd_pengusul = payloadData.ttd_pegawai;
   if (!payloadData.ttd_atasan_langsung && window.activeTtdAtasan) payloadData.ttd_atasan_langsung = window.activeTtdAtasan;
-  if (!payloadData.ttd_atasan && payloadData.ttd_atasan_langsung) payloadData.ttd_atasan = payloadData.ttd_atasan_langsung;
-  if (!payloadData.ttd && payloadData.ttd_atasan_langsung) payloadData.ttd = payloadData.ttd_atasan_langsung;
+  delete payloadData.tanda_tangan_pegawai;
+  delete payloadData.ttd_pengusul;
+  delete payloadData.ttd_atasan;
+  delete payloadData.ttd;
 
   const btn = document.getElementById('skp_genBtn_' + usulanId);
   if (btn) setBtnLoading(btn, true, 'Membuat SKP...');

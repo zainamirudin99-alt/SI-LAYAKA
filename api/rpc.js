@@ -116,6 +116,46 @@ async function sendEmailNotificationSafe(toEmail, recipientName, subject, body) 
   }
 }
 
+async function parseGasResponse(response, contextName = 'GAS') {
+  if (!response) {
+    return { success: false, message: `Respon dari ${contextName} tidak ditemukan.` };
+  }
+  let text = '';
+  try {
+    text = await response.text();
+  } catch (readErr) {
+    return { success: false, message: `Gagal membaca respon dari ${contextName}: ${readErr.message}` };
+  }
+
+  if (!text || !text.trim()) {
+    return { success: false, message: `Respon dari ${contextName} kosong (HTTP ${response.status || 0}).` };
+  }
+
+  try {
+    const json = JSON.parse(text);
+    return json;
+  } catch (parseErr) {
+    console.warn(`[${contextName}] Non-JSON response (status ${response.status}):`, text.substring(0, 300));
+    let msg = `Gagal memproses respon dari Google Apps Script (HTTP ${response.status}).`;
+    if (text.includes('413') || text.includes('Payload Too Large') || text.includes('Entity Too Large')) {
+      msg = 'Ukuran berkas/tanda tangan terlalu besar untuk Google Apps Script (Error 413 Payload Too Large).';
+    } else if (text.includes('Exceeded maximum execution time') || text.includes('Script timeout')) {
+      msg = 'Waktu eksekusi Google Apps Script melebihi batas (Timeout).';
+    } else if (text.includes('Service invoked too many times') || text.includes('Rate Limit')) {
+      msg = 'Batas kuota Google Apps Script terlampaui. Silakan coba sesaat lagi.';
+    } else if (text.startsWith('<!DOCTYPE') || text.startsWith('<html') || text.includes('<body')) {
+      msg = `Server Google Apps Script mengembalikan halaman HTML (HTTP ${response.status}).`;
+    }
+    return {
+      success: false,
+      isHtmlError: true,
+      statusCode: response.status,
+      message: msg,
+      rawSnippet: text.substring(0, 300)
+    };
+  }
+}
+
 // Global in-memory cache for akses_kontrak_mandiri
 const MEMORY_AKSES_KONTRAK_MANDIRI = {};
 
@@ -2715,8 +2755,8 @@ const methods = {
               params: [nip, password]
             })
           });
-          const gasRes = await response.json();
-          if (gasRes) return gasRes;
+          const gasRes = await parseGasResponse(response, 'login-proxy-GAS');
+          if (gasRes && gasRes.success) return gasRes;
         } catch (gasErr) {
           console.warn('[login] Proxy to GAS failed:', gasErr.message);
         }
@@ -8253,37 +8293,56 @@ const methods = {
               const shortId = uuidv4();
               const ctrl = new AbortController();
               const timeoutId = setTimeout(() => ctrl.abort(), 25000);
+
+              // Rampingkan form_data dan evaluasi_data agar transmisi jaringan ringan
+              const cleanFormDataForGas = Object.assign({}, usulan.form_data || {});
+              delete cleanFormDataForGas.ttd_pegawai;
+              delete cleanFormDataForGas.tanda_tangan_pegawai;
+              delete cleanFormDataForGas.ttd_pengusul;
+              delete cleanFormDataForGas.foto;
+              delete cleanFormDataForGas.pas_foto;
+
+              const cleanEvaluasiDataForGas = Object.assign({}, usulan.evaluasi_data || {}, ed);
+              delete cleanEvaluasiDataForGas.ttd_base64;
+              delete cleanEvaluasiDataForGas.ttd;
+              delete cleanEvaluasiDataForGas.ttd_atasan;
+              delete cleanEvaluasiDataForGas.ttd_atasan_langsung;
+              delete cleanEvaluasiDataForGas.signature;
+
+              const gasPayloadDataCtx = Object.assign({}, dataCtx, {
+                namaPegawai: usulan.nama,
+                nipPegawai: usulan.nip,
+                fileName: `Evaluasi_${String(usulan.nama).replace(/[^a-zA-Z0-9_-]/g, '_')}_${usulan.nip}`,
+                ttd_pegawai: dataCtx.ttd_pegawai,
+                ttd_atasan_langsung: ttdSig,
+                form_data: cleanFormDataForGas,
+                evaluasi_data: cleanEvaluasiDataForGas
+              });
+
+              delete gasPayloadDataCtx.tanda_tangan_pegawai;
+              delete gasPayloadDataCtx.ttd_pengusul;
+              delete gasPayloadDataCtx.TTD_PEGAWAI;
+              delete gasPayloadDataCtx.TTD_PENGUSUL;
+              delete gasPayloadDataCtx.ttd_atasan;
+              delete gasPayloadDataCtx.ttd_penilai;
+              delete gasPayloadDataCtx.ttd;
+              delete gasPayloadDataCtx.TTD_ATASAN_LANGSUNG;
+              delete gasPayloadDataCtx.TTD_ATASAN;
+              delete gasPayloadDataCtx.TTD_PENILAI;
+              delete gasPayloadDataCtx.TTD;
+
               const gasResp = await fetch(gasUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   method: 'generateKontrakFromUsulan',
-                  params: [shortId, tmpl.file_id, Object.assign({}, dataCtx, {
-                    namaPegawai: usulan.nama,
-                    nipPegawai: usulan.nip,
-                    fileName: `Evaluasi_${String(usulan.nama).replace(/[^a-zA-Z0-9_-]/g, '_')}_${usulan.nip}`,
-                    ttd_pegawai: dataCtx.ttd_pegawai,
-                    tanda_tangan_pegawai: dataCtx.ttd_pegawai,
-                    ttd_pengusul: dataCtx.ttd_pegawai,
-                    TTD_PEGAWAI: dataCtx.ttd_pegawai,
-                    TTD_PENGUSUL: dataCtx.ttd_pegawai,
-                    ttd_atasan_langsung: ttdSig,
-                    ttd_atasan: ttdSig,
-                    ttd_penilai: ttdSig,
-                    ttd: ttdSig,
-                    TTD_ATASAN_LANGSUNG: ttdSig,
-                    TTD_ATASAN: ttdSig,
-                    TTD_PENILAI: ttdSig,
-                    TTD: ttdSig,
-                    form_data: Object.assign({}, usulan.form_data || {}, { ttd_pegawai: dataCtx.ttd_pegawai }),
-                    evaluasi_data: Object.assign({}, usulan.evaluasi_data || {}, ed, { ttd_base64: ttdSig, ttd: ttdSig })
-                  })],
+                  params: [shortId, tmpl.file_id, gasPayloadDataCtx],
                   remoteSession: { id: shortId, data: { nip: decoded.nip, nama: decoded.nama, role: 'admin' } }
                 }),
                 signal: ctrl.signal
               });
               clearTimeout(timeoutId);
-              const gasJson = await gasResp.json();
+              const gasJson = await parseGasResponse(gasResp, 'simpanDanGenerateEvaluasiTkk-GAS');
               if (gasJson && gasJson.success) {
                 gdocsViewUrl = gasJson.viewUrl || gasJson.docViewUrl || gasJson.url || (gasJson.fileId ? `https://docs.google.com/document/d/${gasJson.fileId}/edit` : '');
                 pdfUrl = gasJson.pdfViewUrl || gasJson.pdfDownloadUrl || (gasJson.pdfFileId ? `https://drive.google.com/file/d/${gasJson.pdfFileId}/view` : '');
@@ -8451,37 +8510,55 @@ const methods = {
           const shortId = uuidv4();
           const ctrl = new AbortController();
           const timeoutId = setTimeout(() => ctrl.abort(), 25000);
+
+          const cleanFormDataForGas = Object.assign({}, usulan.form_data || {});
+          delete cleanFormDataForGas.ttd_pegawai;
+          delete cleanFormDataForGas.tanda_tangan_pegawai;
+          delete cleanFormDataForGas.ttd_pengusul;
+          delete cleanFormDataForGas.foto;
+          delete cleanFormDataForGas.pas_foto;
+
+          const cleanEvaluasiDataForGas = Object.assign({}, usulan.evaluasi_data || {}, ed);
+          delete cleanEvaluasiDataForGas.ttd_base64;
+          delete cleanEvaluasiDataForGas.ttd;
+          delete cleanEvaluasiDataForGas.ttd_atasan;
+          delete cleanEvaluasiDataForGas.ttd_atasan_langsung;
+          delete cleanEvaluasiDataForGas.signature;
+
+          const gasPayloadDataCtx = Object.assign({}, dataCtx, {
+            namaPegawai: usulan.nama,
+            nipPegawai: usulan.nip,
+            fileName: `Evaluasi_${String(usulan.nama).replace(/[^a-zA-Z0-9_-]/g, '_')}_${usulan.nip}`,
+            ttd_pegawai: dataCtx.ttd_pegawai,
+            ttd_atasan_langsung: ttdSig,
+            form_data: cleanFormDataForGas,
+            evaluasi_data: cleanEvaluasiDataForGas
+          });
+
+          delete gasPayloadDataCtx.tanda_tangan_pegawai;
+          delete gasPayloadDataCtx.ttd_pengusul;
+          delete gasPayloadDataCtx.TTD_PEGAWAI;
+          delete gasPayloadDataCtx.TTD_PENGUSUL;
+          delete gasPayloadDataCtx.ttd_atasan;
+          delete gasPayloadDataCtx.ttd_penilai;
+          delete gasPayloadDataCtx.ttd;
+          delete gasPayloadDataCtx.TTD_ATASAN_LANGSUNG;
+          delete gasPayloadDataCtx.TTD_ATASAN;
+          delete gasPayloadDataCtx.TTD_PENILAI;
+          delete gasPayloadDataCtx.TTD;
+
           const gasResp = await fetch(gasUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               method: 'generateKontrakFromUsulan',
-              params: [shortId, tmpl.file_id, Object.assign({}, dataCtx, {
-                namaPegawai: usulan.nama,
-                nipPegawai: usulan.nip,
-                fileName: `Evaluasi_${String(usulan.nama).replace(/[^a-zA-Z0-9_-]/g, '_')}_${usulan.nip}`,
-                ttd_pegawai: dataCtx.ttd_pegawai,
-                tanda_tangan_pegawai: dataCtx.ttd_pegawai,
-                ttd_pengusul: dataCtx.ttd_pegawai,
-                TTD_PEGAWAI: dataCtx.ttd_pegawai,
-                TTD_PENGUSUL: dataCtx.ttd_pegawai,
-                ttd_atasan_langsung: ttdSig,
-                ttd_atasan: ttdSig,
-                ttd_penilai: ttdSig,
-                ttd: ttdSig,
-                TTD_ATASAN_LANGSUNG: ttdSig,
-                TTD_ATASAN: ttdSig,
-                TTD_PENILAI: ttdSig,
-                TTD: ttdSig,
-                form_data: Object.assign({}, usulan.form_data || {}, { ttd_pegawai: dataCtx.ttd_pegawai }),
-                evaluasi_data: Object.assign({}, usulan.evaluasi_data || {}, ed, { ttd_base64: ttdSig, ttd: ttdSig })
-              })],
+              params: [shortId, tmpl.file_id, gasPayloadDataCtx],
               remoteSession: { id: shortId, data: { nip: decoded.nip, nama: decoded.nama, role: 'admin' } }
             }),
             signal: ctrl.signal
           });
           clearTimeout(timeoutId);
-          const gasJson = await gasResp.json();
+          const gasJson = await parseGasResponse(gasResp, 'getDokumenEvaluasiUrl-GAS');
           if (gasJson && gasJson.success) {
             const gdocsUrl = gasJson.viewUrl || gasJson.docViewUrl || gasJson.url || (gasJson.fileId ? `https://docs.google.com/document/d/${gasJson.fileId}/edit` : '');
             if (gdocsUrl) {
@@ -8846,8 +8923,8 @@ const methods = {
             remoteSession
           })
         });
-        const gasResult = await response.json();
-        if (!gasResult.success) return gasResult;
+        const gasResult = await parseGasResponse(response, 'generateKontrakFromUsulanVercel-convertDocxToPdf');
+        if (!gasResult || !gasResult.success) return gasResult || { success: false, message: 'Gagal konversi kontrak ke PDF.' };
         return { success: true, outputType: 'pdf', pdfUrl: gasResult.pdfUrl, fileName: gasResult.fileName };
       }
 
@@ -8904,8 +8981,8 @@ const methods = {
           remoteSession
         })
       });
-      const gasResult = await response.json();
-      if (!gasResult.success) return gasResult;
+      const gasResult = await parseGasResponse(response, 'generateKontrakFromUsulanVercel-GAS');
+      if (!gasResult || !gasResult.success) return gasResult || { success: false, message: 'Gagal membuat dokumen kontrak via Google Apps Script.' };
 
       const isNormalOrUser = ['normal', 'user'].includes(role);
 
@@ -9217,8 +9294,8 @@ const methods = {
             signal: ctrl.signal
           });
           clearTimeout(timeoutId);
-          const gasResult = await response.json();
-          if (!gasResult.success) return gasResult;
+          const gasResult = await parseGasResponse(response, 'generateSkpTendik-convertDocxToPdf');
+          if (!gasResult || !gasResult.success) return gasResult || { success: false, message: 'Gagal konversi SKP ke PDF.' };
 
           await db.from('usulan_kontrak').update({
             skp_dibuat: true,
@@ -9264,58 +9341,92 @@ const methods = {
 
     // JALUR GDOCS (Google Docs)
     const gasUrl = process.env.GOOGLE_SCRIPT_URL;
-    if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi.' };
+    let gasSuccess = false;
+    let gasResult = null;
+    let resViewUrl = '';
+    let resPdfUrl = '';
+    let finalUrl = '';
 
-    const shortId = uuidv4();
-    const remoteSession = {
-      id: shortId,
-      data: { nip: decoded.nip || '', nama_lengkap: decoded.nama || '', nama: decoded.nama || '', role: 'admin' }
-    };
+    if (gasUrl) {
+      const shortId = uuidv4();
+      const remoteSession = {
+        id: shortId,
+        data: { nip: decoded.nip || '', nama_lengkap: decoded.nama || '', nama: decoded.nama || '', role: 'admin' }
+      };
 
-    const ctrl = new AbortController();
-    const timeoutId = setTimeout(() => ctrl.abort(), 25000);
+      const ctrl = new AbortController();
+      const timeoutId = setTimeout(() => ctrl.abort(), 25000);
 
-    try {
-      const response = await fetch(gasUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          method: 'generateKontrakFromUsulan',
-          params: [shortId, tmplRow.file_id, Object.assign({}, dataCtx, {
-            tahun: String(thnPenilaian),
-            nip: dataCtx.nip,
-            nama: dataCtx.nama_lengkap,
-            namaPegawai: dataCtx.nama_lengkap,
-            nipPegawai: dataCtx.nip,
-            fileName: `SKP_${String(dataCtx.nama_lengkap).replace(/[^a-zA-Z0-9_-]/g, '_')}_${thnPenilaian}`,
-            ttd_pegawai: ttdPegawai,
-            tanda_tangan_pegawai: ttdPegawai,
-            ttd_pengusul: ttdPegawai,
-            TTD_PEGAWAI: ttdPegawai,
-            TTD_PENGUSUL: ttdPegawai,
-            ttd_atasan_langsung: ttdAtasan,
-            ttd_atasan: ttdAtasan,
-            ttd_penilai: ttdAtasan,
-            ttd: ttdAtasan,
-            TTD_ATASAN_LANGSUNG: ttdAtasan,
-            TTD_ATASAN: ttdAtasan,
-            TTD_PENILAI: ttdAtasan,
-            TTD: ttdAtasan,
-            form_data: Object.assign({}, formDataObj, { ttd_pegawai: ttdPegawai, tanda_tangan_pegawai: ttdPegawai, ttd_pengusul: ttdPegawai }),
-            evaluasi_data: Object.assign({}, evaluasiDataObj, { ttd_base64: ttdAtasan, ttd: ttdAtasan, ttd_atasan_langsung: ttdAtasan, ttd_atasan: ttdAtasan })
-          })],
-          remoteSession
-        }),
-        signal: ctrl.signal
+      // Rampingkan dataCtx dan bersihkan duplikasi signature agar transmisi jaringan tidak terkena limit 413
+      const cleanFormDataForGas = Object.assign({}, formDataObj);
+      delete cleanFormDataForGas.ttd_pegawai;
+      delete cleanFormDataForGas.tanda_tangan_pegawai;
+      delete cleanFormDataForGas.ttd_pengusul;
+      delete cleanFormDataForGas.foto;
+      delete cleanFormDataForGas.pas_foto;
+
+      const cleanEvaluasiDataForGas = Object.assign({}, evaluasiDataObj);
+      delete cleanEvaluasiDataForGas.ttd_base64;
+      delete cleanEvaluasiDataForGas.ttd;
+      delete cleanEvaluasiDataForGas.ttd_atasan;
+      delete cleanEvaluasiDataForGas.ttd_atasan_langsung;
+      delete cleanEvaluasiDataForGas.signature;
+
+      const gasPayloadDataCtx = Object.assign({}, dataCtx, {
+        tahun: String(thnPenilaian),
+        nip: dataCtx.nip,
+        nama: dataCtx.nama_lengkap,
+        namaPegawai: dataCtx.nama_lengkap,
+        nipPegawai: dataCtx.nip,
+        fileName: `SKP_${String(dataCtx.nama_lengkap).replace(/[^a-zA-Z0-9_-]/g, '_')}_${thnPenilaian}`,
+        ttd_pegawai: ttdPegawai,
+        ttd_atasan_langsung: ttdAtasan,
+        form_data: cleanFormDataForGas,
+        evaluasi_data: cleanEvaluasiDataForGas
       });
-      clearTimeout(timeoutId);
-      const gasResult = await response.json();
-      if (!gasResult.success) return gasResult;
 
-      const resViewUrl = gasResult.viewUrl || gasResult.docViewUrl || (gasResult.docFileId ? `https://docs.google.com/document/d/${gasResult.docFileId}/edit` : '');
-      const resPdfUrl = gasResult.pdfViewUrl || gasResult.pdfDownloadUrl || (gasResult.pdfFileId ? `https://drive.google.com/file/d/${gasResult.pdfFileId}/view` : '');
-      const finalUrl = resViewUrl || resPdfUrl;
+      delete gasPayloadDataCtx.tanda_tangan_pegawai;
+      delete gasPayloadDataCtx.ttd_pengusul;
+      delete gasPayloadDataCtx.TTD_PEGAWAI;
+      delete gasPayloadDataCtx.TANDA_TANGAN_PEGAWAI;
+      delete gasPayloadDataCtx.TTD_PENGUSUL;
+      delete gasPayloadDataCtx.ttd_atasan;
+      delete gasPayloadDataCtx.ttd_penilai;
+      delete gasPayloadDataCtx.ttd;
+      delete gasPayloadDataCtx.TTD_ATASAN_LANGSUNG;
+      delete gasPayloadDataCtx.TTD_ATASAN;
+      delete gasPayloadDataCtx.TTD_PENILAI;
+      delete gasPayloadDataCtx.TTD;
 
+      try {
+        const response = await fetch(gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            method: 'generateKontrakFromUsulan',
+            params: [shortId, tmplRow.file_id, gasPayloadDataCtx],
+            remoteSession
+          }),
+          signal: ctrl.signal
+        });
+        clearTimeout(timeoutId);
+        gasResult = await parseGasResponse(response, 'generateSkpTendik-GAS');
+        if (gasResult && gasResult.success) {
+          gasSuccess = true;
+          resViewUrl = gasResult.viewUrl || gasResult.docViewUrl || (gasResult.docFileId ? `https://docs.google.com/document/d/${gasResult.docFileId}/edit` : '');
+          resPdfUrl = gasResult.pdfViewUrl || gasResult.pdfDownloadUrl || (gasResult.pdfFileId ? `https://drive.google.com/file/d/${gasResult.pdfFileId}/view` : '');
+          finalUrl = resViewUrl || resPdfUrl;
+        } else {
+          console.warn('[generateSkpTendik] Google Apps Script returned error or non-JSON:', gasResult?.message || gasResult);
+        }
+      } catch (err) {
+        clearTimeout(timeoutId);
+        console.warn('[generateSkpTendik] Google Apps Script fetch exception:', err.message);
+      }
+    }
+
+    // Jika Google Apps Script berhasil menghasilkan Google Docs
+    if (gasSuccess && finalUrl) {
       if (!isPreview) {
         await db.from('usulan_kontrak').update({
           skp_dibuat: true,
@@ -9326,19 +9437,65 @@ const methods = {
 
       return Object.assign({
         success: true,
-        fileId: gasResult.fileId || gasResult.docFileId || '',
+        fileId: gasResult?.fileId || gasResult?.docFileId || '',
         viewUrl: resViewUrl,
         pdfUrl: resPdfUrl,
         fileUrl: finalUrl,
         fileName: `SKP_${dataCtx.nama_lengkap}_${thnPenilaian}`,
         message: isPreview ? 'Pratinjau Sasaran Kinerja Pegawai (Google Docs) berhasil disiapkan.' : 'Dokumen Sasaran Kinerja Pegawai (Google Docs) berhasil dibuat.',
-        outputType: gasResult.outputType || 'gdocs'
+        outputType: gasResult?.outputType || 'gdocs'
       }, gasResult);
-    } catch (err) {
-      clearTimeout(timeoutId);
-      const msg = err.name === 'AbortError' ? 'Koneksi ke Google Apps Script timeout (25 detik).' : err.message;
-      return { success: false, message: 'Gagal generate SKP via Google Docs: ' + msg };
     }
+
+    // FALLBACK ELEGAN: Jika Google Apps Script tidak tersedia / timeout / mengembalikan error,
+    // buat dokumen SKP berformat Word (.docx) secara lokal menggunakan template buffer dan simpan ke Supabase Storage.
+    console.info('[generateSkpTendik] Menjalankan fallback generator DOCX untuk SKP...');
+    try {
+      let templateBuffer = null;
+      try {
+        templateBuffer = await downloadTemplateBuffer(tmplRow.file_id);
+      } catch (dlErr) {
+        console.warn('[generateSkpTendik] downloadTemplateBuffer warning:', dlErr.message);
+      }
+
+      if (templateBuffer) {
+        const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx);
+        const base64Out = renderedBuffer.toString('base64');
+        const fileNameSafe = `SKP_${String(dataCtx.nama_lengkap || 'Tendik').replace(/[^a-zA-Z0-9_-]/g, '_')}_${thnPenilaian}.docx`;
+        let docUrl = '';
+        try {
+          const docDataUrl = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${base64Out}`;
+          docUrl = await uploadLampiran(docDataUrl, fileNameSafe, 'skp-tendik');
+        } catch (upErr) {
+          console.warn('[generateSkpTendik] uploadLampiran skp fallback warning:', upErr.message);
+        }
+
+        if (!isPreview) {
+          await db.from('usulan_kontrak').update({
+            skp_dibuat: true,
+            skp_data: payloadData,
+            skp_file_url: docUrl || null
+          }).eq('id', usulanId);
+        }
+
+        return {
+          success: true,
+          fallbackDocx: true,
+          outputType: 'docx',
+          base64: base64Out,
+          fileUrl: docUrl,
+          viewUrl: docUrl,
+          fileName: fileNameSafe,
+          mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          message: isPreview ? 'Pratinjau Sasaran Kinerja Pegawai (Word) berhasil disiapkan.' : 'Dokumen Sasaran Kinerja Pegawai (Word) berhasil dibuat.'
+        };
+      }
+    } catch (fbErr) {
+      console.error('[generateSkpTendik] Fallback DOCX error:', fbErr);
+    }
+
+    const fallbackErrMsg = gasResult?.message || 'Gagal generate SKP via Google Docs maupun Word template.';
+    return { success: false, message: fallbackErrMsg };
   },
 
   async previewDocument(args) {
@@ -9466,7 +9623,7 @@ const methods = {
       })
     });
 
-    const gasResult = await response.json();
+    const gasResult = await parseGasResponse(response, 'previewDocument-GAS');
     return gasResult;
   },
 
@@ -9595,7 +9752,7 @@ const methods = {
       })
     });
 
-    const gasResult = await response.json();
+    const gasResult = await parseGasResponse(response, 'generateDocument-GAS');
     if (gasResult && gasResult.success && enrichedPayload.layanan === 'Kenaikan Pangkat' && enrichedPayload.entries) {
       for (const entry of enrichedPayload.entries) {
         try {
