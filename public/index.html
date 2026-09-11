@@ -14193,24 +14193,22 @@ function handleUsulanKontrakSayaResult(res) {
     const evaluasiInfoHtml = u.evaluasi_skor ? `
       <div style="background:var(--surface-alt); border:2px solid var(--primary); border-radius:10px; padding:16px; margin-top:16px; margin-bottom:16px;">
         <div style="font-weight:700; color:var(--primary); font-size:15px; margin-bottom:8px;">
-          ðŸ“‹ Hasil Evaluasi Kinerja (Atasan Langsung: ${escapeHtml(u.atasan_nama || u.atasan_nip || '-')})
+          Hasil Evaluasi Kinerja (Atasan Langsung: ${escapeHtml(u.atasan_nama || u.atasan_nip || '-')})
         </div>
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px; font-size:13.5px;">
           <div><strong>Total Skor (7 Kriteria):</strong> <span style="font-size:16px; font-weight:800; color:var(--primary);">${escapeHtml(u.evaluasi_skor)} / 21</span></div>
           <div><strong>Rekomendasi:</strong> <span style="font-weight:700; color:${u.evaluasi_skor > 10 ? '#16a34a' : '#dc2626'};">${escapeHtml(u.evaluasi_rekomendasi || '-')}</span></div>
         </div>
-        ${u.evaluasi_doc_url ? `
-          <div style="margin-top:12px;">
-            <a href="${u.evaluasi_doc_url}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn" style="color:var(--primary); border-color:var(--primary); font-weight:600;">
-              ${u.evaluasi_doc_url.includes('docs.google.com') ? '📄 Buka Formulir Evaluasi (Google Docs) ↗' : '📥 Unduh Dokumen Formulir Evaluasi (.docx)'}
-            </a>
-          </div>` : ''}
-        ${u.skp_file_url ? `
-          <div style="margin-top:8px;">
-            <a href="${u.skp_file_url}" target="_blank" class="btn btn-outline kp-small-btn" style="color:#059669; border-color:#059669; font-weight:600; display:inline-flex; align-items:center; gap:6px;">
-              📊 Buka / Unduh Dokumen Sasaran Kinerja Pegawai (SKP) ↗
-            </a>
-          </div>` : ''}
+        <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          ${u.evaluasi_doc_url ? `
+            <button type="button" class="btn btn-outline kp-small-btn" onclick="bukaDokumenEvaluasi('${u.id}', '${escapeHtml(u.evaluasi_doc_url || '')}')" style="color:var(--primary); border-color:var(--primary); font-weight:600; cursor:pointer;">
+              Buka Formulir Evaluasi Kinerja ↗
+            </button>` : ''}
+          ${u.skp_file_url ? `
+            <button type="button" class="btn btn-outline kp-small-btn" onclick="bukaDokumenSkp('${escapeHtml(u.skp_file_url)}')" style="color:#059669; border-color:#059669; font-weight:600; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+              Buka Dokumen Sasaran Kinerja Pegawai (SKP) ↗
+            </button>` : ''}
+        </div>
       </div>
     ` : '';
     
@@ -15665,6 +15663,50 @@ async function approveBerkasKelengkapanAdmin(usulanId, docKey, isApprove, catata
   }
 }
 
+async function bukaDokumenEvaluasi(usulanId, currentDocUrl) {
+  if (currentDocUrl && currentDocUrl.includes('docs.google.com')) {
+    window.open(currentDocUrl, '_blank');
+    return;
+  }
+  showToast('info', 'Membuka formulir evaluasi kinerja...');
+  try {
+    const res = await rpc('getDokumenEvaluasiUrl', [SESSION.token, usulanId]);
+    if (res && res.success && res.url) {
+      if (res.tipe === 'gdocs' || res.url.includes('docs.google.com')) {
+        window.open(res.url, '_blank');
+      } else {
+        const link = document.createElement('a');
+        link.href = res.url;
+        link.target = '_blank';
+        link.download = '';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
+    } else {
+      if (currentDocUrl) {
+        window.open(currentDocUrl, '_blank');
+      } else {
+        showToast('error', res?.message || 'Dokumen formulir evaluasi belum siap.');
+      }
+    }
+  } catch (err) {
+    if (currentDocUrl) {
+      window.open(currentDocUrl, '_blank');
+    } else {
+      showToast('error', 'Gagal membuka formulir evaluasi: ' + (err.message || err));
+    }
+  }
+}
+
+function bukaDokumenSkp(fileUrl) {
+  if (!fileUrl) {
+    showToast('error', 'Dokumen SKP belum tersedia.');
+    return;
+  }
+  window.open(fileUrl, '_blank');
+}
+
 function renderKontrakReviewDetailContent_(u) {
   const el = document.getElementById('kontrakReviewDetailContent');
   if (!el || !u) return;
@@ -15712,8 +15754,8 @@ function renderKontrakReviewDetailContent_(u) {
 
   const approveAllBtnHtml = (!allApproved && u.status !== 'Disetujui' && u.status !== 'validated_by_admin') ? `
     <button type="button" class="btn btn-primary" style="background:#4caf50; border-color:#4caf50; font-weight:700; font-size:14px; padding:10px 18px;" onclick="approveAllUsulanKontrakAttachments('${u.id}')">
-      âœ… Setujui Semua Lampiran Awal
-    </button>` : `<span class="badge" style="background:#4caf50; color:#fff; padding:6px 14px; font-size:13px; border-radius:6px; font-weight:bold;">âœ… Lampiran Awal Disetujui</span>`;
+      Setujui Semua Lampiran Awal
+    </button>` : `<span class="badge" style="background:#4caf50; color:#fff; padding:6px 14px; font-size:13px; border-radius:6px; font-weight:bold;">Lampiran Awal Disetujui</span>`;
 
   let savedTmtBulan = u.tmt_bulan || u.form_data?.tmt_bulan || '';
   let savedTmtTahun = u.tmt_tahun || u.form_data?.tmt_tahun || '';
@@ -15741,7 +15783,7 @@ function renderKontrakReviewDetailContent_(u) {
   const periodeInputHtml = `
     <div style="margin-top:20px; padding:16px; background:var(--surface-alt); border:1px solid var(--border); border-radius:8px;">
       <label style="font-weight:700; font-size:14px; color:var(--text); display:block; margin-bottom:12px;">
-        ðŸ“… Periode Kontrak (TMT Mulai &amp; TST Selesai):
+        Periode Kontrak (TMT Mulai &amp; TST Selesai):
       </label>
       <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:16px; margin-bottom:12px;">
         <div>
@@ -15775,7 +15817,7 @@ function renderKontrakReviewDetailContent_(u) {
         ${(savedTmtBulan && savedTmtTahun && savedTstBulan && savedTstTahun) ? `Preview Terformat: 1 ${BULAN_NAMES[parseInt(savedTmtBulan, 10)-1]} ${savedTmtTahun} s.d 31 ${BULAN_NAMES[parseInt(savedTstBulan, 10)-1]} ${savedTstTahun}` : 'Pilih bulan & tahun TMT Mulai serta TST Selesai untuk melihat preview.'}
       </div>
       <div style="display:flex; justify-content:flex-end;">
-        <button type="button" class="btn btn-primary" style="font-weight:600;" onclick="saveKontrakPeriodeAdmin('${u.id}')">ðŸ’¾ Simpan Periode Kontrak</button>
+        <button type="button" class="btn btn-primary" style="font-weight:600;" onclick="saveKontrakPeriodeAdmin('${u.id}')">Simpan Periode Kontrak</button>
       </div>
     </div>
   `;
@@ -15783,12 +15825,12 @@ function renderKontrakReviewDetailContent_(u) {
   const tendikEvalCardHtml = isTendik ? `
     <div style="margin-top:20px; padding:18px; background:var(--surface-alt); border:2px solid var(--primary); border-radius:10px;">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
-        <h4 style="margin:0; color:var(--primary);">ðŸ‘” Penilaian Evaluasi Kinerja (Atasan Langsung)</h4>
+        <h4 style="margin:0; color:var(--primary);">Penilaian Evaluasi Kinerja (Atasan Langsung)</h4>
         <div>
-          ${u.status === 'validated_by_atasan' || u.status === 'evaluated_renewed' ? '<span class="badge" style="background:#059669; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">ðŸ“¨ Divalidasi Atasan (Rekomendasi Diperbarui)</span>' : ''}
+          ${u.status === 'validated_by_atasan' || u.status === 'evaluated_renewed' ? '<span class="badge" style="background:#059669; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Divalidasi Atasan (Rekomendasi Diperbarui)</span>' : ''}
           ${u.status === 'evaluated_not_renewed' || u.status === 'evaluated_not_extend' ? '<span class="badge" style="background:#ef4444; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Sudah Dinilai (Tidak Diperbarui)</span>' : ''}
           ${u.status === 'submitted_to_atasan' || u.status === 'under_atasan_review' ? '<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Menunggu Penilaian Atasan</span>' : ''}
-          ${u.status === 'validated_by_admin' ? '<span class="badge" style="background:#10b981; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">âœ… Tervalidasi Admin</span>' : ''}
+          ${u.status === 'validated_by_admin' ? '<span class="badge" style="background:#10b981; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Tervalidasi Admin</span>' : ''}
         </div>
       </div>
       <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; font-size:13.5px; margin-bottom:14px;">
@@ -15797,23 +15839,20 @@ function renderKontrakReviewDetailContent_(u) {
         <div><strong>Rekomendasi:</strong> <strong style="color:${(u.evaluasi_skor || 0) > 10 ? '#16a34a' : '#dc2626'};">${escapeHtml(u.evaluasi_rekomendasi || '-')}</strong></div>
         <div><strong>Nomor Surat Evaluasi:</strong> ${escapeHtml(u.evaluasi_nomor_surat || '-')}</div>
       </div>
-      ${u.evaluasi_doc_url ? `
-        <div style="margin-bottom:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-          <a href="${u.evaluasi_doc_url}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn" style="color:var(--primary); border-color:var(--primary); font-weight:700;">
-            ${u.evaluasi_doc_url.includes('docs.google.com') ? '📄 Buka Formulir Evaluasi (Google Docs) ↗' : '📄 Buka / Unduh Formulir Evaluasi Kinerja (Bertanda Tangan) ↗'}
-          </a>
-        </div>` : ''}
-
-      ${u.skp_file_url ? `
-        <div style="margin-bottom:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-          <a href="${u.skp_file_url}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn" style="color:#059669; border-color:#059669; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
-            📊 Buka / Unduh Dokumen Sasaran Kinerja Pegawai (SKP) ↗
-          </a>
-        </div>` : ''}
+      <div style="margin-bottom:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        ${u.evaluasi_doc_url ? `
+          <button type="button" class="btn btn-outline kp-small-btn" onclick="bukaDokumenEvaluasi('${u.id}', '${escapeHtml(u.evaluasi_doc_url || '')}')" style="color:var(--primary); border-color:var(--primary); font-weight:700; cursor:pointer;">
+            Buka Formulir Evaluasi Kinerja ↗
+          </button>` : ''}
+        ${u.skp_file_url ? `
+          <button type="button" class="btn btn-outline kp-small-btn" onclick="bukaDokumenSkp('${escapeHtml(u.skp_file_url)}')" style="color:#059669; border-color:#059669; font-weight:700; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+            Buka Dokumen Sasaran Kinerja Pegawai (SKP) ↗
+          </button>` : ''}
+      </div>
 
       ${u.skp_data && u.skp_data.nama_lengkap ? `
         <div style="background:#fff; border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:14px; font-size:13px;">
-          <div style="font-weight:700; color:#1e40af; margin-bottom:4px;">ðŸ“Š Formulir SKP (Diisi &amp; Ditandatangani Atasan Langsung):</div>
+          <div style="font-weight:700; color:#1e40af; margin-bottom:4px;">Formulir SKP (Diisi &amp; Ditandatangani Atasan Langsung):</div>
           <div>Periode: <strong>${escapeHtml(u.skp_data.bulan_awal_penilaian || '')} s.d ${escapeHtml(u.skp_data.bulan_akhir_penilaian || '')} ${escapeHtml(u.skp_data.tahun_penilaian || '')}</strong> &bull; Predikat: <strong style="color:#059669;">${escapeHtml(u.skp_data.predikat_kinerja_pegawai || 'BAIK')}</strong> &bull; Pejabat Penilai: <strong>${escapeHtml(u.skp_data.nama_lengkap_pejabat || '-')}</strong></div>
         </div>
       ` : ''}
@@ -15821,10 +15860,10 @@ function renderKontrakReviewDetailContent_(u) {
       <div style="display:flex; gap:10px; flex-wrap:wrap; border-top:1px solid var(--border); padding-top:12px;">
         ${(u.status === 'evaluated_renewed' || u.status === 'validated_by_atasan' || u.status === 'evaluated_extend') ? `
           <button type="button" class="btn btn-primary" style="background:#10b981; border-color:#10b981; font-weight:700;" onclick="adminValidasiUsulanTendik('${u.id}', true)">
-            âœ… Validasi &amp; Setujui Usulan (Beri Akses Kelengkapan Berkas)
+            Validasi &amp; Setujui Usulan (Beri Akses Kelengkapan Berkas)
           </button>
           <button type="button" class="btn btn-outline" style="color:#ef4444; border-color:#ef4444; font-weight:600;" onclick="adminValidasiUsulanTendik('${u.id}', false)">
-            âŒ Tutup Usulan (Tidak Diperbarui)
+            Tutup Usulan (Tidak Diperbarui)
           </button>
         ` : ''}
       </div>
@@ -15850,7 +15889,7 @@ function renderKontrakReviewDetailContent_(u) {
       <div style="margin-top:24px; padding:18px; background:var(--surface); border:2px solid #2563eb; border-radius:10px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
           <div>
-            <h4 style="margin:0; color:#1d4ed8; font-size:16px;">ðŸ“ Verifikasi Berkas Kelengkapan Final (Tahap Pasca-Approval)</h4>
+            <h4 style="margin:0; color:#1d4ed8; font-size:16px;">Verifikasi Berkas Kelengkapan Final (Tahap Pasca-Approval)</h4>
             <div style="font-size:12.5px; color:var(--text-muted); margin-top:2px;">
               Periksa dan setujui setiap berkas persyaratan pengusul di bawah ini satu per satu. Jika file buram/salah, klik Tolak untuk meminta pengusul mengunggah ulang hanya berkas tersebut.
             </div>
@@ -15865,10 +15904,10 @@ function renderKontrakReviewDetailContent_(u) {
             const isRej = itemData.status === 'rejected';
             const isWait = !!itemUrl && !isAppr && !isRej;
 
-            let stBadge = '<span class="badge" style="background:#94a3b8; color:#fff;">âš ï¸ Belum Diunggah</span>';
-            if (isAppr) stBadge = '<span class="badge" style="background:#10b981; color:#fff; font-weight:700;">âœ… Disetujui</span>';
-            else if (isRej) stBadge = '<span class="badge" style="background:#ef4444; color:#fff; font-weight:700;">âŒ Ditolak (Minta Reupload)</span>';
-            else if (isWait) stBadge = '<span class="badge" style="background:#f59e0b; color:#fff; font-weight:600;">â³ Menunggu Verifikasi Admin</span>';
+            let stBadge = '<span class="badge" style="background:#94a3b8; color:#fff;">Belum Diunggah</span>';
+            if (isAppr) stBadge = '<span class="badge" style="background:#10b981; color:#fff; font-weight:700;">Disetujui</span>';
+            else if (isRej) stBadge = '<span class="badge" style="background:#ef4444; color:#fff; font-weight:700;">Ditolak (Minta Reupload)</span>';
+            else if (isWait) stBadge = '<span class="badge" style="background:#f59e0b; color:#fff; font-weight:600;">Menunggu Verifikasi Admin</span>';
 
             return `
               <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:var(--surface-alt); border:1px solid var(--border); border-radius:8px; flex-wrap:wrap; gap:12px;">
@@ -15954,7 +15993,7 @@ function renderKontrakReviewDetailContent_(u) {
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
               <input type="checkbox" onchange="toggleAttachmentApproval('${u.id}', '${l.key}', this.checked)" ${l.approved ? 'checked' : ''} style="width:20px; height:20px; cursor:pointer;" />
-              <span style="font-size:14px; font-weight:600; color:${l.approved ? '#4caf50' : '#64748b'};">${l.approved ? 'âœ… Disetujui' : 'Setujui'}</span>
+              <span style="font-size:14px; font-weight:600; color:${l.approved ? '#4caf50' : '#64748b'};">${l.approved ? 'Disetujui' : 'Setujui'}</span>
             </div>
           </div>`;
       }).join('')}
@@ -15964,10 +16003,10 @@ function renderKontrakReviewDetailContent_(u) {
 
     <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px; border-top:1px solid #eee; padding-top:16px; flex-wrap:wrap;">
       <button type="button" class="btn btn-outline" style="color:var(--danger); border-color:var(--danger); font-weight:600;" onclick="adminRejectUsulanKontrak('${u.id}')">
-        ðŸš« Tolak Usulan
+        Tolak Usulan
       </button>
       <button type="button" class="btn btn-outline" style="color:#b91c1c; border-color:#b91c1c; background:#fee2e2; font-weight:700;" onclick="adminDeleteUsulanKontrak('${u.id}')">
-        ðŸ—‘ï¸ Hapus Usulan
+        Hapus Usulan
       </button>
     </div>
   `;

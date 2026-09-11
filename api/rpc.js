@@ -8218,30 +8218,34 @@ const methods = {
     let pdfUrl = '';
     const fileNameSafe = `Formulir_Evaluasi_TKK_${String(usulan.nama).replace(/[^a-zA-Z0-9_-]/g, '_')}_${usulan.nip}.docx`;
 
-    // Hanya generate dokumen evaluasi jika belum pernah ada atau jika mode pratinjau (preview)
-    if (!evalDocUrl || isPreviewOnly) {
-      try {
-        let tmpl = null;
-        const reqTmplId = ed.evaluasi_template_id || ed.template_id;
-        if (reqTmplId) {
-          const { data: tRow } = await db.from('templates')
-            .select('*')
-            .or(`id.eq.${reqTmplId},file_id.eq.${reqTmplId}`)
-            .maybeSingle();
-          if (tRow && tRow.file_id) tmpl = tRow;
+    let tmpl = null;
+    try {
+      const reqTmplId = ed.evaluasi_template_id || ed.template_id;
+      if (reqTmplId) {
+        const { data: tRow } = await db.from('templates')
+          .select('*')
+          .or(`id.eq.${reqTmplId},file_id.eq.${reqTmplId}`)
+          .maybeSingle();
+        if (tRow && tRow.file_id) tmpl = tRow;
+      }
+      if (!tmpl) {
+        const { data: tmplList } = await db.from('templates')
+          .select('*')
+          .or('layanan.ilike.%Kontrak Tendik%,layanan.ilike.%Tendik%,layanan.ilike.%Kontrak%,layanan.ilike.%Evaluasi%')
+          .ilike('sub_menu', '%Evaluasi%')
+          .order('dibuat_pada', { ascending: false })
+          .limit(1);
+        if (tmplList && tmplList.length > 0 && tmplList[0].file_id) {
+          tmpl = tmplList[0];
         }
-        if (!tmpl) {
-          const { data: tmplList } = await db.from('templates')
-            .select('*')
-            .or('layanan.ilike.%Kontrak Tendik%,layanan.ilike.%Tendik%,layanan.ilike.%Kontrak%,layanan.ilike.%Evaluasi%')
-            .ilike('sub_menu', '%Evaluasi%')
-            .order('dibuat_pada', { ascending: false })
-            .limit(1);
-          if (tmplList && tmplList.length > 0 && tmplList[0].file_id) {
-            tmpl = tmplList[0];
-          }
-        }
+      }
+    } catch (_) {}
 
+    const needsGDocs = (tmpl && tmpl.tipe === 'gdocs' && (!evalDocUrl || !evalDocUrl.includes('docs.google.com')));
+
+    // Hanya generate dokumen evaluasi jika belum pernah ada, mode preview, atau template GDocs tapi belum link GDocs
+    if (!evalDocUrl || isPreviewOnly || needsGDocs) {
+      try {
         if (tmpl && tmpl.file_id) {
           // Jika template berupa Google Docs dan GAS aktif, buat salinan Google Docs
           if (tmpl.tipe === 'gdocs' && gasUrl) {
@@ -8380,6 +8384,127 @@ const methods = {
       status: newStatus,
       isValidatedToAdmin: kirimAdminFlag
     };
+  },
+
+  async getDokumenEvaluasiUrl(args) {
+    const [token, usulanId] = extractArgs(args);
+    const decoded = verifyToken(token);
+    const db = getDb();
+
+    const { data: usulan, error: uErr } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
+    if (uErr) throw uErr;
+    if (!usulan) return { success: false, message: 'Usulan kontrak tidak ditemukan.' };
+
+    let docUrl = usulan.evaluasi_doc_url || '';
+
+    // 1. Cari template evaluasi yang aktif di sistem / usulan
+    let tmpl = null;
+    const reqTmplId = usulan.evaluasi_data?.evaluasi_template_id || usulan.evaluasi_data?.template_id;
+    if (reqTmplId) {
+      const { data: tRow } = await db.from('templates')
+        .select('*')
+        .or(`id.eq.${reqTmplId},file_id.eq.${reqTmplId}`)
+        .maybeSingle();
+      if (tRow && tRow.file_id) tmpl = tRow;
+    }
+    if (!tmpl) {
+      const { data: tmplList } = await db.from('templates')
+        .select('*')
+        .or('layanan.ilike.%Kontrak Tendik%,layanan.ilike.%Tendik%,layanan.ilike.%Kontrak%,layanan.ilike.%Evaluasi%')
+        .ilike('sub_menu', '%Evaluasi%')
+        .order('dibuat_pada', { ascending: false })
+        .limit(1);
+      if (tmplList && tmplList.length > 0 && tmplList[0].file_id) {
+        tmpl = tmplList[0];
+      }
+    }
+
+    const isGDocsTemplate = tmpl ? (tmpl.tipe === 'gdocs') : true;
+
+    // 2. Jika template adalah Google Docs (GDocs)
+    if (isGDocsTemplate) {
+      if (docUrl && docUrl.includes('docs.google.com')) {
+        return { success: true, tipe: 'gdocs', url: docUrl };
+      }
+
+      // Generate live GDocs via GAS jika belum pernah berupa GDocs
+      const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+      if (gasUrl && tmpl && tmpl.file_id) {
+        try {
+          const empData = (await findEmployeeByNip(usulan.nip)) || {};
+          let atasanEmp = (await findEmployeeByNip(usulan.atasan_nip || decoded.nip)) || {
+            nip: decoded.nip,
+            nama: decoded.nama,
+            nama_lengkap: decoded.nama
+          };
+          try {
+            const { data: atRow } = await db.from('atasan_langsung').select('*').eq('nip', usulan.atasan_nip || decoded.nip).maybeSingle();
+            if (atRow) {
+              atasanEmp = Object.assign({}, atRow, atasanEmp);
+            }
+          } catch (_) {}
+
+          const ed = usulan.evaluasi_data || {};
+          const ttdSig = ed.ttd || ed.ttd_base64 || '';
+          const dataCtx = buildEvaluasiTkkDataContext(usulan, Object.assign({}, ed, { ttd: ttdSig }), empData, atasanEmp);
+
+          const shortId = uuidv4();
+          const ctrl = new AbortController();
+          const timeoutId = setTimeout(() => ctrl.abort(), 25000);
+          const gasResp = await fetch(gasUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              method: 'generateKontrakFromUsulan',
+              params: [shortId, tmpl.file_id, Object.assign({}, dataCtx, {
+                namaPegawai: usulan.nama,
+                nipPegawai: usulan.nip,
+                fileName: `Evaluasi_${String(usulan.nama).replace(/[^a-zA-Z0-9_-]/g, '_')}_${usulan.nip}`,
+                ttd_pegawai: dataCtx.ttd_pegawai,
+                tanda_tangan_pegawai: dataCtx.ttd_pegawai,
+                ttd_pengusul: dataCtx.ttd_pegawai,
+                TTD_PEGAWAI: dataCtx.ttd_pegawai,
+                TTD_PENGUSUL: dataCtx.ttd_pegawai,
+                ttd_atasan_langsung: ttdSig,
+                ttd_atasan: ttdSig,
+                ttd_penilai: ttdSig,
+                ttd: ttdSig,
+                TTD_ATASAN_LANGSUNG: ttdSig,
+                TTD_ATASAN: ttdSig,
+                TTD_PENILAI: ttdSig,
+                TTD: ttdSig,
+                form_data: Object.assign({}, usulan.form_data || {}, { ttd_pegawai: dataCtx.ttd_pegawai }),
+                evaluasi_data: Object.assign({}, usulan.evaluasi_data || {}, ed, { ttd_base64: ttdSig, ttd: ttdSig })
+              })],
+              remoteSession: { id: shortId, data: { nip: decoded.nip, nama: decoded.nama, role: 'admin' } }
+            }),
+            signal: ctrl.signal
+          });
+          clearTimeout(timeoutId);
+          const gasJson = await gasResp.json();
+          if (gasJson && gasJson.success) {
+            const gdocsUrl = gasJson.viewUrl || gasJson.docViewUrl || gasJson.url || (gasJson.fileId ? `https://docs.google.com/document/d/${gasJson.fileId}/edit` : '');
+            if (gdocsUrl) {
+              await db.from('usulan_kontrak').update({ evaluasi_doc_url: gdocsUrl }).eq('id', usulanId);
+              return { success: true, tipe: 'gdocs', url: gdocsUrl };
+            }
+          }
+        } catch (gErr) {
+          console.warn('[getDokumenEvaluasiUrl] GAS Google Docs generation notice:', gErr.message);
+        }
+      }
+    }
+
+    // 3. Jika template docx (MS Word) atau fallback
+    if (docUrl) {
+      return {
+        success: true,
+        tipe: docUrl.includes('docs.google.com') ? 'gdocs' : 'docx',
+        url: docUrl
+      };
+    }
+
+    return { success: false, message: 'Dokumen formulir evaluasi belum siap atau belum digenerate.' };
   },
 
   async validasiUsulanKontrakTendik(args) {
