@@ -138,7 +138,10 @@ function processSignaturePlaceholderInBody_(container, dataContext) {
   if (!container || !dataContext) return;
 
   // 1. Ambil & bersihkan tanda tangan Pegawai
-  const ttdPegawaiKeys = ['ttd_pegawai', 'tanda_tangan_pegawai', 'ttd_pengusul', 'TTD_PEGAWAI', 'TANDA_TANGAN_PEGAWAI'];
+  const ttdPegawaiKeys = [
+    'ttd_pegawai', 'tanda_tangan_pegawai', 'ttd_pengusul',
+    'TTD_PEGAWAI', 'TANDA_TANGAN_PEGAWAI', 'TTD_PENGUSUL'
+  ];
   let ttdPegawaiBase64 = '';
   for (const k of ttdPegawaiKeys) {
     const val = dataContext[k] || (dataContext.form_data && dataContext.form_data[k]);
@@ -149,10 +152,14 @@ function processSignaturePlaceholderInBody_(container, dataContext) {
   }
 
   // 2. Ambil & bersihkan tanda tangan Atasan Langsung
-  const ttdAtasanKeys = ['ttd_atasan_langsung', 'ttd_atasan', 'ttd_penilai', 'ttd', 'ttd_base64', 'tanda_tangan', 'signature', 'TTD_ATASAN_LANGSUNG', 'TTD_ATASAN', 'TTD', 'TANDA_TANGAN', 'SIGNATURE'];
+  const ttdAtasanKeys = [
+    'ttd_atasan_langsung', 'ttd_atasan', 'ttd_penilai', 'ttd', 'ttd_base64',
+    'tanda_tangan', 'signature',
+    'TTD_ATASAN_LANGSUNG', 'TTD_ATASAN', 'TTD', 'TANDA_TANGAN', 'SIGNATURE'
+  ];
   let ttdAtasanBase64 = '';
   for (const k of ttdAtasanKeys) {
-    const val = dataContext[k] || (dataContext.evaluasi_data && dataContext.evaluasi_data[k]);
+    const val = dataContext[k] || (dataContext.evaluasi_data && (dataContext.evaluasi_data[k] || dataContext.evaluasi_data.ttd_base64 || dataContext.evaluasi_data.ttd || dataContext.evaluasi_data.signature));
     if (val && typeof val === 'string' && (val.startsWith('data:') || val.includes('base64,') || val.length > 200)) {
       if (!ttdAtasanBase64) ttdAtasanBase64 = val;
       dataContext[k] = '';
@@ -186,9 +193,17 @@ function processSignaturePlaceholderInBody_(container, dataContext) {
             const inlineImage = parentParagraph.insertInlineImage(childIdx, imageBlob);
             inlineImage.setWidth(155);
             inlineImage.setHeight(72);
-            textObj.setText(' ');
+            try {
+              textObj.removeFromParent();
+            } catch (_) {
+              textObj.setText(' ');
+            }
           } else {
-            textObj.setText(' ');
+            try {
+              textObj.removeFromParent();
+            } catch (_) {
+              textObj.setText(' ');
+            }
           }
           found = container.findText(tagText);
         }
@@ -202,7 +217,9 @@ function processSignaturePlaceholderInBody_(container, dataContext) {
   const tagsPegawai = [
     '{{ttd_pegawai}}', '{{ ttd_pegawai }}', '{ttd_pegawai}', '{ ttd_pegawai }',
     '{{TTD_PEGAWAI}}', '{{ TTD_PEGAWAI }}',
-    '{{tanda_tangan_pegawai}}', '{{ tanda_tangan_pegawai }}', '{tanda_tangan_pegawai}'
+    '{{tanda_tangan_pegawai}}', '{{ tanda_tangan_pegawai }}', '{tanda_tangan_pegawai}',
+    '{{ttd_pengusul}}', '{{ ttd_pengusul }}', '{ttd_pengusul}',
+    '{{TTD_PENGUSUL}}', '{{ TTD_PENGUSUL }}'
   ];
   insertSignatureImage_(tagsPegawai, ttdPegawaiBase64, 'ttd_pegawai.png');
 
@@ -212,6 +229,8 @@ function processSignaturePlaceholderInBody_(container, dataContext) {
     '{{TTD_ATASAN_LANGSUNG}}', '{{ TTD_ATASAN_LANGSUNG }}',
     '{{ttd_atasan}}', '{{ ttd_atasan }}', '{ttd_atasan}', '{ ttd_atasan }',
     '{{TTD_ATASAN}}', '{{ TTD_ATASAN }}',
+    '{{ttd_penilai}}', '{{ ttd_penilai }}', '{ttd_penilai}',
+    '{{TTD_PENILAI}}', '{{ TTD_PENILAI }}',
     '{{ttd}}', '{{ ttd }}', '{ttd}', '{ ttd }',
     '{{TTD}}', '{{ TTD }}',
     '{{ttd_base64}}', '{{ ttd_base64 }}',
@@ -316,33 +335,51 @@ function cellHasNestedTable_(cell) {
   return false;
 }
 
+/** Apakah sebuah sel tabel memuat gambar (InlineImage)? */
+function cellHasImage_(cell) {
+  if (!cell || !cell.getNumChildren) return false;
+  const n = cell.getNumChildren();
+  for (let i = 0; i < n; i++) {
+    const child = cell.getChild(i);
+    if (child.getType() === DocumentApp.ElementType.INLINE_IMAGE) return true;
+    if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
+      const p = child.asParagraph();
+      const pNum = p.getNumChildren ? p.getNumChildren() : 0;
+      for (let j = 0; j < pNum; j++) {
+        if (p.getChild(j).getType() === DocumentApp.ElementType.INLINE_IMAGE) return true;
+      }
+    }
+  }
+  return false;
+}
+
 /**
  * Evaluasi semua tag {{..}} pada teks SATU sel tabel.
  *
  * DUA PERILAKU BERBEDA tergantung JUMLAH PARAGRAF di dalam sel:
- * - Sel dengan BANYAK paragraf (> AMBANG_PARAGRAF_FORMULA, kasus rumus AK
+ * - Sel dengan BANYAK paragraf (> AMBANG_PARAGRAF_FORMULA, HANYA untuk rumus AK
  *   Konversi yang sengaja ditulis 15-21 baris terpisah demi keterbacaan
- *   saat mengedit template): di-COLLAPSE jadi SATU paragraf hasil akhir
- *   saja -- lihat penjelasan lengkap di renderDocumentBody_.
- * - Sel dengan SEDIKIT paragraf (kasus umum: label di satu baris, nilai
- *   {{tag}} di baris berikutnya, mis. layout "Nama :" / "{{nama_lengkap}}"):
+ *   saat mengedit template): di-COLLAPSE jadi SATU paragraf hasil akhir.
+ *   Sel yang memuat gambar (InlineImage) atau blok tanda tangan/biodata TIDAK PERNAH di-collapse.
+ * - Sel biasa (label di satu baris, nilai di baris lain, blok tanda tangan, dsb.):
  *   tag diisi LANGSUNG DI DALAM paragraf masing-masing, TANPA menggabungkan
- *   paragraf sama sekali. Ini PENTING -- kalau ikut di-collapse, hasil
- *   cell.getText() menyatukan semua paragraf jadi satu string dengan "\n"
- *   di antaranya, lalu cell.appendParagraph() menuliskannya kembali sebagai
- *   SATU paragraf berisi "\n" literal -- inilah sumber "enter tambahan"
- *   yang muncul di antara label dan nilai pada dokumen hasil generate,
- *   padahal template aslinya sudah rapi (REVISI setelah dilaporkan Titto).
+ *   paragraf sama sekali, menjaga integritas gambar tanda tangan digital.
  */
 function renderCellTextInPlace_(cell, dataContext) {
   const originalText = cell.getText();
   if (originalText.indexOf('{{') === -1) return; // tidak ada tag -> lewati, hemat proses
 
+  // JANGAN PERNAH lakukan cell.clear() jika sel memuat gambar (InlineImage) atau memuat placeholder tanda tangan/foto/pejabat!
+  const hasImage = cellHasImage_(cell);
+  const isSignatureOrPhotoCell = /ttd|signature|foto|pas_foto|pejabat|penilai|pegawai/i.test(originalText);
+  // Sel rumus multi-baris hanya untuk formula perhitungan (mis. rumus AK Konversi yang sengaja ditulis belasan baris)
+  const isFormulaCell = !hasImage && !isSignatureOrPhotoCell && /\{\{\s*(?:if|set|ak_|konversi|kumulatif|golongan|pangkat|dpcp)\b/i.test(originalText);
+
   const AMBANG_PARAGRAF_FORMULA = 5;
   const numAnak = cell.getNumChildren();
 
-  if (numAnak > AMBANG_PARAGRAF_FORMULA) {
-    // --- Sel rumus multi-baris: collapse ke SATU paragraf (perilaku lama, dipertahankan). ---
+  if (numAnak > AMBANG_PARAGRAF_FORMULA && isFormulaCell) {
+    // --- Sel rumus multi-baris: collapse ke SATU paragraf (perilaku lama, dipertahankan HANYA untuk rumus). ---
     let newText = originalText;
     let m;
     TAG_REGEX.lastIndex = 0;
@@ -367,8 +404,8 @@ function renderCellTextInPlace_(cell, dataContext) {
     return;
   }
 
-  // --- Sel biasa (label+nilai, dsb.): isi tag PER PARAGRAF, struktur baris
-  // template dipertahankan PERSIS -- tidak ada paragraf yang digabung/dihapus. ---
+  // --- Sel biasa (label+nilai, blok tanda tangan, dsb.): isi tag PER PARAGRAF, struktur baris
+  // template dipertahankan PERSIS -- tidak ada paragraf atau gambar yang digabung/dihapus. ---
   for (let i = 0; i < numAnak; i++) {
     const child = cell.getChild(i);
     if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;

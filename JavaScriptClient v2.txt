@@ -15695,7 +15695,14 @@ function collectSkpFormData(usulanId) {
     ekspektasi_harmonis: ekspHarmonis,
     ekspektasi_loyal: ekspLoyal,
     ekspektasi_adaptif: ekspAdaptif,
-    ekspektasi_kolaboratif: ekspKolaboratif
+    ekspektasi_kolaboratif: ekspKolaboratif,
+    // Tanda tangan Pegawai (diinput awal pengusulan) & Atasan Langsung (diinput saat evaluasi)
+    ttd_pegawai: window.activeTtdPegawai || activeEvaluasiDetail?.form_data?.ttd_pegawai || activeEvaluasiDetail?.form_data?.tanda_tangan_pegawai || activeEvaluasiDetail?.ttd_pegawai || '',
+    tanda_tangan_pegawai: window.activeTtdPegawai || activeEvaluasiDetail?.form_data?.ttd_pegawai || activeEvaluasiDetail?.form_data?.tanda_tangan_pegawai || activeEvaluasiDetail?.ttd_pegawai || '',
+    ttd_pengusul: window.activeTtdPegawai || activeEvaluasiDetail?.form_data?.ttd_pegawai || activeEvaluasiDetail?.form_data?.tanda_tangan_pegawai || activeEvaluasiDetail?.ttd_pegawai || '',
+    ttd_atasan_langsung: window.activeTtdAtasan || activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd || activeEvaluasiDetail?.evaluasi_data?.ttd_atasan_langsung || activeEvaluasiDetail?.ttd_atasan || '',
+    ttd_atasan: window.activeTtdAtasan || activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd || activeEvaluasiDetail?.evaluasi_data?.ttd_atasan_langsung || activeEvaluasiDetail?.ttd_atasan || '',
+    ttd: window.activeTtdAtasan || activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd || activeEvaluasiDetail?.evaluasi_data?.ttd_atasan_langsung || activeEvaluasiDetail?.ttd_atasan || ''
   };
 }
 
@@ -15709,6 +15716,12 @@ async function previewSkpTendikSelf(usulanId) {
 
   const payloadData = collectSkpFormData(usulanId) || {};
   payloadData.is_preview = true;
+  if (!payloadData.ttd_pegawai && window.activeTtdPegawai) payloadData.ttd_pegawai = window.activeTtdPegawai;
+  if (!payloadData.tanda_tangan_pegawai && payloadData.ttd_pegawai) payloadData.tanda_tangan_pegawai = payloadData.ttd_pegawai;
+  if (!payloadData.ttd_pengusul && payloadData.ttd_pegawai) payloadData.ttd_pengusul = payloadData.ttd_pegawai;
+  if (!payloadData.ttd_atasan_langsung && window.activeTtdAtasan) payloadData.ttd_atasan_langsung = window.activeTtdAtasan;
+  if (!payloadData.ttd_atasan && payloadData.ttd_atasan_langsung) payloadData.ttd_atasan = payloadData.ttd_atasan_langsung;
+  if (!payloadData.ttd && payloadData.ttd_atasan_langsung) payloadData.ttd = payloadData.ttd_atasan_langsung;
 
   showToast('info', 'Menyiapkan preview SKP...');
   try {
@@ -15739,12 +15752,19 @@ async function generateSkpTendikSelf(usulanId) {
   }
 
   const payloadData = collectSkpFormData(usulanId) || {};
+  if (!payloadData.ttd_pegawai && window.activeTtdPegawai) payloadData.ttd_pegawai = window.activeTtdPegawai;
+  if (!payloadData.tanda_tangan_pegawai && payloadData.ttd_pegawai) payloadData.tanda_tangan_pegawai = payloadData.ttd_pegawai;
+  if (!payloadData.ttd_pengusul && payloadData.ttd_pegawai) payloadData.ttd_pengusul = payloadData.ttd_pegawai;
+  if (!payloadData.ttd_atasan_langsung && window.activeTtdAtasan) payloadData.ttd_atasan_langsung = window.activeTtdAtasan;
+  if (!payloadData.ttd_atasan && payloadData.ttd_atasan_langsung) payloadData.ttd_atasan = payloadData.ttd_atasan_langsung;
+  if (!payloadData.ttd && payloadData.ttd_atasan_langsung) payloadData.ttd = payloadData.ttd_atasan_langsung;
+
   const btn = document.getElementById('skp_genBtn_' + usulanId);
   if (btn) setBtnLoading(btn, true, 'Membuat SKP...');
 
   try {
     const res = await rpc('generateSkpTendik', [SESSION.token, templateRef, usulanId, payloadData]);
-    if (btn) setBtnLoading(btn, false, 'ðŸš€ Buat Sasaran Kinerja Pegawai (SKP)');
+    if (btn) setBtnLoading(btn, false, '🚀 Buat Sasaran Kinerja Pegawai (SKP)');
     if (res && res.success) {
       showToast('success', res.message || 'Sasaran Kinerja Pegawai berhasil dibuat.');
       if (res.base64) {
@@ -15761,7 +15781,7 @@ async function generateSkpTendikSelf(usulanId) {
       showToast('error', res?.message || 'Gagal generate SKP.');
     }
   } catch (err) {
-    if (btn) setBtnLoading(btn, false, 'ðŸš€ Buat Sasaran Kinerja Pegawai (SKP)');
+    if (btn) setBtnLoading(btn, false, '🚀 Buat Sasaran Kinerja Pegawai (SKP)');
     showToast('error', 'Gagal generate SKP: ' + (err.message || err));
   }
 }
@@ -15774,6 +15794,10 @@ async function bukaModalGenerateSkp(usulanId) {
       return;
     }
     const u = res.data || res.usulan;
+    window.activeEvaluasiDetail = u;
+    window.activeEvaluasiUsulanId = u.id;
+    window.activeTtdPegawai = u.form_data?.ttd_pegawai || u.form_data?.tanda_tangan_pegawai || u.ttd_pegawai || '';
+    window.activeTtdAtasan = u.evaluasi_data?.ttd_base64 || u.evaluasi_data?.ttd || u.evaluasi_data?.ttd_atasan_langsung || u.ttd_atasan || '';
     document.getElementById('modalTitle').textContent = '📊 Sasaran Kinerja Pegawai (SKP) — ' + (u.nama || '');
     document.getElementById('modalBody').innerHTML = renderSkpFormHtml(u);
     document.getElementById('modalOverlay').style.display = 'flex';

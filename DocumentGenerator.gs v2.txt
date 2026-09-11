@@ -584,9 +584,20 @@ function generateKontrakFromUsulan(sessionToken, templateFileId, usulanData) {
     }
     if (usulanData.ttd_pegawai) dataContext.ttd_pegawai = usulanData.ttd_pegawai;
     if (usulanData.tanda_tangan_pegawai) dataContext.tanda_tangan_pegawai = usulanData.tanda_tangan_pegawai;
+    if (usulanData.ttd_pengusul) dataContext.ttd_pengusul = usulanData.ttd_pengusul;
     if (usulanData.ttd_atasan_langsung) dataContext.ttd_atasan_langsung = usulanData.ttd_atasan_langsung;
     if (usulanData.ttd_atasan) dataContext.ttd_atasan = usulanData.ttd_atasan;
     if (usulanData.ttd) dataContext.ttd = usulanData.ttd;
+    if (usulanData.form_data && (usulanData.form_data.ttd_pegawai || usulanData.form_data.tanda_tangan_pegawai)) {
+      dataContext.ttd_pegawai = dataContext.ttd_pegawai || usulanData.form_data.ttd_pegawai || usulanData.form_data.tanda_tangan_pegawai;
+      dataContext.tanda_tangan_pegawai = dataContext.tanda_tangan_pegawai || dataContext.ttd_pegawai;
+      dataContext.ttd_pengusul = dataContext.ttd_pengusul || dataContext.ttd_pegawai;
+    }
+    if (usulanData.evaluasi_data && (usulanData.evaluasi_data.ttd_base64 || usulanData.evaluasi_data.ttd || usulanData.evaluasi_data.signature)) {
+      dataContext.ttd_atasan_langsung = dataContext.ttd_atasan_langsung || usulanData.evaluasi_data.ttd_base64 || usulanData.evaluasi_data.ttd || usulanData.evaluasi_data.signature;
+      dataContext.ttd_atasan = dataContext.ttd_atasan || dataContext.ttd_atasan_langsung;
+      dataContext.ttd = dataContext.ttd || dataContext.ttd_atasan_langsung;
+    }
 
     const namaFile = sanitizeFileName_(String(nip + '-' + (dataContext.nama_lengkap || usulanData.nama || 'kontrak') + '-' + (usulanData.tahun || '')));
     const docCopy = renderTemplateCopy_(fileId, dataContext, namaFile);

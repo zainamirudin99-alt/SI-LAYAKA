@@ -1461,9 +1461,9 @@ function injectDocxImage(zip, dataCtx) {
       for (const k of ttdPegawaiKeys) {
         const regRunDouble = new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\{\\s*${k}\\s*\\}\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi');
         const regRunSingle = new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\s*${k}\\s*\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi');
-        xml = xml.replace(regRunDouble, ttdPegawaiXml).replace(regRunSingle, ttdPegawaiXml)
-                 .replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi'), ttdPegawaiXml)
-                 .replace(new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi'), ttdPegawaiXml);
+        xml = xml.replace(regRunDouble, ttdPegawaiXml).replace(regRunSingle, ttdPegawaiXml);
+        const regInText = new RegExp(`(<w:t\\b[^>]*>[\\s\\S]*?)\\{\\{\\s*${k}\\s*\\}\\}([\\s\\S]*?<\\/w:t>)`, 'gi');
+        xml = xml.replace(regInText, `$1</w:t></w:r>${ttdPegawaiXml}<w:r><w:t>$2`);
       }
     }
 
@@ -1471,9 +1471,9 @@ function injectDocxImage(zip, dataCtx) {
       for (const k of ttdAtasanKeys) {
         const regRunDouble = new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\{\\s*${k}\\s*\\}\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi');
         const regRunSingle = new RegExp(`<w:r\\b[^>]*>(?:(?!<w:r\\b)[\\s\\S])*?\\{\\s*${k}\\s*\\}(?:(?!<w:r\\b)[\\s\\S])*?<\\/w:r>`, 'gi');
-        xml = xml.replace(regRunDouble, ttdAtasanXml).replace(regRunSingle, ttdAtasanXml)
-                 .replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi'), ttdAtasanXml)
-                 .replace(new RegExp(`\\{\\s*${k}\\s*\\}`, 'gi'), ttdAtasanXml);
+        xml = xml.replace(regRunDouble, ttdAtasanXml).replace(regRunSingle, ttdAtasanXml);
+        const regInText = new RegExp(`(<w:t\\b[^>]*>[\\s\\S]*?)\\{\\{\\s*${k}\\s*\\}\\}([\\s\\S]*?<\\/w:t>)`, 'gi');
+        xml = xml.replace(regInText, `$1</w:t></w:r>${ttdAtasanXml}<w:r><w:t>$2`);
       }
     }
 
@@ -8924,10 +8924,14 @@ const methods = {
     }
 
     // Tanda Tangan Pegawai (diambil dari submission awal form_data.ttd_pegawai atau payloadData)
-    const ttdPegawai = payloadData.ttd_pegawai || payloadData.tanda_tangan_pegawai || payloadData.ttd_pengusul || formDataObj.ttd_pegawai || formDataObj.tanda_tangan_pegawai || usulan.ttd_pegawai || '';
+    const ttdPegawai = payloadData.ttd_pegawai || payloadData.tanda_tangan_pegawai || payloadData.ttd_pengusul ||
+      formDataObj.ttd_pegawai || formDataObj.tanda_tangan_pegawai || formDataObj.ttd_pengusul ||
+      usulan.form_data?.ttd_pegawai || usulan.ttd_pegawai || '';
 
     // Tanda Tangan Atasan Langsung (diambil dari langkah 1 validasi evaluasi / evaluasi_data.ttd_base64 / payloadData)
-    const ttdAtasan = payloadData.ttd_atasan_langsung || payloadData.ttd_atasan || payloadData.ttd || evaluasiDataObj.ttd_base64 || evaluasiDataObj.ttd || evaluasiDataObj.signature || usulan.ttd_atasan || '';
+    const ttdAtasan = payloadData.ttd_atasan_langsung || payloadData.ttd_atasan || payloadData.ttd_penilai || payloadData.ttd ||
+      evaluasiDataObj.ttd_base64 || evaluasiDataObj.ttd || evaluasiDataObj.signature || evaluasiDataObj.ttd_atasan || evaluasiDataObj.ttd_atasan_langsung ||
+      usulan.evaluasi_data?.ttd_base64 || usulan.ttd_atasan || '';
 
     const dataCtx = {
       // Periode & Tanggal
@@ -8981,11 +8985,14 @@ const methods = {
       ttd_pengusul: ttdPegawai,
       TTD_PEGAWAI: ttdPegawai,
       TANDA_TANGAN_PEGAWAI: ttdPegawai,
+      TTD_PENGUSUL: ttdPegawai,
       ttd_atasan_langsung: ttdAtasan,
       ttd_atasan: ttdAtasan,
+      ttd_penilai: ttdAtasan,
       ttd: ttdAtasan,
       TTD_ATASAN_LANGSUNG: ttdAtasan,
       TTD_ATASAN: ttdAtasan,
+      TTD_PENILAI: ttdAtasan,
       TTD: ttdAtasan,
 
       // Looping baris
@@ -9130,12 +9137,17 @@ const methods = {
             tanda_tangan_pegawai: ttdPegawai,
             ttd_pengusul: ttdPegawai,
             TTD_PEGAWAI: ttdPegawai,
+            TTD_PENGUSUL: ttdPegawai,
             ttd_atasan_langsung: ttdAtasan,
             ttd_atasan: ttdAtasan,
+            ttd_penilai: ttdAtasan,
             ttd: ttdAtasan,
             TTD_ATASAN_LANGSUNG: ttdAtasan,
-            form_data: Object.assign({}, formDataObj, { ttd_pegawai: ttdPegawai, tanda_tangan_pegawai: ttdPegawai }),
-            evaluasi_data: Object.assign({}, evaluasiDataObj, { ttd_base64: ttdAtasan, ttd: ttdAtasan, ttd_atasan_langsung: ttdAtasan })
+            TTD_ATASAN: ttdAtasan,
+            TTD_PENILAI: ttdAtasan,
+            TTD: ttdAtasan,
+            form_data: Object.assign({}, formDataObj, { ttd_pegawai: ttdPegawai, tanda_tangan_pegawai: ttdPegawai, ttd_pengusul: ttdPegawai }),
+            evaluasi_data: Object.assign({}, evaluasiDataObj, { ttd_base64: ttdAtasan, ttd: ttdAtasan, ttd_atasan_langsung: ttdAtasan, ttd_atasan: ttdAtasan })
           })],
           remoteSession
         }),
