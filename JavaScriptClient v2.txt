@@ -9716,6 +9716,17 @@ async function submitSemuaBerkasKelengkapan(usulanId) {
     const inputEl = document.getElementById('kelengkapan_input_' + d.key);
     let val = inputEl ? inputEl.value.trim() : '';
     if (!val) {
+      const bItem = (u.berkas_kelengkapan && u.berkas_kelengkapan[d.key]) || {};
+      val = bItem.url || u[d.key + '_url'] || '';
+      if (!val && d.key === 'pas_foto') val = u.pas_foto_url || u.pasfoto_url || u.form_data?.pas_foto_url || '';
+      if (!val && d.key === 'ijazah_transkrip') val = u.ijazah_transkrip_url || u.ijazah_url || u.form_data?.ijazah_transkrip_url || '';
+      if (!val && d.key === 'keterangan_sehat') val = u.keterangan_sehat_url || u.ket_sehat_url || u.form_data?.keterangan_sehat_url || '';
+      if (!val && d.key === 'surat_pengantar') val = u.surat_pengantar_url || u.form_data?.surat_pengantar_url || '';
+      if (!val && d.key === 'sim_ab') val = u.sim_ab_url || u.sim_url || u.form_data?.sim_ab_url || '';
+      if (!val && d.key === 'str_aktif') val = u.str_aktif_url || u.str_url || u.form_data?.str_aktif_url || '';
+      val = String(val || '').trim();
+    }
+    if (!val) {
       showToast('error', `Silakan lengkapi tautan untuk ${d.label} terlebih dahulu.`);
       if (inputEl) inputEl.focus();
       return;
@@ -9882,6 +9893,15 @@ function handleUsulanKontrakSayaResult(res) {
               }
               if (!curUrl && d.key === 'keterangan_sehat') {
                 curUrl = u.keterangan_sehat_url || u.ket_sehat_url || u.form_data?.keterangan_sehat_url || u.form_data?.ket_sehat || '';
+              }
+              if (!curUrl && d.key === 'surat_pengantar') {
+                curUrl = u.surat_pengantar_url || u.form_data?.surat_pengantar_url || u.form_data?.surat_pengantar || '';
+              }
+              if (!curUrl && d.key === 'sim_ab') {
+                curUrl = u.sim_ab_url || u.sim_url || u.form_data?.sim_ab_url || u.form_data?.sim || '';
+              }
+              if (!curUrl && d.key === 'str_aktif') {
+                curUrl = u.str_aktif_url || u.str_url || u.form_data?.str_aktif_url || u.form_data?.str || '';
               }
               curUrl = String(curUrl || '').trim();
               const isAppr = bItem.approved === true || bItem.status === 'verified' || u[d.key + '_approved'] === true;

@@ -7461,21 +7461,45 @@ const methods = {
       const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat','hasil_kerja'];
       const semuaYangAda = LAMP_KEYS.filter(k => getLampiranUrl(data, k));
       const semuaApproved = semuaYangAda.every(k => data[k+'_approved']);
+      // Bangun objek berkas_kelengkapan dari kolom data dan berkas_kelengkapan_data
+      const bData = data.berkas_kelengkapan_data || {};
+      const notes = bData.catatan || {};
+      const makeItem = (key, urlCol, apprCol) => {
+        const url = data[urlCol] || bData[urlCol] || bData[key] || '';
+        const approved = Boolean(data[apprCol]);
+        const rejectionReason = notes[key] || '';
+        let status = 'unuploaded';
+        if (approved) {
+          status = 'verified';
+        } else if (rejectionReason) {
+          status = 'rejected';
+        } else if (url) {
+          status = 'pending';
+        }
+        return {
+          url,
+          approved,
+          status,
+          rejection_reason: rejectionReason
+        };
+      };
+
+      const berkasKelengkapanMap = {
+        pas_foto: makeItem('pas_foto', 'pas_foto_url', 'pas_foto_approved'),
+        ktp: makeItem('ktp', 'ktp_url', 'ktp_approved'),
+        kk: makeItem('kk', 'kk_url', 'kk_approved'),
+        ijazah_transkrip: makeItem('ijazah_transkrip', 'ijazah_transkrip_url', 'ijazah_transkrip_approved'),
+        keterangan_sehat: makeItem('keterangan_sehat', 'keterangan_sehat_url', 'keterangan_sehat_approved'),
+        surat_pengantar: makeItem('surat_pengantar', 'surat_pengantar_url', 'surat_pengantar_approved'),
+        sim_ab: makeItem('sim_ab', 'sim_ab_url', 'sim_ab_approved'),
+        str_aktif: makeItem('str_aktif', 'str_aktif_url', 'str_aktif_approved')
+      };
+
       return {
         success: true,
-        usulan: {
-          id: data.id,
-          nip: data.nip,
-          nama: data.nama,
-          unit: data.unit,
-          status: data.status,
-          jenis_usulan: data.jenis_usulan,
-          tahun: data.tahun,
-          layanan: data.layanan,
-          sub_menu: data.sub_menu,
+        usulan: Object.assign({}, data, {
           tanggal_diajukan: formatTanggalIndonesia(data.tanggal_diajukan),
           semua_lampiran_disetujui: semuaApproved,
-          perjanjian_dibuat: data.perjanjian_dibuat,
           skp_dibuat: !!data.skp_dibuat,
           skp_data: data.skp_data || {},
           skp_file_url: data.skp_file_url || '',
@@ -7496,12 +7520,13 @@ const methods = {
           nomor_telepon: telpEmp,
           email: emailEmp,
           form_data: formDataEnriched,
+          berkas_kelengkapan: berkasKelengkapanMap,
           lampiran: LAMP_KEYS.map(k => ({
             key: k,
             url: getLampiranUrl(data, k),
             approved: !!data[k+'_approved']
           })).filter(l => l.url)
-        }
+        })
       };
     } catch (err) {
       console.warn('[rpc] getUsulanKontrakSaya catch:', err.message);
