@@ -3880,6 +3880,18 @@
             </div>
           </div> <!-- End evalTkk_signatureSection -->
 
+          <!-- SEKSI PILIH TEMPLATE EVALUASI KINERJA -->
+          <div id="evalTkk_templateSection" style="margin-top:16px; margin-bottom:20px; background:var(--surface-alt, #f8fafc); border:1px solid var(--border, #cbd5e1); border-radius:10px; padding:16px;">
+            <label style="font-weight:700; margin-bottom:8px; display:block; font-size:12.5px; color:var(--text, #0f172a);">
+              PILIH TEMPLATE FORMULIR EVALUASI KINERJA
+            </label>
+            <div id="evalTkk_tplSelectorWrap"></div>
+            <div style="font-size:12px; color:#475569; margin-top:8px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:8px 12px; display:flex; align-items:center; gap:8px;">
+              <span style="color:#2563eb; font-size:14px;">ℹ️</span>
+              <span>Template aktif untuk Evaluasi Kinerja saat ini adalah <strong>Google Docs (GDocs)</strong>. Hasil generate akan otomatis membuka tab baru Google Docs.</span>
+            </div>
+          </div>
+
           <!-- BARIS TOMBOL AKSI LANGKAH 1 -->
           <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:16px; flex-wrap:wrap; gap:12px;">
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -14189,8 +14201,8 @@ function handleUsulanKontrakSayaResult(res) {
         </div>
         ${u.evaluasi_doc_url ? `
           <div style="margin-top:12px;">
-            <a href="${u.evaluasi_doc_url}" target="_blank" class="btn btn-outline kp-small-btn" style="color:var(--primary); border-color:var(--primary); font-weight:600;">
-              📥 Unduh Dokumen Formulir Evaluasi (.docx)
+            <a href="${u.evaluasi_doc_url}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn" style="color:var(--primary); border-color:var(--primary); font-weight:600;">
+              ${u.evaluasi_doc_url.includes('docs.google.com') ? '📄 Buka Formulir Evaluasi (Google Docs) ↗' : '📥 Unduh Dokumen Formulir Evaluasi (.docx)'}
             </a>
           </div>` : ''}
         ${u.skp_file_url ? `
@@ -14508,6 +14520,9 @@ async function openModalEvaluasiTkk(usulanId) {
 
     hitungTotalSkorEvaluasiTkk();
 
+    // Render selector template untuk Evaluasi Kinerja di Langkah 1
+    renderTemplateSelectorForEvaluasi('Kontrak Tendik', 'Formulir Evaluasi', 'evalTkk_tplSelectorWrap');
+
     // Render Formulir SKP 33 Variabel di dalam Modal Evaluasi Atasan
     const skpWrap = document.getElementById('evalTkk_skpSection');
     if (skpWrap) {
@@ -14657,6 +14672,10 @@ async function generateEvaluasiDanLanjutKeSkp() {
         activeEvaluasiDetail.lastGeneratedEvaluasiResult = res;
       }
       showToast('success', 'Formulir evaluasi kinerja berhasil disimpan. Lanjut mengisi Sasaran Kinerja Pegawai (SKP).');
+      const gdocsUrl = res.gdocsUrl || (res.viewUrl && res.viewUrl.includes('docs.google.com') ? res.viewUrl : (res.docUrl && res.docUrl.includes('docs.google.com') ? res.docUrl : ''));
+      if (gdocsUrl) {
+        window.open(gdocsUrl, '_blank');
+      }
       switchEvalModalStep(2);
     } else {
       showToast('error', res?.message || 'Gagal menyimpan evaluasi.');
@@ -14930,6 +14949,9 @@ function collectEvaluasiTkkPayload() {
   const selectEl = document.getElementById('skp_templateSelect_' + activeEvaluasiUsulanId) || document.querySelector('[id^="skp_templateSelect_"]');
   const skpTemplateId = selectEl ? selectEl.value : '';
 
+  const evalTplEl = document.getElementById('evalTkk_templateSelect') || document.querySelector('[id^="evalTkk_templateSelect"]');
+  const evaluasiTemplateId = evalTplEl ? evalTplEl.value : '';
+
   return {
     keputusan,
     kriteria,
@@ -14938,6 +14960,8 @@ function collectEvaluasiTkkPayload() {
     tahun: tahunNum,
     tahun_evaluasi: tahunNum,
     ttd_base64: ttdBase64,
+    evaluasi_template_id: evaluasiTemplateId,
+    template_id: evaluasiTemplateId,
     skp_data: skpData,
     skp_template_id: skpTemplateId
   };
@@ -15152,6 +15176,10 @@ async function previewDocxEvaluasiTkk() {
     } : null);
 
   if (cached && (cached.viewUrl || cached.docUrl || cached.base64)) {
+    const gdocsUrl = cached.gdocsUrl || (cached.viewUrl && cached.viewUrl.includes('docs.google.com') ? cached.viewUrl : (cached.docUrl && cached.docUrl.includes('docs.google.com') ? cached.docUrl : ''));
+    if (gdocsUrl) {
+      window.open(gdocsUrl, '_blank');
+    }
     openEvaluasiResultModal(cached, false, false, 'evaluasi');
     return;
   }
@@ -15162,6 +15190,10 @@ async function previewDocxEvaluasiTkk() {
     const res = await rpc('simpanDanGenerateEvaluasiTkk', [SESSION.token, activeEvaluasiUsulanId, payload, true]);
     if (res && res.success) {
       showToast('success', 'Pratinjau formulir evaluasi berhasil dibuat.');
+      const gdocsUrl = res.gdocsUrl || (res.viewUrl && res.viewUrl.includes('docs.google.com') ? res.viewUrl : (res.docUrl && res.docUrl.includes('docs.google.com') ? res.docUrl : ''));
+      if (gdocsUrl) {
+        window.open(gdocsUrl, '_blank');
+      }
       openEvaluasiResultModal(res, true, false, 'evaluasi');
     } else {
       showToast('error', res?.message || 'Gagal membuat preview formulir evaluasi.');
@@ -15768,7 +15800,7 @@ function renderKontrakReviewDetailContent_(u) {
       ${u.evaluasi_doc_url ? `
         <div style="margin-bottom:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
           <a href="${u.evaluasi_doc_url}" target="_blank" rel="noopener" class="btn btn-outline kp-small-btn" style="color:var(--primary); border-color:var(--primary); font-weight:700;">
-            📄 Buka / Unduh Formulir Evaluasi Kinerja (Bertanda Tangan) ↗
+            ${u.evaluasi_doc_url.includes('docs.google.com') ? '📄 Buka Formulir Evaluasi (Google Docs) ↗' : '📄 Buka / Unduh Formulir Evaluasi Kinerja (Bertanda Tangan) ↗'}
           </a>
         </div>` : ''}
 
@@ -19594,6 +19626,72 @@ function removeSkpRow(btn, usulanId, type) {
 function initSkpFormHandlers(usulanId, u) {
   // Render template selector for SKP
   renderTemplateSelectorForSkp('Kontrak Tendik', 'Sasaran Kinerja Pegawai', 'skp_tplSelectorWrap_' + usulanId, usulanId);
+}
+
+function renderTemplateSelectorForEvaluasi(layanan, subMenu, wrapId) {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap) return;
+
+  const selectId = 'evalTkk_templateSelect';
+  const radioName = 'evalTkk_templateSelectType';
+
+  wrap.innerHTML = `
+    <div style="margin-bottom:4px; text-align:left;">
+      <div style="display:flex; gap:16px; margin-bottom:8px;">
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
+          <input type="radio" name="${radioName}" value="docx" /> Microsoft Word (.docx)
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
+          <input type="radio" name="${radioName}" value="gdocs" checked /> Google Docs (GDocs)
+        </label>
+      </div>
+      <select id="${selectId}" class="field-input" style="width:100%;" required></select>
+    </div>
+  `;
+
+  const selectEl = document.getElementById(selectId);
+  selectEl.innerHTML = '<option value="">Memuat template Evaluasi Kinerja...</option>';
+
+  const loadTmpl = async () => {
+    try {
+      let templates = [];
+      const res = await rpc('getTemplates', [SESSION.token, layanan || 'Kontrak Tendik', subMenu || 'Formulir Evaluasi']);
+      templates = res?.templates || (Array.isArray(res) ? res : []);
+      if (!templates.length) {
+        const resFb = await rpc('getTemplates', [SESSION.token, layanan || 'Kontrak Tendik', 'Evaluasi']);
+        templates = resFb?.templates || (Array.isArray(resFb) ? resFb : []);
+      }
+
+      const filterTpl = (tipe) => {
+        const filtered = templates.filter(t => (t.tipe || 'gdocs') === tipe);
+        if (!filtered.length) {
+          selectEl.innerHTML = '<option value="">Belum ada template ' + (tipe === 'docx' ? 'Word (.docx)' : 'Google Docs') + ' untuk Evaluasi Kinerja</option>';
+          return;
+        }
+        selectEl.innerHTML = filtered.map(t => {
+          const val = t.id || t.fileId || t.file_id;
+          return '<option value="' + val + '" data-tipe="' + (t.tipe || 'gdocs') + '">' + escapeHtml(t.judul) + '</option>';
+        }).join('');
+      };
+
+      const hasDocx = templates.some(t => (t.tipe || 'gdocs') === 'docx');
+      const hasGdocs = templates.some(t => (t.tipe || 'gdocs') === 'gdocs');
+      const defaultType = hasGdocs ? 'gdocs' : (hasDocx ? 'docx' : 'gdocs');
+      const radioToCheck = wrap.querySelector('input[name="' + radioName + '"][value="' + defaultType + '"]');
+      if (radioToCheck) radioToCheck.checked = true;
+      filterTpl(defaultType);
+
+      wrap.querySelectorAll('input[name="' + radioName + '"]').forEach(radio => {
+        radio.addEventListener('change', e => {
+          filterTpl(e.target.value);
+        });
+      });
+    } catch (err) {
+      selectEl.innerHTML = '<option value="">Gagal memuat template: ' + (err.message || err) + '</option>';
+    }
+  };
+
+  loadTmpl();
 }
 
 function renderTemplateSelectorForSkp(layanan, subMenu, wrapId, usulanId) {

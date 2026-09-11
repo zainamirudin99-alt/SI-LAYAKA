@@ -8221,22 +8221,34 @@ const methods = {
     // Hanya generate dokumen evaluasi jika belum pernah ada atau jika mode pratinjau (preview)
     if (!evalDocUrl || isPreviewOnly) {
       try {
-        const { data: tmplList } = await db.from('templates')
-          .select('*')
-          .or('layanan.ilike.%Kontrak Tendik%,layanan.ilike.%Tendik%,layanan.ilike.%Kontrak%,layanan.ilike.%Evaluasi%')
-          .ilike('sub_menu', '%Evaluasi%')
-          .order('dibuat_pada', { ascending: false })
-          .limit(1);
+        let tmpl = null;
+        const reqTmplId = ed.evaluasi_template_id || ed.template_id;
+        if (reqTmplId) {
+          const { data: tRow } = await db.from('templates')
+            .select('*')
+            .or(`id.eq.${reqTmplId},file_id.eq.${reqTmplId}`)
+            .maybeSingle();
+          if (tRow && tRow.file_id) tmpl = tRow;
+        }
+        if (!tmpl) {
+          const { data: tmplList } = await db.from('templates')
+            .select('*')
+            .or('layanan.ilike.%Kontrak Tendik%,layanan.ilike.%Tendik%,layanan.ilike.%Kontrak%,layanan.ilike.%Evaluasi%')
+            .ilike('sub_menu', '%Evaluasi%')
+            .order('dibuat_pada', { ascending: false })
+            .limit(1);
+          if (tmplList && tmplList.length > 0 && tmplList[0].file_id) {
+            tmpl = tmplList[0];
+          }
+        }
 
-        if (tmplList && tmplList.length > 0 && tmplList[0].file_id) {
-          const tmpl = tmplList[0];
-
-          // Jika template berupa Google Docs dan GAS aktif, buat salinan Google Docs untuk pratinjau
+        if (tmpl && tmpl.file_id) {
+          // Jika template berupa Google Docs dan GAS aktif, buat salinan Google Docs
           if (tmpl.tipe === 'gdocs' && gasUrl) {
             try {
               const shortId = uuidv4();
               const ctrl = new AbortController();
-              const timeoutId = setTimeout(() => ctrl.abort(), 10000);
+              const timeoutId = setTimeout(() => ctrl.abort(), 25000);
               const gasResp = await fetch(gasUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -8245,7 +8257,22 @@ const methods = {
                   params: [shortId, tmpl.file_id, Object.assign({}, dataCtx, {
                     namaPegawai: usulan.nama,
                     nipPegawai: usulan.nip,
-                    fileName: `Evaluasi_${usulan.nama}_${usulan.nip}`
+                    fileName: `Evaluasi_${String(usulan.nama).replace(/[^a-zA-Z0-9_-]/g, '_')}_${usulan.nip}`,
+                    ttd_pegawai: dataCtx.ttd_pegawai,
+                    tanda_tangan_pegawai: dataCtx.ttd_pegawai,
+                    ttd_pengusul: dataCtx.ttd_pegawai,
+                    TTD_PEGAWAI: dataCtx.ttd_pegawai,
+                    TTD_PENGUSUL: dataCtx.ttd_pegawai,
+                    ttd_atasan_langsung: ttdSig,
+                    ttd_atasan: ttdSig,
+                    ttd_penilai: ttdSig,
+                    ttd: ttdSig,
+                    TTD_ATASAN_LANGSUNG: ttdSig,
+                    TTD_ATASAN: ttdSig,
+                    TTD_PENILAI: ttdSig,
+                    TTD: ttdSig,
+                    form_data: Object.assign({}, usulan.form_data || {}, { ttd_pegawai: dataCtx.ttd_pegawai }),
+                    evaluasi_data: Object.assign({}, usulan.evaluasi_data || {}, ed, { ttd_base64: ttdSig, ttd: ttdSig })
                   })],
                   remoteSession: { id: shortId, data: { nip: decoded.nip, nama: decoded.nama, role: 'admin' } }
                 }),
@@ -8255,6 +8282,7 @@ const methods = {
               const gasJson = await gasResp.json();
               if (gasJson && gasJson.success) {
                 gdocsViewUrl = gasJson.viewUrl || gasJson.docViewUrl || gasJson.url || (gasJson.fileId ? `https://docs.google.com/document/d/${gasJson.fileId}/edit` : '');
+                pdfUrl = gasJson.pdfViewUrl || gasJson.pdfDownloadUrl || (gasJson.pdfFileId ? `https://drive.google.com/file/d/${gasJson.pdfFileId}/view` : '');
               }
             } catch (gErr) {
               console.warn('[simpanDanGenerateEvaluasiTkk] GAS Google Docs generation notice:', gErr.message);
@@ -8281,7 +8309,7 @@ const methods = {
           isPreview: true,
           base64: renderedBuffer ? renderedBuffer.toString('base64') : null,
           fileName: `Preview_Evaluasi_${usulan.nama}_${usulan.nip}.docx`,
-          pdfUrl: '',
+          pdfUrl: pdfUrl || '',
           gdocsUrl: gdocsViewUrl,
           viewUrl: gdocsViewUrl || null,
           docUrl: gdocsViewUrl || null,
@@ -8291,13 +8319,15 @@ const methods = {
         };
       }
 
-      // Upload dokumen hasil evaluasi ke Supabase Storage
+      // Upload dokumen hasil evaluasi ke Supabase Storage (atau simpan link Google Docs)
       docB64 = renderedBuffer ? renderedBuffer.toString('base64') : '';
       const docDataUrl = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${docB64}`;
       try {
-        if (docB64) {
+        if (gdocsViewUrl) {
+          evalDocUrl = gdocsViewUrl;
+        } else if (docB64) {
           const supUrl = await uploadLampiran(docDataUrl, fileNameSafe, 'evaluasi-tkk');
-          evalDocUrl = gdocsViewUrl || supUrl || evalDocUrl;
+          evalDocUrl = supUrl || evalDocUrl;
         }
       } catch (eUp) {
         console.warn('[simpanDanGenerateEvaluasiTkk] Supabase upload warning:', eUp.message);
