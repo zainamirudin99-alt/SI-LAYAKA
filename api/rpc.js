@@ -7545,6 +7545,14 @@ const methods = {
     const perUnitTahun = {};
     let totalUsulanBaru = 0;
     (data || []).forEach(u => {
+      // Abaikan usulan yang diproses/dibuat langsung oleh admin di sub menu "Buat Kontrak" (bukan diusulkan oleh akun pengusul secara langsung)
+      const diajukanNip = String(u.diajukan_oleh_nip || '').trim();
+      const pegawaiNip = String(u.nip || '').trim();
+      const diprosesNip = String(u.diproses_oleh_nip || '').trim();
+      if (diajukanNip && pegawaiNip && diajukanNip !== pegawaiNip && (diajukanNip === diprosesNip || u.status === 'Selesai' || !u.nama_pengaju)) {
+        return;
+      }
+
       const isPending = ['Diajukan', 'validated_by_atasan', 'evaluated_renewed', 'evaluated_extend', 'evaluated_not_renewed', 'evaluated_not_extend', 'submitted', 'in_review', 'submitted_to_atasan', 'under_atasan_review'].includes(u.status);
       if (isPending) totalUsulanBaru++;
       
@@ -7593,7 +7601,17 @@ const methods = {
     const { data, error } = await query;
     if (error) throw error;
     
-    let filtered = data || [];
+    let filtered = (data || []).filter(u => {
+      // Abaikan usulan yang diproses/dibuat langsung oleh admin di sub menu "Buat Kontrak" (bukan diusulkan oleh akun pengusul secara langsung)
+      const diajukanNip = String(u.diajukan_oleh_nip || '').trim();
+      const pegawaiNip = String(u.nip || '').trim();
+      const diprosesNip = String(u.diproses_oleh_nip || '').trim();
+      if (diajukanNip && pegawaiNip && diajukanNip !== pegawaiNip && (diajukanNip === diprosesNip || u.status === 'Selesai' || !u.nama_pengaju)) {
+        return false;
+      }
+      return true;
+    });
+
     if (tahun && tahun !== 'Semua') {
       filtered = filtered.filter(u => {
         const uTahun = String(u.tahun || u.tahun_evaluasi || u.form_data?.tahun || u.form_data?.tahun_evaluasi || (u.tanggal_diajukan ? new Date(u.tanggal_diajukan).getFullYear() : '') || '').trim();
@@ -8135,7 +8153,7 @@ const methods = {
     if (error) throw error;
 
     const list = (data || [])
-      .filter(u => !(u.diajukan_oleh_nip && u.diajukan_oleh_nip === u.diproses_oleh_nip && u.status === 'Selesai'))
+      .filter(u => !(u.diajukan_oleh_nip && u.nip && u.diajukan_oleh_nip !== u.nip && u.diajukan_oleh_nip === u.diproses_oleh_nip && u.status === 'Selesai'))
       .map(u => ({
       id: u.id,
       nip: u.nip,
