@@ -11163,6 +11163,7 @@ async function previewDocxEvaluasiTkk() {
 
 async function previewSkpTendikModal() {
   if (!activeEvaluasiUsulanId) return;
+  if (window._isPreviewingSkpModal) return;
   const selectEl = document.getElementById('skp_templateSelect_' + activeEvaluasiUsulanId) || document.querySelector('[id^="skp_templateSelect_"]');
   const templateRef = selectEl ? selectEl.value : '';
   if (!templateRef) {
@@ -11180,6 +11181,7 @@ async function previewSkpTendikModal() {
   payloadData.ttd_atasan_langsung = ttdAtasanVal;
   payloadData.ttd_pegawai = ttdPegawaiVal;
 
+  window._isPreviewingSkpModal = true;
   showToast('info', 'Menyiapkan pratinjau dokumen SKP...');
   try {
     const res = await rpc('generateSkpTendik', [SESSION.token, templateRef, activeEvaluasiUsulanId, payloadData]);
@@ -11191,11 +11193,14 @@ async function previewSkpTendikModal() {
     }
   } catch (err) {
     showToast('error', 'Terjadi kesalahan preview SKP: ' + (err.message || err));
+  } finally {
+    window._isPreviewingSkpModal = false;
   }
 }
 
 async function buatDokumenSkpModal() {
   if (!activeEvaluasiUsulanId) return;
+  if (window._isBuatDokumenSkpModal) return;
   const selectEl = document.getElementById('skp_templateSelect_' + activeEvaluasiUsulanId) || document.querySelector('[id^="skp_templateSelect_"]');
   const templateRef = selectEl ? selectEl.value : '';
   if (!templateRef) {
@@ -11215,6 +11220,7 @@ async function buatDokumenSkpModal() {
 
   const btn = document.getElementById('btnBuatDokumenSkpModal');
   if (btn) setBtnLoading(btn, true, 'Membuat SKP...');
+  window._isBuatDokumenSkpModal = true;
 
   showToast('info', 'Membuat dokumen Sasaran Kinerja Pegawai (SKP)...');
   try {
@@ -11234,6 +11240,8 @@ async function buatDokumenSkpModal() {
   } catch (err) {
     if (btn) setBtnLoading(btn, false, '⚡ Buat Dokumen SKP');
     showToast('error', 'Terjadi kesalahan generate SKP: ' + (err.message || err));
+  } finally {
+    window._isBuatDokumenSkpModal = false;
   }
 }
 
@@ -11270,6 +11278,8 @@ async function simpanEvaluasiTkkFinal(isKirimAdmin = false) {
 
 async function validasiDanKirimEvaluasiTkk() {
   if (!activeEvaluasiUsulanId) return;
+  if (window._isValidasiKirimTkk) return;
+
   const btn = document.getElementById('btnValidasiEvaluasiTkk');
   const payload = collectEvaluasiTkkPayload();
 
@@ -11314,6 +11324,7 @@ async function validasiDanKirimEvaluasiTkk() {
   if (!confirm(confirmMsg)) return;
 
   if (btn) setBtnLoading(btn, true, 'Membuat Dokumen SKP...');
+  window._isValidasiKirimTkk = true;
 
   try {
     // 1. Pada Langkah 2, generate dokumen SKP saja (karena formulir evaluasi sudah digenerate di Langkah 1)
@@ -11356,6 +11367,8 @@ async function validasiDanKirimEvaluasiTkk() {
   } catch (err) {
     if (btn) setBtnLoading(btn, false, '✅ Simpan & Kirim Usulan ke Admin Kepegawaian');
     showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
+  } finally {
+    window._isValidasiKirimTkk = false;
   }
 }
 

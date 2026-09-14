@@ -2656,6 +2656,35 @@ async function downloadTemplateBuffer(fileIdOrUrl) {
     return TEMPLATE_BUFFER_CACHE.get(cacheKey);
   }
 
+  // 0. Cek berkas lokal dalam project bundle (templates/...)
+  try {
+    const fs = require('fs');
+    const pathMod = require('path');
+    const cleanName = pathMod.basename(cacheKey);
+    const isSkp = /skp/i.test(cacheKey) || cacheKey === '1nvRxLkUt2bh4yAAGSmRBqwp_yIg9KPxT8QsHrbjt_U4' || cacheKey === '403e22ad-6eeb-4e65-ba4f-8367f08034db' || cacheKey === '6eb75fe0-0818-4fea-9231-af78d283647b';
+    const localCandidates = [
+      pathMod.join(process.cwd(), 'templates', cleanName),
+      pathMod.join(__dirname, '..', 'templates', cleanName),
+      pathMod.join(__dirname, 'templates', cleanName)
+    ];
+    if (isSkp) {
+      localCandidates.push(
+        pathMod.join(process.cwd(), 'templates', 'SKP_Tendik_Template.docx'),
+        pathMod.join(__dirname, '..', 'templates', 'SKP_Tendik_Template.docx'),
+        pathMod.join(__dirname, 'templates', 'SKP_Tendik_Template.docx')
+      );
+    }
+    for (const lp of localCandidates) {
+      if (fs.existsSync(lp)) {
+        const fileBuf = fs.readFileSync(lp);
+        if (fileBuf && fileBuf.length > 500 && fileBuf[0] === 0x50 && fileBuf[1] === 0x4b) {
+          TEMPLATE_BUFFER_CACHE.set(cacheKey, fileBuf);
+          return fileBuf;
+        }
+      }
+    }
+  } catch (_) {}
+
   const db = getDb();
   let path = cacheKey;
 
@@ -2671,7 +2700,12 @@ async function downloadTemplateBuffer(fileIdOrUrl) {
     ];
     for (const url of exportUrls) {
       try {
-        const res = await fetch(url, { redirect: 'follow' });
+        const res = await fetch(url, {
+          redirect: 'follow',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          }
+        });
         if (res.ok) {
           const arrayBuffer = await res.arrayBuffer();
           const buf = Buffer.from(arrayBuffer);
@@ -2703,9 +2737,29 @@ async function downloadTemplateBuffer(fileIdOrUrl) {
       }
     } catch (_) {}
 
+    if (!buf && !path.includes('templates/')) {
+      try {
+        const { data, error } = await db.storage.from('lampiran-usulan').download(`templates/${path}`);
+        if (!error && data) {
+          const arrayBuf = await data.arrayBuffer();
+          buf = Buffer.from(arrayBuf);
+        }
+      } catch (_) {}
+    }
+
     if (!buf) {
       try {
         const { data, error } = await db.storage.from('templates').download(path);
+        if (!error && data) {
+          const arrayBuf = await data.arrayBuffer();
+          buf = Buffer.from(arrayBuf);
+        }
+      } catch (_) {}
+    }
+
+    if (!buf && /skp/i.test(cacheKey)) {
+      try {
+        const { data, error } = await db.storage.from('lampiran-usulan').download('templates/SKP_Tendik_Template.docx');
         if (!error && data) {
           const arrayBuf = await data.arrayBuffer();
           buf = Buffer.from(arrayBuf);
@@ -2716,7 +2770,11 @@ async function downloadTemplateBuffer(fileIdOrUrl) {
 
   if (!buf && (fileIdOrUrl.startsWith('http://') || fileIdOrUrl.startsWith('https://'))) {
     try {
-      const fetchResp = await fetch(fileIdOrUrl);
+      const fetchResp = await fetch(fileIdOrUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      });
       if (fetchResp.ok) {
         const arrayBuf = await fetchResp.arrayBuffer();
         buf = Buffer.from(arrayBuf);
@@ -2726,7 +2784,7 @@ async function downloadTemplateBuffer(fileIdOrUrl) {
     }
   }
 
-  if (buf && buf.length > 0) {
+  if (buf && buf.length > 500 && buf[0] === 0x50 && buf[1] === 0x4b) {
     TEMPLATE_BUFFER_CACHE.set(cacheKey, buf);
     return buf;
   }
@@ -9625,14 +9683,41 @@ const methods = {
       ekspektasi_kolaboratif: String(payloadData.ekspektasi_kolaboratif || payloadData.kolaboratif || '').trim()
     };
 
-    const isDocxTemplate = tmplRow.tipe === 'docx';
+    const isDocxTemplate = tmplRow.tipe === 'docx' || (tmplRow.file_id && (tmplRow.file_id.endsWith('.docx') || tmplRow.file_id.includes('templates/')));
 
     if (isDocxTemplate) {
-      let templateBuffer;
+      let templateBuffer = null;
       try {
         templateBuffer = await downloadTemplateBuffer(tmplRow.file_id);
       } catch (err) {
-        return { success: false, message: 'Gagal mengunduh file template DOCX dari storage: ' + err.message };
+        console.warn('[generateSkpTendik] downloadTemplateBuffer initial failed:', err.message);
+      }
+      if (!templateBuffer) {
+        try {
+          templateBuffer = await downloadTemplateBuffer('templates/SKP_Tendik_Template.docx');
+        } catch (innerErr) {
+          console.warn('[generateSkpTendik] downloadTemplateBuffer fallback failed:', innerErr.message);
+        }
+      }
+      if (!templateBuffer) {
+        try {
+          const fs = require('fs');
+          const pathMod = require('path');
+          const localCandidates = [
+            pathMod.join(process.cwd(), 'templates', 'SKP_Tendik_Template.docx'),
+            pathMod.join(__dirname, '..', 'templates', 'SKP_Tendik_Template.docx'),
+            pathMod.join(__dirname, 'templates', 'SKP_Tendik_Template.docx')
+          ];
+          for (const lp of localCandidates) {
+            if (fs.existsSync(lp)) {
+              templateBuffer = fs.readFileSync(lp);
+              break;
+            }
+          }
+        } catch (_) {}
+      }
+      if (!templateBuffer) {
+        return { success: false, message: 'File template DOCX tidak dapat dimuat.' };
       }
 
       const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx);
@@ -9829,6 +9914,30 @@ const methods = {
         templateBuffer = await downloadTemplateBuffer(tmplRow.file_id);
       } catch (dlErr) {
         console.warn('[generateSkpTendik] downloadTemplateBuffer warning:', dlErr.message);
+      }
+      if (!templateBuffer) {
+        try {
+          templateBuffer = await downloadTemplateBuffer('templates/SKP_Tendik_Template.docx');
+        } catch (skpDefErr) {
+          console.warn('[generateSkpTendik] download fallback default docx warning:', skpDefErr.message);
+        }
+      }
+      if (!templateBuffer) {
+        try {
+          const fs = require('fs');
+          const pathMod = require('path');
+          const localCandidates = [
+            pathMod.join(process.cwd(), 'templates', 'SKP_Tendik_Template.docx'),
+            pathMod.join(__dirname, '..', 'templates', 'SKP_Tendik_Template.docx'),
+            pathMod.join(__dirname, 'templates', 'SKP_Tendik_Template.docx')
+          ];
+          for (const lp of localCandidates) {
+            if (fs.existsSync(lp)) {
+              templateBuffer = fs.readFileSync(lp);
+              break;
+            }
+          }
+        } catch (_) {}
       }
 
       if (templateBuffer) {
