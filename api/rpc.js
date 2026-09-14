@@ -555,6 +555,36 @@ function formatRupiah(angka) {
   return String(Math.round(Number(angka) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
+const GOLONGAN_TO_PANGKAT = {
+  'I/A': 'Juru Muda',
+  'I/B': 'Juru Muda Tingkat I',
+  'I/C': 'Juru',
+  'I/D': 'Juru Tingkat I',
+  'II/A': 'Pengatur Muda',
+  'II/B': 'Pengatur Muda Tingkat I',
+  'II/C': 'Pengatur',
+  'II/D': 'Pengatur Tingkat I',
+  'III/A': 'Penata Muda',
+  'III/B': 'Penata Muda Tingkat I',
+  'III/C': 'Penata',
+  'III/D': 'Penata Tingkat I',
+  'IV/A': 'Pembina',
+  'IV/B': 'Pembina Tingkat I',
+  'IV/C': 'Pembina Utama Muda',
+  'IV/D': 'Pembina Utama Madya',
+  'IV/E': 'Pembina Utama'
+};
+
+function getPangkatForGolongan(gol, isCptu = false) {
+  const s = String(gol || '').trim();
+  if (!s) return '';
+  const isSet = /^set/i.test(s);
+  const baseGol = s.toUpperCase().replace(/^SETARA\s*/i, '').replace(/^SET\.\s*/i, '').trim();
+  const basePangkat = GOLONGAN_TO_PANGKAT[baseGol] || GOLONGAN_TO_PANGKAT[s.toUpperCase()] || '';
+  if (!basePangkat) return '';
+  return isSet ? `Setara ${basePangkat}` : basePangkat;
+}
+
 /**
  * Otomatis menghitung gaji_pokok, pangkat, terbilang, gaji_80, dan total_gaji
  */

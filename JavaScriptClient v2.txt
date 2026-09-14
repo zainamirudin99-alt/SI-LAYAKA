@@ -32,6 +32,38 @@ async function rpc(methodName, params = []) {
 }
 window.rpc = rpc;
 
+const GOLONGAN_TO_PANGKAT = {
+  'I/A': 'Juru Muda',
+  'I/B': 'Juru Muda Tingkat I',
+  'I/C': 'Juru',
+  'I/D': 'Juru Tingkat I',
+  'II/A': 'Pengatur Muda',
+  'II/B': 'Pengatur Muda Tingkat I',
+  'II/C': 'Pengatur',
+  'II/D': 'Pengatur Tingkat I',
+  'III/A': 'Penata Muda',
+  'III/B': 'Penata Muda Tingkat I',
+  'III/C': 'Penata',
+  'III/D': 'Penata Tingkat I',
+  'IV/A': 'Pembina',
+  'IV/B': 'Pembina Tingkat I',
+  'IV/C': 'Pembina Utama Muda',
+  'IV/D': 'Pembina Utama Madya',
+  'IV/E': 'Pembina Utama'
+};
+window.GOLONGAN_TO_PANGKAT = GOLONGAN_TO_PANGKAT;
+
+function getPangkatForGolongan(gol, isCptu = false) {
+  const s = String(gol || '').trim();
+  if (!s) return '';
+  const isSet = /^set/i.test(s);
+  const baseGol = s.toUpperCase().replace(/^SETARA\s*/i, '').replace(/^SET\.\s*/i, '').trim();
+  const basePangkat = (window.GOLONGAN_TO_PANGKAT || GOLONGAN_TO_PANGKAT)[baseGol] || (window.GOLONGAN_TO_PANGKAT || GOLONGAN_TO_PANGKAT)[s.toUpperCase()] || '';
+  if (!basePangkat) return '';
+  return isSet ? `Setara ${basePangkat}` : basePangkat;
+}
+window.getPangkatForGolongan = getPangkatForGolongan;
+
 /**
  * =================================================================
  * JAVASCRIPTCLIENT.HTML
@@ -14739,35 +14771,7 @@ function hitungGajiPokokNonAsn(golonganSlash, mkgTahun) {
   return best ? best.gaji : 0;
 }
 
-const GOLONGAN_TO_PANGKAT = {
-  'I/A': 'Juru Muda',
-  'I/B': 'Juru Muda Tingkat I',
-  'I/C': 'Juru',
-  'I/D': 'Juru Tingkat I',
-  'II/A': 'Pengatur Muda',
-  'II/B': 'Pengatur Muda Tingkat I',
-  'II/C': 'Pengatur',
-  'II/D': 'Pengatur Tingkat I',
-  'III/A': 'Penata Muda',
-  'III/B': 'Penata Muda Tingkat I',
-  'III/C': 'Penata',
-  'III/D': 'Penata Tingkat I',
-  'IV/A': 'Pembina',
-  'IV/B': 'Pembina Tingkat I',
-  'IV/C': 'Pembina Utama Muda',
-  'IV/D': 'Pembina Utama Madya',
-  'IV/E': 'Pembina Utama'
-};
-
-function getPangkatForGolongan(gol, isCptu = false) {
-  const s = String(gol || '').trim();
-  if (!s) return '';
-  const isSet = /^set/i.test(s);
-  const baseGol = s.toUpperCase().replace(/^SETARA\s*/i, '').replace(/^SET\.\s*/i, '').trim();
-  const basePangkat = GOLONGAN_TO_PANGKAT[baseGol] || GOLONGAN_TO_PANGKAT[s.toUpperCase()] || '';
-  if (!basePangkat) return '';
-  return isSet ? `Setara ${basePangkat}` : basePangkat;
-}
+// GOLONGAN_TO_PANGKAT dan getPangkatForGolongan telah dideklarasikan secara global di bagian atas script
 
 function buatSkHitungGajiPokok() {
   const gol = document.getElementById('bsk_field_golongan')?.value || '';
