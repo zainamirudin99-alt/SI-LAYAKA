@@ -14300,12 +14300,12 @@ function handleUsulanKontrakSayaResult(res) {
           <div><strong>Rekomendasi:</strong> <span style="font-weight:700; color:${u.evaluasi_skor > 10 ? '#16a34a' : '#dc2626'};">${escapeHtml(u.evaluasi_rekomendasi || '-')}</span></div>
         </div>
         <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-          ${u.evaluasi_doc_url ? `
+          ${(u.evaluasi_doc_url || u.evaluasi_skor) ? `
             <button type="button" class="btn btn-outline kp-small-btn" onclick="bukaDokumenEvaluasi('${u.id}', '${escapeHtml(u.evaluasi_doc_url || '')}')" style="color:var(--primary); border-color:var(--primary); font-weight:600; cursor:pointer;">
               Buka Formulir Evaluasi Kinerja ↗
             </button>` : ''}
-          ${u.skp_file_url ? `
-            <button type="button" class="btn btn-outline kp-small-btn" onclick="bukaDokumenSkp('${escapeHtml(u.skp_file_url)}')" style="color:#059669; border-color:#059669; font-weight:600; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+          ${(u.skp_file_url || u.skp_dibuat || (u.skp_data && (u.skp_data.nama_lengkap || u.skp_data.tahun_penilaian))) ? `
+            <button type="button" class="btn btn-outline kp-small-btn" onclick="bukaDokumenSkp('${u.id}', '${escapeHtml(u.skp_file_url || '')}')" style="color:#059669; border-color:#059669; font-weight:600; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
               Buka Dokumen Sasaran Kinerja Pegawai (SKP) ↗
             </button>` : ''}
         </div>
@@ -15113,7 +15113,7 @@ function openEvaluasiResultModal(res, isPreview = false, isValidatedToAdmin = fa
       : 'Dokumen Formulir Evaluasi Kinerja';
   }
 
-  const gdocsUrl = res.gdocsUrl || (res.viewUrl && res.viewUrl.includes('docs.google.com') ? res.viewUrl : '');
+  const gdocsUrl = res.gdocsUrl || (res.viewUrl && res.viewUrl.includes('docs.google.com') ? res.viewUrl : (res.docUrl && res.docUrl.includes('docs.google.com') ? res.docUrl : ''));
   const pdfUrl = res.pdfUrl || (res.viewUrl && (res.viewUrl.includes('/file/d/') || res.viewUrl.endsWith('.pdf')) ? res.viewUrl : (res.docUrl && (res.docUrl.includes('/file/d/') || res.docUrl.endsWith('.pdf')) ? res.docUrl : ''));
   const isGdocs = Boolean(gdocsUrl);
   const fileName = res.fileName || (previewType === 'skp' ? 'SKP_Tendik.docx' : 'Formulir_Evaluasi.docx');
@@ -15126,29 +15126,79 @@ function openEvaluasiResultModal(res, isPreview = false, isValidatedToAdmin = fa
       </a>
     `;
   }
-  if (res.base64) {
-    buttonsHtml += `
-      <button type="button" class="btn btn-primary" style="padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" onclick="downloadBase64File_('${res.base64}', '${escHtml(fileName)}')">
-        Unduh Dokumen Word (.docx)
-      </button>
-    `;
-  }
-  if (isGdocs) {
-    buttonsHtml += `
-      <a href="${gdocsUrl}" target="_blank" rel="noopener" class="btn btn-secondary" style="text-decoration:none; padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; background:#2563eb; color:#fff; border-color:#2563eb;">
-        Buka Google Docs &nearr;
-      </a>
-    `;
-  }
 
-  // Jika ada tautan SKP terpisah pada mode final validation
-  if (res.skpRes && (res.skpRes.viewUrl || res.skpRes.pdfUrl)) {
-    const skpUrl = res.skpRes.viewUrl || res.skpRes.pdfUrl;
-    buttonsHtml += `
-      <a href="${skpUrl}" target="_blank" rel="noopener" class="btn btn-secondary" style="text-decoration:none; padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; background:#059669; color:#fff; border-color:#059669;">
-        Buka Dokumen SKP (GDocs) &nearr;
-      </a>
-    `;
+  // Jika ini adalah mode validasi final (ada Evaluasi dan SKP sekaligus)
+  if (isValidatedToAdmin) {
+    // 1. Tombol Formulir Evaluasi
+    if (isGdocs) {
+      buttonsHtml += `
+        <a href="${gdocsUrl}" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none; padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; background:#2563eb; color:#fff; border-color:#2563eb; box-shadow:0 4px 12px rgba(37,99,235,0.25);">
+          Buka Formulir Evaluasi (GDocs) &nearr;
+        </a>
+      `;
+    } else if (res.base64) {
+      buttonsHtml += `
+        <button type="button" class="btn btn-primary" style="padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" onclick="downloadBase64File_('${res.base64}', 'Formulir_Evaluasi.docx')">
+          Unduh Formulir Evaluasi (.docx)
+        </button>
+      `;
+    } else if (res.docUrl || res.viewUrl) {
+      const eUrl = res.docUrl || res.viewUrl;
+      const isEGdocs = eUrl.includes('docs.google.com');
+      buttonsHtml += `
+        <a href="${eUrl}" target="_blank" rel="noopener" ${isEGdocs ? '' : 'download'} class="btn btn-primary" style="text-decoration:none; padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; background:#2563eb; color:#fff; border-color:#2563eb;">
+          ${isEGdocs ? 'Buka Formulir Evaluasi (GDocs) &nearr;' : 'Unduh Formulir Evaluasi (.docx)'}
+        </a>
+      `;
+    }
+
+    // 2. Tombol Dokumen SKP
+    const skpRes = res.skpRes || {};
+    const skpUrl = skpRes.gdocsUrl || skpRes.viewUrl || skpRes.fileUrl || skpRes.docUrl || res.skp_file_url || '';
+    const skpIsGdocs = (skpRes.outputType === 'gdocs') || (skpUrl && skpUrl.includes('docs.google.com'));
+
+    if (skpIsGdocs && skpUrl) {
+      buttonsHtml += `
+        <a href="${skpUrl}" target="_blank" rel="noopener" class="btn btn-secondary" style="text-decoration:none; padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; background:#059669; color:#fff; border-color:#059669; box-shadow:0 4px 12px rgba(5,150,105,0.25);">
+          Buka Dokumen SKP (GDocs) &nearr;
+        </a>
+      `;
+    } else if (skpRes.base64) {
+      buttonsHtml += `
+        <button type="button" class="btn btn-secondary" style="padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; background:#059669; color:#fff; border-color:#059669;" onclick="downloadBase64File_('${skpRes.base64}', 'SKP_Tendik.docx')">
+          Unduh Dokumen SKP (.docx)
+        </button>
+      `;
+    } else if (skpUrl) {
+      buttonsHtml += `
+        <a href="${skpUrl}" target="_blank" rel="noopener" ${skpUrl.includes('docs.google.com') ? '' : 'download'} class="btn btn-secondary" style="text-decoration:none; padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; background:#059669; color:#fff; border-color:#059669;">
+          ${skpUrl.includes('docs.google.com') ? 'Buka Dokumen SKP (GDocs) &nearr;' : 'Unduh Dokumen SKP (.docx)'}
+        </a>
+      `;
+    }
+  } else {
+    // Mode bukan validasi final (misal preview / simpan satu dokumen)
+    if (isGdocs) {
+      buttonsHtml += `
+        <a href="${gdocsUrl}" target="_blank" rel="noopener" class="btn btn-secondary" style="text-decoration:none; padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; background:#2563eb; color:#fff; border-color:#2563eb;">
+          ${previewType === 'skp' ? 'Buka Dokumen SKP (Google Docs) &nearr;' : 'Buka Formulir Evaluasi (Google Docs) &nearr;'}
+        </a>
+      `;
+    } else if (res.base64) {
+      buttonsHtml += `
+        <button type="button" class="btn btn-primary" style="padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" onclick="downloadBase64File_('${res.base64}', '${escHtml(fileName)}')">
+          Unduh Dokumen Word (.docx)
+        </button>
+      `;
+    } else if (res.viewUrl || res.docUrl) {
+      const directUrl = res.viewUrl || res.docUrl;
+      const isDirectGdocs = directUrl.includes('docs.google.com');
+      buttonsHtml += `
+        <a href="${directUrl}" target="_blank" rel="noopener" ${isDirectGdocs ? '' : 'download'} class="btn btn-secondary" style="text-decoration:none; padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; background:#2563eb; color:#fff; border-color:#2563eb;">
+          ${isDirectGdocs ? 'Buka Google Docs &nearr;' : 'Unduh Dokumen Word (.docx)'}
+        </a>
+      `;
+    }
   }
 
   // Tombol SUBMIT / LANJUT langsung dari dalam Pop-up Preview
@@ -15926,33 +15976,107 @@ async function bukaDokumenEvaluasi(usulanId, currentDocUrl) {
         const link = document.createElement('a');
         link.href = res.url;
         link.target = '_blank';
-        link.download = '';
+        link.download = res.fileName || 'Formulir_Evaluasi.docx';
         document.body.appendChild(link);
         link.click();
         link.remove();
       }
     } else {
       if (currentDocUrl) {
-        window.open(currentDocUrl, '_blank');
+        if (currentDocUrl.includes('docs.google.com')) {
+          window.open(currentDocUrl, '_blank');
+        } else {
+          const link = document.createElement('a');
+          link.href = currentDocUrl;
+          link.target = '_blank';
+          link.download = 'Formulir_Evaluasi.docx';
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        }
       } else {
         showToast('error', res?.message || 'Dokumen formulir evaluasi belum siap.');
       }
     }
   } catch (err) {
     if (currentDocUrl) {
-      window.open(currentDocUrl, '_blank');
+      if (currentDocUrl.includes('docs.google.com')) {
+        window.open(currentDocUrl, '_blank');
+      } else {
+        const link = document.createElement('a');
+        link.href = currentDocUrl;
+        link.target = '_blank';
+        link.download = 'Formulir_Evaluasi.docx';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
     } else {
       showToast('error', 'Gagal membuka formulir evaluasi: ' + (err.message || err));
     }
   }
 }
 
-function bukaDokumenSkp(fileUrl) {
-  if (!fileUrl) {
-    showToast('error', 'Dokumen SKP belum tersedia.');
+async function bukaDokumenSkp(usulanId, currentFileUrl) {
+  if (!currentFileUrl && typeof usulanId === 'string' && (usulanId.startsWith('http') || usulanId.includes('/'))) {
+    currentFileUrl = usulanId;
+    usulanId = '';
+  }
+
+  if (currentFileUrl && currentFileUrl.includes('docs.google.com')) {
+    window.open(currentFileUrl, '_blank');
     return;
   }
-  window.open(fileUrl, '_blank');
+
+  showToast('info', 'Membuka dokumen Sasaran Kinerja Pegawai (SKP)...');
+  try {
+    const res = await rpc('getDokumenSkpUrl', [SESSION.token, usulanId]);
+    if (res && res.success && res.url) {
+      if (res.tipe === 'gdocs' || res.url.includes('docs.google.com')) {
+        window.open(res.url, '_blank');
+      } else {
+        const link = document.createElement('a');
+        link.href = res.url;
+        link.target = '_blank';
+        link.download = res.fileName || 'SKP_Tendik.docx';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
+    } else {
+      if (currentFileUrl) {
+        if (currentFileUrl.includes('docs.google.com')) {
+          window.open(currentFileUrl, '_blank');
+        } else {
+          const link = document.createElement('a');
+          link.href = currentFileUrl;
+          link.target = '_blank';
+          link.download = 'SKP_Tendik.docx';
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        }
+      } else {
+        showToast('error', res?.message || 'Dokumen SKP belum siap.');
+      }
+    }
+  } catch (err) {
+    if (currentFileUrl) {
+      if (currentFileUrl.includes('docs.google.com')) {
+        window.open(currentFileUrl, '_blank');
+      } else {
+        const link = document.createElement('a');
+        link.href = currentFileUrl;
+        link.target = '_blank';
+        link.download = 'SKP_Tendik.docx';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
+    } else {
+      showToast('error', 'Gagal membuka dokumen SKP: ' + (err.message || err));
+    }
+  }
 }
 
 function renderKontrakReviewDetailContent_(u) {
@@ -16088,12 +16212,12 @@ function renderKontrakReviewDetailContent_(u) {
         <div><strong>Nomor Surat Evaluasi:</strong> ${escapeHtml(u.evaluasi_nomor_surat || '-')}</div>
       </div>
       <div style="margin-bottom:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-        ${u.evaluasi_doc_url ? `
+        ${(u.evaluasi_doc_url || u.evaluasi_skor) ? `
           <button type="button" class="btn btn-outline kp-small-btn" onclick="bukaDokumenEvaluasi('${u.id}', '${escapeHtml(u.evaluasi_doc_url || '')}')" style="color:var(--primary); border-color:var(--primary); font-weight:700; cursor:pointer;">
             Buka Formulir Evaluasi Kinerja ↗
           </button>` : ''}
-        ${u.skp_file_url ? `
-          <button type="button" class="btn btn-outline kp-small-btn" onclick="bukaDokumenSkp('${escapeHtml(u.skp_file_url)}')" style="color:#059669; border-color:#059669; font-weight:700; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+        ${(u.skp_file_url || u.skp_dibuat || (u.skp_data && (u.skp_data.nama_lengkap || u.skp_data.tahun_penilaian))) ? `
+          <button type="button" class="btn btn-outline kp-small-btn" onclick="bukaDokumenSkp('${u.id}', '${escapeHtml(u.skp_file_url || '')}')" style="color:#059669; border-color:#059669; font-weight:700; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
             Buka Dokumen Sasaran Kinerja Pegawai (SKP) ↗
           </button>` : ''}
       </div>
@@ -19986,10 +20110,10 @@ function renderTemplateSelectorForSkp(layanan, subMenu, wrapId, usulanId) {
     <div style="margin-bottom:12px; text-align:left;">
       <div style="display:flex; gap:16px; margin-bottom:8px;">
         <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
-          <input type="radio" name="${radioName}" value="docx" checked /> Microsoft Word (.docx)
+          <input type="radio" name="${radioName}" value="docx" /> Microsoft Word (.docx)
         </label>
         <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
-          <input type="radio" name="${radioName}" value="gdocs" /> Google Docs (GDocs)
+          <input type="radio" name="${radioName}" value="gdocs" checked /> Google Docs (GDocs)
         </label>
       </div>
       <select id="${selectId}" class="field-input" style="width:100%;" required></select>
@@ -20018,7 +20142,7 @@ function renderTemplateSelectorForSkp(layanan, subMenu, wrapId, usulanId) {
 
       const hasDocx = templates.some(t => (t.tipe || 'gdocs') === 'docx');
       const hasGdocs = templates.some(t => (t.tipe || 'gdocs') === 'gdocs');
-      const defaultType = hasDocx ? 'docx' : (hasGdocs ? 'gdocs' : 'docx');
+      const defaultType = hasGdocs ? 'gdocs' : (hasDocx ? 'docx' : 'gdocs');
       const radioToCheck = wrap.querySelector('input[name="' + radioName + '"][value="' + defaultType + '"]');
       if (radioToCheck) radioToCheck.checked = true;
       filterTpl(defaultType);

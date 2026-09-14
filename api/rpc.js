@@ -8477,6 +8477,9 @@ const methods = {
       evaluasi_skor: u.evaluasi_skor,
       evaluasi_rekomendasi: u.evaluasi_rekomendasi,
       evaluasi_doc_url: u.evaluasi_doc_url,
+      skp_dibuat: !!u.skp_dibuat,
+      skp_data: u.skp_data || {},
+      skp_file_url: u.skp_file_url || '',
       atasan_nip: u.atasan_nip,
       atasan_nama: u.atasan_nama,
       form_data: u.form_data || {}
@@ -8687,7 +8690,7 @@ const methods = {
             try {
               const shortId = uuidv4();
               const ctrl = new AbortController();
-              const timeoutId = setTimeout(() => ctrl.abort(), 8000); // 8 detik maks agar tidak kena timeout Vercel Hobby
+              const timeoutId = setTimeout(() => ctrl.abort(), 35000); // 35 detik agar GAS memiliki waktu render Google Docs
 
               // Rampingkan form_data dan evaluasi_data agar transmisi jaringan ringan
               const cleanFormDataForGas = Object.assign({}, usulan.form_data || {});
@@ -8827,7 +8830,7 @@ const methods = {
     return {
       success: true,
       message: returnMsg,
-      base64: docB64,
+      base64: gdocsViewUrl ? null : docB64,
       docUrl: evalDocUrl,
       pdfUrl: pdfUrl,
       gdocsUrl: gdocsViewUrl,
@@ -8904,7 +8907,7 @@ const methods = {
 
           const shortId = uuidv4();
           const ctrl = new AbortController();
-          const timeoutId = setTimeout(() => ctrl.abort(), 8000); // 8 detik maks agar tidak kena timeout Vercel Hobby
+          const timeoutId = setTimeout(() => ctrl.abort(), 35000); // 35 detik agar GAS memiliki waktu render Google Docs
 
           const cleanFormDataForGas = Object.assign({}, usulan.form_data || {});
           delete cleanFormDataForGas.ttd_pegawai;
@@ -8977,6 +8980,75 @@ const methods = {
     }
 
     return { success: false, message: 'Dokumen formulir evaluasi belum siap atau belum digenerate.' };
+  },
+
+  async getDokumenSkpUrl(args) {
+    const [token, usulanId] = extractArgs(args);
+    verifyToken(token);
+    const db = getDb();
+
+    const { data: usulan, error: uErr } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
+    if (uErr) throw uErr;
+    if (!usulan) return { success: false, message: 'Usulan kontrak tidak ditemukan.' };
+
+    let skpUrl = usulan.skp_file_url || '';
+    if (skpUrl && skpUrl.includes('docs.google.com')) {
+      return { success: true, tipe: 'gdocs', url: skpUrl };
+    }
+
+    // 1. Cari template SKP yang digunakan
+    let tmpl = null;
+    const reqTmplId = usulan.skp_data?.skp_template_id || usulan.evaluasi_data?.skp_template_id;
+    if (reqTmplId) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(reqTmplId).trim());
+      if (isUuid) {
+        const { data: tRow } = await db.from('templates').select('*').eq('id', reqTmplId).maybeSingle();
+        if (tRow) tmpl = tRow;
+      }
+      if (!tmpl) {
+        const { data: tRow } = await db.from('templates').select('*').eq('file_id', reqTmplId).maybeSingle();
+        if (tRow) tmpl = tRow;
+      }
+    }
+    if (!tmpl) {
+      const { data: tmplList } = await db.from('templates').select('*')
+        .ilike('layanan', '%Tendik%')
+        .ilike('sub_menu', '%Sasaran%')
+        .order('dibuat_pada', { ascending: false }).limit(1);
+      if (tmplList && tmplList.length > 0) tmpl = tmplList[0];
+    }
+
+    const isGDocsTemplate = tmpl ? (tmpl.tipe === 'gdocs') : (skpUrl ? skpUrl.includes('docs.google.com') : true);
+
+    // 2. Jika template Google Docs dan belum berupa link GDocs, coba generate via generateSkpTendik
+    if (isGDocsTemplate && tmpl && tmpl.file_id && (!skpUrl || !skpUrl.includes('docs.google.com'))) {
+      try {
+        const skpData = usulan.skp_data || {};
+        const genRes = await methods.generateSkpTendik([token, tmpl.file_id, usulanId, skpData]);
+        if (genRes && genRes.success) {
+          const finalUrl = genRes.viewUrl || genRes.pdfUrl || genRes.fileUrl || '';
+          const isFinalGdocs = finalUrl.includes('docs.google.com') || genRes.outputType === 'gdocs';
+          return {
+            success: true,
+            tipe: isFinalGdocs ? 'gdocs' : 'docx',
+            url: finalUrl
+          };
+        }
+      } catch (errGen) {
+        console.warn('[getDokumenSkpUrl] generateSkpTendik notice:', errGen.message);
+      }
+    }
+
+    // 3. Jika sudah ada URL dokumen SKP
+    if (skpUrl) {
+      return {
+        success: true,
+        tipe: skpUrl.includes('docs.google.com') ? 'gdocs' : 'docx',
+        url: skpUrl
+      };
+    }
+
+    return { success: false, message: 'Dokumen SKP belum digenerate atau belum siap.' };
   },
 
   async validasiUsulanKontrakTendik(args) {
@@ -9411,7 +9483,7 @@ const methods = {
     try {
       const namaPegawai = dataCtx.nama_lengkap || dataCtx.nama || usulan.nama || 'PEGAWAI';
       const ctrlGdocs = new AbortController();
-      const timeoutIdGdocs = setTimeout(() => ctrlGdocs.abort(), 8000);
+      const timeoutIdGdocs = setTimeout(() => ctrlGdocs.abort(), 35000);
 
       const response = await fetch(gasUrl, {
         method: 'POST',
@@ -9769,7 +9841,7 @@ const methods = {
         const shortId = uuidv4();
         const remoteSession = { id: shortId, data: { nip: decoded.nip, nama_lengkap: decoded.nama, nama: decoded.nama, role: 'admin' } };
         const ctrl = new AbortController();
-        const timeoutId = setTimeout(() => ctrl.abort(), 8000); // 8 detik maks agar tidak kena timeout Vercel Hobby
+        const timeoutId = setTimeout(() => ctrl.abort(), 35000);
         try {
           const response = await fetch(gasUrl, {
             method: 'POST',
@@ -9843,7 +9915,7 @@ const methods = {
       };
 
       const ctrl = new AbortController();
-      const timeoutId = setTimeout(() => ctrl.abort(), 8000); // 8 detik maks agar tidak kena timeout Vercel Hobby
+      const timeoutId = setTimeout(() => ctrl.abort(), 35000); // 35 detik agar GAS memiliki waktu render Google Docs
 
       // Rampingkan dataCtx dan bersihkan duplikasi signature agar transmisi jaringan tidak terkena limit 413
       const cleanFormDataForGas = Object.assign({}, formDataObj);
@@ -9927,6 +9999,7 @@ const methods = {
         success: true,
         fileId: gasResult?.fileId || gasResult?.docFileId || '',
         viewUrl: resViewUrl,
+        gdocsUrl: resViewUrl,
         pdfUrl: resPdfUrl,
         fileUrl: finalUrl,
         fileName: `SKP_${dataCtx.nama_lengkap}_${thnPenilaian}`,
