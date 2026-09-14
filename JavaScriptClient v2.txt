@@ -9370,8 +9370,11 @@ function clearKontrakUserTtdPad() {
   kontrakUserHasDrawn = false;
 }
 
+let _isSubmittingUsulanKontrak = false;
 async function submitUsulanKontrak(e) {
   e.preventDefault();
+  if (_isSubmittingUsulanKontrak) return;
+  _isSubmittingUsulanKontrak = true;
   const btn = document.getElementById('kontrakUser_submitBtn');
   setBtnLoading(btn, true, 'Menyiapkan usulan...');
   
@@ -9397,6 +9400,7 @@ async function submitUsulanKontrak(e) {
     if (isTendik && !atasan_nip) {
       showToast('error', 'Atasan Langsung belum terdeteksi untuk unit kerja Anda. Silakan hubungi Administrator Kepegawaian.');
       setBtnLoading(btn, false, 'Ajukan Usulan');
+      _isSubmittingUsulanKontrak = false;
       return;
     }
 
@@ -9411,6 +9415,7 @@ async function submitUsulanKontrak(e) {
       if (!kontrakUserHasDrawn) {
         showToast('error', 'Silakan bubuhkan tanda tangan digital Anda pada kotak tanda tangan terlebih dahulu.');
         setBtnLoading(btn, false, 'Ajukan Usulan');
+        _isSubmittingUsulanKontrak = false;
         return;
       }
       ttd_pegawai = typeof trimCanvas_ === 'function' ? trimCanvas_(kontrakUserCanvas) : (kontrakUserCanvas.toDataURL ? kontrakUserCanvas.toDataURL('image/png') : '');
@@ -9461,6 +9466,7 @@ async function submitUsulanKontrak(e) {
     const rpcMethod = isTendik ? 'ajukanUsulanKontrakTendik' : 'ajukanUsulanKontrak';
     const res = await rpc(rpcMethod, [SESSION.token, payload]);
     setBtnLoading(btn, false, 'Ajukan Usulan');
+    _isSubmittingUsulanKontrak = false;
     if (res && res.success) {
       showToast('success', res.message || 'Usulan berhasil diajukan.');
       const tabStatus = document.getElementById('tabBtnKontrakUserStatus');
@@ -9471,6 +9477,7 @@ async function submitUsulanKontrak(e) {
     }
   } catch (err) {
     setBtnLoading(btn, false, 'Ajukan Usulan');
+    _isSubmittingUsulanKontrak = false;
     showToast('error', err.message || err);
   }
 }
@@ -11378,16 +11385,20 @@ async function hapusUsulanBawahanTkk() {
     showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
   }
 }
+let _isValidatingUsulanTendik = false;
 async function adminValidasiUsulanTendik(usulanId, isExtend) {
+  if (_isValidatingUsulanTendik) return;
   const confirmMsg = isExtend 
     ? 'Apakah Anda yakin ingin memvalidasi usulan ini untuk DIPERPANJANG? Pegawai akan dapat membuat perjanjian kerja.' 
     : 'Apakah Anda yakin ingin menyelesaikan usulan ini sebagai TIDAK DIPERPANJANG?';
   
   if (!confirm(confirmMsg)) return;
 
+  _isValidatingUsulanTendik = true;
   showToast('info', 'Memproses validasi usulan...');
   try {
     const res = await rpc('validasiUsulanKontrakTendik', [SESSION.token, usulanId, isExtend]);
+    _isValidatingUsulanTendik = false;
     if (res && res.success) {
       showToast('success', res.message);
       viewKontrakReviewDetail(usulanId);
@@ -11395,14 +11406,23 @@ async function adminValidasiUsulanTendik(usulanId, isExtend) {
       showToast('error', res?.message || 'Gagal memvalidasi usulan.');
     }
   } catch (err) {
+    _isValidatingUsulanTendik = false;
     showToast('error', 'Gagal: ' + (err.message || err));
   }
 }
 
+let _isGeneratingKontrakSelf = false;
 async function generateKontrakUserSelf(usulanId) {
+  if (_isGeneratingKontrakSelf) return;
+  _isGeneratingKontrakSelf = true;
+
   const selectEl = document.getElementById(`usulan_templateSelect_${usulanId}`);
   const templateRef = selectEl ? selectEl.value : '';
-  if (!templateRef) { showToast('error', 'Pilih template terlebih dahulu.'); return; }
+  if (!templateRef) {
+    showToast('error', 'Pilih template terlebih dahulu.');
+    _isGeneratingKontrakSelf = false;
+    return;
+  }
 
   const customFormData = {
     alamat: (document.getElementById(`usulan_alamat_${usulanId}`)?.value || '').trim(),
@@ -11417,6 +11437,7 @@ async function generateKontrakUserSelf(usulanId) {
   try {
     const res = await rpc('generateKontrakFromUsulanVercel', [SESSION.token, templateRef, usulanId, customFormData]);
     if (btn) setBtnLoading(btn, false, '🚀 Buat Dokumen Perjanjian Kerja Final');
+    _isGeneratingKontrakSelf = false;
     if (res && res.success) {
       showToast('success', res.message || 'Dokumen kontrak berhasil dibuat.');
       loadUsulanKontrakSaya();
@@ -11428,37 +11449,14 @@ async function generateKontrakUserSelf(usulanId) {
       } else {
         openKontrakResultModal({ docViewUrl: res.viewUrl, pdfDownloadUrl: `https://drive.google.com/uc?export=download&id=${res.fileId}`, fileName: res.fileName });
       }
-      return;
-    } else if (res && res.success === false) {
-      showToast('error', res.message || 'Gagal membuat dokumen kontrak.');
+    } else {
+      showToast('error', res?.message || 'Gagal membuat dokumen kontrak.');
       return;
     }
-  } catch (err) {}
-
-  if (typeof google !== 'undefined' && google.script && google.script.run) {
-    google.script.run
-      .withSuccessHandler(res => {
-        if (btn) setBtnLoading(btn, false, '🚀 Buat Dokumen Perjanjian Kerja Final');
-        if (res.success) {
-          showToast('success', res.message || 'Dokumen kontrak berhasil dibuat.');
-          loadUsulanKontrakSaya();
-          if (res.outputType === 'pdf') {
-            openKontrakResultModal({ outputType: 'pdf', pdfUrl: res.pdfUrl, docViewUrl: res.pdfUrl, fileName: res.fileName });
-          } else if (res.outputType === 'docx') {
-            const dlUrl = 'data:' + res.mimeType + ';base64,' + res.base64;
-            openKontrakResultModal({ isDocx: true, docViewUrl: dlUrl, fileName: res.fileName });
-          } else {
-            openKontrakResultModal({ docViewUrl: res.viewUrl, pdfDownloadUrl: `https://drive.google.com/uc?export=download&id=${res.fileId}`, fileName: res.fileName });
-          }
-        } else {
-          showToast('error', res.message);
-        }
-      })
-      .withFailureHandler(err => {
-        if (btn) setBtnLoading(btn, false, '🚀 Buat Dokumen Perjanjian Kerja Final');
-        showToast('error', 'Gagal membuat kontrak: ' + (err.message || err));
-      })
-      .generateKontrakFromUsulanVercel(SESSION.token, templateRef, usulanId, customFormData);
+  } catch (err) {
+    if (btn) setBtnLoading(btn, false, '🚀 Buat Dokumen Perjanjian Kerja Final');
+    _isGeneratingKontrakSelf = false;
+    showToast('error', 'Gagal membuat kontrak: ' + (err.message || err));
   }
 }
 

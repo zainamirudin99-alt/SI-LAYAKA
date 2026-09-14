@@ -57,7 +57,16 @@ function getDb() {
     return createMockSupabaseClient('SUPABASE_URL atau SUPABASE_SERVICE_ROLE_KEY belum dikonfigurasi pada Vercel environment variables.');
   }
   try {
-    supabase = createClient(url, key);
+    supabase = createClient(url, key, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+      },
+      global: {
+        headers: { 'x-application-name': 'simpeg-vercel-rpc' }
+      }
+    });
     return supabase;
   } catch (err) {
     console.error('[rpc getDb] Error in createClient:', err.message);
@@ -336,16 +345,73 @@ async function getCallerUnit(decoded, db) {
 }
 
 // ================================================================
-// DATABASE HELPERS
+// IN-MEMORY CACHE & RATE LIMITER (Optimasi 300+ Pengguna Simultan)
+// ================================================================
+const REFERENCE_DATA_CACHE = new Map();
+const DEFAULT_CACHE_TTL_MS = 60 * 1000; // 60 detik
+
+function getCachedRef(key) {
+  const item = REFERENCE_DATA_CACHE.get(key);
+  if (!item) return null;
+  if (Date.now() > item.expiresAt) {
+    REFERENCE_DATA_CACHE.delete(key);
+    return null;
+  }
+  return item.value;
+}
+
+function setCachedRef(key, value, ttlMs = DEFAULT_CACHE_TTL_MS) {
+  if (REFERENCE_DATA_CACHE.size > 2500) {
+    const firstKey = REFERENCE_DATA_CACHE.keys().next().value;
+    REFERENCE_DATA_CACHE.delete(firstKey);
+  }
+  REFERENCE_DATA_CACHE.set(key, {
+    value,
+    expiresAt: Date.now() + ttlMs
+  });
+}
+
+function invalidateCachedRef(pattern) {
+  for (const k of REFERENCE_DATA_CACHE.keys()) {
+    if (k.includes(pattern)) REFERENCE_DATA_CACHE.delete(k);
+  }
+}
+
+const RATE_LIMIT_MAP = new Map();
+function checkRateLimit(key, maxRequests = 40, windowMs = 60 * 1000) {
+  const now = Date.now();
+  let record = RATE_LIMIT_MAP.get(key);
+  if (!record || now - record.startTime > windowMs) {
+    record = { startTime: now, count: 1 };
+    RATE_LIMIT_MAP.set(key, record);
+    return { allowed: true, remaining: maxRequests - 1 };
+  }
+  record.count++;
+  if (record.count > maxRequests) {
+    return { allowed: false, remaining: 0 };
+  }
+  return { allowed: true, remaining: maxRequests - record.count };
+}
+
+// ================================================================
+// DATABASE HELPERS (Cached)
 // ================================================================
 async function findEmployeeByNip(inputNip) {
-  const db = getDb();
   const inputTrim = String(inputNip || '').trim();
   if (!inputTrim) return null;
 
+  const cacheKey = `emp:${inputTrim}`;
+  const cached = getCachedRef(cacheKey);
+  if (cached !== null) return cached;
+
+  const db = getDb();
+
   try {
     const { data, error } = await db.from('data_utama').select('*').eq('nip', inputTrim).maybeSingle();
-    if (!error && data) return data;
+    if (!error && data) {
+      setCachedRef(cacheKey, data);
+      return data;
+    }
   } catch (_) {}
 
   const nipStripped = inputTrim.startsWith(CONFIG.NIP_IGNORED_PREFIX)
@@ -354,16 +420,28 @@ async function findEmployeeByNip(inputNip) {
 
   try {
     const { data: data2 } = await db.from('data_utama').select('*').eq('nip', nipStripped).maybeSingle();
-    if (data2) return data2;
+    if (data2) {
+      setCachedRef(cacheKey, data2);
+      return data2;
+    }
   } catch (_) {}
 
   return null;
 }
 
 async function getUserRole(nip) {
+  const cleanNip = String(nip || '').trim();
+  if (!cleanNip) return { role: 'normal', sub_role: null, status_kepegawaian: null };
+
+  const cacheKey = `role:${cleanNip}`;
+  const cached = getCachedRef(cacheKey);
+  if (cached !== null) return cached;
+
   const db = getDb();
-  const { data } = await db.from('user_roles').select('role,sub_role,status_kepegawaian').eq('nip', nip).maybeSingle();
-  return { role: data?.role || 'normal', sub_role: data?.sub_role || null, status_kepegawaian: data?.status_kepegawaian || null };
+  const { data } = await db.from('user_roles').select('role,sub_role,status_kepegawaian').eq('nip', cleanNip).maybeSingle();
+  const res = { role: data?.role || 'normal', sub_role: data?.sub_role || null, status_kepegawaian: data?.status_kepegawaian || null };
+  setCachedRef(cacheKey, res);
+  return res;
 }
 async function getUserSubRole(nip) {
   const db = getDb();
@@ -7330,17 +7408,46 @@ const methods = {
     if (!lamaranUrl && !suratLamaranBase64) return { success: false, message: 'Link Google Drive Surat Lamaran wajib diisi.' };
     if (!sehatUrl && !ketSehatBase64) return { success: false, message: 'Link Google Drive Keterangan Sehat wajib diisi.' };
 
+    const targetNip = String(nip || '').trim();
+    const targetTahun = String(tahun || payload?.tahun_evaluasi || '').trim();
+    const targetLayanan = String(layanan || 'Kontrak Dosen').trim();
+
+    const rlCheck = checkRateLimit(`submit_dosen:${targetNip}`, 20, 60 * 1000);
+    if (!rlCheck.allowed) {
+      return { success: false, message: 'Terlalu banyak pengajuan dalam waktu singkat. Silakan tunggu 1 menit sebelum mencoba lagi.' };
+    }
+
+    // Cek idempotensi: jika usulan aktif sudah ada, kembalikan data yang ada
+    try {
+      const { data: existing } = await db.from('usulan_kontrak')
+        .select('id, status, tahun')
+        .eq('nip', targetNip)
+        .eq('tahun', targetTahun)
+        .eq('layanan', targetLayanan)
+        .not('status', 'in', '("Ditolak","closed_not_renewed")')
+        .maybeSingle();
+
+      if (existing) {
+        return {
+          success: true,
+          message: `Usulan Kontrak aktif sudah terdaftar untuk tahun ${targetTahun}.`,
+          id: existing.id,
+          already_exists: true
+        };
+      }
+    } catch (_) {}
+
     // Jika menggunakan tautan Google Drive langsung, simpan langsung ke database Supabase tanpa storage
     if (ktpUrl || kkUrl || pasFotoUrl || ijazahUrl) {
-      const { error } = await db.from('usulan_kontrak').insert({
-        nip: String(nip || '').trim(),
+      const newDosenRecord = {
+        nip: targetNip,
         nama: String(nama || '').trim(),
         unit: String(unit || '').trim(),
         email: String(email || '').trim(),
-        tahun: String(tahun || payload?.tahun_evaluasi || '').trim(),
+        tahun: targetTahun,
         jenis_usulan: String(jenis_usulan || '').trim(),
         evaluasi_kinerja: String(evaluasi_kinerja || '').trim(),
-        layanan: String(layanan || 'Kontrak Dosen').trim(),
+        layanan: targetLayanan,
         sub_menu: String(sub_menu || '').trim(),
         form_data: form_data || {},
         ktp_url: ktpUrl,
@@ -7355,9 +7462,45 @@ const methods = {
         diajukan_oleh_nip: decoded.nip,
         nama_pengaju: decoded.nama,
         status: 'Diajukan'
-      });
-      if (error) throw error;
-      return { success: true, message: 'Usulan Kontrak berhasil diajukan. Tunggu review dari admin.' };
+      };
+
+      try {
+        const { data: insDosen, error } = await db.from('usulan_kontrak').insert(newDosenRecord).select('id').single();
+        if (error) {
+          if (error.code === '23505') {
+            const { data: existAfter } = await db.from('usulan_kontrak')
+              .select('id, status')
+              .eq('nip', targetNip)
+              .eq('tahun', targetTahun)
+              .eq('layanan', targetLayanan)
+              .maybeSingle();
+            return {
+              success: true,
+              message: `Usulan Kontrak aktif sudah terdaftar untuk tahun ${targetTahun}.`,
+              id: existAfter?.id,
+              already_exists: true
+            };
+          }
+          throw error;
+        }
+        return { success: true, message: 'Usulan Kontrak berhasil diajukan. Tunggu review dari admin.', id: insDosen?.id };
+      } catch (insertErr) {
+        if (insertErr.code === '23505') {
+          const { data: existAfter } = await db.from('usulan_kontrak')
+            .select('id, status')
+            .eq('nip', targetNip)
+            .eq('tahun', targetTahun)
+            .eq('layanan', targetLayanan)
+            .maybeSingle();
+          return {
+            success: true,
+            message: `Usulan Kontrak aktif sudah terdaftar untuk tahun ${targetTahun}.`,
+            id: existAfter?.id,
+            already_exists: true
+          };
+        }
+        throw insertErr;
+      }
     }
 
     // Forward to GAS for Drive file upload
@@ -7885,20 +8028,27 @@ const methods = {
 
     let diizinkan = false;
     if (kategoriCocok) {
-      try {
-        const { data: rows } = await db.from('akses_kontrak_mandiri')
-          .select('diizinkan')
-          .eq('kategori', kategoriCocok)
-          .order('tanggal_diubah', { ascending: false })
-          .limit(1);
+      const cacheKategoriKey = `akses_kategori:${kategoriCocok}`;
+      const cachedDiizinkan = getCachedRef(cacheKategoriKey);
+      if (cachedDiizinkan !== null) {
+        diizinkan = cachedDiizinkan;
+      } else {
+        try {
+          const { data: rows } = await db.from('akses_kontrak_mandiri')
+            .select('diizinkan')
+            .eq('kategori', kategoriCocok)
+            .order('tanggal_diubah', { ascending: false })
+            .limit(1);
 
-        if (rows && rows.length > 0 && typeof rows[0].diizinkan === 'boolean') {
-          diizinkan = rows[0].diizinkan;
-        } else if (MEMORY_AKSES_KONTRAK_MANDIRI[kategoriCocok] !== undefined) {
-          diizinkan = MEMORY_AKSES_KONTRAK_MANDIRI[kategoriCocok];
+          if (rows && rows.length > 0 && typeof rows[0].diizinkan === 'boolean') {
+            diizinkan = rows[0].diizinkan;
+          } else if (MEMORY_AKSES_KONTRAK_MANDIRI[kategoriCocok] !== undefined) {
+            diizinkan = MEMORY_AKSES_KONTRAK_MANDIRI[kategoriCocok];
+          }
+        } catch (e) {
+          diizinkan = !!MEMORY_AKSES_KONTRAK_MANDIRI[kategoriCocok];
         }
-      } catch (e) {
-        diizinkan = !!MEMORY_AKSES_KONTRAK_MANDIRI[kategoriCocok];
+        setCachedRef(cacheKategoriKey, diizinkan, 60 * 1000);
       }
     }
 
@@ -7955,6 +8105,12 @@ const methods = {
       };
     }
 
+    const cacheAtasanKey = `atasan_prodi:${unitEsIv.toLowerCase()}`;
+    const cachedAtasan = getCachedRef(cacheAtasanKey);
+    if (cachedAtasan) {
+      return cachedAtasan;
+    }
+
     let atasanMatches = [];
     try {
       const { data: matches, error: atasanErr } = await db.from('atasan_langsung')
@@ -7985,7 +8141,7 @@ const methods = {
     }
 
     const atasanRow = atasanMatches[0];
-    return {
+    const atasanResult = {
       success: true,
       unit_es_iv: unitEsIv,
       atasan: {
@@ -7999,6 +8155,8 @@ const methods = {
         detail_tutam: atasanRow.detail_tutam || ''
       }
     };
+    setCachedRef(cacheAtasanKey, atasanResult, 60 * 1000);
+    return atasanResult;
   },
 
   async ajukanUsulanKontrakTendik(args) {
@@ -8013,6 +8171,33 @@ const methods = {
 
     const targetNip = String(nip || decoded.nip).trim();
     const targetNama = String(nama || decoded.nama).trim();
+    const targetTahun = String(tahun || payload?.tahun_evaluasi || new Date().getFullYear()).trim();
+    const targetLayanan = 'Kontrak Tendik';
+
+    const rlCheck = checkRateLimit(`submit_tendik:${targetNip}`, 20, 60 * 1000);
+    if (!rlCheck.allowed) {
+      return { success: false, message: 'Terlalu banyak pengajuan dalam waktu singkat. Silakan tunggu 1 menit sebelum mencoba lagi.' };
+    }
+
+    // Cek Idempotensi: jika sudah ada usulan aktif untuk NIP + tahun + layanan, kembalikan record yang ada
+    try {
+      const { data: existing } = await db.from('usulan_kontrak')
+        .select('id, status, tahun, atasan_nama')
+        .eq('nip', targetNip)
+        .eq('tahun', targetTahun)
+        .eq('layanan', targetLayanan)
+        .not('status', 'in', '("Ditolak","closed_not_renewed")')
+        .maybeSingle();
+
+      if (existing) {
+        return {
+          success: true,
+          message: `Usulan Pembaruan Kontrak Tenaga Kependidikan aktif sudah terdaftar untuk tahun ${targetTahun} (${existing.atasan_nama || 'Atasan'}).`,
+          id: existing.id,
+          already_exists: true
+        };
+      }
+    } catch (_) {}
 
     const emp = await findEmployeeByNip(targetNip);
     const unitEsIv = String(emp?.unit_es_iv || payload?.unit_es_iv || form_data?.unit_es_iv || '').trim();
@@ -8100,17 +8285,17 @@ const methods = {
       nama: targetNama,
       unit: String(unit || emp?.unit_es_ii || '').trim(),
       email: String(email || emp?.email || '').trim(),
-      tahun: String(tahun || payload?.tahun_evaluasi || new Date().getFullYear()).trim(),
+      tahun: targetTahun,
       jenis_usulan: 'Pembaruan Kontrak',
       evaluasi_kinerja: String(evaluasi_kinerja || '').trim(),
-      layanan: 'Kontrak Tendik',
+      layanan: targetLayanan,
       sub_menu: String(sub_menu || effectiveStatus || 'Tenaga Profesional').trim(),
       atasan_nip: atasanNip,
       atasan_nama: atasanNama,
       status: 'submitted_to_atasan',
       form_data: Object.assign({}, form_data || {}, {
-        tahun: String(tahun || payload?.tahun_evaluasi || new Date().getFullYear()).trim(),
-        tahun_evaluasi: String(tahun || payload?.tahun_evaluasi || new Date().getFullYear()).trim(),
+        tahun: targetTahun,
+        tahun_evaluasi: targetTahun,
         atasan_nip: atasanNip,
         atasan_nama: atasanNama,
         atasan_tutam: atasanTutam,
@@ -8126,13 +8311,49 @@ const methods = {
       tanggal_diajukan: new Date().toISOString()
     };
 
-    const { data: inserted, error: insErr } = await db.from('usulan_kontrak').insert(newRecord).select().single();
-    if (insErr) throw insErr;
+    let insertedId = null;
+    try {
+      const { data: insData, error: insErr } = await db.from('usulan_kontrak').insert(newRecord).select('id').single();
+      if (insErr) {
+        if (insErr.code === '23505') {
+          const { data: existingAfter } = await db.from('usulan_kontrak')
+            .select('id, status, atasan_nama')
+            .eq('nip', targetNip)
+            .eq('tahun', targetTahun)
+            .eq('layanan', targetLayanan)
+            .maybeSingle();
+          return {
+            success: true,
+            message: `Usulan Pembaruan Kontrak Tenaga Kependidikan aktif sudah terdaftar untuk tahun ${targetTahun}.`,
+            id: existingAfter?.id,
+            already_exists: true
+          };
+        }
+        throw insErr;
+      }
+      insertedId = insData?.id;
+    } catch (insCatch) {
+      if (insCatch.code === '23505') {
+        const { data: existingAfter } = await db.from('usulan_kontrak')
+          .select('id, status, atasan_nama')
+          .eq('nip', targetNip)
+          .eq('tahun', targetTahun)
+          .eq('layanan', targetLayanan)
+          .maybeSingle();
+        return {
+          success: true,
+          message: `Usulan Pembaruan Kontrak Tenaga Kependidikan aktif sudah terdaftar untuk tahun ${targetTahun}.`,
+          id: existingAfter?.id,
+          already_exists: true
+        };
+      }
+      throw insCatch;
+    }
 
     return {
       success: true,
       message: `Usulan Pembaruan Kontrak Tenaga Kependidikan berhasil diajukan dan diteruskan secara otomatis ke Atasan Langsung (${atasanNama}).`,
-      id: inserted?.id
+      id: insertedId
     };
   },
 
@@ -8378,7 +8599,7 @@ const methods = {
             try {
               const shortId = uuidv4();
               const ctrl = new AbortController();
-              const timeoutId = setTimeout(() => ctrl.abort(), 25000);
+              const timeoutId = setTimeout(() => ctrl.abort(), 8000); // 8 detik maks agar tidak kena timeout Vercel Hobby
 
               // Rampingkan form_data dan evaluasi_data agar transmisi jaringan ringan
               const cleanFormDataForGas = Object.assign({}, usulan.form_data || {});
@@ -8595,7 +8816,7 @@ const methods = {
 
           const shortId = uuidv4();
           const ctrl = new AbortController();
-          const timeoutId = setTimeout(() => ctrl.abort(), 25000);
+          const timeoutId = setTimeout(() => ctrl.abort(), 8000); // 8 detik maks agar tidak kena timeout Vercel Hobby
 
           const cleanFormDataForGas = Object.assign({}, usulan.form_data || {});
           delete cleanFormDataForGas.ttd_pegawai;
@@ -8967,16 +9188,17 @@ const methods = {
     const role = decoded.role || 'normal';
     const db = getDb();
 
+    const rlGen = checkRateLimit(`gen_kontrak:${decoded.nip}`, 15, 60 * 1000);
+    if (!rlGen.allowed) {
+      return { success: false, message: 'Permintaan pembuatan dokumen terlalu sering. Harap tunggu beberapa saat sebelum mencoba kembali.' };
+    }
+
     // Ambil data usulan
     const { data: usulan, error: fetchErr } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
     if (fetchErr) throw fetchErr;
     if (!usulan) return { success: false, message: 'Usulan tidak ditemukan.' };
 
-    let empData = {};
-    try {
-      const { data: empDb } = await db.from('data_utama').select('*').eq('nip', String(usulan.nip || '').trim()).maybeSingle();
-      if (empDb) empData = empDb;
-    } catch (_) {}
+    let empData = (await findEmployeeByNip(usulan.nip)) || {};
 
     if (customFormData && typeof customFormData === 'object') {
       const merged = Object.assign({}, usulan.form_data || {}, customFormData);
@@ -9033,23 +9255,44 @@ const methods = {
       const mustPdf = ['normal', 'user'].includes(role);
       if (mustPdf) {
         const gasUrl = process.env.GOOGLE_SCRIPT_URL;
-        if (!gasUrl) return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi (diperlukan untuk konversi PDF).' };
+        if (gasUrl) {
+          try {
+            const shortId = uuidv4();
+            const remoteSession = { id: shortId, data: { nip: decoded.nip, nama_lengkap: decoded.nama, nama: decoded.nama, role: 'admin' } };
+            const ctrl = new AbortController();
+            const timeoutId = setTimeout(() => ctrl.abort(), 8000); // 8 detik maks agar tidak kena timeout Vercel Hobby
 
-        const shortId = uuidv4();
-        const remoteSession = { id: shortId, data: { nip: decoded.nip, nama_lengkap: decoded.nama, nama: decoded.nama, role: 'admin' } };
+            const response = await fetch(gasUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                method: 'convertDocxToPdf',
+                params: [shortId, renderedBuffer.toString('base64'), `Kontrak_${usulan.nama}_${usulan.tahun}.docx`],
+                remoteSession
+              }),
+              signal: ctrl.signal
+            });
+            clearTimeout(timeoutId);
+            const gasResult = await parseGasResponse(response, 'generateKontrakFromUsulanVercel-convertDocxToPdf');
+            if (gasResult && gasResult.success && gasResult.pdfUrl) {
+              await db.from('usulan_kontrak').update({ perjanjian_dibuat: true, diproses_oleh_nip: decoded.nip, status: 'Selesai' }).eq('id', usulanId);
+              return { success: true, outputType: 'pdf', pdfUrl: gasResult.pdfUrl, fileName: gasResult.fileName };
+            }
+          } catch (pdfErr) {
+            console.warn('[generateKontrakFromUsulanVercel] GAS PDF conversion timeout/error, fallback to DOCX:', pdfErr.message);
+          }
+        }
 
-        const response = await fetch(gasUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            method: 'convertDocxToPdf',
-            params: [shortId, renderedBuffer.toString('base64'), `Kontrak_${usulan.nama}_${usulan.tahun}.docx`],
-            remoteSession
-          })
-        });
-        const gasResult = await parseGasResponse(response, 'generateKontrakFromUsulanVercel-convertDocxToPdf');
-        if (!gasResult || !gasResult.success) return gasResult || { success: false, message: 'Gagal konversi kontrak ke PDF.' };
-        return { success: true, outputType: 'pdf', pdfUrl: gasResult.pdfUrl, fileName: gasResult.fileName };
+        // GRACEFUL FALLBACK: Jika konversi PDF di GAS sibuk / timeout, tetap serahkan file DOCX yang sudah sukses dirender lokal oleh docxtemplater
+        await db.from('usulan_kontrak').update({ perjanjian_dibuat: true, diproses_oleh_nip: decoded.nip, status: 'Selesai' }).eq('id', usulanId);
+        return {
+          success: true,
+          outputType: 'docx',
+          base64: renderedBuffer.toString('base64'),
+          fileName: `Kontrak_${usulan.nama}_${usulan.tahun}.docx`,
+          mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          message: 'Kontrak berhasil digenerate (DOCX).'
+        };
       }
 
       // Admin/super_admin: output docx base64
@@ -9079,6 +9322,9 @@ const methods = {
 
     try {
       const namaPegawai = dataCtx.nama_lengkap || dataCtx.nama || usulan.nama || 'PEGAWAI';
+      const ctrlGdocs = new AbortController();
+      const timeoutIdGdocs = setTimeout(() => ctrlGdocs.abort(), 8000);
+
       const response = await fetch(gasUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -9103,8 +9349,10 @@ const methods = {
             form_data: cleanFormData
           })],
           remoteSession
-        })
+        }),
+        signal: ctrlGdocs.signal
       });
+      clearTimeout(timeoutIdGdocs);
       const gasResult = await parseGasResponse(response, 'generateKontrakFromUsulanVercel-GAS');
       if (!gasResult || !gasResult.success) return gasResult || { success: false, message: 'Gagal membuat dokumen kontrak via Google Apps Script.' };
 
@@ -9406,7 +9654,7 @@ const methods = {
         const shortId = uuidv4();
         const remoteSession = { id: shortId, data: { nip: decoded.nip, nama_lengkap: decoded.nama, nama: decoded.nama, role: 'admin' } };
         const ctrl = new AbortController();
-        const timeoutId = setTimeout(() => ctrl.abort(), 25000);
+        const timeoutId = setTimeout(() => ctrl.abort(), 8000); // 8 detik maks agar tidak kena timeout Vercel Hobby
         try {
           const response = await fetch(gasUrl, {
             method: 'POST',
@@ -9480,7 +9728,7 @@ const methods = {
       };
 
       const ctrl = new AbortController();
-      const timeoutId = setTimeout(() => ctrl.abort(), 25000);
+      const timeoutId = setTimeout(() => ctrl.abort(), 8000); // 8 detik maks agar tidak kena timeout Vercel Hobby
 
       // Rampingkan dataCtx dan bersihkan duplikasi signature agar transmisi jaringan tidak terkena limit 413
       const cleanFormDataForGas = Object.assign({}, formDataObj);
