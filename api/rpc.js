@@ -168,6 +168,51 @@ async function parseGasResponse(response, contextName = 'GAS') {
 // Global in-memory cache for akses_kontrak_mandiri
 const MEMORY_AKSES_KONTRAK_MANDIRI = {};
 
+// Global in-memory cache for system settings
+const MEMORY_SYSTEM_SETTINGS = {};
+
+async function getSystemSetting(key, fallback = '') {
+  if (MEMORY_SYSTEM_SETTINGS[key] !== undefined && MEMORY_SYSTEM_SETTINGS[key] !== null) {
+    return MEMORY_SYSTEM_SETTINGS[key];
+  }
+  try {
+    const db = getDb();
+    const { data: row } = await db.from('system_settings').select('value').eq('key', key).maybeSingle();
+    if (row && row.value !== undefined && row.value !== null) {
+      MEMORY_SYSTEM_SETTINGS[key] = row.value;
+      return row.value;
+    }
+  } catch (e) {
+    // Abaikan jika tabel belum dibuat
+  }
+  return fallback;
+}
+
+async function setSystemSetting(key, value, diubahOleh = '') {
+  const strVal = String(value || '');
+  MEMORY_SYSTEM_SETTINGS[key] = strVal;
+  try {
+    const db = getDb();
+    const { data: existing } = await db.from('system_settings').select('key').eq('key', key).maybeSingle();
+    if (existing) {
+      await db.from('system_settings').update({
+        value: strVal,
+        diubah_oleh: diubahOleh,
+        tanggal_diubah: new Date().toISOString()
+      }).eq('key', key);
+    } else {
+      await db.from('system_settings').insert({
+        key: String(key),
+        value: strVal,
+        diubah_oleh: diubahOleh,
+        tanggal_diubah: new Date().toISOString()
+      });
+    }
+  } catch (e) {
+    console.warn('[rpc] setSystemSetting notice:', e.message);
+  }
+}
+
 // ----------------------------------------------------------------
 // KONFIGURASI (sama dengan config.gs)
 // ----------------------------------------------------------------
@@ -7817,8 +7862,9 @@ const methods = {
     });
 
     const daftarTahun = [...new Set(daftarUnit.map(item => item.tahun))].sort().reverse();
+    const batasWaktu = await getSystemSetting('BATAS_WAKTU_EVALUASI_ATASAN', '');
 
-    return { success: true, totalUsulanBaru, daftarUnit, daftarTahun };
+    return { success: true, totalUsulanBaru, daftarUnit, daftarTahun, batas_waktu: batasWaktu };
   },
 
   async getUsulanKontrakListByUnit(args) {
@@ -8461,31 +8507,167 @@ const methods = {
     const { data, error } = await query.order('tanggal_diajukan', { ascending: false });
     if (error) throw error;
 
+    const globalBatasWaktu = await getSystemSetting('BATAS_WAKTU_EVALUASI_ATASAN', '');
+
     const list = (data || [])
       .filter(u => !(u.diajukan_oleh_nip && u.nip && u.diajukan_oleh_nip !== u.nip && u.diajukan_oleh_nip === u.diproses_oleh_nip && u.status === 'Selesai'))
-      .map(u => ({
-      id: u.id,
-      nip: u.nip,
-      nama: u.nama,
-      unit: u.unit,
-      email: u.email,
-      tahun: u.tahun,
-      status: u.status,
-      status_kepegawaian: u.form_data?.status_kepegawaian || u.sub_menu || '',
-      jenis_pegawai: u.form_data?.jenis_pegawai || 'Tenaga Kependidikan',
-      tanggal_diajukan: formatTanggalIndonesia(u.tanggal_diajukan),
-      evaluasi_skor: u.evaluasi_skor,
-      evaluasi_rekomendasi: u.evaluasi_rekomendasi,
-      evaluasi_doc_url: u.evaluasi_doc_url,
-      skp_dibuat: !!u.skp_dibuat,
-      skp_data: u.skp_data || {},
-      skp_file_url: u.skp_file_url || '',
-      atasan_nip: u.atasan_nip,
-      atasan_nama: u.atasan_nama,
-      form_data: u.form_data || {}
-    }));
+      .map(u => {
+        let fd = u.form_data || {};
+        if (typeof fd === 'string') {
+          try { fd = JSON.parse(fd); } catch (_) {}
+        }
+        let ed = u.evaluasi_data || {};
+        if (typeof ed === 'string') {
+          try { ed = JSON.parse(ed); } catch (_) {}
+        }
+        const isUnlocked = !!(u.kunci_evaluasi_dibuka || ed.kunci_dibuka || fd.kunci_evaluasi_dibuka);
 
-    return { success: true, list, daftar: list };
+        return {
+          id: u.id,
+          nip: u.nip,
+          nama: u.nama,
+          unit: u.unit,
+          email: u.email,
+          tahun: u.tahun,
+          status: u.status,
+          status_kepegawaian: fd.status_kepegawaian || u.sub_menu || '',
+          jenis_pegawai: fd.jenis_pegawai || 'Tenaga Kependidikan',
+          tanggal_diajukan: formatTanggalIndonesia(u.tanggal_diajukan),
+          evaluasi_skor: u.evaluasi_skor,
+          evaluasi_rekomendasi: u.evaluasi_rekomendasi,
+          evaluasi_doc_url: u.evaluasi_doc_url,
+          evaluasi_data: ed,
+          kunci_evaluasi_dibuka: isUnlocked,
+          batas_waktu_evaluasi: u.batas_waktu_evaluasi || fd.batas_waktu_evaluasi || globalBatasWaktu || '',
+          skp_dibuat: !!u.skp_dibuat,
+          skp_data: u.skp_data || {},
+          skp_file_url: u.skp_file_url || '',
+          atasan_nip: u.atasan_nip,
+          atasan_nama: u.atasan_nama,
+          form_data: fd
+        };
+      });
+
+    return { success: true, list, daftar: list, batas_waktu: globalBatasWaktu };
+  },
+
+  async adminSetKunciPenilaianAtasan(args) {
+    const [token, usulanId, kunciDibuka] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    if (!usulanId) return { success: false, message: 'ID usulan wajib diisi.' };
+    const db = getDb();
+
+    const { data: usulan, error: uErr } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
+    if (uErr) throw uErr;
+    if (!usulan) return { success: false, message: 'Usulan kontrak tidak ditemukan.' };
+
+    const isUnlocked = !!kunciDibuka;
+
+    let ed = usulan.evaluasi_data || {};
+    if (typeof ed === 'string') {
+      try { ed = JSON.parse(ed); } catch (_) {}
+    }
+    ed = {
+      ...ed,
+      kunci_dibuka: isUnlocked,
+      kunci_diubah_oleh: decoded.nama || decoded.nip,
+      kunci_diubah_pada: new Date().toISOString()
+    };
+
+    let fd = usulan.form_data || {};
+    if (typeof fd === 'string') {
+      try { fd = JSON.parse(fd); } catch (_) {}
+    }
+    fd = {
+      ...fd,
+      kunci_evaluasi_dibuka: isUnlocked
+    };
+
+    const updatePayload = {
+      evaluasi_data: ed,
+      form_data: fd,
+      kunci_evaluasi_dibuka: isUnlocked
+    };
+
+    const { error: updErr } = await db.from('usulan_kontrak').update(updatePayload).eq('id', usulanId);
+    if (updErr) {
+      delete updatePayload.kunci_evaluasi_dibuka;
+      const { error: fallbackErr } = await db.from('usulan_kontrak').update(updatePayload).eq('id', usulanId);
+      if (fallbackErr) throw fallbackErr;
+    }
+
+    return {
+      success: true,
+      kunci_evaluasi_dibuka: isUnlocked,
+      message: isUnlocked
+        ? `Kunci mengubah penilaian berhasil dibuka. Atasan Langsung kini dapat memperbarui evaluasi kinerja & SKP.`
+        : `Kunci penilaian berhasil ditutup/dikunci kembali.`
+    };
+  },
+
+  async simpanBatasWaktuEvaluasiAtasan(args) {
+    const [token, batasWaktu] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+    const val = String(batasWaktu || '').trim() || 'diinformasikan kemudian';
+
+    await setSystemSetting('BATAS_WAKTU_EVALUASI_ATASAN', val, decoded.nip);
+
+    // Sinkronkan ke usulan-usulan kontrak aktif agar melekat di data usulan
+    try {
+      const { data: usulans } = await db.from('usulan_kontrak')
+        .select('id, form_data')
+        .not('status', 'in', '("Selesai","Ditolak")')
+        .limit(200);
+
+      if (usulans && usulans.length > 0) {
+        for (const u of usulans) {
+          const fd = (typeof u.form_data === 'object' && u.form_data !== null) ? { ...u.form_data } : {};
+          fd.batas_waktu_evaluasi = val;
+          await db.from('usulan_kontrak').update({
+            form_data: fd,
+            batas_waktu_evaluasi: val
+          }).eq('id', u.id).catch(async () => {
+            // Fallback jika kolom batas_waktu_evaluasi belum ada di skema
+            await db.from('usulan_kontrak').update({ form_data: fd }).eq('id', u.id).catch(() => {});
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[rpc] simpanBatasWaktuEvaluasiAtasan notice:', e.message);
+    }
+
+    return {
+      success: true,
+      batas_waktu: val,
+      message: `Batas waktu penilaian kinerja berhasil disimpan: ${val}`
+    };
+  },
+
+  async getBatasWaktuEvaluasiAtasan(args) {
+    let val = await getSystemSetting('BATAS_WAKTU_EVALUASI_ATASAN', '');
+    if (!val) {
+      try {
+        const db = getDb();
+        const { data: rows } = await db.from('usulan_kontrak')
+          .select('form_data, batas_waktu_evaluasi')
+          .not('form_data', 'is', null)
+          .order('tanggal_diajukan', { ascending: false })
+          .limit(20);
+        for (const r of (rows || [])) {
+          const bw = r.batas_waktu_evaluasi || r.form_data?.batas_waktu_evaluasi;
+          if (bw) {
+            val = bw;
+            MEMORY_SYSTEM_SETTINGS['BATAS_WAKTU_EVALUASI_ATASAN'] = val;
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+    return {
+      success: true,
+      batas_waktu: val || 'diinformasikan kemudian'
+    };
   },
 
   async getDetailEvaluasiKontrak(args) {
@@ -8796,6 +8978,14 @@ const methods = {
     }
 
     // Update usulan_kontrak status & evaluasi data
+    let fd = usulan.form_data || {};
+    if (typeof fd === 'string') {
+      try { fd = JSON.parse(fd); } catch (_) {}
+    }
+    if (kirimAdminFlag) {
+      fd.kunci_evaluasi_dibuka = false;
+    }
+
     const updatePayload = {
       evaluasi_skor: totalSkor,
       evaluasi_rekomendasi: dataCtx.rekomendasi,
@@ -8804,13 +8994,19 @@ const methods = {
         rekomendasi: dataCtx.rekomendasi,
         divalidasi_atasan: kirimAdminFlag,
         divalidasi_pada: kirimAdminFlag ? new Date().toISOString() : null,
-        divalidasi_oleh: kirimAdminFlag ? (decoded.nama || decoded.nip) : null
+        divalidasi_oleh: kirimAdminFlag ? (decoded.nama || decoded.nip) : null,
+        kunci_dibuka: kirimAdminFlag ? false : !!ed.kunci_dibuka
       }),
+      form_data: fd,
       evaluasi_doc_url: evalDocUrl,
       evaluasi_gdrive_folder_id: usulan.evaluasi_gdrive_folder_id || CONFIG.FOLDER_EVALUASI_TKK_ROOT,
       evaluasi_dibuat_pada: usulan.evaluasi_dibuat_pada || new Date().toISOString(),
       status: newStatus
     };
+
+    if (kirimAdminFlag) {
+      updatePayload.kunci_evaluasi_dibuka = false;
+    }
 
     if (ed.skp_data && isRenew) {
       updatePayload.skp_data = ed.skp_data;
@@ -8820,8 +9016,12 @@ const methods = {
       updatePayload.skp_file_url = ed.skp_file_url;
     }
 
-    const { error: updErr } = await db.from('usulan_kontrak').update(updatePayload).eq('id', usulanId);
-    if (updErr) throw updErr;
+    let { error: updErr } = await db.from('usulan_kontrak').update(updatePayload).eq('id', usulanId);
+    if (updErr) {
+      delete updatePayload.kunci_evaluasi_dibuka;
+      const { error: fallbackErr } = await db.from('usulan_kontrak').update(updatePayload).eq('id', usulanId);
+      if (fallbackErr) throw fallbackErr;
+    }
 
     const returnMsg = kirimAdminFlag
       ? `Usulan berkas dan Formulir Evaluasi Kinerja bertanda tangan berhasil divalidasi dan dikirim ke Admin & Super Admin. Status usulan: "Divalidasi Atasan". Rekomendasi: "${dataCtx.rekomendasi}".`

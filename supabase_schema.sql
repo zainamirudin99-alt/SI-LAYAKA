@@ -749,3 +749,24 @@ ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS berkas_kelengkapan_status   
 ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS berkas_kelengkapan_data      JSONB DEFAULT '{}';
 ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS notifikasi_kelayakan_dilihat BOOLEAN DEFAULT FALSE;
 
+-- ============================================================
+-- 24. PENGATURAN SISTEM & KUNCI EVALUASI KONTRAK
+-- ============================================================
+CREATE TABLE IF NOT EXISTS system_settings (
+  key             TEXT PRIMARY KEY,
+  value           TEXT,
+  diubah_oleh     TEXT,
+  tanggal_diubah  TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='system_settings' AND policyname='deny_public_system_settings') THEN
+    CREATE POLICY "deny_public_system_settings" ON system_settings FOR ALL TO public USING (false);
+  END IF;
+END $$;
+
+-- Kolom kunci evaluasi dan batas waktu pada usulan_kontrak
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS kunci_evaluasi_dibuka BOOLEAN DEFAULT FALSE;
+ALTER TABLE usulan_kontrak ADD COLUMN IF NOT EXISTS batas_waktu_evaluasi TEXT;
+

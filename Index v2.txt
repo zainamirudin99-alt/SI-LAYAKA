@@ -2749,6 +2749,9 @@
         <button type="button" class="btn btn-outline" id="kunciModal_btnLihatSkp" onclick="lihatSkpDariKunciModal()" style="color:#059669; border-color:#059669; font-weight:600; font-size:13px; display:none;">
           Buka SKP ↗
         </button>
+        <button type="button" class="btn btn-outline" id="kunciModal_btnAdminUnlock" onclick="adminUnlockDariKunciModal()" style="color:#d97706; border-color:#d97706; font-weight:700; font-size:13px; display:none;">
+          🔓 Buka Kunci Penilaian Sekarang
+        </button>
       </div>
     </div>
   </div>

@@ -10305,6 +10305,12 @@ async function loadKontrakAtasanReviewList() {
     const res = await rpc('getUsulanKontrakAtasanLangsung', [SESSION.token]);
     if (res && res.success) {
       const daftar = res.daftar || res.list || [];
+      const batasWaktu = res.batas_waktu || window.BATAS_WAKTU_ATASAN || localStorage.getItem('LAYAKA_BATAS_WAKTU_ATASAN') || '';
+      if (batasWaktu && batasWaktu !== 'diinformasikan kemudian') {
+        window.BATAS_WAKTU_ATASAN = batasWaktu;
+        try { localStorage.setItem('LAYAKA_BATAS_WAKTU_ATASAN', batasWaktu); } catch (_) {}
+      }
+      renderBatasWaktuBannerAtasan(batasWaktu);
       renderKontrakAtasanReviewList(daftar);
       const badge = document.getElementById('kontrakAtasanBadge');
       if (badge) {
@@ -10320,6 +10326,44 @@ async function loadKontrakAtasanReviewList() {
   }
 }
 
+function renderBatasWaktuBannerAtasan(batasWaktu) {
+  let banner = document.getElementById('atasanBatasWaktuBanner');
+  const bw = (batasWaktu || window.BATAS_WAKTU_ATASAN || localStorage.getItem('LAYAKA_BATAS_WAKTU_ATASAN') || '').trim();
+  if (!bw || bw === 'diinformasikan kemudian') {
+    if (banner) banner.style.display = 'none';
+    return;
+  }
+  const container = document.getElementById('kontrakAtasanReviewSection');
+  if (!container) return;
+
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'atasanBatasWaktuBanner';
+    banner.style.cssText = 'background:linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%); border:1px solid #bfdbfe; border-left:4px solid #2563eb; border-radius:10px; padding:12px 18px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; box-shadow:0 2px 6px rgba(37,99,235,0.06);';
+    const listEl = document.getElementById('kontrakAtasanReviewList');
+    if (listEl && listEl.parentNode) {
+      listEl.parentNode.insertBefore(banner, listEl);
+    }
+  }
+
+  banner.innerHTML = `
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div style="width:38px; height:38px; border-radius:50%; background:#dbeafe; color:#1d4ed8; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;">
+        📅
+      </div>
+      <div>
+        <div style="font-weight:700; color:#1e40af; font-size:13.5px;">
+          Batas Waktu Penilaian Kinerja &amp; Sasaran Kinerja Pegawai (SKP)
+        </div>
+        <div style="font-size:12.5px; color:#334155; margin-top:2px;">
+          Batas waktu penilaian evaluasi kinerja seluruh usulan bawahan: <strong style="color:#1d4ed8; background:#dbeafe; padding:2px 8px; border-radius:4px;">${escapeHtml(bw)}</strong>. Mohon selesaikan penilaian sebelum tanggal batas waktu berakhir.
+        </div>
+      </div>
+    </div>
+  `;
+  banner.style.display = 'flex';
+}
+
 let currentKunciModalData = null;
 
 function showPopupKunciPenilaianAtasan(usulanId, namaPegawai, evalDocUrl, skpDocUrl) {
@@ -10328,10 +10372,16 @@ function showPopupKunciPenilaianAtasan(usulanId, namaPegawai, evalDocUrl, skpDoc
   const namaEl = document.getElementById('kunciModal_namaPegawai');
   const btnEval = document.getElementById('kunciModal_btnLihatEval');
   const btnSkp = document.getElementById('kunciModal_btnLihatSkp');
+  const btnUnlock = document.getElementById('kunciModal_btnAdminUnlock');
 
   if (namaEl) namaEl.textContent = namaPegawai || 'Pegawai';
   if (btnEval) btnEval.style.display = 'inline-flex';
   if (btnSkp) btnSkp.style.display = 'inline-flex';
+
+  const isAdmin = (SESSION.user?.role === 'admin' || SESSION.user?.role === 'super_admin');
+  if (btnUnlock) {
+    btnUnlock.style.display = isAdmin ? 'inline-flex' : 'none';
+  }
 
   if (modal) modal.style.display = 'flex';
 }
@@ -10353,19 +10403,47 @@ function lihatSkpDariKunciModal() {
   }
 }
 
-function adminBukaKunciPenilaianAtasan(usulanId, namaPegawai) {
-  const confirmMsg = `Buka kunci mengubah penilaian untuk ${namaPegawai || 'pegawai ini'}?\n\nSetelah kunci dibuka, Atasan Langsung dapat membuka kembali formulir dan memperbarui evaluasi kinerja serta dokumen SKP.`;
+function adminUnlockDariKunciModal() {
+  if (currentKunciModalData && currentKunciModalData.usulanId) {
+    const id = currentKunciModalData.usulanId;
+    const nama = currentKunciModalData.namaPegawai;
+    tutupPopupKunciPenilaian();
+    adminSetKunciPenilaianAtasan(id, nama, true);
+  }
+}
+
+async function adminSetKunciPenilaianAtasan(usulanId, namaPegawai, kunciDibuka) {
+  const isUnlock = !!kunciDibuka;
+  const confirmMsg = isUnlock
+    ? `Buka kunci mengubah penilaian untuk ${namaPegawai || 'pegawai ini'}?\n\nSetelah kunci dibuka, Atasan Langsung dapat membuka kembali formulir dan memperbarui evaluasi kinerja serta dokumen SKP.`
+    : `Kunci kembali perubahan penilaian untuk ${namaPegawai || 'pegawai ini'}?\n\nSetelah kunci ditutup, Atasan Langsung tidak dapat mengubah penilaian lagi.`;
+
   if (!confirm(confirmMsg)) return;
 
   if (!window.UNLOCKED_EVAL_IDS) {
     window.UNLOCKED_EVAL_IDS = new Set();
   }
-  window.UNLOCKED_EVAL_IDS.add(usulanId);
-  try {
-    localStorage.setItem('LAYAKA_UNLOCKED_' + usulanId, 'true');
-  } catch (_) {}
+  if (isUnlock) {
+    window.UNLOCKED_EVAL_IDS.add(usulanId);
+    try { localStorage.setItem('LAYAKA_UNLOCKED_' + usulanId, 'true'); } catch (_) {}
+  } else {
+    window.UNLOCKED_EVAL_IDS.delete(usulanId);
+    try { localStorage.removeItem('LAYAKA_UNLOCKED_' + usulanId); } catch (_) {}
+  }
 
-  showToast('success', `Kunci berhasil dibuka! Atasan langsung kini dapat mengubah penilaian untuk ${namaPegawai || 'pegawai'}.`);
+  showToast('info', isUnlock ? 'Membuka kunci penilaian...' : 'Menutup kunci penilaian...');
+
+  try {
+    const res = await rpc('adminSetKunciPenilaianAtasan', [SESSION.token, usulanId, isUnlock]);
+    if (res && res.success) {
+      showToast('success', res.message || (isUnlock ? 'Kunci berhasil dibuka!' : 'Kunci berhasil ditutup!'));
+    } else {
+      showToast('warning', res?.message || 'Status kunci diperbarui secara lokal.');
+    }
+  } catch (err) {
+    console.warn('[adminSetKunciPenilaianAtasan] rpc warning:', err.message);
+    showToast('info', isUnlock ? 'Kunci dibuka (mode offline/lokal).' : 'Kunci ditutup (mode offline/lokal).');
+  }
 
   if (typeof loadKontrakAtasanReviewList === 'function') {
     loadKontrakAtasanReviewList();
@@ -10375,11 +10453,16 @@ function adminBukaKunciPenilaianAtasan(usulanId, namaPegawai) {
   }
 }
 
-function simpanBatasWaktuAtasanByAdmin() {
+function adminBukaKunciPenilaianAtasan(usulanId, namaPegawai) {
+  return adminSetKunciPenilaianAtasan(usulanId, namaPegawai, true);
+}
+
+async function simpanBatasWaktuAtasanByAdmin() {
   const inputEl = document.getElementById('admin_inputBatasWaktuAtasan');
   const val = (inputEl ? inputEl.value : '').trim();
   const finalVal = val || 'diinformasikan kemudian';
 
+  window.BATAS_WAKTU_ATASAN = finalVal;
   try {
     localStorage.setItem('LAYAKA_BATAS_WAKTU_ATASAN', finalVal);
   } catch (_) {}
@@ -10387,7 +10470,21 @@ function simpanBatasWaktuAtasanByAdmin() {
   const bwDisplay = document.getElementById('evalTkk_batasWaktuDisplay');
   if (bwDisplay) bwDisplay.textContent = finalVal;
 
-  showToast('success', 'Batas waktu penilaian evaluasi kinerja berhasil disimpan: ' + finalVal);
+  showToast('info', 'Menyimpan batas waktu ke server...');
+
+  try {
+    const res = await rpc('simpanBatasWaktuEvaluasiAtasan', [SESSION.token, finalVal]);
+    if (res && res.success) {
+      showToast('success', 'Batas waktu penilaian evaluasi kinerja berhasil disimpan & dikirim ke seluruh Atasan Langsung: ' + finalVal);
+    } else {
+      showToast('success', 'Batas waktu disimpan: ' + finalVal);
+    }
+  } catch (err) {
+    console.warn('[simpanBatasWaktuAtasanByAdmin] rpc notice:', err);
+    showToast('success', 'Batas waktu penilaian evaluasi kinerja berhasil disimpan: ' + finalVal);
+  }
+
+  renderBatasWaktuBannerAtasan(finalVal);
 }
 
 function renderKontrakAtasanReviewList(daftar) {
@@ -10399,7 +10496,7 @@ function renderKontrakAtasanReviewList(daftar) {
   }
 
   el.innerHTML = daftar.map(u => {
-    const isUnlocked = (window.UNLOCKED_EVAL_IDS && window.UNLOCKED_EVAL_IDS.has(u.id)) || (localStorage.getItem('LAYAKA_UNLOCKED_' + u.id) === 'true');
+    const isUnlocked = !!(u.kunci_evaluasi_dibuka || u.evaluasi_data?.kunci_dibuka || u.form_data?.kunci_evaluasi_dibuka || (window.UNLOCKED_EVAL_IDS && window.UNLOCKED_EVAL_IDS.has(u.id)) || (localStorage.getItem('LAYAKA_UNLOCKED_' + u.id) === 'true'));
     let badgeHtml = `<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">Belum Dinilai</span>`;
     let actionBtnText = 'Lakukan Penilaian Kinerja';
     let actionBtnClass = 'btn btn-primary';
@@ -10443,11 +10540,27 @@ function renderKontrakAtasanReviewList(daftar) {
     }
 
     const isAdmin = (SESSION.user?.role === 'admin' || SESSION.user?.role === 'super_admin');
-    const adminUnlockBtn = (isAdmin && !isUnlocked && (u.status === 'validated_by_atasan' || u.status === 'evaluated_extend' || u.status === 'evaluated_renewed')) ? `
-      <button type="button" class="btn btn-outline kp-small-btn" onclick="adminBukaKunciPenilaianAtasan('${u.id}', '${escapeHtml(u.nama || '')}')" style="color:#d97706; border-color:#d97706; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
-        🔓 Buka Kunci
-      </button>
-    ` : '';
+    const isEvalCompleted = ['validated_by_atasan', 'evaluated_extend', 'evaluated_renewed', 'evaluated_not_extend', 'evaluated_not_renewed'].includes(u.status);
+    let adminUnlockBtn = '';
+    if (isAdmin && isEvalCompleted) {
+      if (!isUnlocked) {
+        adminUnlockBtn = `
+          <button type="button" class="btn btn-outline kp-small-btn" onclick="adminSetKunciPenilaianAtasan('${u.id}', '${escapeHtml(u.nama || '')}', true)" style="color:#d97706; border-color:#d97706; font-weight:700; display:inline-flex; align-items:center; gap:4px;" title="Buka kunci agar Atasan Langsung dapat mengubah penilaian">
+            🔓 Buka Kunci
+          </button>
+        `;
+      } else {
+        adminUnlockBtn = `
+          <button type="button" class="btn btn-outline kp-small-btn" onclick="adminSetKunciPenilaianAtasan('${u.id}', '${escapeHtml(u.nama || '')}', false)" style="color:#dc2626; border-color:#dc2626; font-weight:700; display:inline-flex; align-items:center; gap:4px;" title="Kunci kembali agar penilaian tidak dapat diubah lagi">
+            🔒 Tutup Kunci
+          </button>
+        `;
+      }
+    }
+
+    const deadlineInfo = (u.batas_waktu_evaluasi && (u.status === 'submitted_to_atasan' || u.status === 'under_atasan_review' || u.status === 'Diajukan'))
+      ? `<span style="display:inline-block; margin-left:8px; color:#d97706; font-weight:600; font-size:11.5px; background:#fef3c7; padding:1px 6px; border-radius:4px;">📅 Batas: ${escapeHtml(u.batas_waktu_evaluasi)}</span>`
+      : '';
 
     return `
       <div class="ce-dashboard-list-item" style="cursor:default; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px;">
@@ -10457,7 +10570,7 @@ function renderKontrakAtasanReviewList(daftar) {
             NIP: <strong>${escapeHtml(u.nip || '-')}</strong> &bull; Unit: ${escapeHtml(u.unit || '-')} &bull; Kategori: ${escapeHtml(u.sub_menu || u.layanan || 'Tendik')}
           </div>
           <div style="font-size:12px; color:#888; margin-top:4px;">
-            Diajukan: ${escapeHtml(u.tanggal_diajukan || '-')} &bull; Status: ${badgeHtml}
+            Diajukan: ${escapeHtml(u.tanggal_diajukan || '-')} &bull; Status: ${badgeHtml} ${deadlineInfo}
           </div>
         </div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
@@ -10532,7 +10645,7 @@ async function openModalEvaluasiTkk(usulanId) {
       nomorSuratEl.value = u.evaluasi_data?.nomor_surat || u.nomor_surat || '';
     }
 
-    const storedBw = localStorage.getItem('LAYAKA_BATAS_WAKTU_ATASAN') || 'diinformasikan kemudian';
+    const storedBw = u.batas_waktu_evaluasi || u.form_data?.batas_waktu_evaluasi || window.BATAS_WAKTU_ATASAN || localStorage.getItem('LAYAKA_BATAS_WAKTU_ATASAN') || 'diinformasikan kemudian';
     const bwDisplay = document.getElementById('evalTkk_batasWaktuDisplay');
     if (bwDisplay) bwDisplay.textContent = storedBw;
 
@@ -11740,6 +11853,24 @@ function handleKontrakReviewSummarySuccess(res) {
     filterTahunSelect.innerHTML = '<option value="Semua">Semua Tahun</option>' + 
       years.map(y => `<option value="${escapeHtml(y)}" ${String(currentVal) === String(y) ? 'selected' : ''}>Tahun ${escapeHtml(y)}</option>`).join('');
   }
+
+  // Prefill input batas waktu admin jika ada data tersimpan di server
+  if (res.batas_waktu) {
+    window.BATAS_WAKTU_ATASAN = res.batas_waktu;
+    try { localStorage.setItem('LAYAKA_BATAS_WAKTU_ATASAN', res.batas_waktu); } catch (_) {}
+    const bwInput = document.getElementById('admin_inputBatasWaktuAtasan');
+    if (bwInput && (!bwInput.value || bwInput.value.trim() === '')) {
+      bwInput.value = res.batas_waktu;
+    }
+  } else {
+    const savedLocal = localStorage.getItem('LAYAKA_BATAS_WAKTU_ATASAN');
+    if (savedLocal && savedLocal !== 'diinformasikan kemudian') {
+      const bwInput = document.getElementById('admin_inputBatasWaktuAtasan');
+      if (bwInput && (!bwInput.value || bwInput.value.trim() === '')) {
+        bwInput.value = savedLocal;
+      }
+    }
+  }
   
   renderKontrakReviewUnitCards(filterTahunSelect ? filterTahunSelect.value : 'Semua');
 }
@@ -12206,6 +12337,24 @@ function renderKontrakReviewDetailContent_(u) {
           <button type="button" class="btn btn-outline kp-small-btn" onclick="bukaDokumenSkp('${u.id}', '${escapeHtml(u.skp_file_url || '')}')" style="color:#059669; border-color:#059669; font-weight:700; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
             Buka Dokumen Sasaran Kinerja Pegawai (SKP) ↗
           </button>` : ''}
+        ${(() => {
+          const isEvalDone = ['validated_by_atasan', 'evaluated_extend', 'evaluated_renewed', 'evaluated_not_extend', 'evaluated_not_renewed'].includes(u.status);
+          const isUnlocked = !!(u.kunci_evaluasi_dibuka || u.evaluasi_data?.kunci_dibuka || u.form_data?.kunci_evaluasi_dibuka || (window.UNLOCKED_EVAL_IDS && window.UNLOCKED_EVAL_IDS.has(u.id)) || (localStorage.getItem('LAYAKA_UNLOCKED_' + u.id) === 'true'));
+          if (!isEvalDone) return '';
+          if (!isUnlocked) {
+            return `
+              <button type="button" class="btn btn-outline kp-small-btn" onclick="adminSetKunciPenilaianAtasan('${u.id}', '${escapeHtml(u.nama || '')}', true)" style="color:#d97706; border-color:#d97706; font-weight:700; display:inline-flex; align-items:center; gap:4px; cursor:pointer;" title="Buka kunci agar Atasan Langsung dapat mengubah penilaian">
+                🔓 Buka Kunci Penilaian
+              </button>
+            `;
+          } else {
+            return `
+              <button type="button" class="btn btn-outline kp-small-btn" onclick="adminSetKunciPenilaianAtasan('${u.id}', '${escapeHtml(u.nama || '')}', false)" style="color:#dc2626; border-color:#dc2626; font-weight:700; display:inline-flex; align-items:center; gap:4px; cursor:pointer;" title="Kunci kembali penilaian">
+                🔒 Tutup Kunci Penilaian
+              </button>
+            `;
+          }
+        })()}
       </div>
 
       ${u.skp_data && u.skp_data.nama_lengkap ? `
