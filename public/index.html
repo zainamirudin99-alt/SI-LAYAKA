@@ -2866,7 +2866,10 @@
                    <h3 style="margin:0;">Daftar Usulan Kontrak per Unit &amp; Tahun</h3>
                    <div class="helper-text" style="margin-top:3px;">Pilih unit kerja dan tahun usulan untuk meninjau usulan serta memverifikasi kelengkapan berkas pegawai.</div>
                  </div>
-                 <div style="display:flex; align-items:center; gap:8px;">
+                 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                   <button type="button" class="btn btn-primary kp-small-btn" onclick="openModalBulkGenerateEvaluasi()" style="font-weight:700; background:#2563eb; border-color:#2563eb; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(37,99,235,0.2);">
+                     📄 Generate Evaluasi Kinerja Kolektif
+                   </button>
                    <label for="kontrakReviewFilterTahun" style="font-size:13px; font-weight:600; color:var(--text-muted); margin:0;">Tahun:</label>
                    <select id="kontrakReviewFilterTahun" class="field-input" style="width:auto; min-width:130px; padding:6px 12px; font-size:13px;" onchange="filterKontrakReviewUnitsByYear(this.value)">
                      <option value="Semua">Semua Tahun</option>
@@ -4219,6 +4222,91 @@
         </button>
         <button type="button" class="btn btn-outline" id="kunciModal_btnAdminUnlock" onclick="adminUnlockDariKunciModal()" style="color:#d97706; border-color:#d97706; font-weight:700; font-size:13px; display:none;">
           🔓 Buka Kunci Penilaian Sekarang
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= MODAL POP-UP: GENERATE EVALUASI KINERJA KOLEKTIF ======================= -->
+  <div class="modal-overlay" id="modalBulkGenerateEvaluasi" style="display:none; z-index:9996;">
+    <div class="modal-box" style="max-width:680px; width:92%; padding:24px 28px; border-radius:14px; box-shadow:0 14px 40px rgba(0,0,0,0.25);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; padding-bottom:12px; border-bottom:1px solid var(--border);">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:38px; height:38px; background:#eff6ff; color:#2563eb; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; font-size:18px; font-weight:bold;">
+            📄
+          </div>
+          <div>
+            <h3 style="margin:0; font-size:17px; font-weight:800; color:var(--text);">Generate Evaluasi Kinerja Kolektif</h3>
+            <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+              Membuat file baru berisi kompilasi formulir evaluasi kinerja semua pegawai di tahun terpilih
+            </div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-secondary" onclick="tutupModalBulkGenerateEvaluasi()" style="padding:4px 10px; font-size:13px;">✕ Tutup</button>
+      </div>
+
+      <!-- KARTU JAMINAN KEAMANAN DATA INDIVIDU -->
+      <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-left:4px solid #16a34a; border-radius:8px; padding:12px 16px; margin-bottom:16px; font-size:12.5px; color:#166534; line-height:1.5;">
+        <strong>🛡️ Jaminan Keamanan File:</strong> Berkas evaluasi perorangan milik masing-masing pegawai pengusul <strong>tetap aman, permanen, dan tidak akan hilang atau tertimpa</strong>. Proses ini murni membuat file dokumen arsip baru tersendiri.
+      </div>
+
+      <!-- PARAMETER FILTER KOLEKTIF -->
+      <div style="background:var(--surface-alt, #f8fafc); border:1px solid var(--border, #e2e8f0); border-radius:10px; padding:16px; margin-bottom:18px;">
+        <div class="grid-2 kp-grid" style="gap:14px;">
+          <div class="stack-field">
+            <label style="font-weight:700; font-size:12.5px; color:var(--text-muted); margin-bottom:4px; display:block;">Tahun Usulan</label>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span id="bulkEval_tahunDisplay" style="font-size:18px; font-weight:800; color:#2563eb; background:#eff6ff; border:1px solid #bfdbfe; padding:6px 14px; border-radius:8px;">-</span>
+              <span style="font-size:12px; color:var(--text-muted);">(Sesuai filter terpilih)</span>
+            </div>
+          </div>
+          <div class="stack-field">
+            <label for="bulkEval_unitFilter" style="font-weight:700; font-size:12.5px; color:var(--text-muted); margin-bottom:4px; display:block;">Lingkup Unit Kerja</label>
+            <select id="bulkEval_unitFilter" class="field-input" onchange="muatRingkasanBulkEvaluasi()" style="font-size:13px; padding:7px 12px; font-weight:600;">
+              <option value="ALL">Semua Unit Kerja</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- STATISTIK KESIAPAN DATA -->
+        <div style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--border); display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px;">
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center;">
+            <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Total Usulan</div>
+            <div id="bulkEval_totalUsulan" style="font-size:20px; font-weight:800; color:var(--text); margin-top:2px;">0</div>
+          </div>
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center;">
+            <div style="font-size:11px; color:#15803d; text-transform:uppercase; font-weight:600;">Sudah Dinilai (Siap)</div>
+            <div id="bulkEval_totalSiap" style="font-size:20px; font-weight:800; color:#16a34a; margin-top:2px;">0</div>
+          </div>
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center;">
+            <div style="font-size:11px; color:#b45309; text-transform:uppercase; font-weight:600;">Belum Dinilai Atasan</div>
+            <div id="bulkEval_totalBelum" style="font-size:20px; font-weight:800; color:#d97706; margin-top:2px;">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STATUS ALERT & PROGRESS -->
+      <div id="bulkEval_statusAlert" style="display:none; margin-bottom:16px;"></div>
+
+      <!-- KOTAK HASIL DOKUMEN -->
+      <div id="bulkEval_resultBox" style="display:none; margin-bottom:18px; background:linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%); border:1px solid #6ee7b7; border-radius:10px; padding:16px;">
+        <div style="font-weight:700; color:#065f46; font-size:14px; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+          <span>🎉 Dokumen Evaluasi Kolektif Berhasil Dibuat!</span>
+        </div>
+        <div id="bulkEval_resultText" style="font-size:13px; color:#047857; margin-bottom:12px; line-height:1.5;"></div>
+        <div id="bulkEval_resultActions" style="display:flex; gap:10px; flex-wrap:wrap;"></div>
+      </div>
+
+      <!-- TOMBOL AKSI GENERATE -->
+      <div style="display:flex; justify-content:flex-end; align-items:center; gap:10px; flex-wrap:wrap; border-top:1px solid var(--border); padding-top:16px;">
+        <button type="button" class="btn btn-secondary" onclick="tutupModalBulkGenerateEvaluasi()" style="padding:9px 18px; font-weight:600; font-size:13px;">
+          Batal
+        </button>
+        <button type="button" id="btnBulkEvalDocx" class="btn btn-outline" onclick="eksekusiBulkGenerateEvaluasi('docx')" style="padding:9px 16px; font-weight:700; font-size:13px; display:inline-flex; align-items:center; gap:6px;">
+          <span>📥 Unduh Gabungan .DOCX</span>
+        </button>
+        <button type="button" id="btnBulkEvalGDocs" class="btn btn-primary" onclick="eksekusiBulkGenerateEvaluasi('gdocs')" style="padding:9px 20px; font-weight:700; font-size:13px; background:#2563eb; border-color:#2563eb; box-shadow:0 4px 12px rgba(37,99,235,0.25); display:inline-flex; align-items:center; gap:6px;">
+          <span>🌐 Buat Google Docs Baru</span>
         </button>
       </div>
     </div>
@@ -16375,6 +16463,186 @@ function refreshKontrakReviewCurrentDetail() {
   if (kontrakReviewActiveUsulanId) {
     showToast('info', 'Menyegarkan detail usulan...');
     viewKontrakReviewDetail(kontrakReviewActiveUsulanId);
+  }
+}
+
+/* ==================== GENERATE EVALUASI KINERJA KOLEKTIF (BULK) ==================== */
+let bulkEvalSelectedTahun = '';
+
+function openModalBulkGenerateEvaluasi() {
+  const filterTahunEl = document.getElementById('kontrakReviewFilterTahun');
+  const tahun = filterTahunEl ? filterTahunEl.value.trim() : '';
+
+  if (!tahun || tahun === 'Semua') {
+    showToast('warning', 'Silakan pilih Tahun Usulan terlebih dahulu pada dropdown filter tahun di sebelah kanan tombol ini sebelum melakukan generate.');
+    if (filterTahunEl) {
+      filterTahunEl.focus();
+      filterTahunEl.style.outline = '2px solid #2563eb';
+      setTimeout(() => { if (filterTahunEl) filterTahunEl.style.outline = ''; }, 2500);
+    }
+    return;
+  }
+
+  bulkEvalSelectedTahun = tahun;
+  const modal = document.getElementById('modalBulkGenerateEvaluasi');
+  const tahunDisp = document.getElementById('bulkEval_tahunDisplay');
+  const unitFilter = document.getElementById('bulkEval_unitFilter');
+  const resultBox = document.getElementById('bulkEval_resultBox');
+  const statusAlert = document.getElementById('bulkEval_statusAlert');
+
+  if (tahunDisp) tahunDisp.textContent = tahun;
+  if (resultBox) resultBox.style.display = 'none';
+  if (statusAlert) statusAlert.style.display = 'none';
+
+  // Populate unit filter dropdown based on available units
+  if (unitFilter) {
+    unitFilter.innerHTML = '<option value="ALL">Semua Unit Kerja</option>';
+    if (Array.isArray(allKontrakReviewUnits)) {
+      allKontrakReviewUnits.forEach(u => {
+        const uName = typeof u === 'string' ? u : (u.unit || u.nama_unit || '');
+        if (uName && uName !== 'Semua') {
+          unitFilter.innerHTML += `<option value="${escapeHtml(uName)}">${escapeHtml(uName)}</option>`;
+        }
+      });
+    }
+  }
+
+  if (modal) modal.style.display = 'flex';
+  muatRingkasanBulkEvaluasi();
+}
+
+function tutupModalBulkGenerateEvaluasi() {
+  const modal = document.getElementById('modalBulkGenerateEvaluasi');
+  if (modal) modal.style.display = 'none';
+}
+
+async function muatRingkasanBulkEvaluasi() {
+  const unit = document.getElementById('bulkEval_unitFilter')?.value || 'ALL';
+  const totalEl = document.getElementById('bulkEval_totalUsulan');
+  const siapEl = document.getElementById('bulkEval_totalSiap');
+  const belumEl = document.getElementById('bulkEval_totalBelum');
+  const statusAlert = document.getElementById('bulkEval_statusAlert');
+
+  if (totalEl) totalEl.textContent = '...';
+  if (siapEl) siapEl.textContent = '...';
+  if (belumEl) belumEl.textContent = '...';
+
+  try {
+    const res = await rpc('getRingkasanEvaluasiByTahun', [SESSION.token, bulkEvalSelectedTahun, unit]);
+    if (res && res.success) {
+      if (totalEl) totalEl.textContent = res.total || 0;
+      if (siapEl) siapEl.textContent = res.siap || 0;
+      if (belumEl) belumEl.textContent = res.belum || 0;
+
+      if (res.siap === 0) {
+        if (statusAlert) {
+          statusAlert.style.display = 'block';
+          statusAlert.innerHTML = `
+            <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:10px 14px; font-size:12.5px; color:#92400e;">
+              ⚠️ Belum ada pegawai yang memiliki evaluasi kinerja selesai pada tahun <strong>${escapeHtml(bulkEvalSelectedTahun)}</strong> untuk lingkup ini.
+            </div>`;
+        }
+      } else {
+        if (statusAlert) statusAlert.style.display = 'none';
+      }
+    }
+  } catch (err) {
+    console.warn('[muatRingkasanBulkEvaluasi] error:', err);
+    if (totalEl) totalEl.textContent = '0';
+    if (siapEl) siapEl.textContent = '0';
+    if (belumEl) belumEl.textContent = '0';
+  }
+}
+
+async function eksekusiBulkGenerateEvaluasi(format) {
+  const unit = document.getElementById('bulkEval_unitFilter')?.value || 'ALL';
+  const btnGDocs = document.getElementById('btnBulkEvalGDocs');
+  const btnDocx = document.getElementById('btnBulkEvalDocx');
+  const statusAlert = document.getElementById('bulkEval_statusAlert');
+  const resultBox = document.getElementById('bulkEval_resultBox');
+  const resultText = document.getElementById('bulkEval_resultText');
+  const resultActions = document.getElementById('bulkEval_resultActions');
+
+  if (resultBox) resultBox.style.display = 'none';
+  if (statusAlert) {
+    statusAlert.style.display = 'block';
+    statusAlert.innerHTML = `
+      <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:12px 16px; font-size:13px; color:#1e40af; display:flex; align-items:center; gap:10px;">
+        <div style="width:20px; height:20px; border:3px solid #bfdbfe; border-top-color:#2563eb; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+        <div>
+          <strong>Sedang menyusun dokumen kolektif...</strong> Mohon tunggu beberapa detik sementara berkas digabungkan.
+        </div>
+      </div>`;
+  }
+
+  const activeBtn = format === 'gdocs' ? btnGDocs : btnDocx;
+  const originalText = activeBtn ? activeBtn.innerHTML : '';
+  if (activeBtn) {
+    activeBtn.disabled = true;
+    activeBtn.innerHTML = '⏳ Memproses...';
+  }
+  if (format === 'gdocs' && btnDocx) btnDocx.disabled = true;
+  if (format === 'docx' && btnGDocs) btnGDocs.disabled = true;
+
+  try {
+    const res = await rpc('generateEvaluasiKolektif', [SESSION.token, bulkEvalSelectedTahun, unit, format]);
+    if (!res || !res.success) {
+      showToast('error', res?.message || 'Gagal menghasilkan dokumen evaluasi kolektif.');
+      if (statusAlert) {
+        statusAlert.style.display = 'block';
+        statusAlert.innerHTML = `
+          <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px 14px; font-size:12.5px; color:#991b1b;">
+            ❌ ${escapeHtml(res?.message || 'Terjadi kesalahan saat membuat dokumen kolektif.')}
+          </div>`;
+      }
+      return;
+    }
+
+    showToast('success', res.message || 'Dokumen evaluasi kolektif berhasil dibuat!');
+    if (statusAlert) statusAlert.style.display = 'none';
+
+    if (resultBox && resultText && resultActions) {
+      resultBox.style.display = 'block';
+      resultText.innerHTML = `
+        Berhasil menggabungkan evaluasi kinerja untuk <strong>${res.total_pegawai || 0} pegawai</strong> pada Tahun <strong>${escapeHtml(bulkEvalSelectedTahun)}</strong>.
+        <br><span style="font-size:12px; color:#15803d;">🛡️ File evaluasi perorangan masing-masing pegawai tetap aman dan tidak terhapus.</span>`;
+
+      let actionsHtml = '';
+      if (res.viewUrl) {
+        actionsHtml += `
+          <a href="${res.viewUrl}" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none; padding:8px 18px; font-size:13px; font-weight:700; background:#2563eb; border-color:#2563eb; display:inline-flex; align-items:center; gap:6px;">
+            ↗ Buka Dokumen Google Docs Baru
+          </a>`;
+      }
+      if (res.downloadUrl) {
+        actionsHtml += `
+          <a href="${res.downloadUrl}" target="_blank" rel="noopener" class="btn btn-outline" style="text-decoration:none; padding:8px 18px; font-size:13px; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+            ⬇️ Unduh Berkas (.docx)
+          </a>`;
+      }
+      resultActions.innerHTML = actionsHtml;
+    }
+
+    if (res.viewUrl) {
+      window.open(res.viewUrl, '_blank');
+    }
+  } catch (err) {
+    console.error('[eksekusiBulkGenerateEvaluasi] Error:', err);
+    showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
+    if (statusAlert) {
+      statusAlert.style.display = 'block';
+      statusAlert.innerHTML = `
+        <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px 14px; font-size:12.5px; color:#991b1b;">
+          ❌ ${escapeHtml(err.message || 'Terjadi kesalahan sistem.')}
+        </div>`;
+    }
+  } finally {
+    if (activeBtn) {
+      activeBtn.disabled = false;
+      activeBtn.innerHTML = originalText;
+    }
+    if (btnGDocs) btnGDocs.disabled = false;
+    if (btnDocx) btnDocx.disabled = false;
   }
 }
 async function viewKontrakReviewDetail(usulanId) {

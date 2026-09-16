@@ -1207,6 +1207,163 @@ function generateEvaluasiTkkDocxFallback(dataCtx) {
   return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
 
+function generateEvaluasiKolektifDocxBuffer(items, tahun, unitLabel) {
+  const PizZip = require('pizzip');
+  const zip = new PizZip();
+
+  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Default Extension="png" ContentType="image/png"/>
+  <Default Extension="jpg" ContentType="image/jpeg"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
+
+  const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+  const docRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+</Relationships>`;
+
+  const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+
+  // 1. Rekapitulasi Table Rows
+  let rekapRows = '';
+  items.forEach((it, idx) => {
+    rekapRows += `<w:tr>
+      <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="20"/></w:rPr><w:t>${idx + 1}</w:t></w:r></w:p></w:tc>
+      <w:tc><w:tcPr><w:tcW w:w="2500" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="20"/></w:rPr><w:t>${esc(it.nama)}</w:t></w:r><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="666666"/></w:rPr><w:br/><w:t>NIP: ${esc(it.nip)}</w:t></w:r></w:p></w:tc>
+      <w:tc><w:tcPr><w:tcW w:w="2400" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="20"/></w:rPr><w:t>${esc(it.unit)}</w:t></w:r></w:p></w:tc>
+      <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="1E40AF"/></w:rPr><w:t>${it.total_skor} / 21</w:t></w:r></w:p></w:tc>
+      <w:tc><w:tcPr><w:tcW w:w="2300" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="20"/><w:color w:val="${it.total_skor >= 11 ? '15803D' : 'B91C1C'}"/></w:rPr><w:t>${esc(it.rekomendasi)}</w:t></w:r></w:p></w:tc>
+    </w:tr>`;
+  });
+
+  let pagesXml = `
+    <!-- HALAMAN REKAPITULASI -->
+    <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="28"/></w:rPr><w:t>REKAPITULASI EVALUASI KINERJA KOLEKTIF PEGAWAI KONTRAK</w:t></w:r></w:p>
+    <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="2563EB"/></w:rPr><w:t>UNIVERSITAS DIPONEGORO - TAHUN ${esc(tahun)}</w:t></w:r></w:p>
+    <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="20"/><w:color w:val="666666"/></w:rPr><w:t>Lingkup Unit Kerja: ${esc(unitLabel)} &bull; Total Pegawai: ${items.length} Orang</w:t></w:r></w:p>
+    <w:p/>
+    <w:tbl>
+      <w:tblPr><w:tblW w:w="9000" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="6" w:space="0" w:color="333333"/><w:bottom w:val="single" w:sz="6" w:space="0" w:color="333333"/><w:left w:val="single" w:sz="6" w:space="0" w:color="333333"/><w:right w:val="single" w:sz="6" w:space="0" w:color="333333"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/></w:tblBorders></w:tblPr>
+      <w:tr>
+        <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="E2E8F0"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="20"/></w:rPr><w:t>NO</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="2500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="E2E8F0"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="20"/></w:rPr><w:t>NAMA &amp; NIP</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="2400" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="E2E8F0"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="20"/></w:rPr><w:t>UNIT KERJA</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="E2E8F0"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="20"/></w:rPr><w:t>SKOR</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="2300" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="E2E8F0"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="20"/></w:rPr><w:t>REKOMENDASI</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      ${rekapRows}
+    </w:tbl>
+    <w:p><w:r><w:br w:type="page"/></w:r></w:p>
+  `;
+
+  // 2. Formulir Evaluasi Lengkap Tiap Pegawai
+  items.forEach((it, idx) => {
+    const kriteria = [
+      { no: '1', nama: 'Orientasi Pelayanan', skor: it.orientasi_pelayanan || 1 },
+      { no: '2', nama: 'Inisiatif Kerja', skor: it.inisiatif_kerja || 1 },
+      { no: '3', nama: 'Komitmen', skor: it.komitmen || 1 },
+      { no: '4', nama: 'Kerjasama', skor: it.kerjasama || 1 },
+      { no: '5', nama: 'Kehadiran', skor: it.kehadiran || 1 },
+      { no: '6', nama: 'Disiplin', skor: it.disiplin || 1 },
+      { no: '7', nama: 'Kesesuaian Hasil Kerja dengan Tupoksi', skor: it.hasil_kerja || 1 }
+    ];
+
+    let kriteriaRows = '';
+    kriteria.forEach(k => {
+      kriteriaRows += `<w:tr>
+        <w:tc><w:tcPr><w:tcW w:w="800" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${k.no}</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="5600" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${esc(k.nama)}</w:t></w:r></w:p></w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="2600" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>${k.skor} / 3</w:t></w:r></w:p></w:tc>
+      </w:tr>`;
+    });
+
+    pagesXml += `
+      <!-- FORMULIR EVALUASI PEGAWAI ${idx + 1} -->
+      <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="28"/></w:rPr><w:t>FORMULIR PENILAIAN / EVALUASI KINERJA TKK</w:t></w:r></w:p>
+      <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>Tahun Evaluasi: ${esc(it.tahun_evaluasi)}</w:t></w:r></w:p>
+      <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="20"/></w:rPr><w:t>Nomor: ${esc(it.nomor_surat || '-')}</w:t></w:r></w:p>
+      <w:p/>
+      <w:tbl>
+        <w:tblPr><w:tblW w:w="9000" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/><w:left w:val="none"/><w:right w:val="none"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="EEEEEE"/><w:insideV w:val="none"/></w:tblBorders></w:tblPr>
+        <w:tr>
+          <w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>Nama Pegawai</w:t></w:r></w:p></w:tc>
+          <w:tc><w:tcPr><w:tcW w:w="300" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>:</w:t></w:r></w:p></w:tc>
+          <w:tc><w:tcPr><w:tcW w:w="5700" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>${esc(it.nama)}</w:t></w:r></w:p></w:tc>
+        </w:tr>
+        <w:tr>
+          <w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>NIP</w:t></w:r></w:p></w:tc>
+          <w:tc><w:tcPr><w:tcW w:w="300" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>:</w:t></w:r></w:p></w:tc>
+          <w:tc><w:tcPr><w:tcW w:w="5700" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${esc(it.nip)}</w:t></w:r></w:p></w:tc>
+        </w:tr>
+        <w:tr>
+          <w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>Jabatan</w:t></w:r></w:p></w:tc>
+          <w:tc><w:tcPr><w:tcW w:w="300" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>:</w:t></w:r></w:p></w:tc>
+          <w:tc><w:tcPr><w:tcW w:w="5700" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${esc(it.jabatan)}</w:t></w:r></w:p></w:tc>
+        </w:tr>
+        <w:tr>
+          <w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>Unit Kerja</w:t></w:r></w:p></w:tc>
+          <w:tc><w:tcPr><w:tcW w:w="300" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>:</w:t></w:r></w:p></w:tc>
+          <w:tc><w:tcPr><w:tcW w:w="5700" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>${esc(it.unit)}</w:t></w:r></w:p></w:tc>
+        </w:tr>
+        <w:tr>
+          <w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>Status Kepegawaian</w:t></w:r></w:p></w:tc>
+          <w:tc><w:tcPr><w:tcW w:w="300" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>:</w:t></w:r></w:p></w:tc>
+          <w:tc><w:tcPr><w:tcW w:w="5700" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>${esc(it.status_kepegawaian)}</w:t></w:r></w:p></w:tc>
+        </w:tr>
+      </w:tbl>
+      <w:p/>
+      <w:p><w:r><w:rPr><w:b/><w:sz w:val="24"/></w:rPr><w:t>A. HASIL EVALUASI 7 KRITERIA KINERJA</w:t></w:r></w:p>
+      <w:tbl>
+        <w:tblPr><w:tblW w:w="9000" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="6" w:space="0" w:color="444444"/><w:bottom w:val="single" w:sz="6" w:space="0" w:color="444444"/><w:left w:val="single" w:sz="6" w:space="0" w:color="444444"/><w:right w:val="single" w:sz="6" w:space="0" w:color="444444"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/></w:tblBorders></w:tblPr>
+        <w:tr>
+          <w:tc><w:tcPr><w:tcW w:w="800" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F1F5F9"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>NO</w:t></w:r></w:p></w:tc>
+          <w:tc><w:tcPr><w:tcW w:w="5600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F1F5F9"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>KRITERIA PENILAIAN</w:t></w:r></w:p></w:tc>
+          <w:tc><w:tcPr><w:tcW w:w="2600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F1F5F9"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>SKOR (1 - 3)</w:t></w:r></w:p></w:tc>
+        </w:tr>
+        ${kriteriaRows}
+        <w:tr>
+          <w:tc><w:tcPr><w:tcW w:w="6400" w:type="dxa"/><w:gridSpan w:val="2"/><w:shd w:val="clear" w:color="auto" w:fill="F8FAFC"/></w:tcPr><w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>TOTAL SKOR (MAKSIMAL 21):</w:t></w:r></w:p></w:tc>
+          <w:tc><w:tcPr><w:tcW w:w="2600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F8FAFC"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="24"/><w:color w:val="1E3A8A"/></w:rPr><w:t>${it.total_skor} / 21</w:t></w:r></w:p></w:tc>
+        </w:tr>
+      </w:tbl>
+      <w:p/>
+      <w:p><w:r><w:rPr><w:b/><w:sz w:val="24"/></w:rPr><w:t>B. REKOMENDASI ATASAN LANGSUNG</w:t></w:r></w:p>
+      <w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="${it.total_skor > 10.5 ? '15803D' : 'B91C1C'}"/></w:rPr><w:t>${esc(it.rekomendasi)}</w:t></w:r></w:p>
+      <w:p/>
+      <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>Semarang, ${esc(it.tgl_buat)}</w:t></w:r></w:p>
+      <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>Atasan Langsung,</w:t></w:r></w:p>
+      <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:sz w:val="20"/><w:color w:val="666666"/></w:rPr><w:t>(Telah Divalidasi)</w:t></w:r></w:p>
+      <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:b/><w:u w:val="single"/><w:sz w:val="22"/></w:rPr><w:t>${esc(it.atasan_langsung)}</w:t></w:r></w:p>
+      <w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>NIP: ${esc(it.nip_atasan_langsung)}</w:t></w:r></w:p>
+    `;
+
+    if (idx < items.length - 1) {
+      pagesXml += `<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
+    }
+  });
+
+  const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    ${pagesXml}
+  </w:body>
+</w:document>`;
+
+  zip.file('[Content_Types].xml', contentTypesXml);
+  zip.file('_rels/.rels', relsXml);
+  zip.file('word/_rels/document.xml.rels', docRelsXml);
+  zip.file('word/document.xml', docXml);
+
+  return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
+}
+
 function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
   const PizZip = require('pizzip');
   const Docxtemplater = require('docxtemplater');
@@ -8549,6 +8706,216 @@ const methods = {
       });
 
     return { success: true, list, daftar: list, batas_waktu: globalBatasWaktu };
+  },
+
+  async getRingkasanEvaluasiByTahun(args) {
+    const [token, tahun, unit] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+
+    let query = db.from('usulan_kontrak').select('id, nip, nama, unit, tahun, form_data, evaluasi_data, evaluasi_doc_url, status').neq('status', 'Ditolak');
+    if (unit && unit !== 'ALL' && unit !== 'Semua') {
+      query = query.eq('unit', unit);
+    }
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const targetTahun = String(tahun || '').trim();
+    const rows = (data || []).filter(u => {
+      const uTahun = String(u.tahun || u.tahun_evaluasi || u.form_data?.tahun || u.form_data?.tahun_evaluasi || '').trim();
+      return uTahun === targetTahun;
+    });
+
+    let siapCount = 0;
+    let belumCount = 0;
+
+    rows.forEach(u => {
+      let ed = u.evaluasi_data || {};
+      if (typeof ed === 'string') {
+        try { ed = JSON.parse(ed); } catch (_) {}
+      }
+      const hasEvaluasi = !!(ed.total_skor || ed.orientasi_pelayanan || u.evaluasi_doc_url || ['validated_by_atasan', 'validated_by_admin', 'Selesai', 'evaluated_renewed', 'evaluated_extend', 'evaluated_not_renewed', 'evaluated_not_extend'].includes(u.status));
+      if (hasEvaluasi) {
+        siapCount++;
+      } else {
+        belumCount++;
+      }
+    });
+
+    return {
+      success: true,
+      tahun: targetTahun,
+      unit: unit || 'ALL',
+      total: rows.length,
+      siap: siapCount,
+      belum: belumCount
+    };
+  },
+
+  async generateEvaluasiKolektif(args) {
+    const [token, tahun, unit, format] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+    const targetTahun = String(tahun || '').trim();
+    if (!targetTahun || targetTahun === 'Semua') {
+      return { success: false, message: 'Tahun usulan wajib dipilih sebelum melakukan generate kolektif.' };
+    }
+
+    let query = db.from('usulan_kontrak').select('*').neq('status', 'Ditolak');
+    if (unit && unit !== 'ALL' && unit !== 'Semua') {
+      query = query.eq('unit', unit);
+    }
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const rows = (data || []).filter(u => {
+      const uTahun = String(u.tahun || u.tahun_evaluasi || u.form_data?.tahun || u.form_data?.tahun_evaluasi || '').trim();
+      return uTahun === targetTahun;
+    });
+
+    // Ambil data yang sudah dinilai evaluasinya (HANYA READ-ONLY, TIDAK MENGUBAH / MENGHAPUS BERKAS INDIVIDU)
+    const items = [];
+    for (const u of rows) {
+      let ed = u.evaluasi_data || {};
+      if (typeof ed === 'string') {
+        try { ed = JSON.parse(ed); } catch (_) {}
+      }
+      let fd = u.form_data || {};
+      if (typeof fd === 'string') {
+        try { fd = JSON.parse(fd); } catch (_) {}
+      }
+
+      const hasEvaluasi = !!(ed.total_skor || ed.orientasi_pelayanan || u.evaluasi_doc_url || ['validated_by_atasan', 'validated_by_admin', 'Selesai', 'evaluated_renewed', 'evaluated_extend', 'evaluated_not_renewed', 'evaluated_not_extend'].includes(u.status));
+      if (!hasEvaluasi) continue;
+
+      const empData = (await findEmployeeByNip(u.nip)) || {};
+      let atasanNama = ed.nama_atasan || u.atasan_nama || fd.atasan_nama || '';
+      let atasanNip = ed.nip_atasan || u.atasan_nip || fd.atasan_nip || '';
+      if (!atasanNama && atasanNip) {
+        const atEmp = await findEmployeeByNip(atasanNip);
+        if (atEmp) atasanNama = atEmp.nama_lengkap || atEmp.nama;
+      }
+
+      const totalSkor = ed.total_skor || (
+        (parseInt(ed.orientasi_pelayanan, 10) || 2) +
+        (parseInt(ed.inisiatif_kerja, 10) || 2) +
+        (parseInt(ed.komitmen, 10) || 2) +
+        (parseInt(ed.kerjasama, 10) || 2) +
+        (parseInt(ed.kehadiran, 10) || 2) +
+        (parseInt(ed.disiplin, 10) || 2) +
+        (parseInt(ed.hasil_kerja, 10) || 2)
+      );
+
+      const nextYear = parseInt(targetTahun, 10) + 1;
+      const rekomendasi = ed.rekomendasi || (totalSkor >= 11 ? `Diperpanjang Kontrak s.d. 31 Desember ${nextYear}` : 'Tidak Diperpanjang');
+
+      items.push({
+        id: u.id,
+        nip: u.nip,
+        nama: u.nama || empData.nama_lengkap || empData.nama,
+        unit: u.unit || empData.unit_es_ii || '-',
+        jabatan: u.jabatan || empData.detail_tutam || empData.jabatan || 'Tenaga Kependidikan Kontrak',
+        status_kepegawaian: u.status_kepegawaian || empData.status_kepegawaian || 'Pegawai Kontrak',
+        tahun_evaluasi: targetTahun,
+        nomor_surat: ed.nomor_surat || u.nomor_surat || '-',
+        tgl_buat: ed.tanggal_penilaian || ed.tgl_penilaian || formatTanggalIndonesia(new Date()),
+        atasan_langsung: atasanNama || 'Atasan Langsung',
+        nip_atasan_langsung: atasanNip || '-',
+        orientasi_pelayanan: ed.orientasi_pelayanan || 2,
+        inisiatif_kerja: ed.inisiatif_kerja || 2,
+        komitmen: ed.komitmen || 2,
+        kerjasama: ed.kerjasama || 2,
+        kehadiran: ed.kehadiran || 2,
+        disiplin: ed.disiplin || 2,
+        hasil_kerja: ed.hasil_kerja || 2,
+        total_skor: totalSkor,
+        rekomendasi: rekomendasi,
+        ttd: ed.ttd || ed.ttd_base64 || '',
+        evaluasi_doc_url: u.evaluasi_doc_url || ed.evaluasi_doc_url || ''
+      });
+    }
+
+    if (!items.length) {
+      return {
+        success: false,
+        message: `Tidak ditemukan pegawai yang telah selesai evaluasi kinerjanya pada Tahun ${targetTahun} untuk lingkup yang dipilih.`
+      };
+    }
+
+    // Urutkan berdasarkan unit lalu nama pegawai
+    items.sort((a, b) => a.unit.localeCompare(b.unit) || a.nama.localeCompare(b.nama));
+
+    const unitLabel = (!unit || unit === 'ALL' || unit === 'Semua') ? 'Semua Unit Kerja' : unit;
+    const safeUnitStr = (!unit || unit === 'ALL' || unit === 'Semua') ? 'Semua_Unit' : String(unit).replace(/[^a-zA-Z0-9]/g, '_');
+    const fileNameDocx = `Evaluasi_Kinerja_Kolektif_Tahun_${targetTahun}_${safeUnitStr}_${Date.now()}.docx`;
+
+    // 1. Generate Buffer DOCX Kolektif
+    const renderedBuffer = generateEvaluasiKolektifDocxBuffer(items, targetTahun, unitLabel);
+    let downloadUrl = '';
+    let gdocsUrl = '';
+
+    // Upload ke Supabase Storage
+    try {
+      const docB64 = renderedBuffer.toString('base64');
+      const docDataUrl = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${docB64}`;
+      downloadUrl = await uploadLampiran(docDataUrl, fileNameDocx, 'evaluasi-kolektif');
+    } catch (eUp) {
+      console.warn('[generateEvaluasiKolektif] Supabase upload error:', eUp.message);
+    }
+
+    // 2. Jika format GDocs atau diminta Google Docs
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (format === 'gdocs' && gasUrl) {
+      try {
+        const shortId = `bulk_eval_${targetTahun}_${Date.now().toString(36)}`;
+        const ctrl = new AbortController();
+        const timeoutId = setTimeout(() => ctrl.abort(), 120000); // 2 menit timeout
+
+        const gasResp = await fetch(gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            method: 'mergeEvaluasiKolektifGDocs',
+            params: [
+              `Evaluasi Kinerja Kolektif Tahun ${targetTahun} - ${unitLabel}`,
+              items.map(it => ({
+                id: it.id,
+                nip: it.nip,
+                nama: it.nama,
+                unit: it.unit,
+                total_skor: it.total_skor,
+                rekomendasi: it.rekomendasi,
+                doc_url: it.evaluasi_doc_url
+              }))
+            ],
+            remoteSession: { id: shortId, data: { nip: decoded.nip, nama: decoded.nama, role: 'admin' } }
+          }),
+          signal: ctrl.signal
+        });
+        clearTimeout(timeoutId);
+        const gasJson = await parseGasResponse(gasResp, 'generateEvaluasiKolektif-GAS');
+        if (gasJson && gasJson.success) {
+          gdocsUrl = gasJson.viewUrl || gasJson.docViewUrl || gasJson.url || '';
+        }
+      } catch (gErr) {
+        console.warn('[generateEvaluasiKolektif] GAS notice:', gErr.message);
+      }
+    }
+
+    // Jika gdocsUrl tidak didapat, buka preview downloadUrl atau docs viewer
+    const finalViewUrl = gdocsUrl || (downloadUrl ? `https://docs.google.com/viewer?url=${encodeURIComponent(downloadUrl)}&embedded=true` : downloadUrl);
+
+    // JAMINAN KEAMANAN: Tidak ada modifikasi ke kolom evaluasi_doc_url perorangan di database!
+    return {
+      success: true,
+      total_pegawai: items.length,
+      tahun: targetTahun,
+      unit: unitLabel,
+      viewUrl: gdocsUrl || finalViewUrl,
+      downloadUrl: downloadUrl || finalViewUrl,
+      gdocsUrl: gdocsUrl || null,
+      message: `Berhasil membuat dokumen evaluasi kinerja kolektif untuk ${items.length} pegawai pada Tahun ${targetTahun}.`
+    };
   },
 
   async adminSetKunciPenilaianAtasan(args) {
