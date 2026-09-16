@@ -7995,16 +7995,24 @@ const methods = {
       const tahun = String(u.tahun || u.tahun_evaluasi || u.form_data?.tahun || u.form_data?.tahun_evaluasi || (u.tanggal_diajukan ? new Date(u.tanggal_diajukan).getFullYear() : '') || new Date().getFullYear()).trim();
       const key = `${unit}___${tahun}`;
       
+      const isDosen = /dosen/i.test(u.layanan) || /dosen/i.test(u.form_data?.jenis_pegawai) || /dosen/i.test(u.status_kepegawaian);
       if (!perUnitTahun[key]) {
         perUnitTahun[key] = {
           unit,
           tahun,
           jumlah: 0,
           pending: 0,
-          selesai: 0
+          selesai: 0,
+          tendik: 0,
+          dosen: 0
         };
       }
       perUnitTahun[key].jumlah++;
+      if (isDosen) {
+        perUnitTahun[key].dosen = (perUnitTahun[key].dosen || 0) + 1;
+      } else {
+        perUnitTahun[key].tendik = (perUnitTahun[key].tendik || 0) + 1;
+      }
       if (isPending) {
         perUnitTahun[key].pending++;
       }
@@ -8027,7 +8035,7 @@ const methods = {
   },
 
   async getUsulanKontrakListByUnit(args) {
-    const [token, unit, tahun] = extractArgs(args);
+    const [token, unit, tahun, jenisPegawai] = extractArgs(args);
     requireRole(token, ['admin','super_admin']);
     const db = getDb();
     let query = db.from('usulan_kontrak').select('*').neq('status','Ditolak');
@@ -8055,24 +8063,36 @@ const methods = {
       });
     }
 
+    if (jenisPegawai && jenisPegawai !== 'Semua') {
+      filtered = filtered.filter(u => {
+        const isDosen = /dosen/i.test(u.layanan) || /dosen/i.test(u.form_data?.jenis_pegawai) || /dosen/i.test(u.status_kepegawaian);
+        const jp = isDosen ? 'Dosen' : 'Tenaga Kependidikan';
+        return jp === jenisPegawai;
+      });
+    }
+
     const LAMP_KEYS = ['ktp','kk','pas_foto','ijazah_transkrip','surat_pengantar','surat_lamaran','sim_ab','str_aktif','keterangan_sehat','hasil_kerja'];
-    const daftar = filtered.map(u => ({
-      id: u.id, nip: u.nip, nama: u.nama, unit: u.unit, email: u.email,
-      tahun: u.tahun || u.tahun_evaluasi || u.form_data?.tahun || u.form_data?.tahun_evaluasi || '',
-      jenis_usulan: u.jenis_usulan, evaluasi_kinerja: u.evaluasi_kinerja,
-      layanan: u.layanan, sub_menu: u.sub_menu, status: u.status,
-      perjanjian_dibuat: !!u.perjanjian_dibuat,
-      nama_pengaju: u.nama_pengaju, tanggal_diajukan: formatTanggalIndonesia(u.tanggal_diajukan),
-      skp_dibuat: !!u.skp_dibuat,
-      skp_data: u.skp_data || {},
-      skp_file_url: u.skp_file_url || '',
-      form_data: u.form_data || {},
-      lampiran: LAMP_KEYS.map(k => ({
-        key: k, label: k.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase()),
-        url: u[k+'_url'] || '', approved: !!u[k+'_approved']
-      })).filter(l => l.url),
-      semua_lampiran_disetujui: LAMP_KEYS.filter(k => u[k+'_url']).every(k => u[k+'_approved'])
-    })).sort((a,b) => String(a.nama).localeCompare(String(b.nama)));
+    const daftar = filtered.map(u => {
+      const isDosen = /dosen/i.test(u.layanan) || /dosen/i.test(u.form_data?.jenis_pegawai) || /dosen/i.test(u.status_kepegawaian);
+      return {
+        id: u.id, nip: u.nip, nama: u.nama, unit: u.unit, email: u.email,
+        tahun: u.tahun || u.tahun_evaluasi || u.form_data?.tahun || u.form_data?.tahun_evaluasi || '',
+        jenis_usulan: u.jenis_usulan, evaluasi_kinerja: u.evaluasi_kinerja,
+        layanan: u.layanan, sub_menu: u.sub_menu, status: u.status,
+        jenis_pegawai: isDosen ? 'Dosen' : 'Tenaga Kependidikan',
+        perjanjian_dibuat: !!u.perjanjian_dibuat,
+        nama_pengaju: u.nama_pengaju, tanggal_diajukan: formatTanggalIndonesia(u.tanggal_diajukan),
+        skp_dibuat: !!u.skp_dibuat,
+        skp_data: u.skp_data || {},
+        skp_file_url: u.skp_file_url || '',
+        form_data: u.form_data || {},
+        lampiran: LAMP_KEYS.map(k => ({
+          key: k, label: k.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase()),
+          url: u[k+'_url'] || '', approved: !!u[k+'_approved']
+        })).filter(l => l.url),
+        semua_lampiran_disetujui: LAMP_KEYS.filter(k => u[k+'_url']).every(k => u[k+'_approved'])
+      };
+    }).sort((a,b) => String(a.nama).localeCompare(String(b.nama)));
     return { success: true, daftar };
   },
 
@@ -8725,7 +8745,8 @@ const methods = {
     const targetTahun = String(tahun || '').trim();
     const rows = (data || []).filter(u => {
       const uTahun = String(u.tahun || u.tahun_evaluasi || u.form_data?.tahun || u.form_data?.tahun_evaluasi || '').trim();
-      return uTahun === targetTahun;
+      const isDosen = /dosen/i.test(u.layanan) || /dosen/i.test(u.form_data?.jenis_pegawai) || /dosen/i.test(u.status_kepegawaian);
+      return uTahun === targetTahun && !isDosen;
     });
 
     let siapCount = 0;
@@ -8772,7 +8793,8 @@ const methods = {
 
     const rows = (data || []).filter(u => {
       const uTahun = String(u.tahun || u.tahun_evaluasi || u.form_data?.tahun || u.form_data?.tahun_evaluasi || '').trim();
-      return uTahun === targetTahun;
+      const isDosen = /dosen/i.test(u.layanan) || /dosen/i.test(u.form_data?.jenis_pegawai) || /dosen/i.test(u.status_kepegawaian);
+      return uTahun === targetTahun && !isDosen;
     });
 
     // Ambil data yang sudah dinilai evaluasinya (HANYA READ-ONLY, TIDAK MENGUBAH / MENGHAPUS BERKAS INDIVIDU)
@@ -8971,7 +8993,8 @@ const methods = {
         return false;
       }
       const uTahun = String(u.tahun || u.tahun_evaluasi || u.form_data?.tahun || u.form_data?.tahun_evaluasi || (u.tanggal_diajukan ? new Date(u.tanggal_diajukan).getFullYear() : '') || '').trim();
-      return uTahun === targetTahun;
+      const isDosen = /dosen/i.test(u.layanan) || /dosen/i.test(u.form_data?.jenis_pegawai) || /dosen/i.test(u.status_kepegawaian);
+      return uTahun === targetTahun && !isDosen;
     });
 
     if (!rows.length) {

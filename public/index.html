@@ -2867,14 +2867,20 @@
                    <div class="helper-text" style="margin-top:3px;">Pilih unit kerja dan tahun usulan untuk meninjau usulan serta memverifikasi kelengkapan berkas pegawai.</div>
                  </div>
                  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                   <button type="button" class="btn btn-outline kp-small-btn" id="btnBuatNotaDinasKontrak" onclick="buatNotaDinasReviewUsulan()" style="font-weight:700; background:#f0fdf4; border-color:#16a34a; color:#15803d; display:inline-flex; align-items:center; gap:6px; box-shadow:0 1px 3px rgba(22,163,74,0.15);" title="Buat Surat Nota Dinas Telaah Perpanjangan Kontrak berdasarkan template terdaftar">
+                   <button type="button" class="btn btn-outline kp-small-btn" id="btnBuatNotaDinasKontrak" onclick="buatNotaDinasReviewUsulan()" style="font-weight:700; background:#f0fdf4; border-color:#16a34a; color:#15803d; display:inline-flex; align-items:center; gap:6px; box-shadow:0 1px 3px rgba(22,163,74,0.15);" title="Buat Surat Nota Dinas Telaah Perpanjangan Kontrak (Khusus Tenaga Kependidikan)">
                      📝 Buat Surat Nota Dinas
                    </button>
-                   <button type="button" class="btn btn-primary kp-small-btn" onclick="openModalBulkGenerateEvaluasi()" style="font-weight:700; background:#2563eb; border-color:#2563eb; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(37,99,235,0.2);">
+                   <button type="button" class="btn btn-primary kp-small-btn" onclick="openModalBulkGenerateEvaluasi()" style="font-weight:700; background:#2563eb; border-color:#2563eb; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(37,99,235,0.2);" title="Generate Evaluasi Kinerja Kolektif (Khusus Tenaga Kependidikan)">
                      📄 Generate Evaluasi Kinerja Kolektif
                    </button>
+                   <label for="kontrakReviewFilterJenisPegawai" style="font-size:13px; font-weight:600; color:var(--text-muted); margin:0;">Jenis Pegawai:</label>
+                   <select id="kontrakReviewFilterJenisPegawai" class="field-input" style="width:auto; min-width:165px; padding:6px 12px; font-size:13px;" onchange="filterKontrakReviewUnits()">
+                     <option value="Semua">Semua Jenis Pegawai</option>
+                     <option value="Tenaga Kependidikan">Tenaga Kependidikan</option>
+                     <option value="Dosen">Dosen</option>
+                   </select>
                    <label for="kontrakReviewFilterTahun" style="font-size:13px; font-weight:600; color:var(--text-muted); margin:0;">Tahun:</label>
-                   <select id="kontrakReviewFilterTahun" class="field-input" style="width:auto; min-width:130px; padding:6px 12px; font-size:13px;" onchange="filterKontrakReviewUnitsByYear(this.value)">
+                   <select id="kontrakReviewFilterTahun" class="field-input" style="width:auto; min-width:130px; padding:6px 12px; font-size:13px;" onchange="filterKontrakReviewUnits()">
                      <option value="Semua">Semua Tahun</option>
                    </select>
                    <button type="button" class="btn btn-outline kp-small-btn" onclick="loadKontrakReviewUnits()">🔄 Segarkan Daftar</button>
@@ -16358,40 +16364,67 @@ function handleKontrakReviewSummarySuccess(res) {
   renderKontrakReviewUnitCards(filterTahunSelect ? filterTahunSelect.value : 'Semua');
 }
 
-function filterKontrakReviewUnitsByYear(selectedYear) {
-  renderKontrakReviewUnitCards(selectedYear);
+function filterKontrakReviewUnits() {
+  const selectedYear = document.getElementById('kontrakReviewFilterTahun')?.value || 'Semua';
+  const selectedJenis = document.getElementById('kontrakReviewFilterJenisPegawai')?.value || 'Semua';
+  renderKontrakReviewUnitCards(selectedYear, selectedJenis);
 }
 
-function renderKontrakReviewUnitCards(filterYear) {
+function filterKontrakReviewUnitsByYear(selectedYear) {
+  filterKontrakReviewUnits();
+}
+
+function renderKontrakReviewUnitCards(filterYear, filterJenis) {
   const el = document.getElementById('kontrakReviewUnitList');
   if (!el) return;
   
+  if (!filterYear) filterYear = document.getElementById('kontrakReviewFilterTahun')?.value || 'Semua';
+  if (!filterJenis) filterJenis = document.getElementById('kontrakReviewFilterJenisPegawai')?.value || 'Semua';
+
   let list = allKontrakReviewUnits;
   if (filterYear && filterYear !== 'Semua') {
     list = list.filter(item => String(item.tahun) === String(filterYear));
   }
+  if (filterJenis && filterJenis !== 'Semua') {
+    if (filterJenis === 'Tenaga Kependidikan') {
+      list = list.filter(item => (item.tendik || 0) > 0);
+    } else if (filterJenis === 'Dosen') {
+      list = list.filter(item => (item.dosen || 0) > 0);
+    }
+  }
   
   if (!list.length) {
-    el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada usulan masuk untuk kriteria tahun ini.</div>';
+    el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Tidak ada usulan masuk untuk kriteria ini.</div>';
     return;
   }
   
-  el.innerHTML = list.map(item => `
+  el.innerHTML = list.map(item => {
+    let countDisplay = `${item.jumlah} Total Usulan`;
+    if (filterJenis === 'Tenaga Kependidikan') {
+      countDisplay = `${item.tendik || 0} Usulan Tendik`;
+    } else if (filterJenis === 'Dosen') {
+      countDisplay = `${item.dosen || 0} Usulan Dosen`;
+    }
+
+    return `
     <div class="ce-dashboard-list-item" onclick="viewKontrakReviewList('${escapeHtml(item.unit).replace(/'/g, "\\'")}', '${escapeHtml(item.tahun).replace(/'/g, "\\'")}')">
       <div>
         <div class="cdli-name" style="font-weight:700; font-size:15px; color:var(--text);">${escapeHtml(item.unit)}</div>
-        <div style="font-size:12.5px; color:var(--primary); font-weight:600; margin-top:3px; display:inline-flex; align-items:center; gap:5px;">
+        <div style="font-size:12.5px; color:var(--primary); font-weight:600; margin-top:3px; display:inline-flex; align-items:center; gap:5px; flex-wrap:wrap;">
           <span>📅 Tahun Usulan:</span> <span style="background:var(--primary-soft, #dbeafe); color:var(--primary, #1d4ed8); padding:2px 8px; border-radius:4px; font-weight:700;">${escapeHtml(item.tahun)}</span>
+          ${item.tendik > 0 ? `<span style="background:#f0fdf4; color:#16a34a; padding:1px 7px; border-radius:4px; font-size:11.5px; font-weight:600;">Tendik: ${item.tendik}</span>` : ''}
+          ${item.dosen > 0 ? `<span style="background:#eff6ff; color:#2563eb; padding:1px 7px; border-radius:4px; font-size:11.5px; font-weight:600;">Dosen: ${item.dosen}</span>` : ''}
         </div>
       </div>
       <div class="cdli-meta" style="text-align:right;">
-        <div style="font-weight:700; font-size:14px; color:var(--text);">${item.jumlah} Total Usulan</div>
+        <div style="font-weight:700; font-size:14px; color:var(--text);">${countDisplay}</div>
         <div style="font-size:12px; margin-top:3px; display:flex; gap:6px; justify-content:flex-end; align-items:center;">
           ${item.pending > 0 ? `<span style="background:#fef3c7; color:#d97706; padding:2px 6px; border-radius:4px; font-weight:700;">⏳ ${item.pending} Menunggu</span>` : ''}
           <span style="background:#dcfce7; color:#15803d; padding:2px 6px; border-radius:4px; font-weight:700;">✅ ${item.selesai || 0} Selesai</span>
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 async function viewKontrakReviewList(unit, tahun) {
@@ -16400,14 +16433,18 @@ async function viewKontrakReviewList(unit, tahun) {
   document.getElementById('kontrakReviewUnitListState').style.display = 'none';
   document.getElementById('kontrakReviewListState').style.display = 'block';
   
-  const titleText = tahun ? `Daftar Usulan - ${unit} (Tahun ${tahun})` : `Daftar Usulan - ${unit}`;
+  const filterJenis = document.getElementById('kontrakReviewFilterJenisPegawai')?.value || 'Semua';
+  let titleText = tahun ? `Daftar Usulan - ${unit} (Tahun ${tahun})` : `Daftar Usulan - ${unit}`;
+  if (filterJenis && filterJenis !== 'Semua') {
+    titleText += ` • ${filterJenis}`;
+  }
   document.getElementById('kontrakReviewUnitTitle').textContent = titleText;
   
   const el = document.getElementById('kontrakReviewDaftarPegawai');
   if (el) el.innerHTML = '<div class="ce-dashboard-card cdc-empty">Memuat daftar usulan...</div>';
   
   try {
-    const res = await rpc('getUsulanKontrakListByUnit', [SESSION.token, unit, tahun]);
+    const res = await rpc('getUsulanKontrakListByUnit', [SESSION.token, unit, tahun, filterJenis]);
     if (res && res.success) {
       renderKontrakReviewListItems_(res.daftar || []);
       return;
@@ -16530,11 +16567,24 @@ function refreshKontrakReviewCurrentDetail() {
 let bulkEvalSelectedTahun = '';
 
 function openModalBulkGenerateEvaluasi() {
+  const filterJenisEl = document.getElementById('kontrakReviewFilterJenisPegawai');
+  const jenisPeg = filterJenisEl ? filterJenisEl.value.trim() : 'Semua';
+
+  if (jenisPeg !== 'Tenaga Kependidikan') {
+    showToast('warning', 'Generate Evaluasi Kinerja Kolektif hanya dapat digunakan jika memilih Jenis Pegawai "Tenaga Kependidikan". Silakan pilih Tenaga Kependidikan terlebih dahulu.');
+    if (filterJenisEl) {
+      filterJenisEl.focus();
+      filterJenisEl.style.outline = '2px solid #2563eb';
+      setTimeout(() => { if (filterJenisEl) filterJenisEl.style.outline = ''; }, 2500);
+    }
+    return;
+  }
+
   const filterTahunEl = document.getElementById('kontrakReviewFilterTahun');
   const tahun = filterTahunEl ? filterTahunEl.value.trim() : '';
 
   if (!tahun || tahun === 'Semua') {
-    showToast('warning', 'Silakan pilih Tahun Usulan terlebih dahulu pada dropdown filter tahun di sebelah kanan tombol ini sebelum melakukan generate.');
+    showToast('warning', 'Silakan pilih Tahun Usulan terlebih dahulu pada dropdown filter tahun di sebelah kanan sebelum melakukan generate.');
     if (filterTahunEl) {
       filterTahunEl.focus();
       filterTahunEl.style.outline = '2px solid #2563eb';
@@ -16710,6 +16760,19 @@ async function eksekusiBulkGenerateEvaluasi(format) {
 // FITUR NOTA DINAS REVIEW USULAN KONTRAK
 // ================================================================
 async function buatNotaDinasReviewUsulan() {
+  const filterJenisEl = document.getElementById('kontrakReviewFilterJenisPegawai');
+  const jenisPeg = filterJenisEl ? filterJenisEl.value.trim() : 'Semua';
+
+  if (jenisPeg !== 'Tenaga Kependidikan') {
+    showToast('warning', 'Pembuatan Surat Nota Dinas hanya dapat digunakan jika memilih Jenis Pegawai "Tenaga Kependidikan". Silakan pilih Tenaga Kependidikan terlebih dahulu.');
+    if (filterJenisEl) {
+      filterJenisEl.focus();
+      filterJenisEl.style.outline = '2px solid #16a34a';
+      setTimeout(() => { if (filterJenisEl) filterJenisEl.style.outline = ''; }, 2500);
+    }
+    return;
+  }
+
   const filterTahunEl = document.getElementById('kontrakReviewFilterTahun');
   const tahun = filterTahunEl ? filterTahunEl.value.trim() : '';
 
