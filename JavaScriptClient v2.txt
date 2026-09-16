@@ -12239,6 +12239,112 @@ async function eksekusiBulkGenerateEvaluasi(format) {
     if (btnDocx) btnDocx.disabled = false;
   }
 }
+
+// ================================================================
+// FITUR NOTA DINAS REVIEW USULAN KONTRAK
+// ================================================================
+async function buatNotaDinasReviewUsulan() {
+  const filterTahunEl = document.getElementById('kontrakReviewFilterTahun');
+  const tahun = filterTahunEl ? filterTahunEl.value.trim() : '';
+
+  if (!tahun || tahun === 'Semua') {
+    showToast('warning', 'Silakan pilih Tahun Usulan terlebih dahulu pada dropdown filter tahun di sebelah kanan sebelum membuat Surat Nota Dinas.');
+    if (filterTahunEl) {
+      filterTahunEl.focus();
+      filterTahunEl.style.outline = '2px solid #16a34a';
+      setTimeout(() => { if (filterTahunEl) filterTahunEl.style.outline = ''; }, 2500);
+    }
+    return;
+  }
+
+  const btn = document.getElementById('btnBuatNotaDinasKontrak');
+  const originalHtml = btn ? btn.innerHTML : '📝 Buat Surat Nota Dinas';
+
+  try {
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '⏳ Menyiapkan Dokumen...';
+    }
+    showToast('info', `Sedang menyusun Surat Nota Dinas untuk Tahun ${tahun}...`);
+
+    const res = await rpc('generateNotaDinasReviewKontrak', [SESSION.token, tahun]);
+
+    if (!res || !res.success) {
+      showToast('error', res?.message || 'Gagal membuat Surat Nota Dinas.');
+      return;
+    }
+
+    showToast('success', res.message || 'Surat Nota Dinas berhasil dibuat!');
+    bukaModalNotaDinas(res);
+
+  } catch (err) {
+    console.error('[buatNotaDinasReviewUsulan] Error:', err);
+    showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+    }
+  }
+}
+
+function bukaModalNotaDinas(res) {
+  const modal = document.getElementById('modalNotaDinasKontrak');
+  if (!modal) return;
+
+  const viewUrl = res.viewUrl || '';
+  const stats = res.stats || {};
+
+  const subHeader = document.getElementById('modalNotaDinasSubHeader');
+  if (subHeader) {
+    subHeader.textContent = `Tahun Usulan: ${stats.tahun || '-'} • Total ${stats.total || 0} Pegawai Terdaftar`;
+  }
+
+  const statRek = document.getElementById('modalNotaDinasStatRekomendasi');
+  if (statRek) statRek.textContent = stats.rekomendasi ?? 0;
+
+  const statTidak = document.getElementById('modalNotaDinasStatTidakRekomendasi');
+  if (statTidak) statTidak.textContent = stats.tidak_rekomendasi ?? 0;
+
+  const linkInput = document.getElementById('modalNotaDinasLinkInput');
+  if (linkInput) linkInput.value = viewUrl;
+
+  const openBtn = document.getElementById('modalNotaDinasOpenBtn');
+  if (openBtn) {
+    openBtn.href = viewUrl || '#';
+    openBtn.onclick = function(e) {
+      if (!viewUrl) {
+        e.preventDefault();
+        showToast('warning', 'Tautan dokumen tidak tersedia.');
+      }
+    };
+  }
+
+  modal.style.display = 'flex';
+}
+
+function tutupModalNotaDinas() {
+  const modal = document.getElementById('modalNotaDinasKontrak');
+  if (modal) modal.style.display = 'none';
+}
+
+function salinLinkNotaDinas() {
+  const linkInput = document.getElementById('modalNotaDinasLinkInput');
+  if (!linkInput || !linkInput.value) {
+    showToast('warning', 'Tidak ada tautan yang dapat disalin.');
+    return;
+  }
+  navigator.clipboard.writeText(linkInput.value)
+    .then(() => {
+      showToast('success', 'Tautan Google Docs berhasil disalin ke clipboard!');
+    })
+    .catch(() => {
+      linkInput.select();
+      document.execCommand('copy');
+      showToast('success', 'Tautan berhasil disalin!');
+    });
+}
+
 async function viewKontrakReviewDetail(usulanId) {
   kontrakReviewActiveUsulanId = usulanId;
   document.getElementById('kontrakReviewListState').style.display = 'none';

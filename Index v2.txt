@@ -1443,6 +1443,9 @@
                    <div class="helper-text" style="margin-top:3px;">Pilih unit kerja dan tahun usulan untuk meninjau usulan serta memverifikasi kelengkapan berkas pegawai.</div>
                  </div>
                  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                   <button type="button" class="btn btn-outline kp-small-btn" id="btnBuatNotaDinasKontrak" onclick="buatNotaDinasReviewUsulan()" style="font-weight:700; background:#f0fdf4; border-color:#16a34a; color:#15803d; display:inline-flex; align-items:center; gap:6px; box-shadow:0 1px 3px rgba(22,163,74,0.15);" title="Buat Surat Nota Dinas Telaah Perpanjangan Kontrak berdasarkan template terdaftar">
+                     📝 Buat Surat Nota Dinas
+                   </button>
                    <button type="button" class="btn btn-primary kp-small-btn" onclick="openModalBulkGenerateEvaluasi()" style="font-weight:700; background:#2563eb; border-color:#2563eb; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(37,99,235,0.2);">
                      📄 Generate Evaluasi Kinerja Kolektif
                    </button>
@@ -2884,6 +2887,63 @@
         <button type="button" id="btnBulkEvalGDocs" class="btn btn-primary" onclick="eksekusiBulkGenerateEvaluasi('gdocs')" style="padding:9px 20px; font-weight:700; font-size:13px; background:#2563eb; border-color:#2563eb; box-shadow:0 4px 12px rgba(37,99,235,0.25); display:inline-flex; align-items:center; gap:6px;">
           <span>🌐 Buat Google Docs Baru</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= MODAL NOTA DINAS REVIEW USULAN KONTRAK ======================= -->
+  <div class="modal-overlay" id="modalNotaDinasKontrak" style="display:none; z-index:9997;">
+    <div class="modal-box" style="max-width:560px; width:92%; padding:24px; border-radius:14px; box-shadow:0 20px 40px rgba(0,0,0,0.25);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:14px; margin-bottom:16px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-size:24px;">📝</span>
+          <div>
+            <h3 style="margin:0; font-size:16.5px; font-weight:700; color:var(--text);">Surat Nota Dinas Berhasil Dibuat</h3>
+            <div style="font-size:12px; color:var(--text-muted); margin-top:2px;" id="modalNotaDinasSubHeader">Layanan Kontrak &mdash; Review Usulan Unit</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-secondary" onclick="tutupModalNotaDinas()" style="padding:4px 10px; font-size:13px;">✕ Tutup</button>
+      </div>
+
+      <!-- KARTU STATUS DAN RINGKASAN DATA -->
+      <div style="background:linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border:1px solid #86efac; border-radius:10px; padding:16px; margin-bottom:16px;">
+        <div style="display:flex; align-items:center; gap:8px; font-weight:700; color:#15803d; font-size:14px; margin-bottom:8px;">
+          <span>✅ Dokumen Google Docs Telah Siap!</span>
+        </div>
+        <div style="font-size:13px; color:#166534; line-height:1.5; margin-bottom:12px;" id="modalNotaDinasDetailTeks">
+          Dokumen Nota Dinas telaah hasil evaluasi perpanjangan kontrak telah digenerate secara otomatis ke Google Drive Anda.
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;" id="modalNotaDinasStatsGrid">
+          <div style="background:#ffffff; border-radius:8px; padding:10px 12px; border:1px solid #bbf7d0; text-align:center;">
+            <div style="font-size:11px; color:#475569; font-weight:600;">Direkomendasikan</div>
+            <div style="font-size:18px; font-weight:800; color:#15803d; margin-top:2px;" id="modalNotaDinasStatRekomendasi">0</div>
+          </div>
+          <div style="background:#ffffff; border-radius:8px; padding:10px 12px; border:1px solid #bbf7d0; text-align:center;">
+            <div style="font-size:11px; color:#475569; font-weight:600;">Tidak Direkomendasikan</div>
+            <div style="font-size:18px; font-weight:800; color:#b91c1c; margin-top:2px;" id="modalNotaDinasStatTidakRekomendasi">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAUTAN GOOGLE DOCS & SALIN LINK -->
+      <div style="margin-bottom:20px;">
+        <label style="display:block; font-size:12.5px; font-weight:600; color:var(--text-muted); margin-bottom:6px;">Tautan File Google Docs:</label>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="modalNotaDinasLinkInput" class="field-input" readonly style="font-size:12px; font-family:monospace; background:var(--surface-alt); width:100%;" />
+          <button type="button" class="btn btn-outline" onclick="salinLinkNotaDinas()" style="white-space:nowrap; padding:6px 14px; font-size:12.5px; font-weight:600;">
+            📋 Salin
+          </button>
+        </div>
+      </div>
+
+      <!-- TOMBOL AKSI -->
+      <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid var(--border); padding-top:16px;">
+        <button type="button" class="btn btn-secondary" onclick="tutupModalNotaDinas()" style="padding:9px 18px; font-weight:600; font-size:13px;">
+          Tutup
+        </button>
+        <a id="modalNotaDinasOpenBtn" href="#" target="_blank" class="btn btn-primary" style="padding:9px 20px; font-weight:700; font-size:13px; background:#16a34a; border-color:#16a34a; text-decoration:none; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(22,163,74,0.25);">
+          <span>🌐 Buka Dokumen Google Docs</span>
+        </a>
       </div>
     </div>
   </div>

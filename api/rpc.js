@@ -250,7 +250,7 @@ const CONFIG = {
   STATUS_KONTRAK_TKK_LIST: ['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan'],
   KONTRAK_UPAH_TIER: {tier1:2903600,tier2:3026400},
   ROLE_LIST: ['normal','user','admin','super_admin'],
-  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER','SK Pensiun BUP Pegawai Undip Non ASN','SK Pensiun Meninggal Pegawai Undip Non ASN','SK Pensiun Uzur Pegawai Undip Non ASN','SK Pensiun Undur Diri Pegawai Undip Non ASN'],'Kontrak Tendik':['Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','Formulir Evaluasi','Perjanjian Kerja','Sasaran Kinerja Pegawai','Calon Pegawai Tetap Undip NON ASN'],'Kontrak Dosen':['Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','Perjanjian Kerja','Calon Pegawai Tetap Undip NON ASN'],'Buat SK dan Surat':['SK CPTU','SK PTU 100%','SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','Surat PLT','Surat PLH','SK Tutam Struktural','SK Tutam Dekan Wadek']},
+  LAYANAN_LIST: {'Kenaikan Pangkat':['AK Konversi Tahunan','AK Konversi Kumulatif','SK KP Dosen Pegawai Tetap Undip NON ASN','SK KP Tendik Pegawai Tetap Undip NON ASN'],'Pensiun':['DPCP','SUPER','SK Pensiun BUP Pegawai Undip Non ASN','SK Pensiun Meninggal Pegawai Undip Non ASN','SK Pensiun Uzur Pegawai Undip Non ASN','SK Pensiun Undur Diri Pegawai Undip Non ASN'],'Kontrak':['Review Usulan Unit','Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','Formulir Evaluasi','Perjanjian Kerja','Sasaran Kinerja Pegawai'],'Kontrak Tendik':['Review Usulan Unit','Tenaga Profesional','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','Formulir Evaluasi','Perjanjian Kerja','Sasaran Kinerja Pegawai','Calon Pegawai Tetap Undip NON ASN'],'Kontrak Dosen':['Review Usulan Unit','Kontrak Penuh Waktu','Kontrak Paruh Waktu','Tenaga Kontrak Penghargaan','Perjanjian Kerja','Calon Pegawai Tetap Undip NON ASN'],'Buat SK dan Surat':['SK CPTU','SK PTU 100%','SK Tutam Kadep & Kaprodi','SK Tutam Sekprodi','Surat PLT','Surat PLH','SK Tutam Struktural','SK Tutam Dekan Wadek']},
   USULAN_KP_NOTIF_SIASN: 'Siap diusulkan ke-SIASN',
   USULAN_KP_NOTIF_SK:    'Siap Dibuat SK',
   // ---- SK Kenaikan Pangkat (Non-ASN) ----
@@ -3462,6 +3462,8 @@ const methods = {
         query = query.ilike('layanan', '%Kenaikan Pangkat%');
       } else if (layanan === 'Buat SK dan Surat' || layanan === 'Buat SK') {
         query = query.ilike('layanan', '%Buat SK%');
+      } else if (layanan === 'Kontrak' || layanan === 'Kontrak Tendik' || layanan === 'Kontrak Dosen') {
+        query = query.ilike('layanan', '%Kontrak%');
       } else {
         query = query.eq('layanan', layanan);
       }
@@ -8916,6 +8918,255 @@ const methods = {
       gdocsUrl: gdocsUrl || null,
       message: `Berhasil membuat dokumen evaluasi kinerja kolektif untuk ${items.length} pegawai pada Tahun ${targetTahun}.`
     };
+  },
+
+  async generateNotaDinasReviewKontrak(args) {
+    const [token, tahun] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    const targetTahun = String(tahun || '').trim();
+    if (!targetTahun || targetTahun === 'Semua') {
+      return { success: false, message: 'Silakan pilih Tahun Usulan terlebih dahulu sebelum membuat Nota Dinas.' };
+    }
+
+    const db = getDb();
+
+    // 1. Cari template terdaftar untuk sub_menu "Review Usulan Unit" (dengan fleksibilitas layanan Kontrak)
+    let { data: tmplList } = await db.from('templates')
+      .select('*')
+      .eq('sub_menu', 'Review Usulan Unit')
+      .order('dibuat_pada', { ascending: false });
+
+    if (!tmplList || !tmplList.length) {
+      const { data: fallbackList } = await db.from('templates')
+        .select('*')
+        .ilike('sub_menu', '%Review Usulan%')
+        .order('dibuat_pada', { ascending: false });
+      tmplList = fallbackList;
+    }
+
+    if (!tmplList || !tmplList.length) {
+      return {
+        success: false,
+        message: 'Template Nota Dinas belum terdaftar. Silakan unggah template terlebih dahulu di Menu Template dengan Layanan: "Kontrak" dan Sub-menu: "Review Usulan Unit".'
+      };
+    }
+
+    const tmpl = tmplList[0];
+    const templateFileId = tmpl.file_id || tmpl.id;
+
+    // 2. Ambil seluruh data usulan kontrak pada tahun terpilih (HANYA READ-ONLY, TIDAK MENGUBAH / MENGHAPUS BERKAS INDIVIDU)
+    const { data: allUsulan, error: uErr } = await db.from('usulan_kontrak')
+      .select('*')
+      .neq('status', 'Ditolak')
+      .order('nama', { ascending: true });
+
+    if (uErr) throw uErr;
+
+    const rows = (allUsulan || []).filter(u => {
+      // Abaikan entri usulan yang diproses/dibuat manual oleh admin di sub menu Buat Kontrak
+      const diajukanNip = String(u.diajukan_oleh_nip || '').trim();
+      const pegawaiNip = String(u.nip || '').trim();
+      const diprosesNip = String(u.diproses_oleh_nip || '').trim();
+      if (diajukanNip && pegawaiNip && diajukanNip !== pegawaiNip && (diajukanNip === diprosesNip || u.status === 'Selesai' || !u.nama_pengaju)) {
+        return false;
+      }
+      const uTahun = String(u.tahun || u.tahun_evaluasi || u.form_data?.tahun || u.form_data?.tahun_evaluasi || (u.tanggal_diajukan ? new Date(u.tanggal_diajukan).getFullYear() : '') || '').trim();
+      return uTahun === targetTahun;
+    });
+
+    if (!rows.length) {
+      return {
+        success: false,
+        message: `Tidak ada usulan kontrak yang terdaftar pada Tahun ${targetTahun}.`
+      };
+    }
+
+    // 3. Proses penghitungan agregasi data dan looping daftar_kontrak
+    let jumlah_rekomendasi = 0;
+    let jumlah_tidak_rekomendasi = 0;
+    let jumlah_rekomendasi_kontrak_penuh_waktu = 0;
+    let jumlah_rekomendasi_kontrak_paruh_waktu = 0;
+    let jumlah_rekomendasi_tenaga_profesional = 0;
+    let jumlah_rekomendasi_tenaga_kontrak_penghargaan = 0;
+    let jumlah_tidak_rekomendasi_kontrak_penuh_waktu = 0;
+    let jumlah_tidak_rekomendasi_kontrak_paruh_waktu = 0;
+    let jumlah_tidak_rekomendasi_tenaga_profesional = 0;
+    let jumlah_tidak_rekomendasi_tenaga_kontrak_penghargaan = 0;
+
+    const daftar_kontrak = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const u = rows[i];
+      let ed = u.evaluasi_data || {};
+      if (typeof ed === 'string') {
+        try { ed = JSON.parse(ed); } catch (_) {}
+      }
+      let fd = u.form_data || {};
+      if (typeof fd === 'string') {
+        try { fd = JSON.parse(fd); } catch (_) {}
+      }
+
+      const totalSkor = ed.total_skor || (
+        (parseInt(ed.orientasi_pelayanan, 10) || 0) +
+        (parseInt(ed.inisiatif_kerja, 10) || 0) +
+        (parseInt(ed.komitmen, 10) || 0) +
+        (parseInt(ed.kerjasama, 10) || 0) +
+        (parseInt(ed.kehadiran, 10) || 0) +
+        (parseInt(ed.disiplin, 10) || 0) +
+        (parseInt(ed.hasil_kerja, 10) || 0)
+      );
+
+      // Tentukan status rekomendasi
+      const rawRek = String(ed.rekomendasi || u.evaluasi_kinerja || '').trim();
+      let isRek = false;
+      let rekomendasiTeks = '';
+
+      if (rawRek) {
+        if (rawRek.toLowerCase().includes('tidak')) {
+          isRek = false;
+          rekomendasiTeks = rawRek;
+        } else if (rawRek.toLowerCase().includes('perpanjang') || rawRek.toLowerCase().includes('rekomendasi')) {
+          isRek = true;
+          rekomendasiTeks = rawRek;
+        } else {
+          isRek = totalSkor >= 11;
+          rekomendasiTeks = isRek ? `Diperpanjang Kontrak s.d. 31 Desember ${parseInt(targetTahun, 10) + 1}` : 'Tidak Diperpanjang';
+        }
+      } else {
+        isRek = totalSkor >= 11;
+        rekomendasiTeks = isRek ? `Diperpanjang Kontrak s.d. 31 Desember ${parseInt(targetTahun, 10) + 1}` : 'Tidak Diperpanjang';
+      }
+
+      // Tentukan status kepegawaian
+      const statusRaw = String(u.status_kepegawaian || fd.status_kepegawaian || u.sub_menu || u.jenis_usulan || '').trim();
+      let statusLabel = 'Kontrak Penuh Waktu';
+      let statusKategori = 'kontrak_penuh_waktu';
+
+      const sLower = statusRaw.toLowerCase();
+      if (sLower.includes('paruh waktu')) {
+        statusLabel = 'Kontrak Paruh Waktu';
+        statusKategori = 'kontrak_paruh_waktu';
+      } else if (sLower.includes('penuh waktu')) {
+        statusLabel = 'Kontrak Penuh Waktu';
+        statusKategori = 'kontrak_penuh_waktu';
+      } else if (sLower.includes('profesional')) {
+        statusLabel = 'Tenaga Profesional';
+        statusKategori = 'tenaga_profesional';
+      } else if (sLower.includes('penghargaan')) {
+        statusLabel = 'Tenaga Kontrak Penghargaan';
+        statusKategori = 'tenaga_kontrak_penghargaan';
+      } else if (statusRaw) {
+        statusLabel = statusRaw;
+      }
+
+      if (isRek) {
+        jumlah_rekomendasi++;
+        if (statusKategori === 'kontrak_penuh_waktu') jumlah_rekomendasi_kontrak_penuh_waktu++;
+        else if (statusKategori === 'kontrak_paruh_waktu') jumlah_rekomendasi_kontrak_paruh_waktu++;
+        else if (statusKategori === 'tenaga_profesional') jumlah_rekomendasi_tenaga_profesional++;
+        else if (statusKategori === 'tenaga_kontrak_penghargaan') jumlah_rekomendasi_tenaga_kontrak_penghargaan++;
+      } else {
+        jumlah_tidak_rekomendasi++;
+        if (statusKategori === 'kontrak_penuh_waktu') jumlah_tidak_rekomendasi_kontrak_penuh_waktu++;
+        else if (statusKategori === 'kontrak_paruh_waktu') jumlah_tidak_rekomendasi_kontrak_paruh_waktu++;
+        else if (statusKategori === 'tenaga_profesional') jumlah_tidak_rekomendasi_tenaga_profesional++;
+        else if (statusKategori === 'tenaga_kontrak_penghargaan') jumlah_tidak_rekomendasi_tenaga_kontrak_penghargaan++;
+      }
+
+      daftar_kontrak.push({
+        no: i + 1,
+        nama_lengkap: u.nama || fd.nama_lengkap || fd.nama || '-',
+        nip: u.nip || '-',
+        status_kepegawaian: statusLabel,
+        rekomendasi: rekomendasiTeks
+      });
+    }
+
+    const tgl_buat = formatTanggalIndonesia(new Date());
+
+    const dataContext = {
+      jumlah_rekomendasi,
+      jumlah_tidak_rekomendasi,
+      jumlah_rekomendasi_kontrak_penuh_waktu,
+      jumlah_rekomendasi_kontrak_paruh_waktu,
+      jumlah_rekomendasi_tenaga_profesional,
+      jumlah_rekomendasi_tenaga_kontrak_penghargaan,
+      jumlah_tidak_rekomendasi_kontrak_penuh_waktu,
+      jumlah_tidak_rekomendasi_kontrak_paruh_waktu,
+      jumlah_tidak_rekomendasi_tenaga_profesional,
+      jumlah_tidak_rekomendasi_tenaga_kontrak_penghargaan,
+      daftar_kontrak,
+      tgl_buat,
+      tahun: targetTahun,
+      tahun_usulan: targetTahun
+    };
+
+    // 4. Generate Google Docs melalui Google Apps Script
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (!gasUrl) {
+      return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi di server.' };
+    }
+
+    const shortId = uuidv4();
+    const remoteSession = {
+      id: shortId,
+      data: {
+        nip: decoded.nip || '',
+        nama_lengkap: decoded.nama || 'Admin',
+        nama: decoded.nama || 'Admin',
+        role: decoded.role || 'admin'
+      }
+    };
+
+    try {
+      const response = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'generateDocument',
+          params: [shortId, {
+            templateFileId: templateFileId,
+            layanan: 'Kontrak Tendik',
+            subLayanan: 'Review Usulan Unit',
+            entries: [{
+              employee: {
+                nama_lengkap: `Nota_Dinas_Review_Usulan_Kontrak_${targetTahun}`,
+                nip: decoded.nip || 'ADMIN'
+              },
+              dataContext: dataContext
+            }]
+          }],
+          remoteSession
+        })
+      });
+
+      const gasResult = await response.json();
+      if (!gasResult.success) {
+        return {
+          success: false,
+          message: 'Gagal membuat dokumen di Google Drive: ' + (gasResult.message || 'Terjadi kesalahan pada template.')
+        };
+      }
+
+      return {
+        success: true,
+        viewUrl: gasResult.viewUrl,
+        fileId: gasResult.fileId,
+        fileName: gasResult.fileName || `Nota_Dinas_Review_Usulan_${targetTahun}.gdoc`,
+        message: `Surat Nota Dinas untuk tahun ${targetTahun} berhasil dibuat.`,
+        stats: {
+          tahun: targetTahun,
+          total: daftar_kontrak.length,
+          rekomendasi: jumlah_rekomendasi,
+          tidak_rekomendasi: jumlah_tidak_rekomendasi
+        }
+      };
+    } catch (err) {
+      return {
+        success: false,
+        message: 'Gagal menghubungi Google Apps Script: ' + err.message
+      };
+    }
   },
 
   async adminSetKunciPenilaianAtasan(args) {
