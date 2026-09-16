@@ -4299,6 +4299,14 @@ function closeStatusDetailModal() {
   if (modal) modal.style.display = 'none';
 }
 
+async function refreshStatusDetailModal() {
+  showToast('info', 'Menyegarkan data usulan...');
+  if (typeof loadUsulanMasukTmtDashboard === 'function') {
+    await loadUsulanMasukTmtDashboard(true);
+  }
+  openStatusDetailModal(window.umCurrentModalStatus || 'ALL');
+}
+
 function filterStatusDetailModalRows() {
   renderStatusDetailModalContent();
 }
@@ -10933,6 +10941,15 @@ function tutupModalEvaluasiTkk() {
   activeEvaluasiDetail = null;
 }
 
+function refreshActiveModalEvaluasiTkk() {
+  if (activeEvaluasiUsulanId) {
+    showToast('info', 'Menyegarkan data modal evaluasi...');
+    openModalEvaluasiTkk(activeEvaluasiUsulanId);
+  } else {
+    showToast('warning', 'Tidak ada usulan evaluasi yang sedang aktif.');
+  }
+}
+
 function hitungTotalSkorEvaluasiTkk() {
   let total = 0;
   for (let i = 1; i <= 7; i++) {
@@ -12026,7 +12043,22 @@ function backToKontrakReviewList() {
   }
 }
 
+function refreshKontrakReviewCurrentUnit() {
+  if (kontrakReviewSelectedUnit) {
+    showToast('info', 'Menyegarkan daftar usulan...');
+    viewKontrakReviewList(kontrakReviewSelectedUnit, kontrakReviewSelectedTahun);
+  } else {
+    loadKontrakReviewUnits();
+  }
+}
+
 let kontrakReviewActiveUsulanId = '';
+function refreshKontrakReviewCurrentDetail() {
+  if (kontrakReviewActiveUsulanId) {
+    showToast('info', 'Menyegarkan detail usulan...');
+    viewKontrakReviewDetail(kontrakReviewActiveUsulanId);
+  }
+}
 async function viewKontrakReviewDetail(usulanId) {
   kontrakReviewActiveUsulanId = usulanId;
   document.getElementById('kontrakReviewListState').style.display = 'none';
