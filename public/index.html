@@ -13555,7 +13555,19 @@ async function initKontrakViewForUser() {
         }
       }
 
-      if (!isAdmin) {
+      if (isAdmin) {
+        // JIKA ADMIN / SUPERADMIN:
+        // Jika status kepegawaian admin itu sendiri adalah KONTRAK (isKontrak === true),
+        // maka tab "Usulan Kontrak Saya" TETAP DITAMPILKAN agar admin bisa mengusulkan kontrak mandiri!
+        if (btnUserStatus) {
+          if (isKontrak) {
+            btnUserStatus.style.display = 'inline-block';
+            btnUserStatus.textContent = 'Usulan Kontrak Saya';
+          } else {
+            btnUserStatus.style.display = 'none';
+          }
+        }
+      } else {
         if (isOperator) {
           // Role user: tombol pengajuan usulan unit tetap tampil
           if (btnUserStatus) {
