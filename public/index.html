@@ -11547,40 +11547,34 @@ function bindKontrakForm() {
       const q = userSearchInput.value.trim();
       clearTimeout(debounceTimer);
       if (q.length < 2) { userSearchList.style.display = 'none'; return; }
-      debounceTimer = setTimeout(() => {
-        google.script.run
-          .withSuccessHandler(results => {
-            userSearchList.innerHTML = '';
-            if (!results || !results.length) {
-              userSearchList.innerHTML = '<div style="padding:8px 12px; color:#64748b; font-size:12px;">Tidak ditemukan pegawai di unit Anda.</div>';
-              userSearchList.style.display = 'block';
-              return;
-            }
-            results.forEach(r => {
-              const item = document.createElement('div');
-              item.className = 'autocomplete-item';
-              item.innerHTML = `<strong>${escapeHtml(r.nama)}</strong><br><small style="color:#64748b;">NIP: ${escapeHtml(r.nip)} &middot; ${escapeHtml(r.unit_es_ii || '')}</small>`;
-              item.addEventListener('click', () => {
-                userSearchInput.value = `${r.nama} (${r.nip})`;
-                document.getElementById('kontrakUser_nip').value = r.nip || '';
-                document.getElementById('kontrakUser_nama').value = r.nama || '';
-                document.getElementById('kontrakUser_unit').value = r.unit_es_ii || '';
-                document.getElementById('kontrakUser_jabatan').value = r.jabatan || '';
-                userSearchList.style.display = 'none';
-                
-                const isDriver = String(r.jabatan || '').toLowerCase().includes('pengemudi');
-                const isMedis = isJabatanMedis(r.jabatan);
-                const simWrap = document.getElementById('kontrakUser_simWrap');
-                const strWrap = document.getElementById('kontrakUser_strWrap');
-                if (simWrap) simWrap.style.display = isDriver ? 'block' : 'none';
-                if (strWrap) strWrap.style.display = isMedis ? 'block' : 'none';
-              });
-              userSearchList.appendChild(item);
-            });
-            userSearchList.style.display = 'block';
-          })
-          .searchEmployees(SESSION.token, q);
+      debounceTimer = setTimeout(async () => {
+        try {
+          let results = null;
+          try {
+            results = await rpc('searchEmployees', [SESSION.token, q]);
+          } catch (_) {}
+
+          if (!results && typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler(res => renderUserKontrakSearchResults_(res, userSearchInput, userSearchList))
+              .searchEmployees(SESSION.token, q);
+            return;
+          }
+          renderUserKontrakSearchResults_(results, userSearchInput, userSearchList);
+        } catch (errSearch) {
+          console.warn('userSearch error:', errSearch);
+        }
       }, 300);
+    });
+  }
+
+  const nipInputEl = document.getElementById('kontrakUser_nip');
+  if (nipInputEl) {
+    nipInputEl.addEventListener('change', () => {
+      const layEl = document.getElementById('kontrakUser_layanan');
+      if (layEl && layEl.value === 'Kontrak Tendik') {
+        loadAtasanLangsungOtomatisTendik();
+      }
     });
   }
 
@@ -12677,6 +12671,68 @@ function renderAdminKontrakSearchResults_(results, searchInput, searchList) {
   searchList.style.display = 'block';
 }
 
+function renderUserKontrakSearchResults_(results, searchInput, searchList) {
+  if (!searchList) return;
+  searchList.innerHTML = '';
+  if (!results || !results.length) {
+    searchList.innerHTML = '<div style="padding:8px 12px; color:#64748b; font-size:12px;">Tidak ditemukan pegawai di unit Anda.</div>';
+    searchList.style.display = 'block';
+    return;
+  }
+  results.forEach(r => {
+    const item = document.createElement('div');
+    item.className = 'autocomplete-item';
+    const rNama = r.nama || r.nama_lengkap || '';
+    item.innerHTML = `<strong>${escapeHtml(rNama)}</strong><br><small style="color:#64748b;">NIP: ${escapeHtml(r.nip)} &middot; ${escapeHtml(r.unit_es_ii || r.unit_kerja || '')}</small>`;
+    item.addEventListener('click', async () => {
+      if (searchInput) searchInput.value = `${rNama} (${r.nip})`;
+      const nipEl = document.getElementById('kontrakUser_nip');
+      const namaEl = document.getElementById('kontrakUser_nama');
+      const unitEl = document.getElementById('kontrakUser_unit');
+      const jabEl = document.getElementById('kontrakUser_jabatan');
+      const emailEl = document.getElementById('kontrakUser_email');
+      if (nipEl) nipEl.value = r.nip || '';
+      if (namaEl) namaEl.value = rNama;
+      if (unitEl) unitEl.value = r.unit_es_ii || r.unit_kerja || '';
+      if (jabEl) jabEl.value = r.jabatan || '';
+      if (emailEl && (r.email || r.email_kontak)) emailEl.value = r.email || r.email_kontak || '';
+      searchList.style.display = 'none';
+
+      // Set Kategori Pegawai & SubMenu
+      const layEl = document.getElementById('kontrakUser_layanan');
+      const subMenuEl = document.getElementById('kontrakUser_subMenu');
+      const jp = String(r.jenis_peg || r.jenis_pegawai || r.jabatan || '').toLowerCase();
+      if (layEl) {
+        layEl.value = jp.includes('dosen') ? 'Kontrak Dosen' : 'Kontrak Tendik';
+        onKontrakUserLayananChange();
+      }
+      if (subMenuEl && r.status_kepegawaian) {
+        const sk = String(r.status_kepegawaian).toLowerCase();
+        for (let i = 0; i < subMenuEl.options.length; i++) {
+          if (subMenuEl.options[i].value.toLowerCase().includes(sk) || sk.includes(subMenuEl.options[i].value.toLowerCase())) {
+            subMenuEl.selectedIndex = i;
+            break;
+          }
+        }
+      }
+
+      // Deteksi Atasan Langsung untuk pegawai yang dipilih
+      if (layEl && layEl.value === 'Kontrak Tendik') {
+        loadAtasanLangsungOtomatisTendik();
+      }
+
+      const isDriver = String(r.jabatan || '').toLowerCase().includes('pengemudi');
+      const isMedis = (typeof isJabatanMedis === 'function') ? isJabatanMedis(r.jabatan) : false;
+      const simWrap = document.getElementById('kontrakUser_simWrap');
+      const strWrap = document.getElementById('kontrakUser_strWrap');
+      if (simWrap) simWrap.style.display = isDriver ? 'block' : 'none';
+      if (strWrap) strWrap.style.display = isMedis ? 'block' : 'none';
+    });
+    searchList.appendChild(item);
+  });
+  searchList.style.display = 'block';
+}
+
 async function kontrakIsiFormDariPegawai_(nip, nama) {
   const searchEl = document.getElementById('kontrak_search');
   if (searchEl) searchEl.value = `${nama} (${nip})`;
@@ -13417,6 +13473,7 @@ function initKontrakTabs() {
 async function initKontrakViewForUser() {
   const role = (SESSION.user && SESSION.user.role) || 'normal';
   const isAdmin = (role === 'admin' || role === 'super_admin');
+  const isOperator = (role === 'user');
   
   const adminTabs = document.getElementById('kontrakAdminTabs');
   const btnAdminBuat = document.getElementById('tabBtnKontrakAdminBuat');
@@ -13425,39 +13482,65 @@ async function initKontrakViewForUser() {
   const btnUserStatus = document.getElementById('tabBtnKontrakUserStatus');
   const adminDirectSec = document.getElementById('kontrakAdminDirectSection');
   const userPropSec = document.getElementById('kontrakUserProposalSection');
+  const atasanReviewSec = document.getElementById('kontrakAtasanReviewSection');
 
   if (adminTabs) adminTabs.style.display = 'flex';
 
   // Set synchronously based on known session role to prevent UI flicker
   if (btnAdminBuat) btnAdminBuat.style.display = isAdmin ? 'inline-block' : 'none';
   if (btnAdminReview) btnAdminReview.style.display = isAdmin ? 'inline-block' : 'none';
-  if (btnUserStatus) btnUserStatus.style.display = 'inline-block';
 
-  if (!isAdmin) {
+  if (isAdmin) {
+    if (adminDirectSec) adminDirectSec.style.display = 'block';
+    if (userPropSec) userPropSec.style.display = 'none';
+    if (atasanReviewSec) atasanReviewSec.style.display = 'none';
+    if (btnUserStatus) btnUserStatus.style.display = 'none';
+    
+    document.querySelectorAll('#kontrakAdminTabs .tab-btn').forEach(t => t.classList.remove('active'));
+    if (btnAdminBuat) btnAdminBuat.classList.add('active');
+    
+    loadKontrakReviewBadge();
+  } else if (isOperator) {
     if (adminDirectSec) adminDirectSec.style.display = 'none';
     if (userPropSec) userPropSec.style.display = 'block';
+    if (atasanReviewSec) atasanReviewSec.style.display = 'none';
+    if (btnUserStatus) {
+      btnUserStatus.style.display = 'inline-block';
+      btnUserStatus.textContent = 'Pengajuan Usulan Unit';
+    }
     
     document.querySelectorAll('#kontrakAdminTabs .tab-btn').forEach(t => t.classList.remove('active'));
     if (btnUserStatus) btnUserStatus.classList.add('active');
     
     loadUsulanKontrakSaya();
   } else {
-    if (adminDirectSec) adminDirectSec.style.display = 'block';
-    if (userPropSec) userPropSec.style.display = 'none';
+    // Role 'normal' (bisa pegawai kontrak, atau atasan langsung berstatus non-kontrak/tetap)
+    if (adminDirectSec) adminDirectSec.style.display = 'none';
+    const userStatKep = String(SESSION.user?.status_kepegawaian || '').toLowerCase();
+    const isKnownTetap = /pns|cpns|pppk|pegawai (tetap|undip non asn)|calon pegawai undip non asn/i.test(userStatKep);
     
-    document.querySelectorAll('#kontrakAdminTabs .tab-btn').forEach(t => t.classList.remove('active'));
-    if (btnAdminBuat) btnAdminBuat.classList.add('active');
-    
-    loadKontrakReviewBadge();
+    if (isKnownTetap) {
+      if (userPropSec) userPropSec.style.display = 'none';
+      if (btnUserStatus) btnUserStatus.style.display = 'none';
+    } else {
+      if (userPropSec) userPropSec.style.display = 'block';
+      if (btnUserStatus) {
+        btnUserStatus.style.display = 'inline-block';
+        btnUserStatus.textContent = 'Usulan Kontrak Saya';
+        btnUserStatus.classList.add('active');
+      }
+      loadUsulanKontrakSaya();
+    }
   }
 
-  // Request menu access details from backend (for Atasan Langsung role/badge)
+  // Request menu access details from backend (for Atasan Langsung role/badge & status kontrak)
   try {
     const resAkses = await rpc('getMenuAksesKontrak', [SESSION.token]);
     if (resAkses && resAkses.success) {
       KONTRAK_AKSES_INFO = resAkses;
       const isAtasan = !!resAkses.isAtasanLangsung;
       const countAtasan = resAkses.countUsulanAtasan || 0;
+      const isKontrak = !!resAkses.isKontrak;
 
       if (btnAtasan) {
         if (isAtasan || isAdmin) {
@@ -13469,6 +13552,51 @@ async function initKontrakViewForUser() {
           }
         } else {
           btnAtasan.style.display = 'none';
+        }
+      }
+
+      if (!isAdmin) {
+        if (isOperator) {
+          // Role user: tombol pengajuan usulan unit tetap tampil
+          if (btnUserStatus) {
+            btnUserStatus.style.display = 'inline-block';
+            btnUserStatus.textContent = 'Pengajuan Usulan Unit';
+          }
+          if (isAtasan && !document.querySelector('#kontrakAdminTabs .tab-btn.active')) {
+            document.querySelectorAll('#kontrakAdminTabs .tab-btn').forEach(t => t.classList.remove('active'));
+            if (btnUserStatus) btnUserStatus.classList.add('active');
+            if (userPropSec) userPropSec.style.display = 'block';
+            loadUsulanKontrakSaya();
+          }
+        } else if (isAtasan && !isKontrak) {
+          // ATASAN LANGSUNG BUKAN KONTRAK (Tetap / PNS):
+          // Usulan Kontrak Baru / Pembaruan untuk diri sendiri SEHARUSNYA TIDAK ADA
+          if (btnUserStatus) btnUserStatus.style.display = 'none';
+          if (userPropSec) userPropSec.style.display = 'none';
+
+          document.querySelectorAll('#kontrakAdminTabs .tab-btn').forEach(t => t.classList.remove('active'));
+          if (btnAtasan) {
+            btnAtasan.style.display = 'inline-block';
+            btnAtasan.classList.add('active');
+          }
+          if (atasanReviewSec) atasanReviewSec.style.display = 'block';
+          loadKontrakAtasanReviewList();
+        } else if (isKontrak) {
+          // Pegawai kontrak murni
+          if (btnUserStatus) {
+            btnUserStatus.style.display = 'inline-block';
+            btnUserStatus.textContent = 'Usulan Kontrak Saya';
+          }
+          if (!document.querySelector('#kontrakAdminTabs .tab-btn.active')) {
+            document.querySelectorAll('#kontrakAdminTabs .tab-btn').forEach(t => t.classList.remove('active'));
+            if (btnUserStatus) btnUserStatus.classList.add('active');
+            if (userPropSec) userPropSec.style.display = 'block';
+            loadUsulanKontrakSaya();
+          }
+        } else {
+          // Bukan admin, bukan operator, bukan atasan, dan bukan pegawai kontrak
+          if (btnUserStatus) btnUserStatus.style.display = 'none';
+          if (userPropSec) userPropSec.style.display = 'none';
         }
       }
     }
@@ -13621,9 +13749,11 @@ function onKontrakUserLayananChange() {
     return;
   }
 
-  const list = isTendik
+  const nonContractItems = ['Review Usulan Unit', 'Formulir Evaluasi', 'Perjanjian Kerja', 'Sasaran Kinerja Pegawai'];
+  const rawList = isTendik
     ? (kontrakFormOptionsCache?.subMenuTendik || ['Tenaga Profesional', 'Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan', 'Calon Pegawai Tetap Undip NON ASN']) 
     : (kontrakFormOptionsCache?.subMenuDosen || ['Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan', 'Calon Pegawai Tetap Undip NON ASN']);
+  const list = rawList.filter(item => !nonContractItems.includes(item));
     
   subMenuSelect.innerHTML = list.map(item => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join('');
 }
@@ -14003,25 +14133,13 @@ async function submitUsulanKontrak(e) {
 }
 async function populateKontrakUserFormProfile() {
   const role = (SESSION.user && SESSION.user.role) ? SESSION.user.role : 'normal';
-  const isNormalUser = role === 'normal' || role === 'user' || !['admin', 'super_admin'].includes(role);
+  const isOperator = (role === 'user');
+  const isNormalUser = (role === 'normal');
   
-  // Hide search box for normal user
+  // Search box: ditampilkan untuk operator (role 'user') dan admin, HANYA disembunyikan untuk role 'normal' (pegawai perorangan)
   const searchWrap = document.querySelector('#kontrakUserForm .autocomplete-wrap');
   if (searchWrap) {
     searchWrap.style.display = isNormalUser ? 'none' : 'block';
-  }
-
-  let profile = SESSION.user || {};
-  const userNip = profile.nip || SESSION.nip || '';
-
-  if (userNip) {
-    try {
-      const res = await rpc('getEmployeeFullData', [SESSION.token, userNip]);
-      if (res && (res.data || res.employee || res.nip)) {
-        const empData = res.data || res.employee || res;
-        profile = Object.assign({}, profile, empData);
-      }
-    } catch (_) {}
   }
 
   const nipEl = document.getElementById('kontrakUser_nip');
@@ -14032,12 +14150,6 @@ async function populateKontrakUserFormProfile() {
   const tahunEl = document.getElementById('kontrakUser_tahun');
   const layEl = document.getElementById('kontrakUser_layanan');
   const subMenuEl = document.getElementById('kontrakUser_subMenu');
-
-  const nipVal = profile.nip || profile.username || '';
-  const namaVal = profile.nama || profile.nama_lengkap || '';
-  const unitVal = profile.unit_es_ii || profile.unit || profile.unit_kerja || '';
-  const jabVal = profile.jabatan || '';
-  const emailVal = profile.email || profile.email_kontak || '';
 
   function setFieldLock(el, val, shouldLock) {
     if (!el) return;
@@ -14058,6 +14170,57 @@ async function populateKontrakUserFormProfile() {
       el.style.cursor = '';
     }
   }
+
+  if (isOperator) {
+    // KHUSUS ROLE USER (OPERATOR UNIT):
+    // Semua usulan BISA DIEDIT atau TIDAK TERKUNCI!
+    setFieldLock(nipEl, nipEl ? nipEl.value : '', false);
+    setFieldLock(namaEl, namaEl ? namaEl.value : '', false);
+    setFieldLock(unitEl, unitEl ? unitEl.value : '', false);
+    setFieldLock(jabEl, jabEl ? jabEl.value : '', false);
+    setFieldLock(emailEl, emailEl ? emailEl.value : '', false);
+
+    if (layEl) {
+      layEl.style.pointerEvents = '';
+      layEl.style.backgroundColor = '';
+      layEl.style.color = '';
+      layEl.style.webkitTextFillColor = '';
+      layEl.style.fontWeight = '';
+    }
+    if (subMenuEl) {
+      subMenuEl.style.pointerEvents = '';
+      subMenuEl.style.backgroundColor = '';
+      subMenuEl.style.color = '';
+      subMenuEl.style.webkitTextFillColor = '';
+      subMenuEl.style.fontWeight = '';
+    }
+
+    if (tahunEl && !tahunEl.value) {
+      tahunEl.value = new Date().getFullYear();
+    }
+    toggleEvaluasiKinerjaUser();
+    return;
+  }
+
+  // UNTUK ROLE NORMAL (PEGAWAI KONTRAK PERORANGAN):
+  let profile = SESSION.user || {};
+  const userNip = profile.nip || SESSION.nip || '';
+
+  if (userNip) {
+    try {
+      const res = await rpc('getEmployeeFullData', [SESSION.token, userNip]);
+      if (res && (res.data || res.employee || res.nip)) {
+        const empData = res.data || res.employee || res;
+        profile = Object.assign({}, profile, empData);
+      }
+    } catch (_) {}
+  }
+
+  const nipVal = profile.nip || profile.username || '';
+  const namaVal = profile.nama || profile.nama_lengkap || '';
+  const unitVal = profile.unit_es_ii || profile.unit || profile.unit_kerja || '';
+  const jabVal = profile.jabatan || '';
+  const emailVal = profile.email || profile.email_kontak || '';
 
   setFieldLock(nipEl, nipVal, isNormalUser);
   setFieldLock(namaEl, namaVal, isNormalUser);

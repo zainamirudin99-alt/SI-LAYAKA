@@ -4521,8 +4521,8 @@ const methods = {
       bulan:            CONFIG.BULAN_LIST,
       tahun:            daftarTahun,
       jenisPegEligible: CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE,
-      subMenuTendik:    CONFIG.LAYANAN_LIST['Kontrak Tendik'],
-      subMenuDosen:     CONFIG.LAYANAN_LIST['Kontrak Dosen']
+      subMenuTendik:    (CONFIG.LAYANAN_LIST['Kontrak Tendik'] || []).filter(item => !['Review Usulan Unit', 'Formulir Evaluasi', 'Perjanjian Kerja', 'Sasaran Kinerja Pegawai'].includes(item)),
+      subMenuDosen:     (CONFIG.LAYANAN_LIST['Kontrak Dosen'] || []).filter(item => !['Review Usulan Unit', 'Formulir Evaluasi', 'Perjanjian Kerja', 'Sasaran Kinerja Pegawai'].includes(item))
     };
   },
 
@@ -8322,18 +8322,27 @@ const methods = {
     const jenisPeg = emp?.jenis_peg || '';
 
     const eligibleList = CONFIG.KONTRAK_JENIS_PEG_ELIGIBLE || ['Tenaga Profesional', 'Kontrak Penuh Waktu', 'Kontrak Paruh Waktu', 'Tenaga Kontrak Penghargaan'];
-    let kategoriCocok = eligibleList.find(k => 
-      k.toLowerCase() === statusKep.toLowerCase() || 
-      k.toLowerCase() === jenisPeg.toLowerCase() ||
-      statusKep.toLowerCase().includes(k.toLowerCase()) ||
-      jenisPeg.toLowerCase().includes(k.toLowerCase())
-    );
+    const isTetapOrPns = /pns|cpns|pppk|pegawai (tetap|undip non asn)|calon pegawai undip non asn/i.test(statusKep);
+    let kategoriCocok = null;
+    let isKontrak = false;
 
-    if (!kategoriCocok) {
-      if (!statusKep && !jenisPeg) {
-        kategoriCocok = 'Tenaga Profesional';
-      } else if (/non[\s-]?asn|kontrak|profesional|pegawai|tenaga/i.test(statusKep + ' ' + jenisPeg)) {
-        kategoriCocok = 'Tenaga Profesional';
+    if (!isTetapOrPns) {
+      kategoriCocok = eligibleList.find(k => 
+        k.toLowerCase() === statusKep.toLowerCase() || 
+        k.toLowerCase() === jenisPeg.toLowerCase() ||
+        statusKep.toLowerCase().includes(k.toLowerCase()) ||
+        jenisPeg.toLowerCase().includes(k.toLowerCase())
+      );
+
+      if (!kategoriCocok) {
+        if (!statusKep && !jenisPeg) {
+          kategoriCocok = 'Tenaga Profesional';
+        } else if (/(kontrak|profesional|tkk|mitra)/i.test(statusKep + ' ' + jenisPeg)) {
+          kategoriCocok = 'Tenaga Profesional';
+        }
+      }
+      if (kategoriCocok) {
+        isKontrak = true;
       }
     }
 
@@ -8369,12 +8378,19 @@ const methods = {
     const isTendik = !isDosen;
 
     let countUsulanAtasan = 0;
+    let isAtasanLangsung = false;
     try {
       const cleanNip = String(decoded.nip || '').trim();
       const { count, error: cErr } = await db.from('usulan_kontrak')
         .select('*', { count: 'exact', head: true })
         .or(`atasan_nip.eq.${cleanNip},atasan_nip.ilike.%${cleanNip}%`);
       if (!cErr && typeof count === 'number') countUsulanAtasan = count;
+
+      // Juga periksa apakah terdaftar di tabel atasan_langsung
+      const { data: atRows } = await db.from('atasan_langsung').select('id').eq('nip', cleanNip).limit(1);
+      if ((atRows && atRows.length > 0) || countUsulanAtasan > 0) {
+        isAtasanLangsung = true;
+      }
     } catch (_) {}
 
     const isAdmin = ['admin', 'super_admin'].includes(role || decoded.role);
@@ -8388,9 +8404,10 @@ const methods = {
       isTendik,
       eligible: isEligibleKontrak,
       isEligibleKontrak,
+      isKontrak,
       diizinkan,
       kategori: kategoriCocok,
-      isAtasanLangsung: countUsulanAtasan > 0,
+      isAtasanLangsung,
       countUsulanAtasan,
       isAdmin
     };
