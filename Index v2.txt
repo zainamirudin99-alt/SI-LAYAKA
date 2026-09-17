@@ -2807,6 +2807,9 @@
         <button type="button" class="btn btn-secondary" onclick="tutupPopupKunciPenilaian()" style="padding:9px 18px; font-weight:600; font-size:13px;">
           Tutup
         </button>
+        <button type="button" class="btn btn-outline" id="kunciModal_btnLihatForm" onclick="lihatFormDariKunciModal()" style="color:var(--text); border-color:var(--border); font-weight:600; font-size:13px;">
+          👁️ Lihat Form Evaluasi
+        </button>
         <button type="button" class="btn btn-outline" id="kunciModal_btnLihatEval" onclick="lihatEvalDariKunciModal()" style="color:var(--primary); border-color:var(--primary); font-weight:600; font-size:13px; display:none;">
           Buka Formulir Evaluasi Kinerja ↗
         </button>

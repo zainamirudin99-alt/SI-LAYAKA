@@ -10613,6 +10613,14 @@ function lihatSkpDariKunciModal() {
   }
 }
 
+function lihatFormDariKunciModal() {
+  if (currentKunciModalData && currentKunciModalData.usulanId) {
+    const id = currentKunciModalData.usulanId;
+    tutupPopupKunciPenilaian();
+    openModalEvaluasiTkk(id);
+  }
+}
+
 function adminUnlockDariKunciModal() {
   if (currentKunciModalData && currentKunciModalData.usulanId) {
     const id = currentKunciModalData.usulanId;
@@ -10743,14 +10751,31 @@ function renderKontrakAtasanReviewList(daftar) {
         onClickAction = `showPopupKunciPenilaianAtasan('${u.id}', '${escapeHtml(u.nama || '')}', '${escapeHtml(u.evaluasi_doc_url || '')}', '${escapeHtml(u.skp_file_url || '')}')`;
       }
     } else if (u.status === 'validated_by_admin' || u.status === 'contract_generated' || u.status === 'Disetujui' || u.status === 'Selesai') {
-      badgeHtml = `<span class="badge" style="background:#10b981; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">Divalidasi Admin</span>`;
-      actionBtnText = 'Lihat Formulir Evaluasi';
-      actionBtnClass = 'btn btn-secondary';
-      onClickAction = `openModalEvaluasiTkk('${u.id}')`;
+      if (isUnlocked) {
+        badgeHtml = `<span class="badge" style="background:#2563eb; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:700;">🔓 Kunci Dibuka (Dapat Diubah)</span>`;
+        actionBtnText = 'Buka / Ubah Penilaian';
+        actionBtnClass = 'btn btn-primary';
+        onClickAction = `openModalEvaluasiTkk('${u.id}')`;
+      } else {
+        badgeHtml = `<span class="badge" style="background:#10b981; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px;">Divalidasi Admin</span>`;
+        actionBtnText = 'Buka / Ubah Penilaian';
+        actionBtnClass = 'btn btn-outline';
+        onClickAction = `showPopupKunciPenilaianAtasan('${u.id}', '${escapeHtml(u.nama || '')}', '${escapeHtml(u.evaluasi_doc_url || '')}', '${escapeHtml(u.skp_file_url || '')}')`;
+      }
     }
 
     const isAdmin = (SESSION.user?.role === 'admin' || SESSION.user?.role === 'super_admin');
-    const isEvalCompleted = ['validated_by_atasan', 'evaluated_extend', 'evaluated_renewed', 'evaluated_not_extend', 'evaluated_not_renewed'].includes(u.status);
+    const isEvalCompleted = [
+      'validated_by_atasan',
+      'evaluated_extend',
+      'evaluated_renewed',
+      'evaluated_not_extend',
+      'evaluated_not_renewed',
+      'validated_by_admin',
+      'contract_generated',
+      'Disetujui',
+      'Selesai'
+    ].includes(u.status);
     let adminUnlockBtn = '';
     if (isAdmin && isEvalCompleted) {
       if (!isUnlocked) {
@@ -10878,6 +10903,43 @@ async function openModalEvaluasiTkk(usulanId) {
       </a>
     `).join('');
 
+    const isUnlockedModal = !!(u.kunci_evaluasi_dibuka || u.evaluasi_data?.kunci_dibuka || u.form_data?.kunci_evaluasi_dibuka || (window.UNLOCKED_EVAL_IDS && window.UNLOCKED_EVAL_IDS.has(u.id)) || (localStorage.getItem('LAYAKA_UNLOCKED_' + u.id) === 'true'));
+    const isCompletedStatus = ['validated_by_atasan', 'evaluated_extend', 'evaluated_renewed', 'evaluated_not_extend', 'evaluated_not_renewed', 'validated_by_admin', 'contract_generated', 'Disetujui', 'Selesai'].includes(u.status);
+    const isAdminUser = (SESSION.user?.role === 'admin' || SESSION.user?.role === 'super_admin');
+
+    let lockBannerHtml = '';
+    if (isCompletedStatus) {
+      if (isUnlockedModal) {
+        lockBannerHtml = `
+          <div style="margin-top:12px; background:#eff6ff; border:1px solid #bfdbfe; border-left:4px solid #2563eb; padding:10px 14px; border-radius:8px; font-size:13px; color:#1e40af; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:18px;">🔓</span>
+              <div><strong>Kunci Penilaian Terbuka:</strong> Atasan Langsung atau Admin dapat mengubah kriteria evaluasi kinerja dan dokumen SKP usulan ini. Silakan sesuaikan penilaian lalu simpan kembali.</div>
+            </div>
+            ${isAdminUser ? `
+              <button type="button" class="btn btn-outline kp-small-btn" onclick="adminSetKunciPenilaianAtasan('${u.id}', '${escapeHtml(u.nama || '')}', false)" style="color:#dc2626; border-color:#dc2626; font-weight:700; background:#fff;">
+                🔒 Tutup Kunci
+              </button>
+            ` : ''}
+          </div>
+        `;
+      } else {
+        lockBannerHtml = `
+          <div style="margin-top:12px; background:#fffbeb; border:1px solid #fde68a; border-left:4px solid #f59e0b; padding:10px 14px; border-radius:8px; font-size:13px; color:#92400e; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:18px;">🔒</span>
+              <div><strong>Penilaian Terkunci (${escapeHtml(u.status)}):</strong> Usulan telah dinilai/divalidasi. Untuk mengubah penilaian, buka kunci penilaian terlebih dahulu.</div>
+            </div>
+            ${isAdminUser ? `
+              <button type="button" class="btn btn-outline kp-small-btn" onclick="adminSetKunciPenilaianAtasan('${u.id}', '${escapeHtml(u.nama || '')}', true)" style="color:#d97706; border-color:#d97706; font-weight:700; background:#fff;">
+                🔓 Buka Kunci Penilaian
+              </button>
+            ` : ''}
+          </div>
+        `;
+      }
+    }
+
     infoEl.innerHTML = `
       <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; font-size:13px; margin-bottom:12px;">
         <div><strong>Nama Pegawai:</strong> ${escapeHtml(u.nama || '-')}</div>
@@ -10892,6 +10954,7 @@ async function openModalEvaluasiTkk(usulanId) {
           ${filesHtml || '<span style="color:#94a3b8;">Tidak ada berkas lampiran terunggah.</span>'}
         </div>
       </div>
+      ${lockBannerHtml}
     `;
 
     // Inisialisasi tampilan awal Langkah 1 (Evaluasi 7 Kriteria)
@@ -11331,6 +11394,29 @@ function hitungTotalSkorEvaluasiTkk() {
       btnAction.title = 'Simpan formulir evaluasi dan lanjut mengisi SKP';
       btnAction.onclick = generateEvaluasiDanLanjutKeSkp;
     }
+  }
+
+  // Handle locked / unlocked state for action buttons inside evaluation modal
+  const isUnlockedDetail = !!(activeEvaluasiDetail?.kunci_evaluasi_dibuka || activeEvaluasiDetail?.evaluasi_data?.kunci_dibuka || activeEvaluasiDetail?.form_data?.kunci_evaluasi_dibuka || (window.UNLOCKED_EVAL_IDS && activeEvaluasiDetail?.id && window.UNLOCKED_EVAL_IDS.has(activeEvaluasiDetail.id)) || (activeEvaluasiDetail?.id && localStorage.getItem('LAYAKA_UNLOCKED_' + activeEvaluasiDetail.id) === 'true'));
+  const isCompletedDetail = ['validated_by_atasan', 'evaluated_extend', 'evaluated_renewed', 'evaluated_not_extend', 'evaluated_not_renewed', 'validated_by_admin', 'contract_generated', 'Disetujui', 'Selesai'].includes(activeEvaluasiDetail?.status);
+
+  if (isCompletedDetail && !isUnlockedDetail) {
+    if (btnAction) {
+      btnAction.disabled = true;
+      btnAction.style.opacity = '0.55';
+      btnAction.style.cursor = 'not-allowed';
+      btnAction.title = 'Penilaian terkunci. Buka kunci penilaian terlebih dahulu jika ingin mengubah nilai.';
+    }
+    const btnPerbaikan = document.querySelector('button[onclick="bukaModalPerbaikanBerkasTkk()"]');
+    if (btnPerbaikan) btnPerbaikan.style.display = 'none';
+  } else {
+    if (btnAction) {
+      btnAction.disabled = false;
+      btnAction.style.opacity = '1';
+      btnAction.style.cursor = 'pointer';
+    }
+    const btnPerbaikan = document.querySelector('button[onclick="bukaModalPerbaikanBerkasTkk()"]');
+    if (btnPerbaikan) btnPerbaikan.style.display = 'inline-flex';
   }
 
   return total;
@@ -13059,6 +13145,7 @@ function renderKontrakReviewDetailContent_(u) {
           ${u.status === 'evaluated_not_renewed' || u.status === 'evaluated_not_extend' ? '<span class="badge" style="background:#ef4444; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Sudah Dinilai (Tidak Diperbarui)</span>' : ''}
           ${u.status === 'submitted_to_atasan' || u.status === 'under_atasan_review' ? '<span class="badge" style="background:#f59e0b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Menunggu Penilaian Atasan</span>' : ''}
           ${u.status === 'validated_by_admin' ? '<span class="badge" style="background:#10b981; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700;">Tervalidasi Admin</span>' : ''}
+          ${(u.kunci_evaluasi_dibuka || u.evaluasi_data?.kunci_dibuka || u.form_data?.kunci_evaluasi_dibuka || (window.UNLOCKED_EVAL_IDS && window.UNLOCKED_EVAL_IDS.has(u.id)) || (localStorage.getItem('LAYAKA_UNLOCKED_' + u.id) === 'true')) ? '<span class="badge" style="background:#2563eb; color:#fff; padding:4px 10px; border-radius:6px; font-weight:700; margin-left:6px;">🔓 Kunci Penilaian Terbuka</span>' : ''}
         </div>
       </div>
       <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; font-size:13.5px; margin-bottom:14px;">
@@ -13077,7 +13164,7 @@ function renderKontrakReviewDetailContent_(u) {
             Buka Dokumen Sasaran Kinerja Pegawai (SKP) ↗
           </button>` : ''}
         ${(() => {
-          const isEvalDone = ['validated_by_atasan', 'evaluated_extend', 'evaluated_renewed', 'evaluated_not_extend', 'evaluated_not_renewed'].includes(u.status);
+          const isEvalDone = ['validated_by_atasan', 'evaluated_extend', 'evaluated_renewed', 'evaluated_not_extend', 'evaluated_not_renewed', 'validated_by_admin', 'contract_generated', 'Disetujui', 'Selesai'].includes(u.status);
           const isUnlocked = !!(u.kunci_evaluasi_dibuka || u.evaluasi_data?.kunci_dibuka || u.form_data?.kunci_evaluasi_dibuka || (window.UNLOCKED_EVAL_IDS && window.UNLOCKED_EVAL_IDS.has(u.id)) || (localStorage.getItem('LAYAKA_UNLOCKED_' + u.id) === 'true'));
           if (!isEvalDone) return '';
           if (!isUnlocked) {
