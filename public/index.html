@@ -3797,7 +3797,7 @@
             <span style="background:rgba(255,255,255,0.25); width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px;">1</span>
             <span>Evaluasi Kinerja (7 Kriteria)</span>
           </div>
-          <div style="color:var(--text-muted,#94a3b8); font-weight:700;">&rarr;</div>
+          <div id="evalTkk_stepArrow" style="color:var(--text-muted,#94a3b8); font-weight:700; transition:all 0.2s;">&rarr;</div>
           <div id="evalTkk_stepBadge2" onclick="switchEvalModalStep(2)" style="cursor:pointer; display:flex; align-items:center; gap:8px; padding:6px 14px; border-radius:8px; background:var(--surface,#fff); border:1px solid var(--border,#cbd5e1); color:var(--text-muted,#64748b); font-weight:700; font-size:13px; transition:all 0.2s;">
             <span style="background:#e2e8f0; color:#475569; width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px;">2</span>
             <span>Sasaran Kinerja Pegawai (SKP)</span>
@@ -4025,6 +4025,14 @@
                   <div id="evalTkk_rekomendasiDisplay" style="font-size:16px; font-weight:700; color:#16a34a;">Diperbarui Kontrak s.d. 31 Desember 2027</div>
                 </div>
               </div>
+            </div>
+
+            <!-- Notice jika rekomendasi Tidak Diperbarui / Tidak Direkomendasikan -->
+            <div id="evalTkk_tidakDiperbaruiNotice" style="display:none; background:#fef2f2; border:1px solid #fecaca; border-left:4px solid #ef4444; border-radius:8px; padding:12px 16px; margin-bottom:20px; font-size:13px; color:#991b1b; line-height:1.5;">
+              <div style="font-weight:700; display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                <span>⚠️</span> <span>Rekomendasi Tidak Diperbarui (Tidak Direkomendasikan)</span>
+              </div>
+              <div>Karena hasil penilaian kinerja di bawah standar kelayakan (skor &lt; 11), tahap pembuatan <strong>Sasaran Kinerja Pegawai (SKP) dinonaktifkan</strong>. Anda dapat langsung menyimpan dan mengirimkan hasil evaluasi kinerja bertanda tangan ini ke <strong>Admin Kepegawaian</strong> melalui tombol aksi di bawah.</div>
             </div>
           </div> <!-- End evalTkk_kriteriaSection -->
 
@@ -14342,6 +14350,32 @@ function handleUsulanKontrakSayaResult(res) {
       statusBadge = `<span class="badge" style="background:#64748b; color:#fff; padding:4px 10px; border-radius:6px; font-weight:600;">Selesai (Tidak Diperbarui)</span>`;
     }
 
+    const isTidakDiperbarui = (st === 'evaluated_not_renewed' || st === 'evaluated_not_extend' || (u.evaluasi_skor !== undefined && u.evaluasi_skor !== null && Number(u.evaluasi_skor) < 11 && ['evaluated_not_renewed', 'evaluated_not_extend', 'closed_not_renewed', 'closed_not_extended'].includes(st)));
+    let tidakDiperbaruiNoticeHtml = '';
+    if (isTidakDiperbarui) {
+      tidakDiperbaruiNoticeHtml = `
+        <div style="margin-top:16px; padding:18px 20px; background:#fef2f2; border:1px solid #fecaca; border-left:4px solid #ef4444; border-radius:10px; color:#991b1b; font-size:13.5px; line-height:1.6; text-align:left; box-shadow:0 2px 8px rgba(239,68,68,0.06);">
+          <div style="font-size:14.5px; font-weight:800; display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+            <span>⚠️</span> <span>Rekomendasi Evaluasi Kinerja: Tidak Diperbarui</span>
+          </div>
+          <div>
+            Berdasarkan hasil penilaian evaluasi kinerja oleh Atasan Langsung dengan total skor <strong>${escapeHtml(String(u.evaluasi_skor || '-'))} / 21</strong>, usulan perpanjangan kontrak Anda memperoleh rekomendasi <strong>Tidak Diperbarui (Tidak Direkomendasikan)</strong>.
+          </div>
+          <div style="margin-top:8px; padding:10px 14px; background:#fff; border:1px solid #fca5a5; border-radius:8px; font-size:12.5px; color:#b91c1c; line-height:1.5;">
+            🚫 <strong>Akses Melengkapi Berkas Persyaratan &amp; Pembuatan Dokumen Perjanjian Kerja Dinonaktifkan Otomatis.</strong><br/>
+            Tahap melengkapi berkas persyaratan final dan pembuatan kontrak kerja tidak dapat dilanjutkan kecuali Atasan Langsung melakukan perubahan penilaian kinerja.
+          </div>
+          ${(u.evaluasi_doc_url || u.doc_evaluasi_url) ? `
+            <div style="margin-top:12px;">
+              <button type="button" class="btn btn-outline kp-small-btn" onclick="bukaDokumenEvaluasi('${u.id}', '${escapeHtml(u.evaluasi_doc_url || u.doc_evaluasi_url || '')}')" style="color:#b91c1c; border-color:#fca5a5; background:#fff; font-weight:700;">
+                📄 Buka Formulir Evaluasi Kinerja ↗
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
     // Interactive Pop-Up Modal on User Account
     if (isTendik && st === 'validated_by_admin' && !u.notifikasi_kelayakan_dilihat) {
       setTimeout(() => {
@@ -14381,9 +14415,9 @@ function handleUsulanKontrakSayaResult(res) {
         })
       : true;
 
-    // Pasca-approval Berkas Kelengkapan Section HTML for Tendik
+    // Pasca-approval Berkas Kelengkapan Section HTML for Tendik (hanya jika memenuhi syarat pembaruan)
     let kelengkapanSectionHtml = '';
-    if (isTendik && (st === 'validated_by_admin' || st === 'contract_generated' || st === 'Selesai')) {
+    if (isTendik && !isTidakDiperbarui && (st === 'validated_by_admin' || st === 'contract_generated' || st === 'Selesai')) {
       kelengkapanSectionHtml = `
         <div id="kontrakUser_kelengkapanSection" style="margin-top:24px; padding:20px; background:var(--surface); border:2px solid #3b82f6; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.05);">
           <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--border); padding-bottom:12px; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
@@ -14480,7 +14514,7 @@ function handleUsulanKontrakSayaResult(res) {
       `;
     }
 
-    const isApprovedByAdmin = (st === 'validated_by_admin' || st === 'Disetujui' || st === 'Selesai' || st === 'contract_generated' || !!u.perjanjian_dibuat);
+    const isApprovedByAdmin = !isTidakDiperbarui && (st === 'validated_by_admin' || st === 'Disetujui' || st === 'Selesai' || st === 'contract_generated' || !!u.perjanjian_dibuat);
     const canGenerateFinal = isApprovedByAdmin && (!isTendik || allKelengkapanApproved);
 
     if (isApprovedByAdmin) {
@@ -14702,6 +14736,7 @@ function handleUsulanKontrakSayaResult(res) {
       </div>
 
       ${catatanKoreksiHtml}
+      ${tidakDiperbaruiNoticeHtml}
       ${evaluasiInfoHtml}
       
       <h4 style="border-bottom:1px solid #eee; padding-bottom:6px; margin-bottom:10px;">Status Lampiran Usulan Awal</h4>
@@ -15253,6 +15288,13 @@ function switchEvalModalStep(step) {
   const modalBox = document.querySelector('#modalEvaluasiTkk .modal-box');
 
   if (step === 2) {
+    // Validasi: jika hasil evaluasi tidak diperbarui (total < 11), tolak pindah ke Step 2
+    const totalSkor = hitungTotalSkorEvaluasiTkk();
+    if (totalSkor < 11) {
+      showToast('info', 'Langkah Sasaran Kinerja Pegawai (SKP) dinonaktifkan karena hasil evaluasi Tidak Diperbarui / Tidak Direkomendasikan. Anda dapat langsung mengirim usulan ke Admin.');
+      return false;
+    }
+
     // Pastikan tanda tangan di Step 1 sudah ada sebelum pindah ke Step 2
     const hasSig = (evalTkkCanvas && evalTkkHasDrawn) || Boolean(activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd);
     if (!hasSig) {
@@ -15290,14 +15332,74 @@ function switchEvalModalStep(step) {
       badge1.style.color = '#fff';
       badge1.innerHTML = '<span style="background:rgba(255,255,255,0.25); width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px;">1</span> <span>Evaluasi Kinerja (7 Kriteria)</span>';
     }
-    if (badge2) {
-      badge2.style.background = 'var(--surface, #fff)';
-      badge2.style.border = '1px solid var(--border, #cbd5e1)';
-      badge2.style.color = 'var(--text-muted, #64748b)';
-      badge2.innerHTML = '<span style="background:#e2e8f0; color:#475569; width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px;">2</span> <span>Sasaran Kinerja Pegawai (SKP)</span>';
-    }
+    hitungTotalSkorEvaluasiTkk();
     if (modalBox) modalBox.scrollTop = 0;
     return true;
+  }
+}
+
+let _isSubmittingDirectEval = false;
+async function simpanEvaluasiDanKirimLangsungKeAdmin() {
+  if (!activeEvaluasiUsulanId) return;
+  if (_isSubmittingDirectEval) return;
+
+  const btn = document.getElementById('btnGenerateLanjutSkp');
+
+  let ttdBase64 = '';
+  if (evalTkkCanvas && evalTkkHasDrawn) {
+    ttdBase64 = trimCanvas_(evalTkkCanvas);
+  } else if (activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd) {
+    ttdBase64 = activeEvaluasiDetail.evaluasi_data.ttd_base64 || activeEvaluasiDetail.evaluasi_data.ttd;
+  }
+
+  if (!ttdBase64) {
+    showToast('error', 'Silakan bubuhkan tanda tangan Atasan Langsung pada kotak signature pad terlebih dahulu.');
+    return;
+  }
+
+  window.activeTtdAtasan = ttdBase64;
+  if (activeEvaluasiDetail) {
+    if (!activeEvaluasiDetail.evaluasi_data) activeEvaluasiDetail.evaluasi_data = {};
+    activeEvaluasiDetail.evaluasi_data.ttd_base64 = ttdBase64;
+    activeEvaluasiDetail.evaluasi_data.ttd = ttdBase64;
+  }
+
+  const confirmMsg = 'Hasil evaluasi adalah Tidak Diperbarui (Tidak Direkomendasikan). Apakah Anda yakin ingin memvalidasi dan LANGSUNG MENGIRIM berkas evaluasi kinerja ini ke Admin Kepegawaian (tanpa membuat dokumen SKP)?';
+  if (!confirm(confirmMsg)) return;
+
+  if (btn) setBtnLoading(btn, true, 'Menyimpan & Mengirim ke Admin...');
+  _isSubmittingDirectEval = true;
+
+  try {
+    const payload = collectEvaluasiTkkPayload();
+    payload.keputusan = 'tidak_diperbarui';
+    payload.skp_data = null;
+    payload.skp_template_id = '';
+
+    const res = await rpc('simpanDanGenerateEvaluasiTkk', [SESSION.token, activeEvaluasiUsulanId, payload, false, true]);
+    if (btn) setBtnLoading(btn, false, 'Simpan &amp; Kirim Usulan ke Admin Kepegawaian &rarr;');
+
+    if (res && res.success) {
+      lastGeneratedEvaluasiResult = res;
+      window.lastGeneratedEvaluasiResult = res;
+      if (activeEvaluasiDetail) {
+        activeEvaluasiDetail.evaluasi_doc_url = res.docUrl || res.viewUrl || activeEvaluasiDetail.evaluasi_doc_url;
+        activeEvaluasiDetail.lastGeneratedEvaluasiResult = res;
+      }
+      showToast('success', res.message || 'Hasil evaluasi kinerja berhasil divalidasi dan dikirim ke Admin Kepegawaian.');
+      tutupModalEvaluasiTkk();
+      if (typeof loadKontrakAtasanReviewList === 'function') {
+        loadKontrakAtasanReviewList();
+      }
+      openEvaluasiResultModal(res, false, true, 'evaluasi');
+    } else {
+      showToast('error', res?.message || 'Gagal mengirim evaluasi ke Admin.');
+    }
+  } catch (err) {
+    if (btn) setBtnLoading(btn, false, 'Simpan &amp; Kirim Usulan ke Admin Kepegawaian &rarr;');
+    showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
+  } finally {
+    _isSubmittingDirectEval = false;
   }
 }
 
@@ -15456,6 +15558,85 @@ function hitungTotalSkorEvaluasiTkk() {
 
   const kepEl = document.getElementById('evalTkk_keputusanOtomatis');
   if (kepEl) kepEl.value = isDiperbarui ? 'diperbarui' : 'tidak_diperbarui';
+
+  // --- Penyesuaian Dinamis Alur: Jika Tidak Diperbarui / Tidak Direkomendasikan ---
+  const badge2 = document.getElementById('evalTkk_stepBadge2');
+  const arrowEl = document.getElementById('evalTkk_stepArrow');
+  const btnAction = document.getElementById('btnGenerateLanjutSkp');
+  const noticeEl = document.getElementById('evalTkk_tidakDiperbaruiNotice');
+
+  if (!isDiperbarui) {
+    // 1. Tampilkan banner pemberitahuan bahwa SKP dinonaktifkan
+    if (noticeEl) noticeEl.style.display = 'block';
+
+    // 2. Nonaktifkan langkah 2 (SKP) pada Stepper Header
+    if (badge2) {
+      badge2.style.cursor = 'not-allowed';
+      badge2.style.opacity = '0.55';
+      badge2.style.background = '#f1f5f9';
+      badge2.style.border = '1px dashed #cbd5e1';
+      badge2.style.color = '#94a3b8';
+      badge2.title = 'Langkah SKP dinonaktifkan karena hasil evaluasi Tidak Diperbarui / Tidak Direkomendasikan.';
+      badge2.innerHTML = '<span style="background:#e2e8f0; color:#94a3b8; width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px;">✕</span> <span style="text-decoration:line-through;">Sasaran Kinerja Pegawai (SKP)</span> <span style="font-size:10.5px; font-weight:700; color:#dc2626; background:#fee2e2; padding:1px 6px; border-radius:4px; margin-left:2px;">Dinonaktifkan</span>';
+    }
+    if (arrowEl) {
+      arrowEl.style.opacity = '0.35';
+    }
+
+    // 3. Ubah tombol aksi utama di Langkah 1 menjadi "Simpan & Kirim Usulan ke Admin Kepegawaian"
+    if (btnAction) {
+      btnAction.innerHTML = 'Simpan &amp; Kirim Usulan ke Admin Kepegawaian &rarr;';
+      btnAction.style.background = '#059669';
+      btnAction.style.borderColor = '#059669';
+      btnAction.style.boxShadow = '0 4px 14px rgba(5,150,105,0.25)';
+      btnAction.title = 'Langsung simpan evaluasi dan kirim ke Admin Kepegawaian (tanpa membuat dokumen SKP)';
+      btnAction.onclick = simpanEvaluasiDanKirimLangsungKeAdmin;
+    }
+
+    // Jika saat ini sedang di Step 2, otomatis kembalikan ke Step 1
+    const step2Cont = document.getElementById('evalTkk_step2Container');
+    if (step2Cont && step2Cont.style.display !== 'none') {
+      const step1Cont = document.getElementById('evalTkk_step1Container');
+      const badge1 = document.getElementById('evalTkk_stepBadge1');
+      if (step1Cont) step1Cont.style.display = 'block';
+      if (step2Cont) step2Cont.style.display = 'none';
+      if (badge1) {
+        badge1.style.background = 'var(--primary, #2563eb)';
+        badge1.style.border = '1px solid var(--primary, #2563eb)';
+        badge1.style.color = '#fff';
+        badge1.innerHTML = '<span style="background:rgba(255,255,255,0.25); width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px;">1</span> <span>Evaluasi Kinerja (7 Kriteria)</span>';
+      }
+    }
+  } else {
+    // Hasil direkomendasikan / diperbarui (skor >= 11)
+    if (noticeEl) noticeEl.style.display = 'none';
+
+    if (badge2) {
+      const step2Cont = document.getElementById('evalTkk_step2Container');
+      const isOnStep2 = step2Cont && step2Cont.style.display !== 'none';
+      if (!isOnStep2) {
+        badge2.style.cursor = 'pointer';
+        badge2.style.opacity = '1';
+        badge2.style.background = 'var(--surface, #fff)';
+        badge2.style.border = '1px solid var(--border, #cbd5e1)';
+        badge2.style.color = 'var(--text-muted, #64748b)';
+        badge2.title = 'Sasaran Kinerja Pegawai (SKP)';
+        badge2.innerHTML = '<span style="background:#e2e8f0; color:#475569; width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px;">2</span> <span>Sasaran Kinerja Pegawai (SKP)</span>';
+      }
+    }
+    if (arrowEl) {
+      arrowEl.style.opacity = '1';
+    }
+
+    if (btnAction) {
+      btnAction.innerHTML = 'Generate Form Evaluasi &amp; Lanjut ke SKP &rarr;';
+      btnAction.style.background = '#2563eb';
+      btnAction.style.borderColor = '#2563eb';
+      btnAction.style.boxShadow = '0 4px 14px rgba(37,99,235,0.25)';
+      btnAction.title = 'Simpan formulir evaluasi dan lanjut mengisi SKP';
+      btnAction.onclick = generateEvaluasiDanLanjutKeSkp;
+    }
+  }
 
   return total;
 }
@@ -15801,11 +15982,20 @@ function openEvaluasiResultModal(res, isPreview = false, isValidatedToAdmin = fa
   // Tombol SUBMIT / LANJUT langsung dari dalam Pop-up Preview
   if (isPreview) {
     if (previewType === 'evaluasi') {
-      buttonsHtml += `
-        <button type="button" class="btn btn-primary" onclick="submitFromPreviewEvaluasi()" style="background:#2563eb; border-color:#2563eb; padding:10px 22px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 14px rgba(37,99,235,0.3);">
-          Lanjut ke Form Sasaran Kinerja Pegawai (SKP) &rarr;
-        </button>
-      `;
+      const isDiperbarui = Number(res.totalSkor !== undefined ? res.totalSkor : (activeEvaluasiDetail?.evaluasi_skor || 14)) >= 11;
+      if (isDiperbarui) {
+        buttonsHtml += `
+          <button type="button" class="btn btn-primary" onclick="submitFromPreviewEvaluasi()" style="background:#2563eb; border-color:#2563eb; padding:10px 22px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 14px rgba(37,99,235,0.3);">
+            Lanjut ke Form Sasaran Kinerja Pegawai (SKP) &rarr;
+          </button>
+        `;
+      } else {
+        buttonsHtml += `
+          <button type="button" class="btn btn-primary" onclick="submitFromPreviewEvaluasi()" style="background:#059669; border-color:#059669; padding:10px 22px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 14px rgba(5,150,105,0.3);">
+            Simpan &amp; Kirim Usulan ke Admin Kepegawaian &rarr;
+          </button>
+        `;
+      }
     } else {
       buttonsHtml += `
         <button type="button" class="btn btn-primary" onclick="submitFromPreviewSkp()" style="background:#059669; border-color:#059669; padding:10px 22px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 14px rgba(5,150,105,0.3);">
@@ -15818,7 +16008,9 @@ function openEvaluasiResultModal(res, isPreview = false, isValidatedToAdmin = fa
   const iframeSrc = pdfUrl || (isGdocs ? gdocsUrl.replace('/edit', '/preview') : '');
 
   const descText = isValidatedToAdmin
-    ? 'Keputusan evaluasi kinerja &amp; dokumen SKP telah berhasil dibuat dan diteruskan ke Admin Kepegawaian.'
+    ? (res.totalSkor < 11 || res.status === 'evaluated_not_renewed'
+        ? 'Hasil formulir evaluasi kinerja (Tidak Diperbarui) telah berhasil divalidasi dan diteruskan ke Admin Kepegawaian.'
+        : 'Keputusan evaluasi kinerja &amp; dokumen SKP telah berhasil dibuat dan diteruskan ke Admin Kepegawaian.')
     : (isPreview 
         ? 'Pratinjau dokumen di bawah ini. Anda dapat mengunduhnya atau langsung menekan tombol aksi untuk melanjutkan proses.' 
         : (previewType === 'skp' ? 'Dokumen Sasaran Kinerja Pegawai (SKP) berhasil dibuat dan tersimpan.' : 'Dokumen formulir evaluasi kinerja telah berhasil dibuat dan disimpan.'));
@@ -15890,7 +16082,12 @@ function openEvaluasiResultModal(res, isPreview = false, isValidatedToAdmin = fa
 function submitFromPreviewEvaluasi() {
   const modalOverlay = document.getElementById('modalOverlay');
   if (modalOverlay) modalOverlay.style.display = 'none';
-  generateEvaluasiDanLanjutKeSkp();
+  const total = hitungTotalSkorEvaluasiTkk();
+  if (total < 11) {
+    simpanEvaluasiDanKirimLangsungKeAdmin();
+  } else {
+    generateEvaluasiDanLanjutKeSkp();
+  }
 }
 
 function submitFromPreviewSkp() {

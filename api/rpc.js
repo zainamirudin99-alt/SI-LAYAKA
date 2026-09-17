@@ -9504,8 +9504,8 @@ const methods = {
 
     const needsGDocs = (tmpl && tmpl.tipe === 'gdocs' && (!evalDocUrl || !evalDocUrl.includes('docs.google.com')));
 
-    // Hanya generate dokumen evaluasi jika belum pernah ada, mode preview, atau template GDocs tapi belum link GDocs
-    if (!evalDocUrl || isPreviewOnly || needsGDocs) {
+    // Hanya generate dokumen evaluasi jika belum pernah ada, mode preview, template GDocs tapi belum link GDocs, atau skor berubah
+    if (!evalDocUrl || isPreviewOnly || needsGDocs || (usulan.evaluasi_skor !== undefined && usulan.evaluasi_skor !== totalSkor)) {
       try {
         if (tmpl && tmpl.file_id) {
           // Jika template berupa Google Docs dan GAS aktif, buat salinan Google Docs
@@ -9665,7 +9665,9 @@ const methods = {
     }
 
     const returnMsg = kirimAdminFlag
-      ? `Usulan berkas dan Formulir Evaluasi Kinerja bertanda tangan berhasil divalidasi dan dikirim ke Admin & Super Admin. Status usulan: "Divalidasi Atasan". Rekomendasi: "${dataCtx.rekomendasi}".`
+      ? (newStatus === 'evaluated_not_renewed'
+          ? `Usulan berkas dan Formulir Evaluasi Kinerja bertanda tangan berhasil divalidasi dan dikirim ke Admin. Rekomendasi: "${dataCtx.rekomendasi}".`
+          : `Usulan berkas dan Formulir Evaluasi Kinerja bertanda tangan berhasil divalidasi dan dikirim ke Admin & Super Admin. Status usulan: "Divalidasi Atasan". Rekomendasi: "${dataCtx.rekomendasi}".`)
       : `Formulir Evaluasi Kinerja berhasil disimpan & digenerate. Status usulan: "${newStatus}". Rekomendasi: "${dataCtx.rekomendasi}".`;
 
     return {
@@ -9904,6 +9906,8 @@ const methods = {
     let targetStatus = '';
     if (setuju === false || setuju === 'tolak') {
       targetStatus = 'Ditolak';
+    } else if (usulan.status === 'evaluated_not_renewed' || usulan.status === 'evaluated_not_extend' || (usulan.evaluasi_skor !== undefined && usulan.evaluasi_skor !== null && Number(usulan.evaluasi_skor) < 11)) {
+      return { success: false, message: 'Usulan dengan rekomendasi Tidak Diperbarui tidak dapat disetujui untuk pembaruan kontrak, kecuali Atasan Langsung mengubah penilaian menjadi Diperbarui.' };
     } else if (['validated_by_atasan', 'evaluated_renewed', 'evaluated_extend', 'Diajukan'].includes(usulan.status) || Number(usulan.evaluasi_skor) > 10.5) {
       targetStatus = 'validated_by_admin';
     } else {
@@ -9952,6 +9956,10 @@ const methods = {
 
     if (usulan.nip !== decoded.nip && !['admin', 'super_admin'].includes(decoded.role)) {
       return { success: false, message: 'Anda tidak berwenang mengunggah berkas untuk usulan ini.' };
+    }
+
+    if (usulan.status === 'evaluated_not_renewed' || usulan.status === 'evaluated_not_extend' || (usulan.evaluasi_skor !== undefined && usulan.evaluasi_skor !== null && Number(usulan.evaluasi_skor) < 11)) {
+      return { success: false, message: 'Usulan ini memperoleh rekomendasi Tidak Diperbarui. Akses melengkapi berkas dinonaktifkan kecuali Atasan Langsung mengubah penilaian.' };
     }
 
     if (!['validated_by_admin', 'Disetujui', 'contract_generated', 'Selesai'].includes(usulan.status)) {
@@ -10148,6 +10156,10 @@ const methods = {
     if (fErr) throw fErr;
     if (!usulan) return { success: false, message: 'Usulan tidak ditemukan.' };
 
+    if (usulan.status === 'evaluated_not_renewed' || usulan.status === 'evaluated_not_extend' || (usulan.evaluasi_skor !== undefined && usulan.evaluasi_skor !== null && Number(usulan.evaluasi_skor) < 11)) {
+      return { success: false, message: 'Dokumen Perjanjian Kerja tidak dapat dibuat karena hasil evaluasi kinerja adalah Tidak Diperbarui.' };
+    }
+
     if (usulan.status !== 'validated_by_admin' && usulan.status !== 'Disetujui' && !['admin', 'super_admin'].includes(decoded.role)) {
       return { success: false, message: 'Perjanjian kerja hanya dapat digenerate setelah usulan divalidasi oleh Admin (status: validated_by_admin).' };
     }
@@ -10198,6 +10210,10 @@ const methods = {
     const { data: usulan, error: fetchErr } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
     if (fetchErr) throw fetchErr;
     if (!usulan) return { success: false, message: 'Usulan tidak ditemukan.' };
+
+    if (usulan.status === 'evaluated_not_renewed' || usulan.status === 'evaluated_not_extend' || (usulan.evaluasi_skor !== undefined && usulan.evaluasi_skor !== null && Number(usulan.evaluasi_skor) < 11)) {
+      return { success: false, message: 'Dokumen Perjanjian Kerja tidak dapat dibuat karena hasil evaluasi kinerja adalah Tidak Diperbarui.' };
+    }
 
     let empData = (await findEmployeeByNip(usulan.nip)) || {};
 
