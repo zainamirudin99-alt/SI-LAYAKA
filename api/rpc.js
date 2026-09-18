@@ -1043,8 +1043,8 @@ function buildEvaluasiTkkDataContext(usulan, evalData, empData, atasanEmp) {
   const totalTahunPembaruan = tahunEvaluasi + 1;
   const totalTahunPerpanjangan = totalTahunPembaruan;
   let rekomendasi = isExtend
-    ? `Diperbarui Kontrak s.d. 31 Desember ${totalTahunPembaruan}`
-    : 'Tidak Diperbarui';
+    ? `Direkomendasikan Pembaruan Kontrak s.d 31 Desember ${totalTahunPembaruan}`
+    : 'Tidak Direkomendasikan';
   if (ed.keputusan === 'perlu_perbaikan') rekomendasi = 'Perlu Perbaikan Berkas';
 
   const emp = empData || {};
@@ -1088,6 +1088,9 @@ function buildEvaluasiTkkDataContext(usulan, evalData, empData, atasanEmp) {
     total_tahun_perpanjangan_str: String(totalTahunPerpanjangan),
     total_tahun_pembaruan_str: String(totalTahunPembaruan),
     rekomendasi: rekomendasi,
+    REKOMENDASI: rekomendasi,
+    rekomendasi_kinerja: rekomendasi,
+    hasil_rekomendasi: rekomendasi,
     ttd: ed.ttd || ed.ttd_base64 || ''
   };
 }
@@ -8848,7 +8851,12 @@ const methods = {
       );
 
       const nextYear = parseInt(targetTahun, 10) + 1;
-      const rekomendasi = ed.rekomendasi || (totalSkor >= 11 ? `Diperpanjang Kontrak s.d. 31 Desember ${nextYear}` : 'Tidak Diperpanjang');
+      let rekomendasi = ed.rekomendasi;
+      if (!rekomendasi || rekomendasi.includes('Diperbarui Kontrak') || rekomendasi.includes('Diperpanjang Kontrak')) {
+        rekomendasi = (totalSkor >= 11) ? `Direkomendasikan Pembaruan Kontrak s.d 31 Desember ${nextYear}` : 'Tidak Direkomendasikan';
+      } else if (rekomendasi === 'Tidak Diperbarui' || rekomendasi === 'Tidak Diperpanjang') {
+        rekomendasi = 'Tidak Direkomendasikan';
+      }
 
       items.push({
         id: u.id,
