@@ -1039,7 +1039,9 @@ function buildEvaluasiTkkDataContext(usulan, evalData, empData, atasanEmp) {
   const p7 = Math.max(1, Math.min(3, Number(ed.hasil_kerja || (ed.kriteria && ed.kriteria[6]) || 1)));
 
   const totalSkor = p1 + p2 + p3 + p4 + p5 + p6 + p7;
-  const isExtend = (ed.keputusan === 'diperbarui') || (!ed.keputusan && totalSkor > 10.5); // (>= 11)
+  const hasNilai1 = [p1, p2, p3, p4, p5, p6, p7].some(v => v === 1);
+  const isLolos = !hasNilai1 && totalSkor >= 14;
+  const isExtend = (ed.keputusan === 'diperbarui' && isLolos) || (!ed.keputusan && isLolos);
   const totalTahunPembaruan = tahunEvaluasi + 1;
   const totalTahunPerpanjangan = totalTahunPembaruan;
   let rekomendasi = isExtend
@@ -8850,10 +8852,22 @@ const methods = {
         (parseInt(ed.hasil_kerja, 10) || 2)
       );
 
+      const rawKriteria = [
+        parseInt(ed.orientasi_pelayanan, 10) || 2,
+        parseInt(ed.inisiatif_kerja, 10) || 2,
+        parseInt(ed.komitmen, 10) || 2,
+        parseInt(ed.kerjasama, 10) || 2,
+        parseInt(ed.kehadiran, 10) || 2,
+        parseInt(ed.disiplin, 10) || 2,
+        parseInt(ed.hasil_kerja, 10) || 2
+      ];
+      const hasNilai1 = rawKriteria.some(v => v === 1);
+      const isLolos = !hasNilai1 && totalSkor >= 14;
+
       const nextYear = parseInt(targetTahun, 10) + 1;
       let rekomendasi = ed.rekomendasi;
       if (!rekomendasi || rekomendasi.includes('Diperbarui Kontrak') || rekomendasi.includes('Diperpanjang Kontrak')) {
-        rekomendasi = (totalSkor >= 11) ? `Direkomendasikan Pembaruan Kontrak s.d 31 Desember ${nextYear}` : 'Tidak Direkomendasikan';
+        rekomendasi = isLolos ? `Direkomendasikan Pembaruan Kontrak s.d 31 Desember ${nextYear}` : 'Tidak Direkomendasikan';
       } else if (rekomendasi === 'Tidak Diperbarui' || rekomendasi === 'Tidak Diperpanjang') {
         rekomendasi = 'Tidak Direkomendasikan';
       }
@@ -9065,6 +9079,18 @@ const methods = {
       );
 
       // Tentukan status rekomendasi
+      const rawKriteria = [
+        parseInt(ed.orientasi_pelayanan, 10) || 2,
+        parseInt(ed.inisiatif_kerja, 10) || 2,
+        parseInt(ed.komitmen, 10) || 2,
+        parseInt(ed.kerjasama, 10) || 2,
+        parseInt(ed.kehadiran, 10) || 2,
+        parseInt(ed.disiplin, 10) || 2,
+        parseInt(ed.hasil_kerja, 10) || 2
+      ];
+      const hasNilai1 = rawKriteria.some(v => v === 1);
+      const isLolos = !hasNilai1 && totalSkor >= 14;
+
       const rawRek = String(ed.rekomendasi || u.evaluasi_kinerja || '').trim();
       let isRek = false;
       let rekomendasiTeks = '';
@@ -9074,14 +9100,14 @@ const methods = {
           isRek = false;
           rekomendasiTeks = rawRek;
         } else if (rawRek.toLowerCase().includes('perpanjang') || rawRek.toLowerCase().includes('rekomendasi')) {
-          isRek = true;
+          isRek = isLolos;
           rekomendasiTeks = rawRek;
         } else {
-          isRek = totalSkor >= 11;
+          isRek = isLolos;
           rekomendasiTeks = isRek ? `Diperpanjang Kontrak s.d. 31 Desember ${parseInt(targetTahun, 10) + 1}` : 'Tidak Diperpanjang';
         }
       } else {
-        isRek = totalSkor >= 11;
+        isRek = isLolos;
         rekomendasiTeks = isRek ? `Diperpanjang Kontrak s.d. 31 Desember ${parseInt(targetTahun, 10) + 1}` : 'Tidak Diperpanjang';
       }
 
@@ -9465,9 +9491,12 @@ const methods = {
     const p7 = Number(ed.hasil_kerja || (ed.kriteria && ed.kriteria[6]) || 0);
     const ttdSig = ed.ttd || ed.ttd_base64 || '';
 
+    const kriteriaVals = [p1, p2, p3, p4, p5, p6, p7];
+    const hasNilai1 = kriteriaVals.some(v => v === 1);
     const totalSkor = p1 + p2 + p3 + p4 + p5 + p6 + p7;
-    const keputusan = ed.keputusan || (totalSkor > 10.5 ? 'diperbarui' : 'tidak_diperbarui');
-    const isRenew = (keputusan === 'diperbarui');
+    const isLolos = !hasNilai1 && totalSkor >= 14;
+    const keputusan = ed.keputusan || (isLolos ? 'diperbarui' : 'tidak_diperbarui');
+    const isRenew = (keputusan === 'diperbarui') && isLolos;
 
     if (!isPreviewOnly) {
       if ([p1, p2, p3, p4, p5, p6, p7].some(v => v < 1 || v > 3)) {
@@ -9505,40 +9534,49 @@ const methods = {
     const fileNameSafe = `Formulir_Evaluasi_TKK_${String(usulan.nama).replace(/[^a-zA-Z0-9_-]/g, '_')}_${usulan.nip}.docx`;
 
     let tmpl = null;
+    const reqTmplId = ed.evaluasi_template_id || ed.template_id;
+    const reqTmplType = ed.evaluasi_template_type || ed.template_type;
     try {
-      const reqTmplId = ed.evaluasi_template_id || ed.template_id;
       if (reqTmplId) {
-        const { data: tRow } = await db.from('templates')
-          .select('*')
-          .or(`id.eq.${reqTmplId},file_id.eq.${reqTmplId}`)
-          .maybeSingle();
-        if (tRow && tRow.file_id) tmpl = tRow;
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(reqTmplId).trim());
+        if (isUuid) {
+          const { data: tRow } = await db.from('templates').select('*').eq('id', reqTmplId).maybeSingle();
+          if (tRow && tRow.file_id) tmpl = tRow;
+        }
+        if (!tmpl) {
+          const { data: tRow } = await db.from('templates').select('*').eq('file_id', reqTmplId).maybeSingle();
+          if (tRow && tRow.file_id) tmpl = tRow;
+        }
       }
       if (!tmpl) {
-        const { data: tmplList } = await db.from('templates')
+        let q = db.from('templates')
           .select('*')
           .or('layanan.ilike.%Kontrak Tendik%,layanan.ilike.%Tendik%,layanan.ilike.%Kontrak%,layanan.ilike.%Evaluasi%')
-          .ilike('sub_menu', '%Evaluasi%')
-          .order('dibuat_pada', { ascending: false })
-          .limit(1);
+          .ilike('sub_menu', '%Evaluasi%');
+        if (reqTmplType) {
+          q = q.eq('tipe', reqTmplType);
+        }
+        const { data: tmplList } = await q.order('dibuat_pada', { ascending: false }).limit(1);
         if (tmplList && tmplList.length > 0 && tmplList[0].file_id) {
           tmpl = tmplList[0];
         }
       }
     } catch (_) {}
 
-    const needsGDocs = (tmpl && tmpl.tipe === 'gdocs' && (!evalDocUrl || !evalDocUrl.includes('docs.google.com')));
+    const targetType = reqTmplType || (tmpl ? tmpl.tipe : 'docx');
+    const isGDocs = targetType === 'gdocs' || (tmpl && tmpl.tipe === 'gdocs' && targetType !== 'docx');
+    const needsGDocs = (isGDocs && (!evalDocUrl || !evalDocUrl.includes('docs.google.com')));
 
     // Hanya generate dokumen evaluasi jika belum pernah ada, mode preview, template GDocs tapi belum link GDocs, atau skor berubah
     if (!evalDocUrl || isPreviewOnly || needsGDocs || (usulan.evaluasi_skor !== undefined && usulan.evaluasi_skor !== totalSkor)) {
       try {
         if (tmpl && tmpl.file_id) {
           // Jika template berupa Google Docs dan GAS aktif, buat salinan Google Docs
-          if (tmpl.tipe === 'gdocs' && gasUrl) {
+          if (isGDocs && gasUrl) {
             try {
               const shortId = uuidv4();
               const ctrl = new AbortController();
-              const timeoutId = setTimeout(() => ctrl.abort(), 35000); // 35 detik agar GAS memiliki waktu render Google Docs
+              const timeoutId = setTimeout(() => ctrl.abort(), 15000); // 15 detik timeout agar responsif
 
               // Rampingkan form_data dan evaluasi_data agar transmisi jaringan ringan
               const cleanFormDataForGas = Object.assign({}, usulan.form_data || {});
@@ -9632,7 +9670,7 @@ const methods = {
       docB64 = renderedBuffer ? renderedBuffer.toString('base64') : '';
       const docDataUrl = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${docB64}`;
       try {
-        if (gdocsViewUrl) {
+        if (isGDocs && gdocsViewUrl) {
           evalDocUrl = gdocsViewUrl;
         } else if (docB64) {
           const supUrl = await uploadLampiran(docDataUrl, fileNameSafe, 'evaluasi-tkk');
@@ -9698,11 +9736,12 @@ const methods = {
     return {
       success: true,
       message: returnMsg,
-      base64: gdocsViewUrl ? null : docB64,
+      base64: (isGDocs && gdocsViewUrl) ? null : docB64,
       docUrl: evalDocUrl,
       pdfUrl: pdfUrl,
-      gdocsUrl: gdocsViewUrl,
-      viewUrl: gdocsViewUrl || evalDocUrl,
+      gdocsUrl: isGDocs ? gdocsViewUrl : null,
+      viewUrl: isGDocs ? (gdocsViewUrl || evalDocUrl) : evalDocUrl,
+      tipe: isGDocs ? 'gdocs' : 'docx',
       fileName: fileNameSafe,
       totalSkor,
       rekomendasi: dataCtx.rekomendasi,
@@ -9713,7 +9752,7 @@ const methods = {
 
   async getDokumenEvaluasiUrl(args) {
     const [token, usulanId] = extractArgs(args);
-    const decoded = verifyToken(token);
+    verifyToken(token);
     const db = getDb();
 
     const { data: usulan, error: uErr } = await db.from('usulan_kontrak').select('*').eq('id', usulanId).maybeSingle();
@@ -9721,6 +9760,13 @@ const methods = {
     if (!usulan) return { success: false, message: 'Usulan kontrak tidak ditemukan.' };
 
     let docUrl = usulan.evaluasi_doc_url || '';
+    if (docUrl) {
+      return {
+        success: true,
+        tipe: docUrl.includes('docs.google.com') ? 'gdocs' : 'docx',
+        url: docUrl
+      };
+    }
 
     // 1. Cari template evaluasi yang aktif di sistem / usulan
     let tmpl = null;
@@ -9860,8 +9906,12 @@ const methods = {
     if (!usulan) return { success: false, message: 'Usulan kontrak tidak ditemukan.' };
 
     let skpUrl = usulan.skp_file_url || '';
-    if (skpUrl && skpUrl.includes('docs.google.com')) {
-      return { success: true, tipe: 'gdocs', url: skpUrl };
+    if (skpUrl) {
+      return {
+        success: true,
+        tipe: skpUrl.includes('docs.google.com') ? 'gdocs' : 'docx',
+        url: skpUrl
+      };
     }
 
     // 1. Cari template SKP yang digunakan
@@ -10481,6 +10531,7 @@ const methods = {
 
     // Ambil template: bisa dari templateRef atau default untuk Layanan Kontrak Tendik - Sasaran Kinerja Pegawai
     let tmplRow = null;
+    const reqSkpType = payloadData.skp_template_type || payloadData.template_type;
     if (templateRef) {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(templateRef).trim());
       if (isUuid) {
@@ -10493,10 +10544,13 @@ const methods = {
       }
     }
     if (!tmplRow) {
-      const { data } = await db.from('templates').select('*')
+      let q = db.from('templates').select('*')
         .ilike('layanan', '%Tendik%')
-        .ilike('sub_menu', '%Sasaran%')
-        .order('dibuat_pada', { ascending: false }).limit(1).maybeSingle();
+        .ilike('sub_menu', '%Sasaran%');
+      if (reqSkpType) {
+        q = q.eq('tipe', reqSkpType);
+      }
+      const { data } = await q.order('dibuat_pada', { ascending: false }).limit(1).maybeSingle();
       tmplRow = data;
     }
 
@@ -10667,7 +10721,7 @@ const methods = {
       ekspektasi_kolaboratif: String(payloadData.ekspektasi_kolaboratif || payloadData.kolaboratif || '').trim()
     };
 
-    const isDocxTemplate = tmplRow.tipe === 'docx' || (tmplRow.file_id && (tmplRow.file_id.endsWith('.docx') || tmplRow.file_id.includes('templates/')));
+    const isDocxTemplate = (reqSkpType === 'docx') || tmplRow.tipe === 'docx' || (tmplRow.file_id && (tmplRow.file_id.endsWith('.docx') || tmplRow.file_id.includes('templates/')));
 
     if (isDocxTemplate) {
       let templateBuffer = null;
@@ -10797,7 +10851,7 @@ const methods = {
       };
 
       const ctrl = new AbortController();
-      const timeoutId = setTimeout(() => ctrl.abort(), 35000); // 35 detik agar GAS memiliki waktu render Google Docs
+      const timeoutId = setTimeout(() => ctrl.abort(), 15000); // 15 detik batas timeout GAS agar responsif
 
       // Rampingkan dataCtx dan bersihkan duplikasi signature agar transmisi jaringan tidak terkena limit 413
       const cleanFormDataForGas = Object.assign({}, formDataObj);
