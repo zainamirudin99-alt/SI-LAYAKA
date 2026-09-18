@@ -16246,47 +16246,26 @@ function openEvaluasiResultModal(res, isPreview = false, isValidatedToAdmin = fa
       </a>
     `;
   }
-      buttonsHtml += `
-        <a href="${skpUrl}" target="_blank" rel="noopener" class="btn btn-secondary" style="text-decoration:none; padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; background:#059669; color:#fff; border-color:#059669; box-shadow:0 4px 12px rgba(5,150,105,0.25);">
-          Buka Dokumen SKP (GDocs) &nearr;
-        </a>
-      `;
-    } else if (skpRes.base64) {
-      buttonsHtml += `
-        <button type="button" class="btn btn-secondary" style="padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; background:#059669; color:#fff; border-color:#059669;" onclick="downloadBase64File_('${skpRes.base64}', 'SKP_Tendik.docx')">
-          Unduh Dokumen SKP (.docx)
-        </button>
-      `;
-    } else if (skpUrl) {
-      buttonsHtml += `
-        <a href="${skpUrl}" target="_blank" rel="noopener" ${skpUrl.includes('docs.google.com') ? '' : 'download'} class="btn btn-secondary" style="text-decoration:none; padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; background:#059669; color:#fff; border-color:#059669;">
-          ${skpUrl.includes('docs.google.com') ? 'Buka Dokumen SKP (GDocs) &nearr;' : 'Unduh Dokumen SKP (.docx)'}
-        </a>
-      `;
-    }
-  } else {
-    // Mode bukan validasi final (misal preview / simpan satu dokumen)
-    if (isGdocs) {
-      buttonsHtml += `
-        <a href="${gdocsUrl}" target="_blank" rel="noopener" class="btn btn-secondary" style="text-decoration:none; padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; background:#2563eb; color:#fff; border-color:#2563eb;">
-          ${previewType === 'skp' ? 'Buka Dokumen SKP (Google Docs) &nearr;' : 'Buka Formulir Evaluasi (Google Docs) &nearr;'}
-        </a>
-      `;
-    } else if (res.base64) {
-      buttonsHtml += `
-        <button type="button" class="btn btn-primary" style="padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" onclick="downloadBase64File_('${res.base64}', '${escHtml(fileName)}')">
-          Unduh Dokumen Word (.docx)
-        </button>
-      `;
-    } else if (res.viewUrl || res.docUrl) {
-      const directUrl = res.viewUrl || res.docUrl;
-      const isDirectGdocs = directUrl.includes('docs.google.com');
-      buttonsHtml += `
-        <a href="${directUrl}" target="_blank" rel="noopener" ${isDirectGdocs ? '' : 'download'} class="btn btn-secondary" style="text-decoration:none; padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; background:#2563eb; color:#fff; border-color:#2563eb;">
-          ${isDirectGdocs ? 'Buka Google Docs &nearr;' : 'Unduh Dokumen Word (.docx)'}
-        </a>
-      `;
-    }
+  if (isGdocs) {
+    buttonsHtml += `
+      <a href="${gdocsUrl}" target="_blank" rel="noopener" class="btn btn-secondary" style="text-decoration:none; padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; background:#2563eb; color:#fff; border-color:#2563eb;">
+        ${previewType === 'skp' ? 'Buka Dokumen SKP (Google Docs) &nearr;' : 'Buka Formulir Evaluasi (Google Docs) &nearr;'}
+      </a>
+    `;
+  } else if (res.base64) {
+    buttonsHtml += `
+      <button type="button" class="btn btn-primary" style="padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" onclick="downloadBase64File_('${res.base64}', '${escHtml(fileName)}')">
+        Unduh Dokumen Word (.docx)
+      </button>
+    `;
+  } else if (res.viewUrl || res.docUrl) {
+    const directUrl = res.viewUrl || res.docUrl;
+    const isDirectGdocs = directUrl.includes('docs.google.com');
+    buttonsHtml += `
+      <a href="${directUrl}" target="_blank" rel="noopener" ${isDirectGdocs ? '' : 'download'} class="btn btn-secondary" style="text-decoration:none; padding:10px 20px; font-weight:700; font-size:13px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; background:#2563eb; color:#fff; border-color:#2563eb;">
+        ${isDirectGdocs ? 'Buka Google Docs &nearr;' : 'Unduh Dokumen Word (.docx)'}
+      </a>
+    `;
   }
 
   // Tombol SUBMIT / LANJUT langsung dari dalam Pop-up Preview
