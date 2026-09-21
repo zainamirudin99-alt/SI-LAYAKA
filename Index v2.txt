@@ -1287,6 +1287,33 @@
                 (bukan satu per satu) — begitu diizinkan, semua pegawai berkategori itu langsung bisa membuat kontrak perpanjangan sendiri.
               </div>
               <div id="kontrakAksesKategoriList" class="ce-dashboard-list"></div>
+
+              <!-- SEKSI KHUSUS: PENGATURAN ALUR PENGUSULAN DOSEN (SEPERTI TENDIK) -->
+              <div style="margin-top:24px; padding-top:18px; border-top:1.5px dashed var(--border, #e2e8f0);">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
+                  <div>
+                    <div style="font-weight:700; font-size:15px; color:var(--text, #0f172a); display:flex; align-items:center; gap:8px;">
+                      <span>🎓 Alur Pengusulan Pegawai Dosen</span>
+                      <span id="badgeStatusAlurDosen" style="font-size:11px; font-weight:600; padding:2px 8px; border-radius:12px; background:#f1f5f9; color:#64748b;">Memuat...</span>
+                    </div>
+                    <div class="helper-text" style="margin-top:4px; max-width:650px;">
+                      Ubah alur pengusulan kontrak Dosen agar bertahap seperti Tenaga Kependidikan (Surat Lamaran, Bukti Hasil Kerja, TTD Digital &amp; Penilaian Atasan Langsung). Karena data Atasan Langsung dosen belum otomatis di sistem, pilihan Atasan Langsung dapat dicari secara manual oleh pengusul.
+                    </div>
+                  </div>
+                </div>
+                <div class="ce-dashboard-list" style="margin-top:10px;">
+                  <div class="ce-dashboard-list-item" style="cursor:default; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                      <div class="cdli-name" style="font-weight:600;">Aktifkan Alur Dosen Seperti Tendik</div>
+                      <div style="font-size:12px; color:var(--text-muted, #64748b);">Pengusulan Dosen melalui review bertahap Atasan Langsung (pencarian manual)</div>
+                    </div>
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; min-height:44px;">
+                      <input type="checkbox" id="toggleAlurDosenTendik" style="width:18px; height:18px; cursor:pointer;" />
+                      <span id="labelAlurDosenTendik" style="font-weight:600; font-size:13.5px; color:#888;">Tidak Aktif</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- STATE 2: pilih jenis kontrak spesifik -->
@@ -1646,7 +1673,7 @@
                      <input type="hidden" id="kontrakUser_atasanNama" />
                      <div id="kontrakUser_atasanSearchList" class="autocomplete-list" style="display:none;"></div>
                      <div id="kontrakUser_atasanSelected" style="margin-top:8px; font-weight:600; color:var(--success); display:none;"></div>
-                     <div class="helper-text" style="margin-top:4px;">Wajib dipilih untuk usulan Tenaga Kependidikan agar usulan diteruskan ke akun Atasan Langsung untuk evaluasi kinerja 7 kriteria.</div>
+                     <div class="helper-text" style="margin-top:4px;">Wajib dicari dan dipilih agar usulan kontrak diteruskan langsung ke akun Atasan Langsung untuk penilaian evaluasi kinerja.</div>
                    </div>
                  </div>
 

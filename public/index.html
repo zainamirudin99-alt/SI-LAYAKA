@@ -2711,6 +2711,33 @@
                 (bukan satu per satu) — begitu diizinkan, semua pegawai berkategori itu langsung bisa membuat kontrak perpanjangan sendiri.
               </div>
               <div id="kontrakAksesKategoriList" class="ce-dashboard-list"></div>
+
+              <!-- SEKSI KHUSUS: PENGATURAN ALUR PENGUSULAN DOSEN (SEPERTI TENDIK) -->
+              <div style="margin-top:24px; padding-top:18px; border-top:1.5px dashed var(--border, #e2e8f0);">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
+                  <div>
+                    <div style="font-weight:700; font-size:15px; color:var(--text, #0f172a); display:flex; align-items:center; gap:8px;">
+                      <span>🎓 Alur Pengusulan Pegawai Dosen</span>
+                      <span id="badgeStatusAlurDosen" style="font-size:11px; font-weight:600; padding:2px 8px; border-radius:12px; background:#f1f5f9; color:#64748b;">Memuat...</span>
+                    </div>
+                    <div class="helper-text" style="margin-top:4px; max-width:650px;">
+                      Ubah alur pengusulan kontrak Dosen agar bertahap seperti Tenaga Kependidikan (Surat Lamaran, Bukti Hasil Kerja, TTD Digital &amp; Penilaian Atasan Langsung). Karena data Atasan Langsung dosen belum otomatis di sistem, pilihan Atasan Langsung dapat dicari secara manual oleh pengusul.
+                    </div>
+                  </div>
+                </div>
+                <div class="ce-dashboard-list" style="margin-top:10px;">
+                  <div class="ce-dashboard-list-item" style="cursor:default; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                      <div class="cdli-name" style="font-weight:600;">Aktifkan Alur Dosen Seperti Tendik</div>
+                      <div style="font-size:12px; color:var(--text-muted, #64748b);">Pengusulan Dosen melalui review bertahap Atasan Langsung (pencarian manual)</div>
+                    </div>
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; min-height:44px;">
+                      <input type="checkbox" id="toggleAlurDosenTendik" style="width:18px; height:18px; cursor:pointer;" />
+                      <span id="labelAlurDosenTendik" style="font-weight:600; font-size:13.5px; color:#888;">Tidak Aktif</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- STATE 2: pilih jenis kontrak spesifik -->
@@ -3070,7 +3097,7 @@
                      <input type="hidden" id="kontrakUser_atasanNama" />
                      <div id="kontrakUser_atasanSearchList" class="autocomplete-list" style="display:none;"></div>
                      <div id="kontrakUser_atasanSelected" style="margin-top:8px; font-weight:600; color:var(--success); display:none;"></div>
-                     <div class="helper-text" style="margin-top:4px;">Wajib dipilih untuk usulan Tenaga Kependidikan agar usulan diteruskan ke akun Atasan Langsung untuk evaluasi kinerja 7 kriteria.</div>
+                     <div class="helper-text" style="margin-top:4px;">Wajib dicari dan dipilih agar usulan kontrak diteruskan langsung ke akun Atasan Langsung untuk penilaian evaluasi kinerja.</div>
                    </div>
                  </div>
 
@@ -11571,6 +11598,41 @@ function bindKontrakForm() {
     });
   }
 
+  const atasanSearchInput = document.getElementById('kontrakUser_atasanSearch');
+  const atasanSearchList = document.getElementById('kontrakUser_atasanSearchList');
+  if (atasanSearchInput && atasanSearchList) {
+    let debounceTimerAtasan = null;
+    atasanSearchInput.addEventListener('input', () => {
+      const q = atasanSearchInput.value.trim();
+      clearTimeout(debounceTimerAtasan);
+      if (q.length < 2) { atasanSearchList.style.display = 'none'; return; }
+      debounceTimerAtasan = setTimeout(async () => {
+        try {
+          let results = null;
+          try {
+            results = await rpc('searchEmployees', [SESSION.token, q]);
+          } catch (_) {}
+
+          if (!results && typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler(res => renderUserAtasanSearchResults_(res, atasanSearchInput, atasanSearchList))
+              .searchEmployees(SESSION.token, q);
+            return;
+          }
+          renderUserAtasanSearchResults_(results, atasanSearchInput, atasanSearchList);
+        } catch (errSearch) {
+          console.warn('atasanSearch error:', errSearch);
+        }
+      }, 300);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!atasanSearchInput.contains(e.target) && !atasanSearchList.contains(e.target)) {
+        atasanSearchList.style.display = 'none';
+      }
+    });
+  }
+
   const nipInputEl = document.getElementById('kontrakUser_nip');
   if (nipInputEl) {
     nipInputEl.addEventListener('change', () => {
@@ -11679,6 +11741,119 @@ function loadKontrakAksesKategoriList() {
     })
     .withFailureHandler(err => showToast('error', 'Gagal memuat daftar kategori: ' + (err.message || err)))
     .getSemuaStatusAksesKontrakKategori(SESSION.token);
+
+  // Muat status toggle Alur Pengusulan Dosen seperti Tendik
+  loadStatusAlurDosenTendik_();
+}
+
+/** Mengelola toggle Alur Pengusulan Dosen seperti Tendik (dengan review Atasan Langsung manual) */
+async function loadStatusAlurDosenTendik_() {
+  const cb = document.getElementById('toggleAlurDosenTendik');
+  const span = document.getElementById('labelAlurDosenTendik');
+  const badge = document.getElementById('badgeStatusAlurDosen');
+  if (!cb) return;
+
+  try {
+    const res = await rpc('getAlurPengusulanDosen', [SESSION.token]);
+    const isAktif = !!(res && res.aktif);
+    window._alurDosenTendikAktif = isAktif;
+    cb.checked = isAktif;
+    if (span) {
+      span.textContent = isAktif ? 'Aktif (Seperti Tendik)' : 'Tidak Aktif (Alur Standar)';
+      span.style.color = isAktif ? '#16a34a' : '#888';
+    }
+    if (badge) {
+      badge.textContent = isAktif ? 'Aktif' : 'Nonaktif';
+      badge.style.background = isAktif ? '#dcfce7' : '#f1f5f9';
+      badge.style.color = isAktif ? '#15803d' : '#64748b';
+    }
+  } catch (e) {
+    console.warn('loadStatusAlurDosenTendik_ error:', e);
+  }
+
+  if (!cb._hasChangeListener) {
+    cb._hasChangeListener = true;
+    cb.addEventListener('change', async () => {
+      const nowChecked = cb.checked;
+      if (span) {
+        span.textContent = nowChecked ? 'Aktif (Seperti Tendik)' : 'Tidak Aktif (Alur Standar)';
+        span.style.color = nowChecked ? '#16a34a' : '#888';
+      }
+      if (badge) {
+        badge.textContent = nowChecked ? 'Aktif' : 'Nonaktif';
+        badge.style.background = nowChecked ? '#dcfce7' : '#f1f5f9';
+        badge.style.color = nowChecked ? '#15803d' : '#64748b';
+      }
+
+      try {
+        const res = await rpc('setAlurPengusulanDosen', [SESSION.token, nowChecked]);
+        if (res && res.success) {
+          window._alurDosenTendikAktif = nowChecked;
+          showToast('success', res.message || 'Pengaturan alur pengusulan Dosen berhasil disimpan.');
+        } else {
+          cb.checked = !nowChecked;
+          if (span) {
+            span.textContent = !nowChecked ? 'Aktif (Seperti Tendik)' : 'Tidak Aktif (Alur Standar)';
+            span.style.color = !nowChecked ? '#16a34a' : '#888';
+          }
+          if (badge) {
+            badge.textContent = !nowChecked ? 'Aktif' : 'Nonaktif';
+            badge.style.background = !nowChecked ? '#dcfce7' : '#f1f5f9';
+            badge.style.color = !nowChecked ? '#15803d' : '#64748b';
+          }
+          showToast('error', res?.message || 'Gagal mengubah pengaturan alur Dosen.');
+        }
+      } catch (err) {
+        cb.checked = !nowChecked;
+        if (span) {
+          span.textContent = !nowChecked ? 'Aktif (Seperti Tendik)' : 'Tidak Aktif (Alur Standar)';
+          span.style.color = !nowChecked ? '#16a34a' : '#888';
+        }
+        if (badge) {
+          badge.textContent = !nowChecked ? 'Aktif' : 'Nonaktif';
+          badge.style.background = !nowChecked ? '#dcfce7' : '#f1f5f9';
+          badge.style.color = !nowChecked ? '#15803d' : '#64748b';
+        }
+        showToast('error', 'Gagal menghubungi server: ' + (err.message || err));
+      }
+    });
+  }
+}
+
+/** Render hasil autocomplete pencarian manual Atasan Langsung */
+function renderUserAtasanSearchResults_(results, searchInput, searchList) {
+  if (!searchList) return;
+  searchList.innerHTML = '';
+  if (!results || !results.length) {
+    searchList.innerHTML = '<div class="autocomplete-item" style="color:#94a3b8; cursor:default;">Tidak ada pegawai/dosen ditemukan</div>';
+    searchList.style.display = 'block';
+    return;
+  }
+  results.forEach(r => {
+    const item = document.createElement('div');
+    item.className = 'autocomplete-item';
+    const rNama = r.nama || r.nama_lengkap || '';
+    const rJab = r.jabatan || r.detail_tutam || '';
+    const rUnit = r.unit_es_ii || r.unit_kerja || r.prodi || '';
+    item.innerHTML = `<strong>${escapeHtml(rNama)}</strong><br><small style="color:#64748b;">NIP: ${escapeHtml(r.nip)}${rJab ? ' &middot; ' + escapeHtml(rJab) : ''}${rUnit ? ' &middot; ' + escapeHtml(rUnit) : ''}</small>`;
+    item.addEventListener('click', () => {
+      if (searchInput) searchInput.value = `${rNama} (${r.nip})`;
+      const nipEl = document.getElementById('kontrakUser_atasanNip');
+      const namaEl = document.getElementById('kontrakUser_atasanNama');
+      const selDiv = document.getElementById('kontrakUser_atasanSelected');
+      if (nipEl) nipEl.value = r.nip || '';
+      if (namaEl) namaEl.value = rNama;
+      if (selDiv) {
+        selDiv.innerHTML = `✓ Terpilih: <strong>${escapeHtml(rNama)}</strong> (NIP: ${escapeHtml(r.nip)})${rJab ? ' &middot; ' + escapeHtml(rJab) : ''}`;
+        selDiv.style.display = 'block';
+      }
+      searchList.style.display = 'none';
+      const btnSubmit = document.getElementById('kontrakUser_submitBtn') || document.querySelector('#kontrakUserForm button[type="submit"]');
+      if (btnSubmit) btnSubmit.removeAttribute('disabled');
+    });
+    searchList.appendChild(item);
+  });
+  searchList.style.display = 'block';
 }
 
 function kontrakGoToState_(state) {
@@ -13541,6 +13716,9 @@ async function initKontrakViewForUser() {
     const resAkses = await rpc('getMenuAksesKontrak', [SESSION.token]);
     if (resAkses && resAkses.success) {
       KONTRAK_AKSES_INFO = resAkses;
+      if (resAkses.alurDosenTendikAktif !== undefined) {
+        window._alurDosenTendikAktif = !!resAkses.alurDosenTendikAktif;
+      }
       const isAtasan = !!resAkses.isAtasanLangsung;
       const countAtasan = resAkses.countUsulanAtasan || 0;
       const isKontrak = !!resAkses.isKontrak;
@@ -13620,13 +13798,19 @@ async function initKontrakViewForUser() {
   }
 }
 
-function openKontrakUserNewForm() {
+async function openKontrakUserNewForm() {
   const statusState = document.getElementById('kontrakUserStatusState');
   const formState = document.getElementById('kontrakUserFormState');
   const btnBack = document.getElementById('btnBackToKontrakStatus');
   if (statusState) statusState.style.display = 'none';
   if (formState) formState.style.display = 'block';
   if (btnBack) btnBack.style.display = 'inline-block';
+
+  try {
+    const resAlur = await rpc('getAlurPengusulanDosen', [SESSION.token]);
+    window._alurDosenTendikAktif = !!(resAlur && resAlur.aktif);
+  } catch (_) {}
+
   populateKontrakUserFormProfile();
   toggleEvaluasiKinerjaUser();
   onKontrakUserLayananChange();
@@ -13660,23 +13844,31 @@ function onKontrakUserLayananChange() {
   const atasanWrap = document.getElementById('kontrakUser_atasanWrap');
   const autoNotice = document.getElementById('kontrakUser_atasanAutoNotice');
   const isTendik = (layanan === 'Kontrak Tendik');
+  const isDosen = (layanan === 'Kontrak Dosen');
+  const isAlurBertahap = isTendik || (isDosen && !!window._alurDosenTendikAktif);
   const btnSubmit = document.getElementById('kontrakUser_submitBtn') || document.querySelector('#kontrakUserForm button[type="submit"]');
 
   if (autoNotice) {
     autoNotice.style.display = isTendik ? 'block' : 'none';
   }
   if (atasanWrap) {
-    atasanWrap.style.display = isTendik ? 'none' : 'block';
+    atasanWrap.style.display = (isDosen && isAlurBertahap) ? 'block' : 'none';
   }
 
   if (isTendik) {
     loadAtasanLangsungOtomatisTendik();
+  } else if (isDosen && isAlurBertahap) {
+    const atasanNipVal = document.getElementById('kontrakUser_atasanNip')?.value;
+    if (btnSubmit) {
+      if (!atasanNipVal) btnSubmit.setAttribute('disabled', 'disabled');
+      else btnSubmit.removeAttribute('disabled');
+    }
   } else {
     if (btnSubmit) btnSubmit.removeAttribute('disabled');
   }
 
   // Tampilkan/sembunyikan berkas awal
-  // Untuk Tendik: HANYA Surat Lamaran & Hasil Kerja yang diunggah saat pengusulan awal!
+  // Untuk Alur Bertahap (Tendik atau Dosen dgn alur bertahap aktif): HANYA Surat Lamaran & Hasil Kerja yang diunggah saat pengusulan awal!
   const dFiles = [
     'kontrakUser_file_ktp',
     'kontrakUser_file_kk',
@@ -13690,10 +13882,10 @@ function onKontrakUserLayananChange() {
     const el = document.getElementById(id);
     const wrap = el ? el.closest('.stack-field') : null;
     if (wrap) {
-      wrap.style.display = isTendik ? 'none' : 'block';
+      wrap.style.display = isAlurBertahap ? 'none' : 'block';
     }
     if (el) {
-      if (isTendik) {
+      if (isAlurBertahap) {
         el.removeAttribute('required');
         el.value = '';
       } else {
@@ -13710,9 +13902,9 @@ function onKontrakUserLayananChange() {
   const simWrap = document.getElementById('kontrakUser_simWrap');
   const simInput = document.getElementById('kontrakUser_file_sim');
   if (simWrap) {
-    simWrap.style.display = (!isTendik && isDriver) ? 'block' : 'none';
+    simWrap.style.display = (!isAlurBertahap && isDriver) ? 'block' : 'none';
     if (simInput) {
-      if (!isTendik && isDriver) simInput.setAttribute('required', 'required');
+      if (!isAlurBertahap && isDriver) simInput.setAttribute('required', 'required');
       else simInput.removeAttribute('required');
     }
   }
@@ -13720,20 +13912,20 @@ function onKontrakUserLayananChange() {
   const strWrap = document.getElementById('kontrakUser_strWrap');
   const strInput = document.getElementById('kontrakUser_file_str');
   if (strWrap) {
-    strWrap.style.display = (!isTendik && isMedis) ? 'block' : 'none';
+    strWrap.style.display = (!isAlurBertahap && isMedis) ? 'block' : 'none';
     if (strInput) {
-      if (!isTendik && isMedis) strInput.setAttribute('required', 'required');
+      if (!isAlurBertahap && isMedis) strInput.setAttribute('required', 'required');
       else strInput.removeAttribute('required');
     }
   }
 
-  // Hasil Kerja (Khusus Tendik)
+  // Hasil Kerja (Khusus Alur Bertahap)
   const hasilKerjaWrap = document.getElementById('kontrakUser_hasilKerjaWrap');
   const hasilKerjaInput = document.getElementById('kontrakUser_file_hasil_kerja');
   if (hasilKerjaWrap) {
-    hasilKerjaWrap.style.display = isTendik ? 'block' : 'none';
+    hasilKerjaWrap.style.display = isAlurBertahap ? 'block' : 'none';
     if (hasilKerjaInput) {
-      if (isTendik) hasilKerjaInput.setAttribute('required', 'required');
+      if (isAlurBertahap) hasilKerjaInput.setAttribute('required', 'required');
       else {
         hasilKerjaInput.removeAttribute('required');
         hasilKerjaInput.value = '';
@@ -13741,11 +13933,11 @@ function onKontrakUserLayananChange() {
     }
   }
 
-  // Tanda Tangan Digital Pegawai (Khusus Tendik)
+  // Tanda Tangan Digital Pegawai (Khusus Alur Bertahap)
   const ttdPegawaiWrap = document.getElementById('kontrakUser_ttdPegawaiWrap');
   if (ttdPegawaiWrap) {
-    ttdPegawaiWrap.style.display = isTendik ? 'block' : 'none';
-    if (isTendik) {
+    ttdPegawaiWrap.style.display = isAlurBertahap ? 'block' : 'none';
+    if (isAlurBertahap) {
       setTimeout(initKontrakUserTtdPad, 150);
     } else {
       clearKontrakUserTtdPad();
@@ -13840,6 +14032,7 @@ async function loadAtasanLangsungOtomatisTendik() {
   }
 }
 
+let atasanSearchTimer = null;
 function bindAtasanLangsungSearch() {
   const input = document.getElementById('kontrakUser_atasanSearch');
   const listEl = document.getElementById('kontrakUser_atasanSearchList');
@@ -13877,16 +14070,23 @@ function bindAtasanLangsungSearch() {
 }
 
 function pilihAtasanLangsung(nip, nama, unit) {
-  document.getElementById('kontrakUser_atasanNip').value = nip;
-  document.getElementById('kontrakUser_atasanNama').value = nama;
-  document.getElementById('kontrakUser_atasanSearch').value = `${nama} (${nip})`;
-  document.getElementById('kontrakUser_atasanSearchList').style.display = 'none';
+  const nipEl = document.getElementById('kontrakUser_atasanNip');
+  const namaEl = document.getElementById('kontrakUser_atasanNama');
+  const searchEl = document.getElementById('kontrakUser_atasanSearch');
+  const listEl = document.getElementById('kontrakUser_atasanSearchList');
+  if (nipEl) nipEl.value = nip;
+  if (namaEl) namaEl.value = nama;
+  if (searchEl) searchEl.value = `${nama} (${nip})`;
+  if (listEl) listEl.style.display = 'none';
   
   const selDiv = document.getElementById('kontrakUser_atasanSelected');
   if (selDiv) {
     selDiv.innerHTML = `✅ Atasan Langsung Terpilih: <strong>${escapeHtml(nama)}</strong> (NIP: ${escapeHtml(nip)}) - ${escapeHtml(unit)}`;
     selDiv.style.display = 'block';
   }
+
+  const btnSubmit = document.getElementById('kontrakUser_submitBtn') || document.querySelector('#kontrakUserForm button[type="submit"]');
+  if (btnSubmit) btnSubmit.removeAttribute('disabled');
 }
 
 // Check medical keywords
@@ -14054,6 +14254,8 @@ async function submitUsulanKontrak(e) {
     const layanan = document.getElementById('kontrakUser_layanan').value;
     const sub_menu = document.getElementById('kontrakUser_subMenu').value;
     const isTendik = (layanan === 'Kontrak Tendik');
+    const isDosen = (layanan === 'Kontrak Dosen');
+    const isAlurBertahap = isTendik || (isDosen && !!window._alurDosenTendikAktif);
 
     const jabVal = document.getElementById('kontrakUser_jabatan')?.value || '';
     const isDriver = String(jabVal).toLowerCase().includes('pengemudi');
@@ -14068,15 +14270,21 @@ async function submitUsulanKontrak(e) {
       _isSubmittingUsulanKontrak = false;
       return;
     }
+    if (isDosen && isAlurBertahap && !atasan_nip) {
+      showToast('error', 'Silakan cari dan pilih Atasan Langsung (Penilai Evaluasi Kinerja) terlebih dahulu.');
+      setBtnLoading(btn, false, 'Ajukan Usulan');
+      _isSubmittingUsulanKontrak = false;
+      return;
+    }
 
-    // Untuk Tendik: Hanya Surat Lamaran, Bukti Hasil Kerja, dan Tanda Tangan Digital yang diminta pada tahap pengusulan awal!
+    // Untuk Alur Bertahap: Hanya Surat Lamaran, Bukti Hasil Kerja, dan Tanda Tangan Digital yang diminta pada tahap pengusulan awal!
     const surat_lamaran_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_surat_lamaran')?.value, 'Surat Lamaran', true);
-    const hasil_kerja_url = isTendik
+    const hasil_kerja_url = isAlurBertahap
       ? validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_hasil_kerja')?.value, 'Bukti/Hasil Kerja (Dokumentasi/PPT)', true)
       : '';
 
     let ttd_pegawai = '';
-    if (isTendik) {
+    if (isAlurBertahap) {
       if (!kontrakUserHasDrawn) {
         showToast('error', 'Silakan bubuhkan tanda tangan digital Anda pada kotak tanda tangan terlebih dahulu.');
         setBtnLoading(btn, false, 'Ajukan Usulan');
@@ -14095,7 +14303,7 @@ async function submitUsulanKontrak(e) {
     let sim_ab_url = '';
     let str_aktif_url = '';
 
-    if (!isTendik) {
+    if (!isAlurBertahap) {
       ktp_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_ktp')?.value, 'KTP', true);
       kk_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_kk')?.value, 'Kartu Keluarga', true);
       pas_foto_url = validateAndCleanGdriveFileUrl(document.getElementById('kontrakUser_file_pas_foto')?.value, 'Pas Foto Terbaru', true);
@@ -14113,7 +14321,7 @@ async function submitUsulanKontrak(e) {
       tahun,
       tahun_evaluasi: tahun,
       atasan_nip, atasan_nama,
-      jenis_usulan: isTendik ? 'Pembaruan Kontrak' : jenis_usulan,
+      jenis_usulan: isAlurBertahap ? 'Pembaruan Kontrak' : jenis_usulan,
       evaluasi_kinerja, layanan, sub_menu,
       ktp_url, kk_url, pas_foto_url, ijazah_transkrip_url, surat_pengantar_url,
       surat_lamaran_url, keterangan_sehat_url, sim_ab_url, str_aktif_url, hasil_kerja_url,
@@ -14124,11 +14332,12 @@ async function submitUsulanKontrak(e) {
         tahun_evaluasi: tahun,
         atasan_nip, atasan_nama,
         status_kepegawaian: sub_menu,
+        jenis_pegawai: isDosen ? 'Dosen' : 'Tenaga Kependidikan',
         ttd_pegawai
       }
     };
 
-    const rpcMethod = isTendik ? 'ajukanUsulanKontrakTendik' : 'ajukanUsulanKontrak';
+    const rpcMethod = isAlurBertahap ? 'ajukanUsulanKontrakTendik' : 'ajukanUsulanKontrak';
     const res = await rpc(rpcMethod, [SESSION.token, payload]);
     setBtnLoading(btn, false, 'Ajukan Usulan');
     _isSubmittingUsulanKontrak = false;

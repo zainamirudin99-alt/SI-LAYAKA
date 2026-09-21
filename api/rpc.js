@@ -3231,6 +3231,18 @@ const methods = {
     });
   },
 
+  async searchAtasanLangsung(args) {
+    const list = await this.searchEmployees(args);
+    return {
+      success: true,
+      data: (list || []).map(r => ({
+        nip: r.nip,
+        nama: r.nama || r.nama_lengkap || '',
+        unit: r.unitEsIi || r.unit_es_ii || r.unit_kerja || ''
+      }))
+    };
+  },
+
   async getEmployeeFullData(args) {
     const [token, nip] = extractArgs(args);
     verifyToken(token);
@@ -4642,6 +4654,24 @@ const methods = {
     }
 
     return { success: true, message: `Akses mandiri untuk "${kat}" berhasil ${isAllowed ? 'diberikan' : 'dicabut'}.` };
+  },
+
+  async getAlurPengusulanDosen(args) {
+    const val = await getSystemSetting('ALUR_DOSEN_SEPERTI_TENDIK', 'false');
+    const aktif = (val === 'true' || val === true);
+    return { success: true, aktif };
+  },
+
+  async setAlurPengusulanDosen(args) {
+    const [token, aktif] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    const isAktif = !!aktif;
+    await setSystemSetting('ALUR_DOSEN_SEPERTI_TENDIK', String(isAktif), decoded.nip);
+    return {
+      success: true,
+      aktif: isAktif,
+      message: `Alur pengusulan Dosen seperti Tendik berhasil ${isAktif ? 'diaktifkan' : 'dinonaktifkan'}.`
+    };
   },
 
   async getLatestSavedGenerateData(args) {
@@ -8399,6 +8429,8 @@ const methods = {
     } catch (_) {}
 
     const isAdmin = ['admin', 'super_admin'].includes(role || decoded.role);
+    const valAlurDosen = await getSystemSetting('ALUR_DOSEN_SEPERTI_TENDIK', 'false');
+    const alurDosenTendikAktif = (valAlurDosen === 'true' || valAlurDosen === true);
 
     return {
       success: true,
@@ -8414,7 +8446,8 @@ const methods = {
       kategori: kategoriCocok,
       isAtasanLangsung,
       countUsulanAtasan,
-      isAdmin
+      isAdmin,
+      alurDosenTendikAktif
     };
   },
 
@@ -8507,7 +8540,9 @@ const methods = {
     const targetNip = String(nip || decoded.nip).trim();
     const targetNama = String(nama || decoded.nama).trim();
     const targetTahun = String(tahun || payload?.tahun_evaluasi || new Date().getFullYear()).trim();
-    const targetLayanan = 'Kontrak Tendik';
+    const isDosen = /dosen/i.test(payload?.layanan) || /dosen/i.test(payload?.form_data?.jenis_pegawai);
+    const targetLayanan = isDosen ? 'Kontrak Dosen' : 'Kontrak Tendik';
+    const labelPegawai = isDosen ? 'Dosen' : 'Tenaga Kependidikan';
 
     const rlCheck = checkRateLimit(`submit_tendik:${targetNip}`, 20, 60 * 1000);
     if (!rlCheck.allowed) {
@@ -8527,7 +8562,7 @@ const methods = {
       if (existing) {
         return {
           success: true,
-          message: `Usulan Pembaruan Kontrak Tenaga Kependidikan aktif sudah terdaftar untuk tahun ${targetTahun} (${existing.atasan_nama || 'Atasan'}).`,
+          message: `Usulan Pembaruan Kontrak ${labelPegawai} aktif sudah terdaftar untuk tahun ${targetTahun} (${existing.atasan_nama || 'Atasan'}).`,
           id: existing.id,
           already_exists: true
         };
@@ -8535,44 +8570,58 @@ const methods = {
     } catch (_) {}
 
     const emp = await findEmployeeByNip(targetNip);
-    const unitEsIv = String(emp?.unit_es_iv || payload?.unit_es_iv || form_data?.unit_es_iv || '').trim();
-    if (!unitEsIv) {
-      return {
-        success: false,
-        message: 'Unit / Program Studi (unit_es_iv) pada data kepegawaian Anda belum terisi. Hubungi administrator kepegawaian untuk melengkapi data sebelum mengajukan pembaruan kontrak.'
-      };
-    }
+    let atasanNip = String(payload?.atasan_nip || '').trim();
+    let atasanNama = String(payload?.atasan_nama || '').trim();
+    let atasanTutam = '';
+    let unitEsIv = '';
 
-    // Auto-assign Atasan Langsung: Match unit_es_iv (Pengusul) = prodi (Tabel Atasan Langsung)
-    let atasanMatches = [];
-    try {
-      const { data: matches, error: atasanErr } = await db.from('atasan_langsung')
-        .select('*')
-        .ilike('prodi', unitEsIv);
-      if (atasanErr) throw atasanErr;
-      atasanMatches = matches || [];
-    } catch (dbErr) {
-      console.warn('[ajukanUsulanKontrakTendik] Error querying atasan_langsung:', dbErr.message);
-    }
+    if (atasanNip) {
+      if (!atasanNama) {
+        const atEmp = await findEmployeeByNip(atasanNip);
+        atasanNama = atEmp?.nama_lengkap || atEmp?.nama || atasanNip;
+        atasanTutam = atEmp?.jabatan || '';
+      }
+      unitEsIv = String(emp?.unit_es_iv || payload?.unit_es_iv || form_data?.unit_es_iv || emp?.unit_es_ii || '').trim();
+    } else {
+      unitEsIv = String(emp?.unit_es_iv || payload?.unit_es_iv || form_data?.unit_es_iv || '').trim();
+      if (!unitEsIv) {
+        return {
+          success: false,
+          message: 'Unit / Program Studi (unit_es_iv) pada data kepegawaian Anda belum terisi. Hubungi administrator kepegawaian untuk melengkapi data sebelum mengajukan pembaruan kontrak.'
+        };
+      }
 
-    if (!atasanMatches || atasanMatches.length === 0) {
-      return {
-        success: false,
-        message: `Atasan Langsung untuk Unit / Program Studi "${unitEsIv}" belum terdaftar di sistem. Hubungi administrator kepegawaian.`
-      };
-    }
+      // Auto-assign Atasan Langsung: Match unit_es_iv (Pengusul) = prodi (Tabel Atasan Langsung)
+      let atasanMatches = [];
+      try {
+        const { data: matches, error: atasanErr } = await db.from('atasan_langsung')
+          .select('*')
+          .ilike('prodi', unitEsIv);
+        if (atasanErr) throw atasanErr;
+        atasanMatches = matches || [];
+      } catch (dbErr) {
+        console.warn('[ajukanUsulanKontrakTendik] Error querying atasan_langsung:', dbErr.message);
+      }
 
-    if (atasanMatches.length > 1) {
-      return {
-        success: false,
-        message: `Terdeteksi lebih dari satu Atasan Langsung untuk Unit / Program Studi "${unitEsIv}". Hubungi administrator kepegawaian untuk verifikasi data.`
-      };
-    }
+      if (!atasanMatches || atasanMatches.length === 0) {
+        return {
+          success: false,
+          message: `Atasan Langsung untuk Unit / Program Studi "${unitEsIv}" belum terdaftar di sistem. Hubungi administrator kepegawaian.`
+        };
+      }
 
-    const atasanRow = atasanMatches[0];
-    const atasanNip = String(atasanRow.nip || '').trim();
-    const atasanNama = String(atasanRow.nama_lengkap || atasanRow.nama || atasanNip).trim();
-    const atasanTutam = String(atasanRow.detail_tutam || '').trim();
+      if (atasanMatches.length > 1) {
+        return {
+          success: false,
+          message: `Terdeteksi lebih dari satu Atasan Langsung untuk Unit / Program Studi "${unitEsIv}". Hubungi administrator kepegawaian untuk verifikasi data.`
+        };
+      }
+
+      const atasanRow = atasanMatches[0];
+      atasanNip = String(atasanRow.nip || '').trim();
+      atasanNama = String(atasanRow.nama_lengkap || atasanRow.nama || atasanNip).trim();
+      atasanTutam = String(atasanRow.detail_tutam || '').trim();
+    }
 
     const { status_kepegawaian: roleStatus } = await getUserRole(targetNip);
     const effectiveStatus = roleStatus || emp?.status_kepegawaian || 'Tenaga Profesional';
@@ -8636,7 +8685,7 @@ const methods = {
         atasan_tutam: atasanTutam,
         unit_es_iv: unitEsIv,
         status_kepegawaian: effectiveStatus,
-        jenis_pegawai: 'Tenaga Kependidikan',
+        jenis_pegawai: labelPegawai,
         ttd_pegawai: ttdPegawaiSig
       }),
       surat_lamaran_url: lamaranUrl,
@@ -8659,7 +8708,7 @@ const methods = {
             .maybeSingle();
           return {
             success: true,
-            message: `Usulan Pembaruan Kontrak Tenaga Kependidikan aktif sudah terdaftar untuk tahun ${targetTahun}.`,
+            message: `Usulan Pembaruan Kontrak ${labelPegawai} aktif sudah terdaftar untuk tahun ${targetTahun}.`,
             id: existingAfter?.id,
             already_exists: true
           };
@@ -8677,7 +8726,7 @@ const methods = {
           .maybeSingle();
         return {
           success: true,
-          message: `Usulan Pembaruan Kontrak Tenaga Kependidikan aktif sudah terdaftar untuk tahun ${targetTahun}.`,
+          message: `Usulan Pembaruan Kontrak ${labelPegawai} aktif sudah terdaftar untuk tahun ${targetTahun}.`,
           id: existingAfter?.id,
           already_exists: true
         };
@@ -8687,7 +8736,7 @@ const methods = {
 
     return {
       success: true,
-      message: `Usulan Pembaruan Kontrak Tenaga Kependidikan berhasil diajukan dan diteruskan secara otomatis ke Atasan Langsung (${atasanNama}).`,
+      message: `Usulan Pembaruan Kontrak ${labelPegawai} berhasil diajukan dan diteruskan ke Atasan Langsung (${atasanNama}).`,
       id: insertedId
     };
   },
