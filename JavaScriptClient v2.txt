@@ -12327,6 +12327,11 @@ async function previewSkpTendikModal() {
 
   const payloadData = collectSkpFormData(activeEvaluasiUsulanId) || {};
   payloadData.is_preview = true;
+  const skpRadioType = document.querySelector(`input[name="skp_templateSelectType_${activeEvaluasiUsulanId}"]:checked`) || document.querySelector('input[name^="skp_templateSelectType_"]:checked');
+  const skpSelectedType = skpRadioType ? skpRadioType.value : (selectEl?.options[selectEl.selectedIndex]?.getAttribute('data-tipe') || 'gdocs');
+  payloadData.skp_template_type = skpSelectedType;
+  payloadData.template_type = skpSelectedType;
+  payloadData.skp_template_id = templateRef;
 
   // Sertakan tanda tangan atasan langsung & tanda tangan pegawai untuk pratinjau
   const evalPayload = collectEvaluasiTkkPayload();
@@ -12364,6 +12369,11 @@ async function buatDokumenSkpModal() {
 
   const payloadData = collectSkpFormData(activeEvaluasiUsulanId) || {};
   payloadData.is_preview = false;
+  const skpRadioType = document.querySelector(`input[name="skp_templateSelectType_${activeEvaluasiUsulanId}"]:checked`) || document.querySelector('input[name^="skp_templateSelectType_"]:checked');
+  const skpSelectedType = skpRadioType ? skpRadioType.value : (selectEl?.options[selectEl.selectedIndex]?.getAttribute('data-tipe') || 'gdocs');
+  payloadData.skp_template_type = skpSelectedType;
+  payloadData.template_type = skpSelectedType;
+  payloadData.skp_template_id = templateRef;
 
   // Sertakan tanda tangan atasan langsung & tanda tangan pegawai
   const evalPayload = collectEvaluasiTkkPayload();
@@ -13302,7 +13312,7 @@ async function approveBerkasKelengkapanAdmin(usulanId, docKey, isApprove, catata
 }
 
 async function bukaDokumenEvaluasi(usulanId, currentDocUrl) {
-  if (currentDocUrl) {
+  if (currentDocUrl && (currentDocUrl.includes('docs.google.com') || currentDocUrl.includes('drive.google.com'))) {
     window.open(currentDocUrl, '_blank');
     return;
   }
@@ -13310,12 +13320,26 @@ async function bukaDokumenEvaluasi(usulanId, currentDocUrl) {
   try {
     const res = await rpc('getDokumenEvaluasiUrl', [SESSION.token, usulanId]);
     if (res && res.success && res.url) {
-      window.open(res.url, '_blank');
+      const finalUrl = res.url;
+      if (finalUrl.includes('docs.google.com') || finalUrl.includes('drive.google.com')) {
+        window.open(finalUrl, '_blank');
+      } else {
+        const viewerUrl = 'https://docs.google.com/viewer?url=' + encodeURIComponent(finalUrl);
+        window.open(viewerUrl, '_blank');
+      }
+    } else if (currentDocUrl) {
+      const viewerUrl = 'https://docs.google.com/viewer?url=' + encodeURIComponent(currentDocUrl);
+      window.open(viewerUrl, '_blank');
     } else {
       showToast('error', res?.message || 'Dokumen formulir evaluasi belum siap.');
     }
   } catch (err) {
-    showToast('error', 'Gagal membuka formulir evaluasi: ' + (err.message || err));
+    if (currentDocUrl) {
+      const viewerUrl = 'https://docs.google.com/viewer?url=' + encodeURIComponent(currentDocUrl);
+      window.open(viewerUrl, '_blank');
+    } else {
+      showToast('error', 'Gagal membuka formulir evaluasi: ' + (err.message || err));
+    }
   }
 }
 
@@ -13325,21 +13349,38 @@ async function bukaDokumenSkp(usulanId, currentFileUrl) {
     usulanId = '';
   }
 
-  if (currentFileUrl) {
+  // 1. Jika URL dokumen sudah merupakan Google Docs atau Google Drive, buka langsung di tab baru
+  if (currentFileUrl && (currentFileUrl.includes('docs.google.com') || currentFileUrl.includes('drive.google.com'))) {
     window.open(currentFileUrl, '_blank');
     return;
   }
 
+  // 2. Jika belum berupa GDocs atau merupakan file .docx lokal, dapatkan/generate live Google Docs dari server
   showToast('info', 'Membuka dokumen Sasaran Kinerja Pegawai (SKP)...');
   try {
     const res = await rpc('getDokumenSkpUrl', [SESSION.token, usulanId]);
     if (res && res.success && res.url) {
-      window.open(res.url, '_blank');
+      const finalUrl = res.url;
+      if (finalUrl.includes('docs.google.com') || finalUrl.includes('drive.google.com')) {
+        window.open(finalUrl, '_blank');
+      } else {
+        // Jika file berformat .docx, buka via Google Docs Viewer online agar tidak memaksa browser mendownload file ke komputer
+        const viewerUrl = 'https://docs.google.com/viewer?url=' + encodeURIComponent(finalUrl);
+        window.open(viewerUrl, '_blank');
+      }
+    } else if (currentFileUrl) {
+      const viewerUrl = 'https://docs.google.com/viewer?url=' + encodeURIComponent(currentFileUrl);
+      window.open(viewerUrl, '_blank');
     } else {
       showToast('error', res?.message || 'Dokumen Sasaran Kinerja Pegawai (SKP) belum siap.');
     }
   } catch (err) {
-    showToast('error', 'Gagal membuka dokumen SKP: ' + (err.message || err));
+    if (currentFileUrl) {
+      const viewerUrl = 'https://docs.google.com/viewer?url=' + encodeURIComponent(currentFileUrl);
+      window.open(viewerUrl, '_blank');
+    } else {
+      showToast('error', 'Gagal membuka dokumen SKP: ' + (err.message || err));
+    }
   }
 }
 
@@ -17591,6 +17632,12 @@ async function previewSkpTendikSelf(usulanId) {
 
   const payloadData = collectSkpFormData(usulanId) || {};
   payloadData.is_preview = true;
+  const skpRadioType = document.querySelector(`input[name="skp_templateSelectType_${usulanId}"]:checked`) || document.querySelector('input[name^="skp_templateSelectType_"]:checked');
+  const skpSelectedType = skpRadioType ? skpRadioType.value : (selectEl?.options[selectEl.selectedIndex]?.getAttribute('data-tipe') || 'gdocs');
+  payloadData.skp_template_type = skpSelectedType;
+  payloadData.template_type = skpSelectedType;
+  payloadData.skp_template_id = templateRef;
+
   if (!payloadData.ttd_pegawai && window.activeTtdPegawai) payloadData.ttd_pegawai = window.activeTtdPegawai;
   if (!payloadData.tanda_tangan_pegawai && payloadData.ttd_pegawai) payloadData.tanda_tangan_pegawai = payloadData.ttd_pegawai;
   if (!payloadData.ttd_pengusul && payloadData.ttd_pegawai) payloadData.ttd_pengusul = payloadData.ttd_pegawai;
@@ -17627,6 +17674,12 @@ async function generateSkpTendikSelf(usulanId) {
   }
 
   const payloadData = collectSkpFormData(usulanId) || {};
+  const skpRadioType = document.querySelector(`input[name="skp_templateSelectType_${usulanId}"]:checked`) || document.querySelector('input[name^="skp_templateSelectType_"]:checked');
+  const skpSelectedType = skpRadioType ? skpRadioType.value : (selectEl?.options[selectEl.selectedIndex]?.getAttribute('data-tipe') || 'gdocs');
+  payloadData.skp_template_type = skpSelectedType;
+  payloadData.template_type = skpSelectedType;
+  payloadData.skp_template_id = templateRef;
+
   if (!payloadData.ttd_pegawai && window.activeTtdPegawai) payloadData.ttd_pegawai = window.activeTtdPegawai;
   if (!payloadData.ttd_atasan_langsung && window.activeTtdAtasan) payloadData.ttd_atasan_langsung = window.activeTtdAtasan;
   delete payloadData.tanda_tangan_pegawai;

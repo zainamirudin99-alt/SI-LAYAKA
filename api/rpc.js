@@ -10028,10 +10028,12 @@ const methods = {
     if (!usulan) return { success: false, message: 'Usulan kontrak tidak ditemukan.' };
 
     let skpUrl = usulan.skp_file_url || '';
-    if (skpUrl) {
+
+    // Jika skpUrl sudah berupa Google Docs / Drive, langsung kembalikan
+    if (skpUrl && (skpUrl.includes('docs.google.com') || skpUrl.includes('drive.google.com'))) {
       return {
         success: true,
-        tipe: skpUrl.includes('docs.google.com') ? 'gdocs' : 'docx',
+        tipe: 'gdocs',
         url: skpUrl
       };
     }
@@ -10058,28 +10060,36 @@ const methods = {
       if (tmplList && tmplList.length > 0) tmpl = tmplList[0];
     }
 
-    const isGDocsTemplate = tmpl ? (tmpl.tipe === 'gdocs') : (skpUrl ? skpUrl.includes('docs.google.com') : true);
+    const reqSkpType = usulan.skp_data?.skp_template_type || usulan.skp_data?.template_type;
+    const isGDocsTemplate = (reqSkpType === 'gdocs') || (tmpl ? (tmpl.tipe === 'gdocs') : (skpUrl ? skpUrl.includes('docs.google.com') : true));
 
     // 2. Jika template Google Docs dan belum berupa link GDocs, coba generate via generateSkpTendik
     if (isGDocsTemplate && tmpl && tmpl.file_id && (!skpUrl || !skpUrl.includes('docs.google.com'))) {
       try {
-        const skpData = usulan.skp_data || {};
+        const skpData = Object.assign({}, usulan.skp_data || {}, {
+          skp_template_type: 'gdocs',
+          template_type: 'gdocs',
+          skp_template_id: tmpl.id || tmpl.file_id
+        });
         const genRes = await methods.generateSkpTendik([token, tmpl.file_id, usulanId, skpData]);
         if (genRes && genRes.success) {
-          const finalUrl = genRes.viewUrl || genRes.pdfUrl || genRes.fileUrl || '';
+          const finalUrl = genRes.viewUrl || genRes.gdocsUrl || genRes.pdfUrl || genRes.fileUrl || '';
           const isFinalGdocs = finalUrl.includes('docs.google.com') || genRes.outputType === 'gdocs';
-          return {
-            success: true,
-            tipe: isFinalGdocs ? 'gdocs' : 'docx',
-            url: finalUrl
-          };
+          if (finalUrl) {
+            await db.from('usulan_kontrak').update({ skp_file_url: finalUrl }).eq('id', usulanId);
+            return {
+              success: true,
+              tipe: isFinalGdocs ? 'gdocs' : 'docx',
+              url: finalUrl
+            };
+          }
         }
       } catch (errGen) {
         console.warn('[getDokumenSkpUrl] generateSkpTendik notice:', errGen.message);
       }
     }
 
-    // 3. Jika sudah ada URL dokumen SKP
+    // 3. Jika sudah ada URL dokumen SKP sebelumnya (fallback DOCX dsb)
     if (skpUrl) {
       return {
         success: true,
@@ -10843,7 +10853,7 @@ const methods = {
       ekspektasi_kolaboratif: String(payloadData.ekspektasi_kolaboratif || payloadData.kolaboratif || '').trim()
     };
 
-    const isDocxTemplate = (reqSkpType === 'docx') || tmplRow.tipe === 'docx' || (tmplRow.file_id && (tmplRow.file_id.endsWith('.docx') || tmplRow.file_id.includes('templates/')));
+    const isDocxTemplate = (reqSkpType === 'docx') || (reqSkpType !== 'gdocs' && (tmplRow.tipe === 'docx' || (tmplRow.file_id && (tmplRow.file_id.endsWith('.docx') || tmplRow.file_id.includes('templates/')))));
 
     if (isDocxTemplate) {
       let templateBuffer = null;
@@ -10973,7 +10983,7 @@ const methods = {
       };
 
       const ctrl = new AbortController();
-      const timeoutId = setTimeout(() => ctrl.abort(), 15000); // 15 detik batas timeout GAS agar responsif
+      const timeoutId = setTimeout(() => ctrl.abort(), 45000); // 45 detik batas timeout GAS agar tuntas render GDocs
 
       // Rampingkan dataCtx dan bersihkan duplikasi signature agar transmisi jaringan tidak terkena limit 413
       const cleanFormDataForGas = Object.assign({}, formDataObj);
@@ -11031,7 +11041,7 @@ const methods = {
         gasResult = await parseGasResponse(response, 'generateSkpTendik-GAS');
         if (gasResult && gasResult.success) {
           gasSuccess = true;
-          resViewUrl = gasResult.viewUrl || gasResult.docViewUrl || (gasResult.docFileId ? `https://docs.google.com/document/d/${gasResult.docFileId}/edit` : '');
+          resViewUrl = gasResult.viewUrl || gasResult.docViewUrl || gasResult.url || (gasResult.docFileId ? `https://docs.google.com/document/d/${gasResult.docFileId}/edit` : (gasResult.fileId ? `https://docs.google.com/document/d/${gasResult.fileId}/edit` : ''));
           resPdfUrl = gasResult.pdfViewUrl || gasResult.pdfDownloadUrl || (gasResult.pdfFileId ? `https://drive.google.com/file/d/${gasResult.pdfFileId}/view` : '');
           finalUrl = resViewUrl || resPdfUrl;
         } else {
