@@ -1999,6 +1999,7 @@
                           <th>TMT</th>
                           <th>Status Saat Ini</th>
                           <th>Ubah Status</th>
+                          <th style="width:60px; text-align:center;">Aksi</th>
                         </tr>
                       </thead>
                       <tbody id="umModalTbody"></tbody>
@@ -9026,7 +9027,7 @@ function renderStatusDetailModalContent() {
   if (countEl) countEl.textContent = filtered.length;
 
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:18px;">Tidak ada pegawai dengan status "${targetStatus}" ${q ? 'yang cocok dengan pencarian' : ''}.td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:18px;">Tidak ada pegawai dengan status "${targetStatus}" ${q ? 'yang cocok dengan pencarian' : ''}.</td></tr>`;
     return;
   }
 
@@ -9074,6 +9075,9 @@ function renderStatusDetailModalContent() {
             <option value="Belum Eligible" ${currentStatus === 'Belum Eligible' || currentStatus === 'Tidak Eligible' ? 'selected' : ''}>Belum Eligible</option>
             <option value="Pensiun" ${currentStatus === 'Pensiun' ? 'selected' : ''}>Pensiun</option>
           </select>
+        </td>
+        <td style="text-align:center;">
+          <button type="button" class="btn btn-outline kp-small-btn" onclick="deleteUsulanMasukInline('${u.id}', '${escapeHtml(u.nama || '')}')" style="color:var(--danger, #dc2626); border-color:var(--danger, #dc2626); padding:3px 8px; font-size:13px; cursor:pointer;" title="Hapus Usulan ${escapeHtml(u.nama || '')}">🗑️</button>
         </td>
       </tr>
     `;
@@ -9941,14 +9945,20 @@ async function updateUsulanStatusInline(id, newStatus) {
   }
 }
 
-async function deleteUsulanMasukInline(id) {
-  if (!confirm('Apakah Anda yakin ingin menghapus usulan ini?')) return;
+async function deleteUsulanMasukInline(id, nama) {
+  const confirmMsg = nama ? `Apakah Anda yakin ingin menghapus usulan untuk "${nama}"?` : 'Apakah Anda yakin ingin menghapus usulan ini?';
+  if (!confirm(confirmMsg)) return;
 
   showToast('info', 'Menghapus usulan...');
   try {
     const res = await rpc('deleteUsulanMasukSingle', [SESSION.token, id]);
     if (res && res.success) {
       showToast('success', 'Usulan berhasil dihapus.');
+      window.umGlobalList = (window.umGlobalList || []).filter(x => String(x.id) !== String(id));
+      window.umMasterRawList = (window.umMasterRawList || []).filter(x => String(x.id) !== String(id));
+      if (document.getElementById('umStatusDetailModal')?.style?.display === 'block') {
+        renderStatusDetailModalContent();
+      }
       loadUsulanMasukTmtDashboard(true);
     } else {
       showToast('error', res?.message || 'Gagal menghapus usulan.');
@@ -9962,6 +9972,11 @@ async function deleteUsulanMasukInline(id) {
             return;
           }
           showToast('success', 'Usulan berhasil dihapus.');
+          window.umGlobalList = (window.umGlobalList || []).filter(x => String(x.id) !== String(id));
+          window.umMasterRawList = (window.umMasterRawList || []).filter(x => String(x.id) !== String(id));
+          if (document.getElementById('umStatusDetailModal')?.style?.display === 'block') {
+            renderStatusDetailModalContent();
+          }
           loadUsulanMasukTmtDashboard(true);
         })
         .withFailureHandler(e => showToast('error', 'Gagal menghapus usulan: ' + (e.message || e)))

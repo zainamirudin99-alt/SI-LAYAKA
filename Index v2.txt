@@ -575,6 +575,7 @@
                           <th>TMT</th>
                           <th>Status Saat Ini</th>
                           <th>Ubah Status</th>
+                          <th style="width:60px; text-align:center;">Aksi</th>
                         </tr>
                       </thead>
                       <tbody id="umModalTbody"></tbody>
