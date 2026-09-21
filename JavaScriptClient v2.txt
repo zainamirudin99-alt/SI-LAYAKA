@@ -1841,7 +1841,9 @@ async function loadServiceTemplates(layanan, subMenu, selectId) {
   const selectEl = document.getElementById(selectId);
   if (!selectEl) return;
 
-  if (TEMPLATE_CACHE[selectId] && TEMPLATE_CACHE[selectId].length) {
+  const cacheKey = `${selectId}_${layanan}_${subMenu}`;
+  if (TEMPLATE_CACHE[cacheKey] && TEMPLATE_CACHE[cacheKey].length) {
+    TEMPLATE_CACHE[selectId] = TEMPLATE_CACHE[cacheKey];
     const checkedRadio = document.querySelector(`input[name="${selectId}Type"]:checked`);
     const defaultType = checkedRadio ? checkedRadio.value : 'gdocs';
     filterServiceTemplates(selectId, defaultType);
@@ -1849,23 +1851,33 @@ async function loadServiceTemplates(layanan, subMenu, selectId) {
     selectEl.innerHTML = '<option value="">Memuat template...</option>';
   }
 
-  try {
-    const res = await rpc('getTemplates', [SESSION.token, layanan, subMenu]);
-    const templates = (res && res.templates) ? res.templates : (Array.isArray(res) ? res : []);
+  const applyTemplates = (res) => {
+    let templates = (res && res.templates) ? res.templates : (Array.isArray(res) ? res : []);
+    const isTendik = (layanan === 'Kontrak Tendik') || (!layanan && SESSION.user && !String(SESSION.user.jenis_peg || '').toLowerCase().includes('dosen'));
+    const isDosen = (layanan === 'Kontrak Dosen') || (!layanan && SESSION.user && String(SESSION.user.jenis_peg || '').toLowerCase().includes('dosen'));
+
+    if (isTendik) {
+      templates = templates.filter(t => !String(t.layanan || '').toLowerCase().includes('dosen') && !/\bdosen\b/i.test(t.judul));
+      templates.sort((a, b) => ((b.layanan === 'Kontrak Tendik' ? 10 : 0) + (/\btendik\b|\bkependidikan\b/i.test(b.judul) ? 5 : 0)) - ((a.layanan === 'Kontrak Tendik' ? 10 : 0) + (/\btendik\b|\bkependidikan\b/i.test(a.judul) ? 5 : 0)));
+    } else if (isDosen) {
+      templates = templates.filter(t => !String(t.layanan || '').toLowerCase().includes('tendik') && !/\btendik\b|\bkependidikan\b/i.test(t.judul));
+      templates.sort((a, b) => ((b.layanan === 'Kontrak Dosen' ? 10 : 0) + (/\bdosen\b/i.test(b.judul) ? 5 : 0)) - ((a.layanan === 'Kontrak Dosen' ? 10 : 0) + (/\bdosen\b/i.test(a.judul) ? 5 : 0)));
+    }
+
+    TEMPLATE_CACHE[cacheKey] = templates;
     TEMPLATE_CACHE[selectId] = templates;
     const checkedRadio = document.querySelector(`input[name="${selectId}Type"]:checked`);
     const defaultType = checkedRadio ? checkedRadio.value : 'gdocs';
     filterServiceTemplates(selectId, defaultType);
+  };
+
+  try {
+    const res = await rpc('getTemplates', [SESSION.token, layanan, subMenu]);
+    applyTemplates(res);
   } catch (err) {
     if (typeof google !== 'undefined' && google.script && google.script.run) {
       google.script.run
-        .withSuccessHandler(res => {
-          const templates = res.templates || res || [];
-          TEMPLATE_CACHE[selectId] = templates;
-          const checkedRadio = document.querySelector(`input[name="${selectId}Type"]:checked`);
-          const defaultType = checkedRadio ? checkedRadio.value : 'gdocs';
-          filterServiceTemplates(selectId, defaultType);
-        })
+        .withSuccessHandler(applyTemplates)
         .withFailureHandler(() => {
           if (!TEMPLATE_CACHE[selectId]) selectEl.innerHTML = '<option value="">Gagal memuat template</option>';
         })
@@ -1917,36 +1929,79 @@ function renderTemplateSelectorForUsulan(layanan, subMenu, wrapId, btnId, action
   
   const selectEl = document.getElementById(selectId);
   selectEl.innerHTML = '<option value="">Memuat template...</option>';
-  
-  google.script.run
-    .withSuccessHandler(res => {
-      const templates = res.templates || res || [];
-      TEMPLATE_CACHE[selectId] = templates;
-      
-      const filterTpl = (tipe) => {
-        const filtered = templates.filter(t => (t.tipe || 'gdocs') === tipe);
-        if (!filtered.length) {
-          selectEl.innerHTML = `<option value="">Belum ada template ${tipe === 'docx' ? 'Word' : 'GDocs'} terdaftar</option>`;
-          return;
-        }
-        selectEl.innerHTML = filtered.map(t => {
-          const fileIdVal = t.id || t.fileId;
-          return `<option value="${fileIdVal}" data-tipe="${t.tipe || 'gdocs'}">${escapeHtml(t.judul)}</option>`;
-        }).join('');
-      };
-      
-      filterTpl('gdocs');
-      
-      wrap.querySelectorAll(`input[name="${radioName}"]`).forEach(radio => {
-        radio.addEventListener('change', (e) => {
-          filterTpl(e.target.value);
-        });
+
+  const isTendik = (layanan === 'Kontrak Tendik') || (!layanan && SESSION.user && !String(SESSION.user.jenis_peg || '').toLowerCase().includes('dosen'));
+  const isDosen = (layanan === 'Kontrak Dosen') || (!layanan && SESSION.user && String(SESSION.user.jenis_peg || '').toLowerCase().includes('dosen'));
+
+  const handleTemplatesSuccess = (res) => {
+    let templates = res.templates || res || [];
+    if (!Array.isArray(templates)) templates = [];
+
+    if (isTendik) {
+      templates = templates.filter(t => {
+        const lay = String(t.layanan || '').toLowerCase();
+        const jud = String(t.judul || '').toLowerCase();
+        if (lay === 'kontrak dosen' || /\bdosen\b/.test(jud)) return false;
+        return true;
       });
-    })
-    .withFailureHandler(() => {
-      selectEl.innerHTML = '<option value="">Gagal memuat template</option>';
-    })
-    .getTemplates(SESSION.token, layanan, subMenu);
+      templates.sort((a, b) => {
+        const aScore = (a.layanan === 'Kontrak Tendik' ? 10 : 0) + (/\btendik\b|\bkependidikan\b/i.test(a.judul) ? 5 : 0);
+        const bScore = (b.layanan === 'Kontrak Tendik' ? 10 : 0) + (/\btendik\b|\bkependidikan\b/i.test(b.judul) ? 5 : 0);
+        return bScore - aScore;
+      });
+    } else if (isDosen) {
+      templates = templates.filter(t => {
+        const lay = String(t.layanan || '').toLowerCase();
+        const jud = String(t.judul || '').toLowerCase();
+        if (lay === 'kontrak tendik' || /\btendik\b|\bkependidikan\b/.test(jud)) return false;
+        return true;
+      });
+      templates.sort((a, b) => {
+        const aScore = (a.layanan === 'Kontrak Dosen' ? 10 : 0) + (/\bdosen\b/i.test(a.judul) ? 5 : 0);
+        const bScore = (b.layanan === 'Kontrak Dosen' ? 10 : 0) + (/\bdosen\b/i.test(b.judul) ? 5 : 0);
+        return bScore - aScore;
+      });
+    }
+
+    TEMPLATE_CACHE[selectId] = templates;
+    
+    const filterTpl = (tipe) => {
+      const filtered = templates.filter(t => (t.tipe || 'gdocs') === tipe);
+      if (!filtered.length) {
+        const roleLabel = isTendik ? 'Tenaga Kependidikan' : (isDosen ? 'Dosen' : 'Kontrak');
+        selectEl.innerHTML = `<option value="">Belum ada template ${tipe === 'docx' ? 'Word' : 'GDocs'} (${roleLabel}) terdaftar</option>`;
+        return;
+      }
+      selectEl.innerHTML = filtered.map(t => {
+        const fileIdVal = t.id || t.fileId;
+        return `<option value="${fileIdVal}" data-tipe="${t.tipe || 'gdocs'}">${escapeHtml(t.judul)}</option>`;
+      }).join('');
+    };
+    
+    const checkedType = wrap.querySelector(`input[name="${radioName}"]:checked`)?.value || 'gdocs';
+    filterTpl(checkedType);
+    
+    wrap.querySelectorAll(`input[name="${radioName}"]`).forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        filterTpl(e.target.value);
+      });
+    });
+  };
+
+  rpc('getTemplates', [SESSION.token, layanan, subMenu])
+    .then(handleTemplatesSuccess)
+    .catch(() => {
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(handleTemplatesSuccess)
+          .withFailureHandler(() => {
+            selectEl.innerHTML = '<option value="">Gagal memuat template</option>';
+          })
+          .getTemplates(SESSION.token, layanan, subMenu);
+      } else {
+        selectEl.innerHTML = '<option value="">Gagal memuat template</option>';
+      }
+    });
 }
 
 function downloadDocxFromBase64(base64Data, fileName) {
@@ -2580,45 +2635,150 @@ function bindTemplateManagerForm() {
 }
 
 let allLoadedTemplatesMap = {};
+let allLoadedTemplatesList = [];
+let currentTplFilterLayanan = '';
+
+function filterTemplateTableByLayanan(layananFilter) {
+  currentTplFilterLayanan = layananFilter || '';
+  renderTemplateListRows();
+}
+
+function renderTemplateListRows() {
+  const tbody = document.getElementById('templateListBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  
+  let list = allLoadedTemplatesList || [];
+  if (currentTplFilterLayanan) {
+    list = list.filter(t => t.layanan === currentTplFilterLayanan);
+  }
+  
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:16px;">Belum ada template terdaftar${currentTplFilterLayanan ? ' untuk ' + escapeHtml(currentTplFilterLayanan) : ''}.</td></tr>`;
+    return;
+  }
+  
+  list.forEach(t => {
+    allLoadedTemplatesMap[t.id] = t;
+    const tipeBadge = t.tipe === 'docx'
+      ? '<span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">Word</span>'
+      : '<span style="background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">GDocs</span>';
+    const previewBtn = `<button type="button" class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="previewDocxTemplate('${t.id}')">Preview</button>`;
+    const editMetaBtn = `<button type="button" class="btn btn-outline" style="padding:4px 10px;font-size:12px;margin-left:4px;" onclick="bukaModalEditTemplateMetadata('${t.id}')" title="Sesuaikan Kategori / Layanan / Sub-menu">Edit</button>`;
+    const ubahBtn = t.tipe === 'docx'
+      ? `<button type="button" class="btn btn-outline" style="padding:4px 10px;font-size:12px;margin-left:4px;" onclick="bukaModalUbahTemplateDocx('${t.id}')">Ganti File</button>`
+      : '';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${escapeHtml(t.judul)}</strong></td>
+      <td>${tipeBadge}</td>
+      <td><span class="badge" style="background:${t.layanan === 'Kontrak Tendik' ? '#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;' : (t.layanan === 'Kontrak Dosen' ? '#fdf2f8; color:#be185d; border:1px solid #fbcfe8;' : '#f1f5f9; color:#475569;')} padding:3px 8px; font-weight:600; font-size:12px; border-radius:6px;">${escapeHtml(t.layanan)}</span></td>
+      <td>${escapeHtml(t.sub_menu || t.subMenu || '')}</td>
+      <td style="white-space:nowrap;">
+        ${previewBtn}
+        ${editMetaBtn}
+        ${ubahBtn}
+        <button type="button" class="btn btn-outline" style="padding:4px 10px;font-size:12px;margin-left:4px;color:#dc2626;border-color:#fca5a5;" onclick="deleteTemplateHandler('${t.id}')">Hapus</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
 
 async function loadTemplateList() {
   const tbody = document.getElementById('templateListBody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">⏳ Memuat template...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:16px;">⏳ Memuat template...</td></tr>';
   try {
     const res = await rpc('getTemplates', [SESSION.token, null, null]);
-    tbody.innerHTML = '';
     const templates = (res && res.templates) ? res.templates : (Array.isArray(res) ? res : []);
+    allLoadedTemplatesList = templates;
     allLoadedTemplatesMap = {};
-    if (!templates.length) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Belum ada template terdaftar.</td></tr>';
-      return;
-    }
-    templates.forEach(t => {
-      allLoadedTemplatesMap[t.id] = t;
-      const tipeBadge = t.tipe === 'docx'
-        ? '<span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">Word</span>'
-        : '<span style="background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">GDocs</span>';
-      const previewBtn = `<button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="previewDocxTemplate('${t.id}')">Preview</button>`;
-      const ubahBtn = t.tipe === 'docx'
-        ? `<button class="btn btn-outline" style="padding:4px 10px;font-size:12px;margin-left:4px;" onclick="bukaModalUbahTemplateDocx('${t.id}')">Ubah</button>`
-        : '';
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${escapeHtml(t.judul)}</td>
-        <td>${tipeBadge}</td>
-        <td>${escapeHtml(t.layanan)}</td>
-        <td>${escapeHtml(t.sub_menu || t.subMenu || '')}</td>
-        <td style="white-space:nowrap;">
-          ${previewBtn}
-          ${ubahBtn}
-          <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;margin-left:4px;" onclick="deleteTemplateHandler('${t.id}')">Hapus</button>
-        </td>`;
-      tbody.appendChild(tr);
-    });
+    templates.forEach(t => { allLoadedTemplatesMap[t.id] = t; });
+    renderTemplateListRows();
   } catch(err) {
-    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--danger);">Gagal memuat template.</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--danger); padding:16px;">Gagal memuat template.</td></tr>';
     showToast('error', 'Gagal memuat daftar template: ' + (err.message || err));
+  }
+}
+
+function bukaModalEditTemplateMetadata(id) {
+  const t = allLoadedTemplatesMap[id];
+  if (!t) {
+    showToast('error', 'Data template tidak ditemukan.');
+    return;
+  }
+
+  const layananKeys = cachedLayananOptions ? Object.keys(cachedLayananOptions).filter(k => k !== 'success') : [
+    'Kontrak Tendik', 'Kontrak Dosen', 'Kontrak', 'Kenaikan Pangkat', 'Pensiun', 'Buat SK dan Surat'
+  ];
+
+  document.getElementById('modalTitle').textContent = 'Sesuaikan Kategori Template: ' + (t.judul || '');
+  document.getElementById('modalBody').innerHTML = `
+    <form id="formEditTemplateMetadata" onsubmit="submitEditTemplateMetadata(event, '${t.id}')">
+      <div style="margin-bottom:14px; background:var(--card-bg-subtle, #f8fafc); padding:12px; border-radius:8px; font-size:13px; border:1px solid var(--border);">
+        <div><strong>Tipe Berkas:</strong> ${t.tipe === 'docx' ? 'Microsoft Word (.docx)' : 'Google Docs (GDocs)'}</div>
+        <div style="color:var(--text-muted); font-size:12px; margin-top:4px;">Anda dapat mengubah Judul, Layanan (misal ubah menjadi Kontrak Tendik / Kontrak Dosen), serta Sub-menu agar sinkron dengan jenis pegawai pengusul.</div>
+      </div>
+      <div class="stack-field" style="margin-bottom:14px;">
+        <label style="font-weight:600; margin-bottom:6px; display:block;">Judul Template</label>
+        <input type="text" id="editMeta_judul" class="field-input" value="${escapeHtml(t.judul || '')}" required />
+      </div>
+      <div class="stack-field" style="margin-bottom:14px;">
+        <label style="font-weight:600; margin-bottom:6px; display:block;">Layanan (Kategori Pegawai / Layanan)</label>
+        <select id="editMeta_layanan" class="field-input" required onchange="onEditMetaLayananChange()">
+          ${layananKeys.map(l => `<option value="${escapeHtml(l)}" ${l === t.layanan ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="stack-field" style="margin-bottom:16px;">
+        <label style="font-weight:600; margin-bottom:6px; display:block;">Sub-menu / Jenis Kontrak</label>
+        <select id="editMeta_subMenu" class="field-input" required></select>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Batal</button>
+        <button type="submit" id="submitEditMetaBtn" class="btn btn-primary">Simpan Perubahan</button>
+      </div>
+    </form>
+  `;
+  document.getElementById('modalOverlay').style.display = 'flex';
+  onEditMetaLayananChange(t.sub_menu || t.subMenu);
+}
+
+function onEditMetaLayananChange(selectedSub) {
+  const laySel = document.getElementById('editMeta_layanan');
+  const subSel = document.getElementById('editMeta_subMenu');
+  if (!laySel || !subSel) return;
+  const lay = laySel.value;
+  const subs = (cachedLayananOptions && cachedLayananOptions[lay]) || [];
+  if (!subs.length) {
+    subSel.innerHTML = '<option value="">Pilih Sub-menu...</option>';
+    return;
+  }
+  subSel.innerHTML = subs.map(s => `<option value="${escapeHtml(s)}" ${s === selectedSub ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('');
+}
+
+async function submitEditTemplateMetadata(e, id) {
+  e.preventDefault();
+  const btn = document.getElementById('submitEditMetaBtn');
+  if (btn) setBtnLoading(btn, true, 'Menyimpan...');
+
+  const judul = (document.getElementById('editMeta_judul')?.value || '').trim();
+  const layanan = document.getElementById('editMeta_layanan')?.value || '';
+  const sub_menu = document.getElementById('editMeta_subMenu')?.value || '';
+
+  try {
+    const res = await rpc('updateTemplate', [SESSION.token, { id, judul, layanan, sub_menu }]);
+    if (btn) setBtnLoading(btn, false, 'Simpan Perubahan');
+    if (res && res.success) {
+      showToast('success', res.message || 'Data template berhasil diperbarui.');
+      closeModal();
+      loadTemplateList();
+      reloadAllServiceTemplates();
+    } else {
+      showToast('error', res?.message || 'Gagal memperbarui template.');
+    }
+  } catch (err) {
+    if (btn) setBtnLoading(btn, false, 'Simpan Perubahan');
+    showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
   }
 }
 

@@ -3479,7 +3479,11 @@ const methods = {
         query = query.ilike('layanan', '%Kenaikan Pangkat%');
       } else if (layanan === 'Buat SK dan Surat' || layanan === 'Buat SK') {
         query = query.ilike('layanan', '%Buat SK%');
-      } else if (layanan === 'Kontrak' || layanan === 'Kontrak Tendik' || layanan === 'Kontrak Dosen') {
+      } else if (layanan === 'Kontrak Tendik') {
+        query = query.in('layanan', ['Kontrak Tendik', 'Kontrak']);
+      } else if (layanan === 'Kontrak Dosen') {
+        query = query.in('layanan', ['Kontrak Dosen', 'Kontrak']);
+      } else if (layanan === 'Kontrak') {
         query = query.ilike('layanan', '%Kontrak%');
       } else {
         query = query.eq('layanan', layanan);
@@ -3489,6 +3493,8 @@ const methods = {
     if (subMenu) {
       if (layanan === 'Pensiun' && subMenu !== 'DPCP' && subMenu !== 'SUPER') {
         query = query.or(`sub_menu.eq."${subMenu}",sub_menu.eq."Buat SK Pensiun Pegawai Undip Non ASN"`);
+      } else if (layanan === 'Kontrak Tendik' || layanan === 'Kontrak Dosen' || layanan === 'Kontrak') {
+        query = query.or(`sub_menu.eq."${subMenu}",sub_menu.eq."Perjanjian Kerja"`);
       } else {
         query = query.eq('sub_menu', subMenu);
       }
@@ -3497,17 +3503,77 @@ const methods = {
     const { data, error } = await query;
     if (error) throw error;
     
-    // Fallback: jika kueri dengan filter layanan mengembalikan 0 baris, ambil seluruh template yang ada
-    if ((!data || data.length === 0) && (layanan || subMenu)) {
+    let list = (data || []);
+
+    // Filter ketat dan sinkronkan berdasar kategori pegawai (Tendik vs Dosen)
+    if (layanan === 'Kontrak Tendik') {
+      list = list.filter(t => {
+        const lay = String(t.layanan || '').toLowerCase();
+        const jud = String(t.judul || '').toLowerCase();
+        if (lay === 'kontrak dosen' || /\bdosen\b/.test(jud)) return false;
+        return true;
+      });
+      list.sort((a, b) => {
+        const aScore = (a.layanan === 'Kontrak Tendik' ? 10 : 0) + (/\btendik\b|\bkependidikan\b/i.test(a.judul) ? 5 : 0);
+        const bScore = (b.layanan === 'Kontrak Tendik' ? 10 : 0) + (/\btendik\b|\bkependidikan\b/i.test(b.judul) ? 5 : 0);
+        return bScore - aScore;
+      });
+
+      // Jika belum ada template khusus Tendik yang terdaftar untuk subMenu ini,
+      // adaptasikan secara cerdas dari template kontrak sejenis di DB agar user tidak terkunci
+      if (list.length === 0 && subMenu) {
+        const { data: anyTmpl } = await db.from('templates')
+          .select('*')
+          .ilike('sub_menu', `%${subMenu}%`)
+          .order('dibuat_pada', { ascending: false })
+          .limit(1);
+        if (anyTmpl && anyTmpl.length > 0) {
+          const t = anyTmpl[0];
+          const adaptJudul = String(t.judul || '').replace(/dosen/gi, 'Tenaga Kependidikan').trim();
+          list = [{
+            ...t,
+            id: t.id,
+            judul: adaptJudul.includes('Tenaga Kependidikan') ? adaptJudul : `Tenaga Kependidikan ${subMenu}`,
+            layanan: 'Kontrak Tendik',
+            sub_menu: subMenu
+          }];
+        }
+      }
+    } else if (layanan === 'Kontrak Dosen') {
+      list = list.filter(t => {
+        const lay = String(t.layanan || '').toLowerCase();
+        const jud = String(t.judul || '').toLowerCase();
+        if (lay === 'kontrak tendik' || /\btendik\b|\bkependidikan\b/.test(jud)) return false;
+        return true;
+      });
+      list.sort((a, b) => {
+        const aScore = (a.layanan === 'Kontrak Dosen' ? 10 : 0) + (/\bdosen\b/i.test(a.judul) ? 5 : 0);
+        const bScore = (b.layanan === 'Kontrak Dosen' ? 10 : 0) + (/\bdosen\b/i.test(b.judul) ? 5 : 0);
+        return bScore - aScore;
+      });
+    }
+
+    // Fallback yang aman (tidak membocorkan template dosen ke tendik atau sebaliknya)
+    if (list.length === 0 && (layanan || subMenu)) {
       const { data: allData } = await db.from('templates').select('*').order('dibuat_pada', { ascending: false });
       if (allData && allData.length > 0) {
-        const list = allData.map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, file_id: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || null, dibuatPada: t.dibuat_pada }));
-        return { success: true, templates: list };
+        let safeData = allData;
+        if (layanan === 'Kontrak Tendik') {
+          safeData = allData.filter(t => !String(t.layanan || '').toLowerCase().includes('dosen') && !/\bdosen\b/i.test(t.judul));
+        } else if (layanan === 'Kontrak Dosen') {
+          safeData = allData.filter(t => !String(t.layanan || '').toLowerCase().includes('tendik') && !/\btendik\b|\bkependidikan\b/i.test(t.judul));
+        } else if (layanan) {
+          safeData = allData.filter(t => String(t.layanan || '').toLowerCase().includes(String(layanan).toLowerCase()));
+        }
+        if (safeData && safeData.length > 0) {
+          const resList = safeData.map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, file_id: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || null, dibuatPada: t.dibuat_pada }));
+          return { success: true, templates: resList };
+        }
       }
     }
 
-    const list = (data || []).map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, file_id: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || null, dibuatPada: t.dibuat_pada }));
-    return { success: true, templates: list };
+    const resList = list.map(t => ({ id: t.id, judul: t.judul, fileId: t.file_id, file_id: t.file_id, layanan: t.layanan, subMenu: t.sub_menu, tipe: t.tipe || null, dibuatPada: t.dibuat_pada }));
+    return { success: true, templates: resList };
   },
 
 
@@ -4496,7 +4562,14 @@ const methods = {
   },
 
   async getLayananOptions() {
-    const layananMap = JSON.parse(JSON.stringify(CONFIG.LAYANAN_LIST));
+    const order = ['Kontrak Tendik', 'Kontrak Dosen', 'Kontrak', 'Kenaikan Pangkat', 'Pensiun', 'Buat SK dan Surat'];
+    const layananMap = {};
+    for (const k of order) {
+      if (CONFIG.LAYANAN_LIST[k]) layananMap[k] = JSON.parse(JSON.stringify(CONFIG.LAYANAN_LIST[k]));
+    }
+    for (const [k, v] of Object.entries(CONFIG.LAYANAN_LIST)) {
+      if (!layananMap[k]) layananMap[k] = JSON.parse(JSON.stringify(v));
+    }
     try {
       const db = getDb();
       const { data } = await db.from('jenis_surat').select('nama').order('nama', { ascending: true });

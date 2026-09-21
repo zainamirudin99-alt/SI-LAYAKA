@@ -2231,7 +2231,19 @@
           <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
               <h3 style="margin:0;">Template Terdaftar</h3>
-              <button type="button" class="btn btn-outline kp-small-btn" onclick="loadTemplateList()">🔄 Refresh</button>
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <label style="font-size:13px; font-weight:600; color:var(--text-muted);">Filter:</label>
+                <select id="filterTplLayanan" class="field-input" style="width:auto; min-width:180px; padding:6px 10px; font-size:13px;" onchange="filterTemplateTableByLayanan(this.value)">
+                  <option value="">Semua Layanan</option>
+                  <option value="Kontrak Tendik">Kontrak Tendik</option>
+                  <option value="Kontrak Dosen">Kontrak Dosen</option>
+                  <option value="Kontrak">Kontrak (Umum)</option>
+                  <option value="Kenaikan Pangkat">Kenaikan Pangkat</option>
+                  <option value="Pensiun">Pensiun</option>
+                  <option value="Buat SK dan Surat">Buat SK dan Surat</option>
+                </select>
+                <button type="button" class="btn btn-outline kp-small-btn" onclick="loadTemplateList()">🔄 Refresh</button>
+              </div>
             </div>
             <table class="table-list">
               <thead>
