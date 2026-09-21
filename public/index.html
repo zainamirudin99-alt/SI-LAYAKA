@@ -5214,8 +5214,15 @@ function logoutUser() {
 }
 
 function setBtnLoading(btn, loading, label) {
+  if (!btn) return;
   btn.disabled = loading;
-  btn.innerHTML = loading ? '<span class="spinner"></span> ' + label : label;
+  if (loading) {
+    btn.setAttribute('data-loading', 'true');
+    btn.innerHTML = '<span class="spinner"></span> ' + label;
+  } else {
+    btn.removeAttribute('data-loading');
+    btn.innerHTML = label;
+  }
 }
 
 /* ------------------------- SIDEBAR NAV ------------------------- */
@@ -15750,7 +15757,7 @@ function switchEvalModalStep(step) {
     }
 
     // Pastikan tanda tangan di Step 1 sudah ada sebelum pindah ke Step 2
-    const hasSig = (evalTkkCanvas && evalTkkHasDrawn) || Boolean(activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd);
+    const hasSig = (evalTkkCanvas && evalTkkHasDrawn) || Boolean(activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd || window.activeTtdAtasan || activeEvaluasiDetail?.ttd_atasan);
     if (!hasSig) {
       showToast('error', 'Silakan bubuhkan tanda tangan Atasan Langsung pada kotak signature pad (Langkah 1) terlebih dahulu.');
       return false;
@@ -15774,6 +15781,8 @@ function switchEvalModalStep(step) {
 
     hitungTotalSkorEvaluasiTkk();
     if (modalBox) modalBox.scrollTop = 0;
+    const modalEl = document.getElementById('modalEvaluasiTkk');
+    if (modalEl) modalEl.scrollTop = 0;
     return true;
   } else {
     // Step 1
@@ -15857,15 +15866,22 @@ async function simpanEvaluasiDanKirimLangsungKeAdmin() {
   }
 }
 
+let _isGeneratingEvaluasiTkk = false;
 async function generateEvaluasiDanLanjutKeSkp() {
   if (!activeEvaluasiUsulanId) return;
+  if (_isGeneratingEvaluasiTkk) return;
+
   const btn = document.getElementById('btnGenerateLanjutSkp');
 
   let ttdBase64 = '';
   if (evalTkkCanvas && evalTkkHasDrawn) {
-    ttdBase64 = trimCanvas_(evalTkkCanvas);
+    ttdBase64 = typeof trimCanvas_ === 'function' ? trimCanvas_(evalTkkCanvas) : (evalTkkCanvas.toDataURL ? evalTkkCanvas.toDataURL('image/png') : '');
   } else if (activeEvaluasiDetail?.evaluasi_data?.ttd_base64 || activeEvaluasiDetail?.evaluasi_data?.ttd) {
     ttdBase64 = activeEvaluasiDetail.evaluasi_data.ttd_base64 || activeEvaluasiDetail.evaluasi_data.ttd;
+  } else if (window.activeTtdAtasan) {
+    ttdBase64 = window.activeTtdAtasan;
+  } else if (activeEvaluasiDetail?.ttd_atasan) {
+    ttdBase64 = activeEvaluasiDetail.ttd_atasan;
   }
 
   if (!ttdBase64) {
@@ -15880,31 +15896,36 @@ async function generateEvaluasiDanLanjutKeSkp() {
     activeEvaluasiDetail.evaluasi_data.ttd = ttdBase64;
   }
 
-  if (btn) setBtnLoading(btn, true, 'Men-generate Evaluasi Kinerja...');
+  if (btn) setBtnLoading(btn, true, 'Sedang generate dokumen...');
+  _isGeneratingEvaluasiTkk = true;
 
   try {
     const payload = collectEvaluasiTkkPayload();
+    payload.ttd_base64 = ttdBase64;
+
     const res = await rpc('simpanDanGenerateEvaluasiTkk', [SESSION.token, activeEvaluasiUsulanId, payload, false, false]);
-    if (btn) setBtnLoading(btn, false, 'Generate Form Evaluasi & Lanjut ke SKP &rarr;');
     if (res && res.success) {
       lastGeneratedEvaluasiResult = res;
       window.lastGeneratedEvaluasiResult = res;
       if (activeEvaluasiDetail) {
         activeEvaluasiDetail.evaluasi_doc_url = res.docUrl || res.viewUrl || activeEvaluasiDetail.evaluasi_doc_url;
         activeEvaluasiDetail.lastGeneratedEvaluasiResult = res;
+        if (!activeEvaluasiDetail.evaluasi_data) activeEvaluasiDetail.evaluasi_data = {};
+        activeEvaluasiDetail.evaluasi_data.evaluasi_doc_url = res.docUrl || res.viewUrl;
+        activeEvaluasiDetail.evaluasi_data.ttd_base64 = ttdBase64;
       }
-      showToast('success', 'Formulir evaluasi kinerja berhasil disimpan. Lanjut mengisi Sasaran Kinerja Pegawai (SKP).');
-      const docUrlToOpen = res.gdocsUrl || res.docUrl || res.viewUrl || '';
-      if (docUrlToOpen) {
-        window.open(docUrlToOpen, '_blank');
-      }
+      showToast('success', 'Formulir evaluasi kinerja berhasil dibuat & disimpan. Melanjutkan ke langkah kedua: Sasaran Kinerja Pegawai (SKP)...');
+      if (btn) setBtnLoading(btn, false, 'Generate Form Evaluasi & Lanjut ke SKP &rarr;');
       switchEvalModalStep(2);
     } else {
-      showToast('error', res?.message || 'Gagal menyimpan evaluasi.');
+      if (btn) setBtnLoading(btn, false, 'Generate Form Evaluasi & Lanjut ke SKP &rarr;');
+      showToast('error', res?.message || 'Gagal menyimpan dan men-generate formulir evaluasi.');
     }
   } catch (err) {
     if (btn) setBtnLoading(btn, false, 'Generate Form Evaluasi & Lanjut ke SKP &rarr;');
     showToast('error', 'Terjadi kesalahan: ' + (err.message || err));
+  } finally {
+    _isGeneratingEvaluasiTkk = false;
   }
 }
 
@@ -16086,7 +16107,7 @@ function hitungTotalSkorEvaluasiTkk() {
       arrowEl.style.opacity = '1';
     }
 
-    if (btnAction) {
+    if (btnAction && !btnAction.hasAttribute('data-loading')) {
       btnAction.innerHTML = 'Generate Form Evaluasi &amp; Lanjut ke SKP &rarr;';
       btnAction.style.background = '#2563eb';
       btnAction.style.borderColor = '#2563eb';
@@ -16101,7 +16122,7 @@ function hitungTotalSkorEvaluasiTkk() {
   const isCompletedDetail = ['validated_by_atasan', 'evaluated_extend', 'evaluated_renewed', 'evaluated_not_extend', 'evaluated_not_renewed', 'validated_by_admin', 'contract_generated', 'Disetujui', 'Selesai'].includes(activeEvaluasiDetail?.status);
 
   if (isCompletedDetail && !isUnlockedDetail) {
-    if (btnAction) {
+    if (btnAction && !btnAction.hasAttribute('data-loading')) {
       btnAction.disabled = true;
       btnAction.style.opacity = '0.55';
       btnAction.style.cursor = 'not-allowed';
@@ -16110,7 +16131,7 @@ function hitungTotalSkorEvaluasiTkk() {
     const btnPerbaikan = document.querySelector('button[onclick="bukaModalPerbaikanBerkasTkk()"]');
     if (btnPerbaikan) btnPerbaikan.style.display = 'none';
   } else {
-    if (btnAction) {
+    if (btnAction && !btnAction.hasAttribute('data-loading')) {
       btnAction.disabled = false;
       btnAction.style.opacity = '1';
       btnAction.style.cursor = 'pointer';
