@@ -1566,12 +1566,7 @@
                     </div>
                     <div class="stack-field">
                       <label>NIP/NIK <span style="color:red;">*</span></label>
-                      <div style="display:flex; gap:8px;">
-                        <input type="text" id="kontrakUser_nip" class="field-input" style="flex:1;" required placeholder="Masukkan NIP/NIK" />
-                        <button type="button" class="btn btn-outline kp-small-btn" onclick="openAutoGenerateNipModal('kontrakUser_nip', 'kontrakUser_tglLahir', 'kontrakUser_jenisPegawai', 'kontrakUser_tglMasuk')" style="border-color:var(--primary); color:var(--primary); font-weight:700; white-space:nowrap;" title="Generate NIP Otomatis (18 Digit)">
-                          ⚡ Auto NIP
-                        </button>
-                      </div>
+                      <input type="text" id="kontrakUser_nip" class="field-input" required placeholder="Masukkan NIP/NIK" />
                     </div>
                     <div class="stack-field">
                       <label>Nama Lengkap <span style="color:red;">*</span></label>
