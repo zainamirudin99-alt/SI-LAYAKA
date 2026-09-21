@@ -253,7 +253,7 @@
                   </div>
                   <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                     <span class="ce-dashboard-target" id="ceDashboardTarget"></span>
-                    <button type="button" class="btn btn-outline kp-small-btn" onclick="loadPromosiDashboard(currentSelectedTmt)">🔄 Segarkan Dashboard</button>
+                    <button type="button" class="btn btn-outline kp-small-btn" onclick="loadPromosiDashboard(currentSelectedTmt)">🔄 Refresh</button>
                     <button type="button" class="btn btn-outline kp-small-btn" onclick="bukaModalSyaratKp()" style="font-weight:600; border-color:#3b82f6; color:#2563eb;">📋 Syarat-Syarat Kenaikan Pangkat</button>
                     <button type="button" class="btn btn-primary kp-small-btn" id="ceDashboardAjukanUsulanBtn" style="display:none;">📨 Ajukan Usulan</button>
                   </div>
@@ -442,7 +442,7 @@
             <div class="tab-panel" data-tab-group-panel="kp" id="tab-statusUsulan">
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
                 <div class="helper-text" style="margin:0;">Daftar pegawai yang pernah Anda ajukan untuk Kenaikan Pangkat, beserta status terkini.</div>
-                <button type="button" class="btn btn-outline kp-small-btn" onclick="loadStatusUsulanSaya()">🔄 Segarkan Daftar</button>
+                <button type="button" class="btn btn-outline kp-small-btn" onclick="loadStatusUsulanSaya()">🔄 Refresh</button>
               </div>
               <div id="statusUsulanList" class="ce-dashboard-list"></div>
             </div>
@@ -552,7 +552,7 @@
                       <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Anda dapat mencari pegawai dan langsung mengubah statusnya di bawah ini.</div>
                     </div>
                     <div style="display:flex; align-items:center; gap:8px;">
-                      <button type="button" class="btn btn-outline kp-small-btn" onclick="refreshStatusDetailModal()">🔄 Segarkan Daftar</button>
+                      <button type="button" class="btn btn-outline kp-small-btn" onclick="refreshStatusDetailModal()">🔄 Refresh</button>
                       <button type="button" class="btn btn-outline kp-small-btn" onclick="closeStatusDetailModal()">✕ Tutup</button>
                     </div>
                   </div>
@@ -857,7 +857,7 @@
               <div id="skKp_usulanWrap" class="stack-field" style="margin-bottom:16px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:4px;">
                   <label class="kp-label" style="margin:0;">Pilih Pegawai dari Daftar Siap SK</label>
-                  <button type="button" class="btn btn-outline kp-small-btn" onclick="loadSkKpUsulanList()">🔄 Segarkan Daftar</button>
+                  <button type="button" class="btn btn-outline kp-small-btn" onclick="loadSkKpUsulanList()">🔄 Refresh</button>
                 </div>
                 <select id="skKp_usulanSelect" class="field-input" onchange="onSelectSkKpUsulan()">
                   <option value="">Memuat daftar pegawai siap SK...</option>
@@ -918,7 +918,7 @@
             <div class="tab-panel" data-tab-group-panel="kp" id="tab-approvalSk">
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
                 <div class="helper-text" style="margin:0;">Daftar SK yang sedang menunggu persetujuan Anda sesuai dengan jenjang jabatan approval Anda. Anda wajib mencentang checkbox untuk menyetujui.</div>
-                <button type="button" class="btn btn-outline kp-small-btn" onclick="loadApprovalSkQueue()">🔄 Segarkan Daftar</button>
+                <button type="button" class="btn btn-outline kp-small-btn" onclick="loadApprovalSkQueue()">🔄 Refresh</button>
               </div>
               <div id="approvalSkList" class="ce-dashboard-list"></div>
             </div>
@@ -927,7 +927,7 @@
             <div class="tab-panel" data-tab-group-panel="kp" id="tab-uploadSk">
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
                 <div class="helper-text" style="margin:0;">Unggah PDF SK yang telah dicap basah dan ditandatangani oleh pejabat berwenang untuk menyelesaikan alur SK.</div>
-                <button type="button" class="btn btn-outline kp-small-btn" onclick="loadUploadSkList()">🔄 Segarkan Daftar</button>
+                <button type="button" class="btn btn-outline kp-small-btn" onclick="loadUploadSkList()">🔄 Refresh</button>
               </div>
               <div id="uploadSkList" class="ce-dashboard-list"></div>
             </div>
@@ -954,7 +954,7 @@
                     <span class="ce-dashboard-title">🧓 Pegawai Akan Pensiun</span>
                     <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                       <span class="ce-dashboard-target" id="pensiunDashboardAmbang"></span>
-                      <button type="button" class="btn btn-outline kp-small-btn" onclick="loadPensiunDashboard()">🔄 Segarkan Daftar</button>
+                      <button type="button" class="btn btn-outline kp-small-btn" onclick="loadPensiunDashboard()">🔄 Refresh</button>
                     </div>
                   </div>
                   <div id="pensiunDashboardLevel1" class="ce-dashboard-grid"></div>
@@ -1139,7 +1139,7 @@
             <div class="tab-panel" data-tab-group-panel="pensiun" id="tab-statusUsulanPensiun">
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
                 <div class="helper-text" style="margin:0;">Daftar pegawai yang pernah Anda ajukan untuk Pensiun, beserta status terkini.</div>
-                <button type="button" class="btn btn-outline kp-small-btn" onclick="loadStatusUsulanPensiunSaya()">🔄 Segarkan Daftar</button>
+                <button type="button" class="btn btn-outline kp-small-btn" onclick="loadStatusUsulanPensiunSaya()">🔄 Refresh</button>
               </div>
               <div id="statusUsulanPensiunList" class="ce-dashboard-list"></div>
             </div>
@@ -1148,13 +1148,13 @@
             <div class="tab-panel" data-tab-group-panel="pensiun" id="tab-usulanMasukPensiun">
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
                 <div class="helper-text" style="margin:0;">Usulan Pensiun yang diajukan User, dikelompokkan per Unit/Fakultas. Buat DPCP dan SUPER untuk memprosesnya.</div>
-                <button type="button" class="btn btn-outline kp-small-btn" onclick="loadUsulanMasukPensiunDashboard()">🔄 Segarkan Usulan Masuk</button>
+                <button type="button" class="btn btn-outline kp-small-btn" onclick="loadUsulanMasukPensiunDashboard()">🔄 Refresh</button>
               </div>
               <div id="usulanMasukPensiunLevel1" class="ce-dashboard-grid"></div>
               <div id="usulanMasukPensiunLevel2" style="display:none;">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
                   <button type="button" class="ce-dashboard-back" id="usulanMasukPensiunBackBtn">&larr; Kembali ke daftar unit</button>
-                  <button type="button" class="btn btn-outline kp-small-btn" onclick="loadUsulanMasukPensiunDashboard()">🔄 Segarkan Daftar</button>
+                  <button type="button" class="btn btn-outline kp-small-btn" onclick="loadUsulanMasukPensiunDashboard()">🔄 Refresh</button>
                 </div>
                 <div id="usulanMasukPensiunLevel2List" class="ce-dashboard-list"></div>
               </div>
@@ -1183,7 +1183,7 @@
               <div id="skNonAsn_usulanWrap" class="stack-field" style="margin-bottom:16px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:4px;">
                   <label class="kp-label" style="margin:0;">Pilih Pegawai dari Daftar Usulan Non-ASN</label>
-                  <button type="button" class="btn btn-outline kp-small-btn" onclick="loadSkNonAsnUsulanList()">🔄 Segarkan Daftar</button>
+                  <button type="button" class="btn btn-outline kp-small-btn" onclick="loadSkNonAsnUsulanList()">🔄 Refresh</button>
                 </div>
                 <select id="skNonAsn_usulanSelect" class="field-input" onchange="onSelectSkNonAsnUsulan()"></select>
                 <div class="helper-text" id="skNonAsn_usulanInfo" style="display:none; margin-top:4px;"></div>
@@ -1246,7 +1246,7 @@
                 <div class="helper-text" style="margin:0;">
                   Unggah file PDF SK Pensiun yang telah ditandatangani dan dicap basah sesuai nama usulan pegawai. User yang mengusulkan dapat melihat dan mengunduh file SK tersebut secara langsung.
                 </div>
-                <button type="button" class="btn btn-outline kp-small-btn" onclick="loadUploadSkPensiunList()">🔄 Segarkan Daftar</button>
+                <button type="button" class="btn btn-outline kp-small-btn" onclick="loadUploadSkPensiunList()">🔄 Refresh</button>
               </div>
               <div id="uploadSkPensiunList" class="ce-dashboard-list"></div>
             </div>
@@ -1486,7 +1486,7 @@
                    <select id="kontrakReviewFilterTahun" class="field-input" style="width:auto; min-width:130px; padding:6px 12px; font-size:13px;" onchange="filterKontrakReviewUnits()">
                      <option value="Semua">Semua Tahun</option>
                    </select>
-                   <button type="button" class="btn btn-outline kp-small-btn" onclick="loadKontrakReviewUnits()">🔄 Segarkan Daftar</button>
+                   <button type="button" class="btn btn-outline kp-small-btn" onclick="loadKontrakReviewUnits()">🔄 Refresh</button>
                  </div>
                </div>
                <!-- KONTROL PENGATURAN BATAS WAKTU PENILAIAN EVALUASI ATASAN (Admin/Superadmin) -->
@@ -1511,7 +1511,7 @@
             <div id="kontrakReviewListState" style="display:none;">
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                 <button type="button" class="ce-dashboard-back" onclick="backToKontrakReviewUnits()">&larr; Kembali ke Daftar Unit</button>
-                <button type="button" class="btn btn-outline kp-small-btn" onclick="refreshKontrakReviewCurrentUnit()">🔄 Segarkan Daftar</button>
+                <button type="button" class="btn btn-outline kp-small-btn" onclick="refreshKontrakReviewCurrentUnit()">🔄 Refresh</button>
               </div>
               <h3 id="kontrakReviewUnitTitle" style="margin-top:10px;">Usulan Unit</h3>
               <div id="kontrakReviewDaftarPegawai" class="ce-dashboard-list" style="margin-top:14px;"></div>
@@ -1534,7 +1534,7 @@
                    <h3 style="margin:0; color:var(--text);">👔 Review Usulan Bawahan (Atasan Langsung)</h3>
                    <div class="helper-text">Daftar usulan perpanjangan kontrak pegawai non-dosen (Tendik) yang memerlukan penilaian evaluasi kinerja 7 kriteria dari Anda.</div>
                  </div>
-                 <button type="button" class="btn btn-outline kp-small-btn" onclick="loadKontrakAtasanReviewList()">🔄 Segarkan Daftar</button>
+                 <button type="button" class="btn btn-outline kp-small-btn" onclick="loadKontrakAtasanReviewList()">🔄 Refresh</button>
                </div>
                <div id="kontrakAtasanReviewList" class="ce-dashboard-list"></div>
              </div>
@@ -1547,7 +1547,7 @@
                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                  <h3 style="margin:0;">Status Usulan Kontrak Anda</h3>
                  <div style="display:flex; align-items:center; gap:8px;">
-                   <button type="button" class="btn btn-outline kp-small-btn" onclick="loadUsulanKontrakSaya()">🔄 Segarkan Status</button>
+                   <button type="button" class="btn btn-outline kp-small-btn" onclick="loadUsulanKontrakSaya()">🔄 Refresh</button>
                    <button type="button" class="btn btn-outline kp-small-btn" onclick="openKontrakUserNewForm()">➕ Buat Pengajuan Usulan Baru</button>
                  </div>
                </div>
@@ -2174,7 +2174,7 @@
             <div class="stack-field">
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:4px;">
                 <label class="kp-label" style="margin:0;">Cari Nama / NIP</label>
-                <button type="button" class="btn btn-outline kp-small-btn" onclick="loadPeranAkunList()">🔄 Segarkan Daftar</button>
+                <button type="button" class="btn btn-outline kp-small-btn" onclick="loadPeranAkunList()">🔄 Refresh</button>
               </div>
               <input type="text" id="peranAkun_search" class="field-input" placeholder="Ketik untuk menyaring daftar di bawah..." />
             </div>
@@ -2236,7 +2236,7 @@
           <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
               <h3 style="margin:0;">Template Terdaftar</h3>
-              <button type="button" class="btn btn-outline kp-small-btn" onclick="loadTemplateList()">🔄 Segarkan Daftar</button>
+              <button type="button" class="btn btn-outline kp-small-btn" onclick="loadTemplateList()">🔄 Refresh</button>
             </div>
             <table class="table-list">
               <thead>
