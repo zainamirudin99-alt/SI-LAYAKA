@@ -2747,10 +2747,10 @@
               <div id="kontrakSubMenuGrid" class="ce-dashboard-grid"></div>
             </div>
 
-            <!-- STATE 3: Usulan Baru / Perpanjangan -->
+            <!-- STATE 3: Usulan Baru / Perpanjangan / Buat Ulang -->
             <div id="kontrakPilihModeState" style="display:none;">
               <button type="button" class="ce-dashboard-back" id="kontrakBackToSubMenuBtn">&larr; Kembali</button>
-              <div class="ce-dashboard-grid">
+              <div class="ce-dashboard-grid" id="kontrakModeGrid">
                 <button type="button" class="ce-dashboard-card" onclick="pilihModeKontrak('baru')">
                   <div class="cdc-title">Usulan Baru</div>
                   <div class="cdc-sub">Pegawai/tenaga baru, belum ada di data utama</div>
@@ -11879,13 +11879,7 @@ let kontrakOriginalNip = ''; // dipakai kalau nanti perlu deteksi "berubah" (bel
 function bindKontrakForm() {
   document.getElementById('kontrakBackToKategoriBtn').addEventListener('click', () => kontrakGoToState_('kategori'));
   document.getElementById('kontrakBackToSubMenuBtn').addEventListener('click', () => kontrakGoToState_('subMenu'));
-  document.getElementById('kontrakBackToModeBtn').addEventListener('click', () => {
-    if (kontrakSelectedSubMenu === 'Calon Pegawai Tetap Undip NON ASN') {
-      kontrakGoToState_('subMenu');
-    } else {
-      kontrakGoToState_('mode');
-    }
-  });
+  document.getElementById('kontrakBackToModeBtn').addEventListener('click', () => kontrakGoToState_('mode'));
   document.getElementById('kontrakBackFromAksesBtn').addEventListener('click', () => kontrakGoToState_('kategori'));
 
   bindAdminKontrakAutocomplete();
@@ -12219,11 +12213,34 @@ function pilihKategoriKontrak(layanan) {
 
 function pilihSubMenuKontrak(subMenu) {
   kontrakSelectedSubMenu = subMenu;
-  if (subMenu === 'Calon Pegawai Tetap Undip NON ASN') {
-    // Kategori Calon Pegawai Tetap Undip NON ASN HANYA memiliki opsi "Usulan Baru"
-    pilihModeKontrak('baru');
-    return;
+
+  const modeGrid = document.getElementById('kontrakModeGrid');
+  if (modeGrid) {
+    if (subMenu === 'Calon Pegawai Tetap Undip NON ASN') {
+      modeGrid.innerHTML = `
+        <button type="button" class="ce-dashboard-card" onclick="pilihModeKontrak('baru')">
+          <div class="cdc-title">Usulan Baru</div>
+          <div class="cdc-sub">Pegawai baru, generate NIP otomatis format H.7. &amp; breakdown NIP</div>
+        </button>
+        <button type="button" class="ce-dashboard-card" onclick="pilihModeKontrak('buat_ulang')">
+          <div class="cdc-title">Buat Ulang Perjanjian</div>
+          <div class="cdc-sub">Cari nama pegawai yang sudah terdaftar atau hasil generate usulan baru</div>
+        </button>
+      `;
+    } else {
+      modeGrid.innerHTML = `
+        <button type="button" class="ce-dashboard-card" onclick="pilihModeKontrak('baru')">
+          <div class="cdc-title">Usulan Baru</div>
+          <div class="cdc-sub">Pegawai/tenaga baru, belum ada di data utama</div>
+        </button>
+        <button type="button" class="ce-dashboard-card" onclick="pilihModeKontrak('perpanjangan')">
+          <div class="cdc-title">Perpanjangan</div>
+          <div class="cdc-sub">Pegawai sudah ada di data utama</div>
+        </button>
+      `;
+    }
   }
+
   kontrakGoToState_('mode');
 }
 
@@ -12233,23 +12250,32 @@ function pilihModeKontrak(mode) {
 
   const searchWrap = document.getElementById('kontrakSearchWrap');
   const role = SESSION.user.role;
+  const nipManualEl = document.getElementById('kontrak_nipManual');
 
   if (mode === 'baru') {
     // REVISI ALUR: Trigger Pop-up 1 Generate NIP sebelum masuk ke form usulan baru!
     window._kontrakPendingNipData = null;
     openKontrakPopup1GenerateNip();
     return;
+  } else if (mode === 'buat_ulang') {
+    // Buat Ulang Perjanjian CPTU: semua kolom isian bisa diedit
+    if (nipManualEl) nipManualEl.removeAttribute('readonly');
+    if (searchWrap) searchWrap.style.display = 'block';
   } else {
-    document.getElementById('kontrak_nipManual').setAttribute('readonly', 'readonly');
+    // Perpanjangan standar
     if (role === 'normal') {
-      searchWrap.style.display = 'none';
+      if (nipManualEl) nipManualEl.setAttribute('readonly', 'readonly');
+      if (searchWrap) searchWrap.style.display = 'none';
       kontrakIsiFormDariPegawai_(SESSION.user.nip, SESSION.user.nama);
     } else {
-      searchWrap.style.display = 'block';
+      if (nipManualEl) nipManualEl.removeAttribute('readonly');
+      if (searchWrap) searchWrap.style.display = 'block';
     }
   }
 
   kontrakGoToState_('form');
+
+  loadServiceTemplates(kontrakSelectedLayanan, kontrakSelectedSubMenu, 'kontrak_templateSelect');
 
   populateSelect('kontrak_tmtBulan', kontrakFormOptionsCache.bulan, { placeholder: 'Bulan...', valueField: 'value', labelField: 'label' });
   populateSelect('kontrak_tstBulan', kontrakFormOptionsCache.bulan, { placeholder: 'Bulan...', valueField: 'value', labelField: 'label' });
@@ -12257,7 +12283,11 @@ function pilihModeKontrak(mode) {
   populateSelect('kontrak_tstTahun', kontrakFormOptionsCache.tahun, { placeholder: 'Tahun...' });
 
   ['kontrak_tmtBulan', 'kontrak_tmtTahun', 'kontrak_tstBulan', 'kontrak_tstTahun'].forEach(id => {
-    document.getElementById(id).addEventListener('change', updateKontrakJangkaWaktuPreview_);
+    const el = document.getElementById(id);
+    if (el && !el._boundJk) {
+      el._boundJk = true;
+      el.addEventListener('change', updateKontrakJangkaWaktuPreview_);
+    }
   });
 }
 
@@ -13260,7 +13290,12 @@ async function kontrakIsiFormDariPegawai_(nip, nama) {
   const nipEl = document.getElementById('kontrak_nip');
   if (nipEl) nipEl.value = nip;
   const nipManEl = document.getElementById('kontrak_nipManual');
-  if (nipManEl) nipManEl.value = nip;
+  if (nipManEl) {
+    nipManEl.value = nip;
+    if (SESSION.user.role !== 'normal') {
+      nipManEl.removeAttribute('readonly');
+    }
+  }
   const btnHapusNip = document.getElementById('kontrak_btnHapusDraftNip');
   if (btnHapusNip) btnHapusNip.style.display = 'none';
 

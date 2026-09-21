@@ -3232,10 +3232,39 @@ const methods = {
       });
     }
 
-    return (data || []).map(e => {
+    const results = (data || []).map(e => {
       const namaFull = String(e.nama_lengkap || e.nama || e.nip || '');
       return { nip: e.nip, nama: namaFull, nama_lengkap: namaFull, unitEsIi: e.unit_es_ii, jenis_pegawai: e.jenis_peg || '' };
     });
+
+    // Tambahan: Cari juga dari usulan_kontrak_baru (hasil generate NIP CPTU baru yang belum ada di data_utama)
+    try {
+      let reqU = db.from('usulan_kontrak_baru').select('nip,nama_lengkap,unit_es_ii');
+      const cleanW = rawQ.replace(/[^a-zA-Z0-9]/g, '');
+      if (cleanW) {
+        reqU = reqU.or(`nama_lengkap.ilike."%${cleanW}%",nip.ilike."%${cleanW}%"`);
+      }
+      const { data: uList } = await reqU.limit(10);
+      if (uList && uList.length) {
+        const existingNips = new Set(results.map(r => String(r.nip).trim()));
+        uList.forEach(u => {
+          const uNip = String(u.nip || '').trim();
+          if (uNip && !existingNips.has(uNip)) {
+            existingNips.add(uNip);
+            const uNama = u.nama_lengkap || uNip;
+            results.push({
+              nip: uNip,
+              nama: uNama,
+              nama_lengkap: uNama,
+              unitEsIi: u.unit_es_ii || 'Calon Pegawai Tetap',
+              jenis_pegawai: 'Calon Pegawai Undip Non ASN'
+            });
+          }
+        });
+      }
+    } catch (_) {}
+
+    return results;
   },
 
   async searchAtasanLangsung(args) {
@@ -3253,11 +3282,33 @@ const methods = {
   async getEmployeeFullData(args) {
     const [token, nip] = extractArgs(args);
     verifyToken(token);
-    const db=getDb();
-    const {data,error}=await db.from('data_utama').select('*').eq('nip',String(nip||'').trim()).maybeSingle();
+    const db = getDb();
+    const cleanNip = String(nip || '').trim();
+    const { data, error } = await db.from('data_utama').select('*').eq('nip', cleanNip).maybeSingle();
     if (error) throw error;
-    if (!data) throw new Error('Data pegawai dengan NIP tersebut tidak ditemukan.');
-    return data;
+    if (data) return data;
+
+    // Jika belum ada di data_utama, cari di usulan_kontrak_baru (draft NIP yang baru digenerate)
+    try {
+      const { data: uData } = await db.from('usulan_kontrak_baru').select('*').eq('nip', cleanNip).maybeSingle();
+      if (uData) {
+        return {
+          nip: uData.nip,
+          nama_lengkap: uData.nama_lengkap || '',
+          nama: uData.nama_lengkap || '',
+          tmp_lhr: uData.tmp_lhr || '',
+          tgl_lhr: uData.tgl_lhr || null,
+          pendidikan: uData.pendidikan || '',
+          jurusan: uData.jurusan || '',
+          unit_es_ii: uData.unit_es_ii || '',
+          jabatan: uData.jabatan || '',
+          alamat: uData.alamat || '',
+          nik: uData.nik || ''
+        };
+      }
+    } catch (_) {}
+
+    throw new Error('Data pegawai dengan NIP tersebut tidak ditemukan.');
   },
 
   async getProfilSaya(args) {

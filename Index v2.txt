@@ -1323,10 +1323,10 @@
               <div id="kontrakSubMenuGrid" class="ce-dashboard-grid"></div>
             </div>
 
-            <!-- STATE 3: Usulan Baru / Perpanjangan -->
+            <!-- STATE 3: Usulan Baru / Perpanjangan / Buat Ulang -->
             <div id="kontrakPilihModeState" style="display:none;">
               <button type="button" class="ce-dashboard-back" id="kontrakBackToSubMenuBtn">&larr; Kembali</button>
-              <div class="ce-dashboard-grid">
+              <div class="ce-dashboard-grid" id="kontrakModeGrid">
                 <button type="button" class="ce-dashboard-card" onclick="pilihModeKontrak('baru')">
                   <div class="cdc-title">Usulan Baru</div>
                   <div class="cdc-sub">Pegawai/tenaga baru, belum ada di data utama</div>
