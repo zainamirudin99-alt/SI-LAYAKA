@@ -641,9 +641,9 @@ function enrichGajiPlaceholders(rawCtx, jenis_sk) {
     rawCtx.pangkat = getPangkatForGolongan(rawCtx.golongan, jenis_sk === 'SK CPTU');
   }
 
-  // Auto-calculate gaji_pokok dari golongan & mkg jika belum ada atau nilai berupa angka murni
+  // Auto-calculate gaji_pokok dari golongan & mkg jika belum ada
   const mkgVal = Number(rawCtx.masa_kerja_gol || rawCtx.mkg_tahun || rawCtx.mk_tahun || 0);
-  if (rawCtx.golongan && (!rawCtx.gaji_pokok || !isNaN(Number(rawCtx.gaji_pokok)))) {
+  if (rawCtx.golongan && (!rawCtx.gaji_pokok || String(rawCtx.gaji_pokok).trim() === '')) {
     const calcGaji = hitungGajiPokokNonAsn(rawCtx.golongan, mkgVal);
     if (calcGaji > 0) rawCtx.gaji_pokok = 'Rp ' + formatRupiah(calcGaji);
   }
@@ -655,6 +655,8 @@ function enrichGajiPlaceholders(rawCtx, jenis_sk) {
       const terbilangGaji = docxTerbilang(numGaji);
       const terbilangGajiTitle = toTitleCase(terbilangGaji) + ' Rupiah';
 
+      rawCtx.gaji_pokok = `Rp ${gajiStr}`;
+      rawCtx.GAJI_POKOK = `Rp ${gajiStr}`;
       rawCtx.gaji_pokok_angka = numGaji;
       rawCtx.gaji_pokok_terbilang = terbilangGajiTitle;
       rawCtx.terbilang_gaji = terbilangGajiTitle;
@@ -677,8 +679,13 @@ function enrichGajiPlaceholders(rawCtx, jenis_sk) {
       rawCtx.terbilang_gaji_80 = terbilang80Title;
 
       const defaultTotalGaji = (jenis_sk === 'SK CPTU') ? `Rp ${gaji80Str}` : `Rp ${gajiStr}`;
-      if (!rawCtx.total_gaji || rawCtx.total_gaji === '') {
+      if (!rawCtx.total_gaji || String(rawCtx.total_gaji).trim() === '') {
         rawCtx.total_gaji = defaultTotalGaji;
+      } else {
+        const numTotalGaji = parseFloat(String(rawCtx.total_gaji).replace(/[^0-9]/g, '')) || 0;
+        if (numTotalGaji > 0 && !String(rawCtx.total_gaji).toLowerCase().includes('rp')) {
+          rawCtx.total_gaji = `Rp ${formatRupiah(numTotalGaji)}`;
+        }
       }
       rawCtx.TOTAL_GAJI = rawCtx.total_gaji;
       rawCtx.total_gaji_rupiah = rawCtx.total_gaji;
@@ -4521,6 +4528,25 @@ const methods = {
     return { success: true, data: result, total: result.length };
   },
 
+  /** Mengambil data mentah (CSV) dari Google Spreadsheet publik untuk SK CPTU Batch Import */
+  async fetchSpreadsheetDataForCptu(args) {
+    const [token, payload] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+
+    const { url } = payload || {};
+    if (!url) throw new Error('URL Spreadsheet wajib diisi.');
+
+    const sheetId = (url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]{20,})/) || [])[1];
+    if (!sheetId) throw new Error('URL Google Spreadsheet tidak valid. Pastikan format: https://docs.google.com/spreadsheets/d/...');
+
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&id=${sheetId}`;
+    const csvRes = await fetch(csvUrl);
+    if (!csvRes.ok) throw new Error(`Gagal mengakses spreadsheet: HTTP ${csvRes.status}. Pastikan spreadsheet dapat diakses publik ("Anyone with the link").`);
+
+    const csvText = await csvRes.text();
+    return { success: true, csvText };
+  },
+
   // ================================================================
   // BUAT SK — RIWAYAT SK (ADMIN ROLE)
   // ================================================================
@@ -7168,6 +7194,31 @@ const methods = {
       tipe
     });
     if (error) throw error;
+
+    // Sinkronisasi otomatis ke GAS Sheet TEMPLATE_DOCS jika tipe gdocs
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (gasUrl && tipe === 'gdocs' && finalFileId) {
+      try {
+        const shortId = uuidv4();
+        await fetch(gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            method: 'addTemplate',
+            params: [shortId, {
+              driveLink: finalFileId,
+              judul: String(judul).trim(),
+              layanan: String(layanan).trim(),
+              subMenu: String(sub_menu).trim()
+            }],
+            remoteSession: { id: shortId, data: { role: 'admin' } }
+          })
+        });
+      } catch (gasSyncErr) {
+        console.warn('[addTemplate] auto-sync to GAS warning:', gasSyncErr.message);
+      }
+    }
+
     return { success: true, message: 'Template berhasil disimpan.' };
   },
 
@@ -11669,8 +11720,23 @@ const methods = {
       const { data } = await db.from('templates').select('*').eq('id', targetTemplateId).maybeSingle();
       if (data) tmpl = data;
     }
+    if (!tmpl && targetTemplateId) {
+      const { data } = await db.from('templates').select('*').eq('file_id', targetTemplateId).maybeSingle();
+      if (data) tmpl = data;
+    }
     if (!tmpl && layanan && targetSubMenu) {
-      const { data } = await db.from('templates').select('*').eq('layanan', layanan).eq('sub_menu', targetSubMenu).limit(1).maybeSingle();
+      const { data } = await db.from('templates')
+        .select('*')
+        .ilike('layanan', `%${layanan}%`)
+        .ilike('sub_menu', `%${targetSubMenu}%`)
+        .limit(1).maybeSingle();
+      if (data) tmpl = data;
+    }
+    if (!tmpl && targetSubMenu) {
+      const { data } = await db.from('templates')
+        .select('*')
+        .ilike('sub_menu', `%${targetSubMenu}%`)
+        .limit(1).maybeSingle();
       if (data) tmpl = data;
     }
 
@@ -11710,12 +11776,46 @@ const methods = {
       }
     };
 
+    // Sinkronkan template ke GAS sheet jika ditemukan di Supabase
+    if (tmpl && tmpl.file_id) {
+      try {
+        await fetch(gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            method: 'addTemplate',
+            params: [shortId, {
+              driveLink: tmpl.file_id,
+              judul: tmpl.judul || 'Template Kontrak',
+              layanan: tmpl.layanan || layanan,
+              subMenu: tmpl.sub_menu || targetSubMenu
+            }],
+            remoteSession
+          })
+        });
+      } catch (syncErr) {
+        console.warn('[previewKontrakDocument] auto-sync template to GAS warning:', syncErr.message);
+      }
+    }
+
+    const gasPayload = Object.assign({}, payload, {
+      templateFileId: tmpl?.file_id || templateFileId
+    });
+    if (targetSubMenu === 'Calon Pegawai Tetap Undip NON ASN') {
+      gasPayload.formData = Object.assign({}, actualFormData, {
+        tmt_bulan: actualFormData.tmt_bulan || '1',
+        tmt_tahun: actualFormData.tmt_tahun || '2026',
+        tst_bulan: actualFormData.tst_bulan || '12',
+        tst_tahun: actualFormData.tst_tahun || '2026'
+      });
+    }
+
     const response = await fetch(gasUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         method: 'previewKontrakDocument',
-        params: [shortId, Object.assign({}, payload, { templateFileId: tmpl?.file_id || templateFileId })],
+        params: [shortId, gasPayload],
         remoteSession
       })
     });
@@ -11745,11 +11845,16 @@ const methods = {
     //    - Pada proses "Buat Kontrak" oleh Admin, TIDAK PERLU disimpan ke usulan_kontrak
     //      agar tidak masuk ke sub menu Review Usulan ataupun Review Usulan Bawahan (Atasan Langsung).
     if (!isPerpanjangan) {
-      const durasiBulan = ((parseInt(actualFormData.tst_tahun, 10) - parseInt(actualFormData.tmt_tahun, 10)) * 12) + (parseInt(actualFormData.tst_bulan, 10) - parseInt(actualFormData.tmt_bulan, 10)) + 1;
-      const jangkaWaktuStr = (durasiBulan === 12) ? '1 (satu) tahun' : (durasiBulan > 0 ? `${durasiBulan} bulan` : '');
+      let durasiBulan = 0;
+      let jangkaWaktuStr = '';
+      if (actualFormData.tmt_tahun && actualFormData.tst_tahun && actualFormData.tmt_bulan && actualFormData.tst_bulan) {
+        durasiBulan = ((parseInt(actualFormData.tst_tahun, 10) - parseInt(actualFormData.tmt_tahun, 10)) * 12) + (parseInt(actualFormData.tst_bulan, 10) - parseInt(actualFormData.tmt_bulan, 10)) + 1;
+        jangkaWaktuStr = (durasiBulan === 12) ? '1 (satu) tahun' : (durasiBulan > 0 ? `${durasiBulan} bulan` : '');
+      }
 
       const usulanKontrakBaruRecord = {
         nip: cleanNip,
+        nik: actualFormData.nik || '',
         nama_lengkap: namaLengkap,
         tmp_lhr: actualFormData.tmp_lhr || '',
         tgl_lhr: actualFormData.tgl_lhr || null,
@@ -11782,6 +11887,7 @@ const methods = {
       // Simpan/Upsert juga ke tabel data_utama di Supabase
       const empRecord = {
         nip: cleanNip,
+        nik: actualFormData.nik || '',
         nama_lengkap: namaLengkap,
         nama: namaLengkap,
         tmp_lhr: actualFormData.tmp_lhr || '',
@@ -11803,6 +11909,7 @@ const methods = {
         try {
           const coreRecord = {
             nip: cleanNip,
+            nik: actualFormData.nik || '',
             nama_lengkap: namaLengkap,
             nama: namaLengkap,
             tmp_lhr: actualFormData.tmp_lhr || '',
@@ -11826,8 +11933,23 @@ const methods = {
       const { data } = await db.from('templates').select('*').eq('id', targetTemplateId).maybeSingle();
       if (data) tmpl = data;
     }
+    if (!tmpl && targetTemplateId) {
+      const { data } = await db.from('templates').select('*').eq('file_id', targetTemplateId).maybeSingle();
+      if (data) tmpl = data;
+    }
     if (!tmpl && layanan && targetSubMenu) {
-      const { data } = await db.from('templates').select('*').eq('layanan', layanan).eq('sub_menu', targetSubMenu).limit(1).maybeSingle();
+      const { data } = await db.from('templates')
+        .select('*')
+        .ilike('layanan', `%${layanan}%`)
+        .ilike('sub_menu', `%${targetSubMenu}%`)
+        .limit(1).maybeSingle();
+      if (data) tmpl = data;
+    }
+    if (!tmpl && targetSubMenu) {
+      const { data } = await db.from('templates')
+        .select('*')
+        .ilike('sub_menu', `%${targetSubMenu}%`)
+        .limit(1).maybeSingle();
       if (data) tmpl = data;
     }
 
@@ -11868,12 +11990,46 @@ const methods = {
       }
     };
 
+    // Sinkronkan template ke GAS sheet jika ditemukan di Supabase
+    if (tmpl && tmpl.file_id) {
+      try {
+        await fetch(gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            method: 'addTemplate',
+            params: [shortId, {
+              driveLink: tmpl.file_id,
+              judul: tmpl.judul || 'Template Kontrak',
+              layanan: tmpl.layanan || layanan,
+              subMenu: tmpl.sub_menu || targetSubMenu
+            }],
+            remoteSession
+          })
+        });
+      } catch (syncErr) {
+        console.warn('[generateKontrakDocument] auto-sync template to GAS warning:', syncErr.message);
+      }
+    }
+
+    const gasPayload = Object.assign({}, payload, {
+      templateFileId: tmpl?.file_id || templateFileId
+    });
+    if (targetSubMenu === 'Calon Pegawai Tetap Undip NON ASN') {
+      gasPayload.formData = Object.assign({}, actualFormData, {
+        tmt_bulan: actualFormData.tmt_bulan || '1',
+        tmt_tahun: actualFormData.tmt_tahun || '2026',
+        tst_bulan: actualFormData.tst_bulan || '12',
+        tst_tahun: actualFormData.tst_tahun || '2026'
+      });
+    }
+
     const response = await fetch(gasUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         method: 'generateKontrakDocument',
-        params: [shortId, Object.assign({}, payload, { templateFileId: tmpl?.file_id || templateFileId })],
+        params: [shortId, gasPayload],
         remoteSession
       })
     });
@@ -12469,10 +12625,13 @@ function buildKontrakDataContext(usulan, formData, employee) {
 
   const namaPegawai = rawNama;
   const nipPegawai = String((usulan && usulan.nip) || fd.nip || emp.nip || '').trim();
+  const nikPegawai = String(fd.nik || emp.nik || (usulan && usulan.nik) || (usulan && usulan.form_data && usulan.form_data.nik) || '').trim();
 
   const aliases = {
     nip: nipPegawai,
     NIP: nipPegawai,
+    nik: nikPegawai,
+    NIK: nikPegawai,
     nama: namaPegawai,
     NAMA: namaPegawai,
     nama_lengkap: namaPegawai,

@@ -2838,7 +2838,17 @@
                 <div id="kontrak_dynamicPlaceholdersWrap" class="grid-2 kp-grid grid-full" style="display:none; margin-top:10px;"></div>
               </div>
 
-              <div class="grid-2 kp-grid">
+              <!-- NIK KHUSUS CALON PEGAWAI TETAP UNDIP NON ASN (MENGGANTIKAN PERIODE KONTRAK) -->
+              <div class="stack-field grid-full" id="kontrak_nikWrap" style="display:none; margin-top:10px;">
+                <label style="font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:6px;">
+                  <span>🪪 NIK (Nomor Induk Kependudukan)</span>
+                  <span style="font-size:11px; color:var(--danger); font-weight:600;">*Wajib diisi</span>
+                </label>
+                <input type="text" id="kontrak_nik" class="field-input" placeholder="Masukkan 16 digit NIK..." maxlength="20" />
+                <div class="helper-text">Nomor Induk Kependudukan sesuai KTP (menggantikan periode kontrak pada template CPTU).</div>
+              </div>
+
+              <div class="grid-2 kp-grid" id="kontrak_periodeKontrakWrap">
                 <div class="stack-field">
                   <label>TMT Kontrak (mulai)</label>
                   <div class="mk-input-pair">
@@ -3478,13 +3488,145 @@
                 </div>
               </div>
 
-              <!-- Step 5: Dynamic Form Fields -->
+              <!-- Step 5: Dynamic Form Fields & Batch CPTU Option -->
               <div id="buatSk_dynamicFormWrap" style="display:none;margin-top:16px;">
-                <div style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:12px;">
-                  <h4 style="margin:0 0 4px 0;font-size:14px;font-weight:700;">📝 Data SK</h4>
-                  <p style="margin:0;font-size:12px;color:var(--text-muted);">Field yang diisi otomatis (pimpinan, nama jabatan, gaji pokok) tidak perlu diisi manual.</p>
+                <!-- Opsi Mode Pembuatan SK CPTU (Tunggal vs Batch) -->
+                <div id="buatSk_cptuBatchCard" style="display:none; margin-bottom:18px; background:var(--surface-alt,#f8fafc); border:1px solid var(--border,#cbd5e1); border-radius:12px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+                  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+                    <div>
+                      <h4 style="margin:0 0 4px 0; font-size:15px; font-weight:700; color:var(--primary,#1e40af); display:flex; align-items:center; gap:8px;">
+                        <span>⚡ Mode Pembuatan Dokumen SK CPTU</span>
+                      </h4>
+                      <p style="margin:0; font-size:12px; color:var(--text-muted);">Pilih apakah ingin mengisi form satu dokumen secara manual atau import banyak dokumen sekaligus melalui file Excel / Spreadsheet.</p>
+                    </div>
+                    <!-- Toggle Pill -->
+                    <div style="display:inline-flex; background:var(--surface,#ffffff); border:1px solid var(--border,#cbd5e1); border-radius:8px; padding:3px; gap:4px;">
+                      <button type="button" id="cptu_modeSingleBtn" class="btn btn-sm" style="background:var(--primary,#1e40af); color:#fff; border-radius:6px; font-size:12px; padding:6px 14px; font-weight:600; border:none; cursor:pointer;" onclick="cptuSwitchMode('single')">📝 Form Tunggal</button>
+                      <button type="button" id="cptu_modeBatchBtn" class="btn btn-sm btn-ghost" style="border-radius:6px; font-size:12px; padding:6px 14px; font-weight:600; border:none; cursor:pointer;" onclick="cptuSwitchMode('batch')">⚡ Import Excel / Spreadsheet (Batch)</button>
+                    </div>
+                  </div>
+
+                  <!-- Container Khusus Import Batch -->
+                  <div id="cptu_batchSection" style="display:none; border-top:1px dashed var(--border,#cbd5e1); padding-top:14px; margin-top:8px;">
+                    <div class="grid-2 kp-grid" style="gap:14px; margin-bottom:14px;">
+                      <!-- Opsi 1: File Excel -->
+                      <div style="background:var(--surface,#ffffff); border:1px solid var(--border,#cbd5e1); border-radius:10px; padding:14px;">
+                        <label style="font-weight:700; font-size:13px; margin-bottom:6px; display:block; color:var(--text-main);">📁 Opsi 1: Upload File Excel (.xlsx / .xls / .csv)</label>
+                        <p style="font-size:11px; color:var(--text-muted); margin:0 0 10px 0;">Unggah berkas spreadsheet dari komputer Anda.</p>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                          <input type="file" id="cptu_batchFileInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="cptuHandleBatchFileUpload(event)" />
+                          <button type="button" class="btn btn-secondary btn-sm" style="font-size:12px; display:flex; align-items:center; gap:6px;" onclick="document.getElementById('cptu_batchFileInput').click()">
+                            <span>📂 Pilih File Excel</span>
+                          </button>
+                          <span id="cptu_batchFileName" style="font-size:12px; color:var(--text-muted); font-style:italic;">Belum ada file dipilih</span>
+                        </div>
+                      </div>
+
+                      <!-- Opsi 2: Link Google Spreadsheet -->
+                      <div style="background:var(--surface,#ffffff); border:1px solid var(--border,#cbd5e1); border-radius:10px; padding:14px;">
+                        <label style="font-weight:700; font-size:13px; margin-bottom:6px; display:block; color:var(--text-main);">🔗 Opsi 2: Link Google Spreadsheet</label>
+                        <p style="font-size:11px; color:var(--text-muted); margin:0 0 10px 0;">Pastikan link sheet memiliki akses "Anyone with link" atau organisasi.</p>
+                        <div style="display:flex; gap:8px;">
+                          <input type="url" id="cptu_batchSpreadsheetUrl" class="field-input" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:12px; padding:6px 10px;" />
+                          <button type="button" class="btn btn-secondary btn-sm" style="font-size:12px; white-space:nowrap;" onclick="cptuFetchGoogleSpreadsheet()">📥 Ambil Sheet</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Petunjuk Header Kolom & Tombol Download Template -->
+                    <div style="background:rgba(59, 130, 246, 0.06); border:1px solid rgba(59, 130, 246, 0.2); border-radius:8px; padding:12px 14px; margin-bottom:14px;">
+                      <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+                        <div style="flex:1; min-width:260px;">
+                          <div style="font-weight:700; font-size:12px; color:var(--primary,#1e40af); margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                            <span>💡 Format Kolom Header Excel / Spreadsheet</span>
+                          </div>
+                          <p style="font-size:11px; color:var(--text-main); margin:0 0 6px 0; line-height:1.5;">
+                            Gunakan nama kolom berikut (mendukung dengan kurung kurawal <code>{{...}}</code> maupun tanpa kurung kurawal):
+                          </p>
+                          <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
+                            <span class="tag-chip"><code>{{nomor_sk}}</code></span>
+                            <span class="tag-chip"><code>{{tmt}}</code></span>
+                            <span class="tag-chip"><code>{{nama_lengkap}}</code></span>
+                            <span class="tag-chip"><code>{{nip}}</code></span>
+                            <span class="tag-chip"><code>{{tmp_lhr}}</code></span>
+                            <span class="tag-chip"><code>{{tgl_lhr}}</code></span>
+                            <span class="tag-chip"><code>{{pendidikan}}</code></span>
+                            <span class="tag-chip"><code>{{jurusan}}</code></span>
+                            <span class="tag-chip"><code>{{thn_lulus}}</code></span>
+                            <span class="tag-chip"><code>{{pangkat}}</code></span>
+                            <span class="tag-chip"><code>{{golongan}}</code></span>
+                            <span class="tag-chip"><code>{{gaji_pokok}}</code></span>
+                            <span class="tag-chip"><code>{{total_gaji}}</code></span>
+                            <span class="tag-chip"><code>{{jabatan}}</code></span>
+                            <span class="tag-chip"><code>{{unit_es_ii}}</code></span>
+                          </div>
+                          <div style="font-size:11px; color:var(--text-muted); line-height:1.4;">
+                            * Untuk <strong>gaji pokok</strong> cukup input angkanya saja (misal: <code>3000000</code>), sistem otomatis memformat menjadi rupiah dan terbilang lengkap, serta menghitung 80% gaji CPTU.
+                          </div>
+                        </div>
+                        <button type="button" class="btn btn-outline btn-sm" style="font-size:12px; white-space:nowrap; display:flex; align-items:center; gap:6px; border-color:var(--primary); color:var(--primary);" onclick="cptuDownloadExcelTemplate()">
+                          <span>📥 Unduh Format Excel Template</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Tabel Pratinjau Baris Terdeteksi -->
+                    <div id="cptu_batchPreviewWrap" style="display:none;">
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <div style="font-weight:700; font-size:13px; display:flex; align-items:center; gap:8px;">
+                          <span>📋 Pratinjau Data yang Terdeteksi</span>
+                          <span id="cptu_batchCountBadge" class="badge" style="background:var(--success,#10b981); color:#fff; font-size:11px; padding:2px 8px; border-radius:12px;">0 Data</span>
+                        </div>
+                        <button type="button" class="btn btn-ghost btn-sm" style="color:var(--danger); font-size:11px;" onclick="cptuResetBatchData()">🗑️ Hapus Data</button>
+                      </div>
+                      <div style="overflow-x:auto; max-height:300px; border:1px solid var(--border); border-radius:8px; background:var(--surface,#ffffff); margin-bottom:14px;">
+                        <table id="cptu_batchTable" style="width:100%; border-collapse:collapse; font-size:11.5px;">
+                          <thead style="position:sticky; top:0; background:var(--surface-alt); border-bottom:1px solid var(--border); font-weight:700; text-align:left;">
+                            <tr>
+                              <th style="padding:6px 10px;">#</th>
+                              <th style="padding:6px 10px;">Nama Lengkap</th>
+                              <th style="padding:6px 10px;">NIP</th>
+                              <th style="padding:6px 10px;">Nomor SK</th>
+                              <th style="padding:6px 10px;">TMT</th>
+                              <th style="padding:6px 10px;">Golongan</th>
+                              <th style="padding:6px 10px;">Pangkat</th>
+                              <th style="padding:6px 10px;">Gaji Pokok</th>
+                              <th style="padding:6px 10px;">Jabatan</th>
+                              <th style="padding:6px 10px;">Unit</th>
+                              <th style="padding:6px 10px;">Aksi</th>
+                            </tr>
+                          </thead>
+                          <tbody id="cptu_batchTableBody"></tbody>
+                        </table>
+                      </div>
+
+                      <!-- Progress & Tombol Eksekusi Batch -->
+                      <div id="cptu_batchProgressWrap" style="display:none; margin-bottom:14px;">
+                        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px; font-weight:600;">
+                          <span id="cptu_batchProgressMsg">Memproses dokumen...</span>
+                          <span id="cptu_batchProgressPercent">0%</span>
+                        </div>
+                        <div style="width:100%; height:8px; background:var(--surface-alt); border-radius:4px; overflow:hidden; border:1px solid var(--border);">
+                          <div id="cptu_batchProgressBar" style="width:0%; height:100%; background:var(--primary); transition:width 0.3s ease;"></div>
+                        </div>
+                      </div>
+
+                      <div style="display:flex; justify-content:flex-end; gap:10px;">
+                        <button type="button" id="cptu_batchGenerateBtn" class="btn btn-primary" style="padding:9px 20px; font-weight:700; font-size:13px; display:flex; align-items:center; gap:8px;" onclick="cptuExecuteBatchGenerate()">
+                          <span>🚀 Generate Semua Dokumen (Batch .ZIP)</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div id="buatSk_dynamicFields" class="kp-grid"></div>
+
+                <div id="buatSk_singleFormWrap">
+                  <div style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:12px;">
+                    <h4 style="margin:0 0 4px 0;font-size:14px;font-weight:700;">📝 Data SK</h4>
+                    <p style="margin:0;font-size:12px;color:var(--text-muted);">Field yang diisi otomatis (pimpinan, nama jabatan, gaji pokok) tidak perlu diisi manual.</p>
+                  </div>
+                  <div id="buatSk_dynamicFields" class="kp-grid"></div>
+                </div>
               </div>
 
               <!-- Step 6: Loop Tabel Pejabat (untuk SK Tutam) -->
@@ -12047,8 +12189,20 @@ function renderUserAtasanSearchResults_(results, searchInput, searchList) {
 
 function kontrakGoToState_(state) {
   const idMap = { kategori: 'kontrakPilihKategoriState', subMenu: 'kontrakPilihSubMenuState', mode: 'kontrakPilihModeState', form: 'kontrakFormState', kelolaAkses: 'kontrakKelolaAksesState' };
-  Object.values(idMap).forEach(id => { document.getElementById(id).style.display = 'none'; });
-  document.getElementById(idMap[state]).style.display = 'block';
+  Object.values(idMap).forEach(id => { 
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none'; 
+  });
+  const targetEl = document.getElementById(idMap[state]);
+  if (targetEl) targetEl.style.display = 'block';
+
+  if (state === 'form') {
+    const isCptu = (kontrakSelectedSubMenu === 'Calon Pegawai Tetap Undip NON ASN');
+    const perWrap = document.getElementById('kontrak_periodeKontrakWrap');
+    const nikWrap = document.getElementById('kontrak_nikWrap');
+    if (perWrap) perWrap.style.display = isCptu ? 'none' : 'contents';
+    if (nikWrap) nikWrap.style.display = isCptu ? 'block' : 'none';
+  }
 }
 
 function pilihKategoriKontrak(layanan) {
@@ -13001,7 +13155,7 @@ function confirmAndGoToFormWithNip(nip, tmpLhr, tglLhr, tmtBulan, extraData) {
 }
 
 function kontrakResetForm_() {
-  ['kontrak_search', 'kontrak_nip', 'kontrak_nipManual', 'kontrak_namaLengkap', 'kontrak_tmpLhr', 'kontrak_tglLhr',
+  ['kontrak_search', 'kontrak_nip', 'kontrak_nipManual', 'kontrak_nik', 'kontrak_namaLengkap', 'kontrak_tmpLhr', 'kontrak_tglLhr',
    'kontrak_pendidikan', 'kontrak_jurusan', 'kontrak_unitEsIi', 'kontrak_jabatan', 'kontrak_alamat',
    'kontrak_nomorTelepon', 'kontrak_nomorSurat', 'kontrak_besaranUpah',
    'kontrak_atasanSearch', 'kontrak_atasanNip', 'kontrak_atasanNama'].forEach(id => {
@@ -13132,6 +13286,8 @@ async function kontrakIsiFormDariPegawai_(nip, nama) {
     if (unitEl) unitEl.value = emp.unit_es_ii || '';
     const jabEl = document.getElementById('kontrak_jabatan');
     if (jabEl) jabEl.value = emp.jabatan || '';
+    const nikEl = document.getElementById('kontrak_nik');
+    if (nikEl) nikEl.value = emp.nik || '';
 
     const alamatEl = document.getElementById('kontrak_alamat');
     const alamatMsg = document.getElementById('kontrak_alamatMsg');
@@ -13186,8 +13342,11 @@ function updateKontrakBesaranUpahPreview_() {
 }
 
 function kontrakBuildFormData_() {
+  const isCptu = (kontrakSelectedSubMenu === 'Calon Pegawai Tetap Undip NON ASN');
+  const now = new Date();
   const data = {
     nip: document.getElementById('kontrak_nipManual')?.value || '',
+    nik: document.getElementById('kontrak_nik')?.value || '',
     nama_lengkap: document.getElementById('kontrak_namaLengkap')?.value || '',
     tmp_lhr: document.getElementById('kontrak_tmpLhr')?.value || '',
     tgl_lhr: document.getElementById('kontrak_tglLhr')?.value || '',
@@ -13208,10 +13367,10 @@ function kontrakBuildFormData_() {
     // sini -- server menghitungnya sendiri dari tmt_bulan/tahun & tst_bulan/
     // tahun di bawah, supaya nilai akhir di dokumen SELALU konsisten dengan
     // TMT/TST yang benar-benar dipilih (bukan field terpisah yang bisa lupa disinkronkan).
-    tmt_bulan: document.getElementById('kontrak_tmtBulan')?.value || '',
-    tmt_tahun: document.getElementById('kontrak_tmtTahun')?.value || '',
-    tst_bulan: document.getElementById('kontrak_tstBulan')?.value || '',
-    tst_tahun: document.getElementById('kontrak_tstTahun')?.value || ''
+    tmt_bulan: document.getElementById('kontrak_tmtBulan')?.value || (isCptu ? '1' : ''),
+    tmt_tahun: document.getElementById('kontrak_tmtTahun')?.value || (isCptu ? String(now.getFullYear()) : ''),
+    tst_bulan: document.getElementById('kontrak_tstBulan')?.value || (isCptu ? '12' : ''),
+    tst_tahun: document.getElementById('kontrak_tstTahun')?.value || (isCptu ? String(now.getFullYear()) : '')
   };
 
   // Kumpulkan dynamic placeholder inputs
@@ -13245,7 +13404,7 @@ async function renderKontrakDynamicPlaceholdersForTemplate(templateId) {
     
     // Filter out core fields already in the form (termasuk TMT, TST, Jangka Waktu, Upah, dsb)
     const coreKeys = new Set([
-      'nip', 'nama_lengkap', 'nama', 'tmp_lhr', 'tgl_lhr', 'tempat_lahir', 'tanggal_lahir',
+      'nip', 'nik', 'nama_lengkap', 'nama', 'tmp_lhr', 'tgl_lhr', 'tempat_lahir', 'tanggal_lahir',
       'pendidikan', 'jurusan', 'unit_es_ii', 'unit_kerja', 'unit', 'jabatan', 'alamat',
       'nomor_telepon', 'no_hp', 'telepon', 'nomor_surat_perjanjian', 'nomor_surat', 'no_surat',
       'tmt_bulan', 'tmt_tahun', 'tst_bulan', 'tst_tahun',
@@ -13568,13 +13727,17 @@ async function saveKontrakPeriodeAdmin(usulanId) {
 
 async function runKontrakPreviewGenerate(mode) {
   const formData = kontrakBuildFormData_();
-  if (!formData.nip) { showToast('error', 'NIP/NIK wajib diisi (cari pegawai, atau isi manual untuk usulan baru).'); return; }
+  const isCptu = (kontrakSelectedSubMenu === 'Calon Pegawai Tetap Undip NON ASN');
+  if (!formData.nip) { showToast('error', 'NIP wajib diisi (cari pegawai, atau isi manual untuk usulan baru).'); return; }
+  if (isCptu && !formData.nik) { showToast('error', 'NIK wajib diisi untuk Calon Pegawai Tetap Undip NON ASN.'); return; }
   if (!formData.nama_lengkap) { showToast('error', 'Nama Lengkap wajib diisi.'); return; }
   if (!formData.alamat) { showToast('error', 'Alamat wajib diisi.'); return; }
-  if (!formData.tmt_bulan || !formData.tmt_tahun) { showToast('error', 'TMT Kontrak wajib dipilih lengkap.'); return; }
-  if (!formData.tst_bulan || !formData.tst_tahun) { showToast('error', 'TST Kontrak wajib dipilih lengkap.'); return; }
-  const selisihCek = (parseInt(formData.tst_tahun, 10) - parseInt(formData.tmt_tahun, 10)) * 12 + (parseInt(formData.tst_bulan, 10) - parseInt(formData.tmt_bulan, 10)) + 1;
-  if (selisihCek <= 0) { showToast('error', 'TST Kontrak harus SETELAH atau SAMA DENGAN TMT Kontrak.'); return; }
+  if (!isCptu) {
+    if (!formData.tmt_bulan || !formData.tmt_tahun) { showToast('error', 'TMT Kontrak wajib dipilih lengkap.'); return; }
+    if (!formData.tst_bulan || !formData.tst_tahun) { showToast('error', 'TST Kontrak wajib dipilih lengkap.'); return; }
+    const selisihCek = (parseInt(formData.tst_tahun, 10) - parseInt(formData.tmt_tahun, 10)) * 12 + (parseInt(formData.tst_bulan, 10) - parseInt(formData.tmt_bulan, 10)) + 1;
+    if (selisihCek <= 0) { showToast('error', 'TST Kontrak harus SETELAH atau SAMA DENGAN TMT Kontrak.'); return; }
+  }
 
   const selectEl = document.getElementById('kontrak_templateSelect');
   const templateId = selectEl ? selectEl.value : '';
@@ -20667,6 +20830,22 @@ async function buatSkLoadPlaceholders() {
   const wrapAct = document.getElementById('buatSk_actionBar');
   if (wrapAct) wrapAct.style.display = 'flex';
   buatSkHitungGajiPokok();
+
+  // Khusus SK CPTU: Tampilkan opsi Batch Import Excel / Spreadsheet
+  const cptuCard = document.getElementById('buatSk_cptuBatchCard');
+  if (cptuCard) {
+    if (BUAT_SK.jenisSk === 'SK CPTU') {
+      cptuCard.style.display = 'block';
+      if (typeof cptuSwitchMode === 'function') {
+        cptuSwitchMode(BUAT_SK._cptuMode || 'single');
+      }
+    } else {
+      cptuCard.style.display = 'none';
+      const singleWrap = document.getElementById('buatSk_singleFormWrap');
+      if (singleWrap) singleWrap.style.display = 'block';
+      if (wrapAct) wrapAct.style.display = 'flex';
+    }
+  }
 }
 
 function buatSkRenderDynamicFields(placeholders) {
@@ -21452,13 +21631,410 @@ function buatSkReset() {
   BUAT_SK.pimpinanInfo = null; BUAT_SK.placeholders = [];
   BUAT_SK.pejabatDilantik = []; BUAT_SK.pejabatDiberhentikan = [];
   document.getElementById('buatSk_jenisSk').value = '';
-  const hide = ['templateWrap','unitWrap','searchEmpWrap','dynamicFormWrap','loopWrap'];
+  const hide = ['templateWrap','unitWrap','searchEmpWrap','dynamicFormWrap','loopWrap','cptuBatchCard'];
   hide.forEach(id => { const el = document.getElementById('buatSk_' + id); if(el) el.style.display = 'none'; });
   document.getElementById('buatSk_actionBar').style.display = 'none';
   document.getElementById('buatSk_pimpinanBadge').style.display = 'none';
   document.getElementById('buatSk_dynamicFields').innerHTML = '';
   buatSkRenderTabelDilantik(); buatSkRenderTabelDiberhentikan();
+  if (typeof cptuResetBatchData === 'function') cptuResetBatchData();
+  if (typeof cptuSwitchMode === 'function') cptuSwitchMode('single');
   showToast('info', 'Form telah direset.');
+}
+
+/* ==========================================================================
+   SK CPTU BATCH IMPORT & MULTI-DOKUMEN GENERATOR (EXCEL / SPREADSHEET)
+   ========================================================================== */
+
+window.CPTU_BATCH_ROWS = [];
+
+function cptuSwitchMode(mode) {
+  BUAT_SK._cptuMode = mode;
+  const singleBtn = document.getElementById('cptu_modeSingleBtn');
+  const batchBtn = document.getElementById('cptu_modeBatchBtn');
+  const batchSec = document.getElementById('cptu_batchSection');
+  const singleWrap = document.getElementById('buatSk_singleFormWrap');
+  const actionBar = document.getElementById('buatSk_actionBar');
+  const searchWrap = document.getElementById('buatSk_searchEmpWrap');
+
+  if (mode === 'batch') {
+    if (singleBtn) {
+      singleBtn.className = 'btn btn-sm btn-ghost';
+      singleBtn.style.background = 'transparent';
+      singleBtn.style.color = 'inherit';
+    }
+    if (batchBtn) {
+      batchBtn.className = 'btn btn-sm';
+      batchBtn.style.background = 'var(--primary,#1e40af)';
+      batchBtn.style.color = '#fff';
+    }
+    if (batchSec) batchSec.style.display = 'block';
+    if (singleWrap) singleWrap.style.display = 'none';
+    if (actionBar) actionBar.style.display = 'none';
+    if (searchWrap) searchWrap.style.display = 'none';
+  } else {
+    if (singleBtn) {
+      singleBtn.className = 'btn btn-sm';
+      singleBtn.style.background = 'var(--primary,#1e40af)';
+      singleBtn.style.color = '#fff';
+    }
+    if (batchBtn) {
+      batchBtn.className = 'btn btn-sm btn-ghost';
+      batchBtn.style.background = 'transparent';
+      batchBtn.style.color = 'inherit';
+    }
+    if (batchSec) batchSec.style.display = 'none';
+    if (singleWrap) singleWrap.style.display = 'block';
+    if (actionBar) actionBar.style.display = 'flex';
+    if (searchWrap) searchWrap.style.display = '';
+  }
+}
+
+function cptuNormalizeHeader(rawHeader) {
+  let h = String(rawHeader || '').trim();
+  // Buang kurung kurawal {{ dan }}
+  h = h.replace(/^\{\{\s*/, '').replace(/\s*\}\}$/, '').trim();
+  h = h.toLowerCase().replace(/[\s\-]/g, '_');
+
+  // Pemetaan alias ke 15 placeholder standar SK CPTU
+  if (['no_sk', 'nomorsk', 'nomor_surat_keputusan', 'nosk'].includes(h)) return 'nomor_sk';
+  if (['tmt_sk', 'tmt_mulai', 'tmt_pengangkatan', 'tmt_cptu'].includes(h)) return 'tmt';
+  if (['nama', 'nama_pegawai', 'nama_dosen', 'nama_tendik'].includes(h)) return 'nama_lengkap';
+  if (['nip_pegawai', 'nik', 'no_induk'].includes(h)) return 'nip';
+  if (['tempat_lahir', 'tempat_lhr', 'tmplhr', 'tempat'].includes(h)) return 'tmp_lhr';
+  if (['tanggal_lahir', 'tanggal_lhr', 'tgllhr', 'tgl_lahir', 'tgllahir'].includes(h)) return 'tgl_lhr';
+  if (['jenjang', 'tingkat_pendidikan', 'jenjang_pendidikan'].includes(h)) return 'pendidikan';
+  if (['prodi', 'program_studi', 'bidang_ilmu'].includes(h)) return 'jurusan';
+  if (['tahun_lulus', 'th_lulus', 'tahun'].includes(h)) return 'thn_lulus';
+  if (['gol', 'gol_ruang', 'golongan_ruang'].includes(h)) return 'golongan';
+  if (['pangkat_golongan'].includes(h)) return 'pangkat';
+  if (['gaji', 'gapok', 'nominal_gaji', 'gaji_cptu'].includes(h)) return 'gaji_pokok';
+  if (['total', 'gaji_total', 'total_gaji_diterima'].includes(h)) return 'total_gaji';
+  if (['jabatan_fungsional', 'tugas'].includes(h)) return 'jabatan';
+  if (['unit', 'unit_kerja', 'fakultas', 'departemen'].includes(h)) return 'unit_es_ii';
+
+  return h;
+}
+
+function cptuDownloadExcelTemplate() {
+  if (typeof XLSX === 'undefined') {
+    showToast('error', 'Library XLSX belum termuat di halaman.');
+    return;
+  }
+
+  const headers = [
+    '{{nomor_sk}}', '{{tmt}}', '{{nama_lengkap}}', '{{nip}}', '{{tmp_lhr}}',
+    '{{tgl_lhr}}', '{{pendidikan}}', '{{jurusan}}', '{{thn_lulus}}', '{{pangkat}}',
+    '{{golongan}}', '{{gaji_pokok}}', '{{total_gaji}}', '{{jabatan}}', '{{unit_es_ii}}'
+  ];
+
+  const sampleRow1 = [
+    '001/UN7.A/KP/2026', '1 Maret 2026', 'Dr. Budi Santoso, S.Kom., M.Cs.', 'H.7.199001012026031001', 'Semarang',
+    '1990-01-01', 'S3', 'Informatika', '2020', 'Penata Muda Tingkat I',
+    'III/b', '3000000', '', 'Dosen', 'Fakultas Sains dan Matematika'
+  ];
+
+  const sampleRow2 = [
+    '002/UN7.A/KP/2026', '1 Maret 2026', 'Siti Rahmawati, S.T., M.Eng.', 'H.7.199205122026032002', 'Surakarta',
+    '1992-05-12', 'S2', 'Teknik Elektro', '2018', 'Penata Muda',
+    'III/a', '2800000', '', 'Dosen', 'Fakultas Teknik'
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, sampleRow1, sampleRow2]);
+
+  // Set column widths
+  ws['!cols'] = [
+    { wch: 22 }, { wch: 15 }, { wch: 32 }, { wch: 26 }, { wch: 16 },
+    { wch: 14 }, { wch: 12 }, { wch: 22 }, { wch: 12 }, { wch: 24 },
+    { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 32 }
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Template_CPTU');
+  XLSX.writeFile(wb, 'Format_Template_SK_CPTU_Batch.xlsx');
+  showToast('success', '📥 Template Excel SK CPTU berhasil diunduh.');
+}
+
+function cptuHandleBatchFileUpload(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+
+  const fileNameEl = document.getElementById('cptu_batchFileName');
+  if (fileNameEl) fileNameEl.textContent = file.name;
+
+  if (typeof XLSX === 'undefined') {
+    showToast('error', 'Library XLSX belum siap.');
+    return;
+  }
+
+  showToast('info', `Membaca berkas ${file.name}...`);
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const wb = XLSX.read(data, { type: 'array', cellDates: true });
+      const firstSheetName = wb.SheetNames[0];
+      const ws = wb.Sheets[firstSheetName];
+      const rawRows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+      cptuProcessParsedRows(rawRows);
+    } catch(err) {
+      showToast('error', 'Gagal membaca berkas Excel: ' + (err.message || err));
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function cptuFetchGoogleSpreadsheet() {
+  const urlInp = document.getElementById('cptu_batchSpreadsheetUrl');
+  const url = (urlInp?.value || '').trim();
+  if (!url) {
+    showToast('error', 'Silakan masukkan URL Google Spreadsheet.');
+    return;
+  }
+
+  showLoadingOverlay('Mengambil data dari Google Spreadsheet...');
+  try {
+    const res = await rpc('fetchSpreadsheetDataForCptu', [SESSION.token, { url }]);
+    hideLoadingOverlay();
+    if (res && res.success && res.csvText) {
+      const wb = XLSX.read(res.csvText, { type: 'string' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rawRows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+      cptuProcessParsedRows(rawRows);
+      showToast('success', 'Data Google Spreadsheet berhasil dimuat!');
+    } else {
+      showToast('error', (res && res.message) || 'Gagal membaca Google Spreadsheet.');
+    }
+  } catch(err) {
+    hideLoadingOverlay();
+    showToast('error', 'Gagal mengambil Spreadsheet: ' + (err.message || err));
+  }
+}
+
+function cptuProcessParsedRows(rawRows) {
+  if (!Array.isArray(rawRows) || !rawRows.length) {
+    showToast('error', 'Tidak ada data baris ditemukan pada file/spreadsheet.');
+    return;
+  }
+
+  const REQUIRED_COLS = [
+    'nomor_sk', 'tmt', 'nama_lengkap', 'nip', 'tmp_lhr', 'tgl_lhr',
+    'pendidikan', 'jurusan', 'thn_lulus', 'pangkat', 'golongan',
+    'gaji_pokok', 'total_gaji', 'jabatan', 'unit_es_ii'
+  ];
+
+  const parsed = [];
+  rawRows.forEach((row, idx) => {
+    // Abaikan baris kosong
+    const vals = Object.values(row).map(v => String(v).trim()).filter(Boolean);
+    if (!vals.length) return;
+
+    const r = {};
+    Object.keys(row).forEach(colKey => {
+      const normKey = cptuNormalizeHeader(colKey);
+      r[normKey] = String(row[colKey] != null ? row[colKey] : '').trim();
+    });
+
+    // Pastikan 15 kolom terinisialisasi
+    REQUIRED_COLS.forEach(col => {
+      if (r[col] === undefined) r[col] = '';
+    });
+
+    // Fallback nama jika nama_lengkap belum ada
+    if (!r.nama_lengkap && r.nama) r.nama_lengkap = r.nama;
+
+    // Bersihkan format tanggal jika berasal dari ISO date
+    if (r.tgl_lhr && r.tgl_lhr.includes('T')) {
+      r.tgl_lhr = r.tgl_lhr.split('T')[0];
+    }
+    if (r.tmt && r.tmt.includes('T')) {
+      r.tmt = r.tmt.split('T')[0];
+    }
+
+    // Auto resolve pangkat jika kosong dan golongan terisi
+    if (r.golongan && !r.pangkat && typeof getPangkatForGolongan === 'function') {
+      r.pangkat = getPangkatForGolongan(r.golongan, true) || '';
+    }
+
+    parsed.push(r);
+  });
+
+  if (!parsed.length) {
+    showToast('error', 'Semua baris kosong atau tidak valid.');
+    return;
+  }
+
+  window.CPTU_BATCH_ROWS = parsed;
+  cptuRenderBatchTable();
+  showToast('success', `Berhasil memuat ${parsed.length} baris data CPTU.`);
+}
+
+function cptuRenderBatchTable() {
+  const wrap = document.getElementById('cptu_batchPreviewWrap');
+  const tbody = document.getElementById('cptu_batchTableBody');
+  const countBadge = document.getElementById('cptu_batchCountBadge');
+
+  if (!wrap || !tbody) return;
+
+  const rows = window.CPTU_BATCH_ROWS || [];
+  if (!rows.length) {
+    wrap.style.display = 'none';
+    tbody.innerHTML = '';
+    if (countBadge) countBadge.textContent = '0 Data';
+    return;
+  }
+
+  wrap.style.display = 'block';
+  if (countBadge) countBadge.textContent = `${rows.length} Data`;
+
+  tbody.innerHTML = rows.map((r, i) => {
+    // Tampilan rapi gaji pokok
+    let gajiDisp = r.gaji_pokok || '-';
+    const numGaji = parseInt(String(r.gaji_pokok).replace(/[^0-9]/g, ''), 10);
+    if (!isNaN(numGaji) && numGaji > 0) {
+      gajiDisp = 'Rp ' + numGaji.toLocaleString('id-ID');
+    }
+
+    return `
+      <tr style="border-bottom:1px solid var(--border,#e2e8f0);">
+        <td style="padding:6px 10px; text-align:center; font-weight:600; color:var(--text-muted);">${i + 1}</td>
+        <td style="padding:6px 10px; font-weight:700;">${escHtml(r.nama_lengkap || '-')}</td>
+        <td style="padding:6px 10px; font-family:monospace; color:var(--primary); font-weight:600;">${escHtml(r.nip || '-')}</td>
+        <td style="padding:6px 10px;">${escHtml(r.nomor_sk || '-')}</td>
+        <td style="padding:6px 10px;">${escHtml(r.tmt || '-')}</td>
+        <td style="padding:6px 10px; font-weight:600;">${escHtml(r.golongan || '-')}</td>
+        <td style="padding:6px 10px;">${escHtml(r.pangkat || '-')}</td>
+        <td style="padding:6px 10px; font-weight:600; color:#16a34a;">${escHtml(gajiDisp)}</td>
+        <td style="padding:6px 10px;">${escHtml(r.jabatan || '-')}</td>
+        <td style="padding:6px 10px;">${escHtml(r.unit_es_ii || '-')}</td>
+        <td style="padding:6px 10px; text-align:center;">
+          <button type="button" class="btn btn-sm btn-ghost" style="color:var(--danger,#ef4444); padding:2px 6px; font-size:11px;" onclick="cptuRemoveBatchRow(${i})" title="Hapus baris ini">🗑️</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function cptuRemoveBatchRow(idx) {
+  if (!window.CPTU_BATCH_ROWS) return;
+  window.CPTU_BATCH_ROWS.splice(idx, 1);
+  cptuRenderBatchTable();
+}
+
+function cptuResetBatchData() {
+  window.CPTU_BATCH_ROWS = [];
+  const fileInp = document.getElementById('cptu_batchFileInput');
+  if (fileInp) fileInp.value = '';
+  const fileNameEl = document.getElementById('cptu_batchFileName');
+  if (fileNameEl) fileNameEl.textContent = 'Belum ada file dipilih';
+  const urlInp = document.getElementById('cptu_batchSpreadsheetUrl');
+  if (urlInp) urlInp.value = '';
+  cptuRenderBatchTable();
+}
+
+async function cptuExecuteBatchGenerate() {
+  const rows = window.CPTU_BATCH_ROWS || [];
+  if (!rows.length) {
+    showToast('error', 'Tidak ada data untuk digenerate. Silakan upload Excel atau link Spreadsheet terlebih dahulu.');
+    return;
+  }
+
+  if (typeof JSZip === 'undefined') {
+    showToast('error', 'Library JSZip belum siap.');
+    return;
+  }
+
+  const jenisSk = BUAT_SK.jenisSk || 'SK CPTU';
+  const templateId = BUAT_SK.templateId || ('default_' + jenisSk.toLowerCase().replace(/[^a-z0-9]/g, '_'));
+
+  const total = rows.length;
+  const progressWrap = document.getElementById('cptu_batchProgressWrap');
+  const progressBar = document.getElementById('cptu_batchProgressBar');
+  const progressMsg = document.getElementById('cptu_batchProgressMsg');
+  const progressPercent = document.getElementById('cptu_batchProgressPercent');
+  const btnGen = document.getElementById('cptu_batchGenerateBtn');
+
+  if (progressWrap) progressWrap.style.display = 'block';
+  if (btnGen) btnGen.disabled = true;
+
+  const zip = new JSZip();
+  let successCount = 0;
+  let failCount = 0;
+
+  const BULAN_NAMES = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const now = new Date();
+  const defaultTglSk = `${now.getDate()} ${BULAN_NAMES[now.getMonth()]} ${now.getFullYear()}`;
+
+  for (let i = 0; i < total; i++) {
+    const row = rows[i];
+    const persen = Math.round(((i + 1) / total) * 100);
+    if (progressBar) progressBar.style.width = persen + '%';
+    if (progressPercent) progressPercent.textContent = persen + '%';
+    if (progressMsg) progressMsg.textContent = `Membuat dokumen ${i + 1} dari ${total}: ${row.nama_lengkap || row.nip}...`;
+
+    const form_data = Object.assign({}, row);
+    // Automatic / Sistem Placeholders
+    if (BUAT_SK.unitEsIi && !form_data.unit_es_ii) form_data.unit_es_ii = BUAT_SK.unitEsIi;
+    if (BUAT_SK.pimpinanInfo) {
+      form_data.pimpinan = BUAT_SK.pimpinanInfo.pimpinan_resolved || '';
+      form_data.nama_pimpinan = BUAT_SK.pimpinanInfo.nama_pimpinan || '';
+    }
+    if (!form_data.tgl_sk) form_data.tgl_sk = defaultTglSk;
+
+    try {
+      const res = await rpc('generateSkBaru', [SESSION.token, {
+        jenis_sk: jenisSk,
+        template_id: templateId,
+        form_data: form_data,
+        pejabat_dilantik: [],
+        pejabat_diberhentikan: []
+      }]);
+
+      if (res && res.success && res.base64) {
+        const safeNama = String(row.nama_lengkap || row.nip || `Dokumen_${i+1}`).replace(/[^a-zA-Z0-9_\-]/g, '_');
+        const fileName = `${String(i + 1).padStart(2, '0')}_SK_CPTU_${safeNama}.docx`;
+
+        const byteChars = atob(res.base64);
+        const byteArr = new Uint8Array(byteChars.length);
+        for (let b = 0; b < byteChars.length; b++) {
+          byteArr[b] = byteChars.charCodeAt(b);
+        }
+        zip.file(fileName, byteArr);
+        successCount++;
+      } else {
+        failCount++;
+        console.warn(`[Batch CPTU] Gagal row ${i+1}:`, res?.message);
+      }
+    } catch(errRow) {
+      failCount++;
+      console.warn(`[Batch CPTU] Error row ${i+1}:`, errRow);
+    }
+  }
+
+  if (progressMsg) progressMsg.textContent = 'Menyusun berkas ZIP...';
+
+  if (successCount > 0) {
+    try {
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `Batch_SK_CPTU_${dateStr}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showToast('success', `🎉 Berhasil membuat ${successCount} dokumen SK CPTU! Berkas ZIP sedang diunduh.`);
+    } catch(zipErr) {
+      showToast('error', 'Gagal memaketkan ZIP: ' + zipErr.message);
+    }
+  } else {
+    showToast('error', 'Semua pembuatan dokumen batch gagal. Periksa kembali format data template.');
+  }
+
+  if (btnGen) btnGen.disabled = false;
 }
 
 // Helper HTML escape

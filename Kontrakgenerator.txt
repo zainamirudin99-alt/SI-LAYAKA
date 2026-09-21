@@ -240,17 +240,22 @@ function previewKontrakDocument(sessionToken, payload) {
   try {
     const { layanan, subMenu, formData } = payload;
     if (!layanan || !subMenu) return { success: false, message: 'Jenis Kontrak belum dipilih.' };
-    if (kontrakGen_hitungJangkaWaktuBulan_(formData.tmt_bulan, formData.tmt_tahun, formData.tst_bulan, formData.tst_tahun) <= 0) {
+    const isCptu = (subMenu === 'Calon Pegawai Tetap Undip NON ASN');
+    if (!isCptu && kontrakGen_hitungJangkaWaktuBulan_(formData.tmt_bulan, formData.tmt_tahun, formData.tst_bulan, formData.tst_tahun) <= 0) {
       return { success: false, message: 'TMT/TST Kontrak belum lengkap, atau TST lebih awal dari TMT.' };
     }
 
-    const templates = getTemplatesForService(sessionToken, layanan, subMenu);
-    if (!templates.length) return { success: false, message: `Template "${subMenu}" (${layanan}) belum terdaftar. Tambahkan di menu Template.` };
+    let fileId = payload.templateFileId;
+    if (!fileId) {
+      const templates = getTemplatesForService(sessionToken, layanan, subMenu);
+      if (!templates.length) return { success: false, message: `Template "${subMenu}" (${layanan}) belum terdaftar. Tambahkan di menu Template.` };
+      fileId = templates[0].fileId;
+    }
 
     const dataContext = kontrakGen_buildContext_(formData);
     const tempName = '[PREVIEW] Kontrak - ' + sanitizeFileName_(dataContext.nama_lengkap || 'pegawai') + ' - ' + new Date().getTime();
 
-    const copyFile = renderTemplateCopy_(templates[0].fileId, dataContext, tempName);
+    const copyFile = renderTemplateCopy_(fileId, dataContext, tempName);
 
     try {
       copyFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
@@ -295,17 +300,23 @@ function generateKontrakDocument(sessionToken, payload) {
     }
 
     if (!layanan || !subMenu) return { success: false, message: 'Jenis Kontrak belum dipilih.' };
-    if (kontrakGen_hitungJangkaWaktuBulan_(formData.tmt_bulan, formData.tmt_tahun, formData.tst_bulan, formData.tst_tahun) <= 0) {
+    const isCptu = (subMenu === 'Calon Pegawai Tetap Undip NON ASN');
+    if (!isCptu && kontrakGen_hitungJangkaWaktuBulan_(formData.tmt_bulan, formData.tmt_tahun, formData.tst_bulan, formData.tst_tahun) <= 0) {
       return { success: false, message: 'TMT/TST Kontrak belum lengkap, atau TST lebih awal dari TMT.' };
     }
-    const templates = getTemplatesForService(sessionToken, layanan, subMenu);
-    if (!templates.length) return { success: false, message: `Template "${subMenu}" (${layanan}) belum terdaftar. Tambahkan di menu Template.` };
+
+    let fileId = payload.templateFileId;
+    if (!fileId) {
+      const templates = getTemplatesForService(sessionToken, layanan, subMenu);
+      if (!templates.length) return { success: false, message: `Template "${subMenu}" (${layanan}) belum terdaftar. Tambahkan di menu Template.` };
+      fileId = templates[0].fileId;
+    }
 
     const dataContext = kontrakGen_buildContext_(formData);
     const namaUtama = dataContext.nama_lengkap || 'PEGAWAI';
     const fileName = sanitizeFileName_(`Kontrak_${subMenu}_${namaUtama}`);
 
-    const docCopy = renderTemplateCopy_(templates[0].fileId, dataContext, fileName);
+    const docCopy = renderTemplateCopy_(fileId, dataContext, fileName);
 
     const tahun = String(new Date().getFullYear());
     const rootKontrak = DriveApp.getFolderById(CONFIG.FOLDER_KONTRAK_ROOT);

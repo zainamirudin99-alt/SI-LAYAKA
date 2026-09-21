@@ -1414,7 +1414,17 @@
                 <div id="kontrak_dynamicPlaceholdersWrap" class="grid-2 kp-grid grid-full" style="display:none; margin-top:10px;"></div>
               </div>
 
-              <div class="grid-2 kp-grid">
+              <!-- NIK KHUSUS CALON PEGAWAI TETAP UNDIP NON ASN (MENGGANTIKAN PERIODE KONTRAK) -->
+              <div class="stack-field grid-full" id="kontrak_nikWrap" style="display:none; margin-top:10px;">
+                <label style="font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:6px;">
+                  <span>🪪 NIK (Nomor Induk Kependudukan)</span>
+                  <span style="font-size:11px; color:var(--danger); font-weight:600;">*Wajib diisi</span>
+                </label>
+                <input type="text" id="kontrak_nik" class="field-input" placeholder="Masukkan 16 digit NIK..." maxlength="20" />
+                <div class="helper-text">Nomor Induk Kependudukan sesuai KTP (menggantikan periode kontrak pada template CPTU).</div>
+              </div>
+
+              <div class="grid-2 kp-grid" id="kontrak_periodeKontrakWrap">
                 <div class="stack-field">
                   <label>TMT Kontrak (mulai)</label>
                   <div class="mk-input-pair">
@@ -2054,13 +2064,145 @@
                 </div>
               </div>
 
-              <!-- Step 5: Dynamic Form Fields -->
+              <!-- Step 5: Dynamic Form Fields & Batch CPTU Option -->
               <div id="buatSk_dynamicFormWrap" style="display:none;margin-top:16px;">
-                <div style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:12px;">
-                  <h4 style="margin:0 0 4px 0;font-size:14px;font-weight:700;">📝 Data SK</h4>
-                  <p style="margin:0;font-size:12px;color:var(--text-muted);">Field yang diisi otomatis (pimpinan, nama jabatan, gaji pokok) tidak perlu diisi manual.</p>
+                <!-- Opsi Mode Pembuatan SK CPTU (Tunggal vs Batch) -->
+                <div id="buatSk_cptuBatchCard" style="display:none; margin-bottom:18px; background:var(--surface-alt,#f8fafc); border:1px solid var(--border,#cbd5e1); border-radius:12px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+                  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+                    <div>
+                      <h4 style="margin:0 0 4px 0; font-size:15px; font-weight:700; color:var(--primary,#1e40af); display:flex; align-items:center; gap:8px;">
+                        <span>⚡ Mode Pembuatan Dokumen SK CPTU</span>
+                      </h4>
+                      <p style="margin:0; font-size:12px; color:var(--text-muted);">Pilih apakah ingin mengisi form satu dokumen secara manual atau import banyak dokumen sekaligus melalui file Excel / Spreadsheet.</p>
+                    </div>
+                    <!-- Toggle Pill -->
+                    <div style="display:inline-flex; background:var(--surface,#ffffff); border:1px solid var(--border,#cbd5e1); border-radius:8px; padding:3px; gap:4px;">
+                      <button type="button" id="cptu_modeSingleBtn" class="btn btn-sm" style="background:var(--primary,#1e40af); color:#fff; border-radius:6px; font-size:12px; padding:6px 14px; font-weight:600; border:none; cursor:pointer;" onclick="cptuSwitchMode('single')">📝 Form Tunggal</button>
+                      <button type="button" id="cptu_modeBatchBtn" class="btn btn-sm btn-ghost" style="border-radius:6px; font-size:12px; padding:6px 14px; font-weight:600; border:none; cursor:pointer;" onclick="cptuSwitchMode('batch')">⚡ Import Excel / Spreadsheet (Batch)</button>
+                    </div>
+                  </div>
+
+                  <!-- Container Khusus Import Batch -->
+                  <div id="cptu_batchSection" style="display:none; border-top:1px dashed var(--border,#cbd5e1); padding-top:14px; margin-top:8px;">
+                    <div class="grid-2 kp-grid" style="gap:14px; margin-bottom:14px;">
+                      <!-- Opsi 1: File Excel -->
+                      <div style="background:var(--surface,#ffffff); border:1px solid var(--border,#cbd5e1); border-radius:10px; padding:14px;">
+                        <label style="font-weight:700; font-size:13px; margin-bottom:6px; display:block; color:var(--text-main);">📁 Opsi 1: Upload File Excel (.xlsx / .xls / .csv)</label>
+                        <p style="font-size:11px; color:var(--text-muted); margin:0 0 10px 0;">Unggah berkas spreadsheet dari komputer Anda.</p>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                          <input type="file" id="cptu_batchFileInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="cptuHandleBatchFileUpload(event)" />
+                          <button type="button" class="btn btn-secondary btn-sm" style="font-size:12px; display:flex; align-items:center; gap:6px;" onclick="document.getElementById('cptu_batchFileInput').click()">
+                            <span>📂 Pilih File Excel</span>
+                          </button>
+                          <span id="cptu_batchFileName" style="font-size:12px; color:var(--text-muted); font-style:italic;">Belum ada file dipilih</span>
+                        </div>
+                      </div>
+
+                      <!-- Opsi 2: Link Google Spreadsheet -->
+                      <div style="background:var(--surface,#ffffff); border:1px solid var(--border,#cbd5e1); border-radius:10px; padding:14px;">
+                        <label style="font-weight:700; font-size:13px; margin-bottom:6px; display:block; color:var(--text-main);">🔗 Opsi 2: Link Google Spreadsheet</label>
+                        <p style="font-size:11px; color:var(--text-muted); margin:0 0 10px 0;">Pastikan link sheet memiliki akses "Anyone with link" atau organisasi.</p>
+                        <div style="display:flex; gap:8px;">
+                          <input type="url" id="cptu_batchSpreadsheetUrl" class="field-input" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:12px; padding:6px 10px;" />
+                          <button type="button" class="btn btn-secondary btn-sm" style="font-size:12px; white-space:nowrap;" onclick="cptuFetchGoogleSpreadsheet()">📥 Ambil Sheet</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Petunjuk Header Kolom & Tombol Download Template -->
+                    <div style="background:rgba(59, 130, 246, 0.06); border:1px solid rgba(59, 130, 246, 0.2); border-radius:8px; padding:12px 14px; margin-bottom:14px;">
+                      <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+                        <div style="flex:1; min-width:260px;">
+                          <div style="font-weight:700; font-size:12px; color:var(--primary,#1e40af); margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                            <span>💡 Format Kolom Header Excel / Spreadsheet</span>
+                          </div>
+                          <p style="font-size:11px; color:var(--text-main); margin:0 0 6px 0; line-height:1.5;">
+                            Gunakan nama kolom berikut (mendukung dengan kurung kurawal <code>{{...}}</code> maupun tanpa kurung kurawal):
+                          </p>
+                          <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
+                            <span class="tag-chip"><code>{{nomor_sk}}</code></span>
+                            <span class="tag-chip"><code>{{tmt}}</code></span>
+                            <span class="tag-chip"><code>{{nama_lengkap}}</code></span>
+                            <span class="tag-chip"><code>{{nip}}</code></span>
+                            <span class="tag-chip"><code>{{tmp_lhr}}</code></span>
+                            <span class="tag-chip"><code>{{tgl_lhr}}</code></span>
+                            <span class="tag-chip"><code>{{pendidikan}}</code></span>
+                            <span class="tag-chip"><code>{{jurusan}}</code></span>
+                            <span class="tag-chip"><code>{{thn_lulus}}</code></span>
+                            <span class="tag-chip"><code>{{pangkat}}</code></span>
+                            <span class="tag-chip"><code>{{golongan}}</code></span>
+                            <span class="tag-chip"><code>{{gaji_pokok}}</code></span>
+                            <span class="tag-chip"><code>{{total_gaji}}</code></span>
+                            <span class="tag-chip"><code>{{jabatan}}</code></span>
+                            <span class="tag-chip"><code>{{unit_es_ii}}</code></span>
+                          </div>
+                          <div style="font-size:11px; color:var(--text-muted); line-height:1.4;">
+                            * Untuk <strong>gaji pokok</strong> cukup input angkanya saja (misal: <code>3000000</code>), sistem otomatis memformat menjadi rupiah dan terbilang lengkap, serta menghitung 80% gaji CPTU.
+                          </div>
+                        </div>
+                        <button type="button" class="btn btn-outline btn-sm" style="font-size:12px; white-space:nowrap; display:flex; align-items:center; gap:6px; border-color:var(--primary); color:var(--primary);" onclick="cptuDownloadExcelTemplate()">
+                          <span>📥 Unduh Format Excel Template</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Tabel Pratinjau Baris Terdeteksi -->
+                    <div id="cptu_batchPreviewWrap" style="display:none;">
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <div style="font-weight:700; font-size:13px; display:flex; align-items:center; gap:8px;">
+                          <span>📋 Pratinjau Data yang Terdeteksi</span>
+                          <span id="cptu_batchCountBadge" class="badge" style="background:var(--success,#10b981); color:#fff; font-size:11px; padding:2px 8px; border-radius:12px;">0 Data</span>
+                        </div>
+                        <button type="button" class="btn btn-ghost btn-sm" style="color:var(--danger); font-size:11px;" onclick="cptuResetBatchData()">🗑️ Hapus Data</button>
+                      </div>
+                      <div style="overflow-x:auto; max-height:300px; border:1px solid var(--border); border-radius:8px; background:var(--surface,#ffffff); margin-bottom:14px;">
+                        <table id="cptu_batchTable" style="width:100%; border-collapse:collapse; font-size:11.5px;">
+                          <thead style="position:sticky; top:0; background:var(--surface-alt); border-bottom:1px solid var(--border); font-weight:700; text-align:left;">
+                            <tr>
+                              <th style="padding:6px 10px;">#</th>
+                              <th style="padding:6px 10px;">Nama Lengkap</th>
+                              <th style="padding:6px 10px;">NIP</th>
+                              <th style="padding:6px 10px;">Nomor SK</th>
+                              <th style="padding:6px 10px;">TMT</th>
+                              <th style="padding:6px 10px;">Golongan</th>
+                              <th style="padding:6px 10px;">Pangkat</th>
+                              <th style="padding:6px 10px;">Gaji Pokok</th>
+                              <th style="padding:6px 10px;">Jabatan</th>
+                              <th style="padding:6px 10px;">Unit</th>
+                              <th style="padding:6px 10px;">Aksi</th>
+                            </tr>
+                          </thead>
+                          <tbody id="cptu_batchTableBody"></tbody>
+                        </table>
+                      </div>
+
+                      <!-- Progress & Tombol Eksekusi Batch -->
+                      <div id="cptu_batchProgressWrap" style="display:none; margin-bottom:14px;">
+                        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px; font-weight:600;">
+                          <span id="cptu_batchProgressMsg">Memproses dokumen...</span>
+                          <span id="cptu_batchProgressPercent">0%</span>
+                        </div>
+                        <div style="width:100%; height:8px; background:var(--surface-alt); border-radius:4px; overflow:hidden; border:1px solid var(--border);">
+                          <div id="cptu_batchProgressBar" style="width:0%; height:100%; background:var(--primary); transition:width 0.3s ease;"></div>
+                        </div>
+                      </div>
+
+                      <div style="display:flex; justify-content:flex-end; gap:10px;">
+                        <button type="button" id="cptu_batchGenerateBtn" class="btn btn-primary" style="padding:9px 20px; font-weight:700; font-size:13px; display:flex; align-items:center; gap:8px;" onclick="cptuExecuteBatchGenerate()">
+                          <span>🚀 Generate Semua Dokumen (Batch .ZIP)</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div id="buatSk_dynamicFields" class="kp-grid"></div>
+
+                <div id="buatSk_singleFormWrap">
+                  <div style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:12px;">
+                    <h4 style="margin:0 0 4px 0;font-size:14px;font-weight:700;">📝 Data SK</h4>
+                    <p style="margin:0;font-size:12px;color:var(--text-muted);">Field yang diisi otomatis (pimpinan, nama jabatan, gaji pokok) tidak perlu diisi manual.</p>
+                  </div>
+                  <div id="buatSk_dynamicFields" class="kp-grid"></div>
+                </div>
               </div>
 
               <!-- Step 6: Loop Tabel Pejabat (untuk SK Tutam) -->
