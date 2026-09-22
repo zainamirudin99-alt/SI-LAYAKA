@@ -1356,6 +1356,14 @@
                     <button type="button" id="kontrak_btnHapusDraftNip" class="btn btn-sm btn-outline-danger" style="display:none; padding:2px 8px; font-size:11px; border-radius:4px; border:1px solid #ef4444; color:#ef4444; background:transparent; cursor:pointer;" onclick="hapusNipFromFormUsulan()" title="Hapus NIP draft ini dan ulangi generate NIP">🗑️ Hapus NIP</button>
                   </div>
                   <input type="text" id="kontrak_nipManual" class="field-input" />
+                  <div id="kontrak_draftNipBuatUlangWrap" style="display:none; margin-top:6px;">
+                    <label style="font-size:11px; font-weight:700; color:var(--primary); margin-bottom:2px; display:flex; align-items:center; gap:4px;">
+                      <span>📌 NIP Draft CPTU Tersimpan (Belum Selesai):</span>
+                    </label>
+                    <select id="kontrak_draftNipBuatUlangSelect" class="field-input" style="font-size:12px; padding:6px 10px; font-weight:600; color:var(--primary); border:1.5px dashed var(--primary); background:var(--surface-alt, #f0f9ff);" onchange="onSelectDraftNipBuatUlang(this.value)">
+                      <option value="">-- Pilih NIP Draft CPTU untuk Digunakan --</option>
+                    </select>
+                  </div>
                 </div>
                 <div class="stack-field autocomplete-wrap" style="position:relative;">
                   <label>Nama Lengkap</label>

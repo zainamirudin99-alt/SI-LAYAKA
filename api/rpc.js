@@ -808,7 +808,7 @@ function enforceDocxFont(zip, fontName = null) {
 
 function cleanWordXmlParagraphBraces(xml) {
   if (!xml) return '';
-  return xml.replace(/<w:p\b[^>]*>([\s\S]*?)<\/w:p>/gi, (pMatch, pBody) => {
+  return xml.replace(/(<w:p\b[^>]*>)([\s\S]*?)(<\/w:p>)/gi, (pMatch, pOpen, pBody, pClose) => {
     if (!pBody.includes('{') && !pBody.includes('}')) return pMatch;
 
     // Hapus proofErr dan tag pengganggu yang sering memisahkan placeholder Word
@@ -823,7 +823,7 @@ function cleanWordXmlParagraphBraces(xml) {
       return `{${cleanContent}}`;
     });
 
-    return pMatch.replace(pBody, cleanedBody);
+    return pOpen + cleanedBody + pClose;
   });
 }
 
@@ -2839,10 +2839,10 @@ function docxEvaluateTag(rawExpr, dataCtx) {
   const filters = segments.slice(1).map(s => s.trim());
 
   // Identifier tunggal → auto-format tanggal / auto-ceil desimal
-  const isBareIdent = /^[A-Za-z_][A-Za-z0-9_]*$/.test(mainExpr);
+  const isBareIdent = /^[A-Za-z0-9_\s]+$/.test(mainExpr);
   if (isBareIdent && filters.length === 0) {
     const isDateField = DATE_TAG_PREFIXES.some(p => mainExpr.indexOf(p) === 0);
-    const raw = dataCtx[mainExpr];
+    const raw = dataCtx[mainExpr] ?? dataCtx[mainExpr.toLowerCase()] ?? dataCtx[mainExpr.toUpperCase()] ?? dataCtx[mainExpr.replace(/\s+/g, '_')] ?? dataCtx[mainExpr.toLowerCase().replace(/\s+/g, '_')];
     if (isDateField) return docxFormatTanggal(raw);
     if (typeof raw === 'object' && raw !== null) return raw;
     const processed = docxCeil2Decimal(raw);
@@ -11637,6 +11637,23 @@ const methods = {
         console.warn('[saveNipBaruDraft] insert error:', error.message);
       }
     }
+
+    // 3. Simpan juga ke draft_nip_non_asn jika kategori CPTU
+    if (isNonAsn) {
+      try {
+        await db.from('draft_nip_non_asn').upsert({
+          nip: cleanNip,
+          nama_lengkap: nama_lengkap || '',
+          tmp_lhr: tmp_lhr || '',
+          tgl_lhr: tgl_lhr || null,
+          layanan: layanan || 'Kontrak Tendik',
+          sub_menu: sub_menu || 'Calon Pegawai Tetap Undip NON ASN',
+          status: 'Draft',
+          diajukan_oleh_nip: decoded.nip
+        }, { onConflict: 'nip' });
+      } catch (_) {}
+    }
+
     return { success: true, message: 'Draft NIP berhasil disimpan ke Supabase usulan_kontrak_baru & data_utama.' };
   },
 
@@ -11857,7 +11874,13 @@ const methods = {
         tmt_bulan: actualFormData.tmt_bulan || '1',
         tmt_tahun: actualFormData.tmt_tahun || '2026',
         tst_bulan: actualFormData.tst_bulan || '12',
-        tst_tahun: actualFormData.tst_tahun || '2026'
+        tst_tahun: actualFormData.tst_tahun || '2026',
+        nik: actualFormData.nik || '',
+        NIK: actualFormData.nik || '',
+        nik_ktp: actualFormData.nik || '',
+        NIK_KTP: actualFormData.nik || '',
+        nppu: actualFormData.nip || '',
+        NPPU: actualFormData.nip || ''
       });
     }
 
@@ -11929,13 +11952,20 @@ const methods = {
         diajukan_oleh_nip: decoded.nip
       };
       try {
-        const { error: errBaru } = await db.from('usulan_kontrak_baru').upsert(usulanKontrakBaruRecord, { onConflict: 'nip' });
-        if (errBaru) throw errBaru;
+        const { data: existUkb } = await db.from('usulan_kontrak_baru').select('nip').eq('nip', cleanNip).maybeSingle();
+        if (existUkb) {
+          await db.from('usulan_kontrak_baru').update(usulanKontrakBaruRecord).eq('nip', cleanNip);
+        } else {
+          await db.from('usulan_kontrak_baru').insert(usulanKontrakBaruRecord);
+        }
       } catch (eBaru) {
-        console.warn('[generateKontrakDocument] upsert usulan_kontrak_baru warning:', eBaru.message);
+        console.warn('[generateKontrakDocument] save usulan_kontrak_baru warning:', eBaru.message);
+        try {
+          await db.from('usulan_kontrak_baru').upsert(usulanKontrakBaruRecord, { onConflict: 'nip' });
+        } catch (_) {}
       }
 
-      // Simpan/Upsert juga ke tabel data_utama di Supabase
+      // Simpan/Update juga ke tabel data_utama di Supabase
       const empRecord = {
         nip: cleanNip,
         nik: actualFormData.nik || '',
@@ -11950,29 +11980,33 @@ const methods = {
         alamat: actualFormData.alamat || '',
         nomor_telepon: actualFormData.nomor_telepon || '',
         status_kepegawaian: (targetSubMenu === 'Calon Pegawai Tetap Undip NON ASN') ? 'Calon Pegawai Undip Non ASN' : 'Non ASN / Kontrak',
+        jenis_peg: (layanan === 'Kontrak Dosen') ? 'Tenaga Dosen' : (actualFormData.jenis_peg || 'Tenaga Kependidikan'),
         status_bekerja: 'Aktif Bekerja'
       };
       try {
-        const { error: upsertErr } = await db.from('data_utama').upsert(empRecord, { onConflict: 'nip' });
-        if (upsertErr) throw upsertErr;
+        const { data: existDu } = await db.from('data_utama').select('nip').eq('nip', cleanNip).maybeSingle();
+        if (existDu) {
+          await db.from('data_utama').update(empRecord).eq('nip', cleanNip);
+        } else {
+          await db.from('data_utama').insert(empRecord);
+        }
       } catch (dbErr) {
-        console.warn('[generateKontrakDocument] upsert data_utama warning:', dbErr.message);
+        console.warn('[generateKontrakDocument] save data_utama warning:', dbErr.message);
         try {
-          const coreRecord = {
-            nip: cleanNip,
-            nik: actualFormData.nik || '',
+          await db.from('data_utama').upsert(empRecord, { onConflict: 'nip' });
+        } catch (_) {}
+      }
+
+      // Update juga di draft_nip_non_asn jika kategori CPTU
+      if (targetSubMenu === 'Calon Pegawai Tetap Undip NON ASN') {
+        try {
+          await db.from('draft_nip_non_asn').update({
             nama_lengkap: namaLengkap,
-            nama: namaLengkap,
             tmp_lhr: actualFormData.tmp_lhr || '',
             tgl_lhr: actualFormData.tgl_lhr || null,
-            pendidikan: actualFormData.pendidikan || '',
-            jurusan: actualFormData.jurusan || '',
-            unit_es_ii: actualFormData.unit_es_ii || '',
-            jabatan: actualFormData.jabatan || '',
-            status_kepegawaian: (targetSubMenu === 'Calon Pegawai Tetap Undip NON ASN') ? 'Calon Pegawai Undip Non ASN' : 'Non ASN / Kontrak',
-            status_bekerja: 'Aktif Bekerja'
-          };
-          await db.from('data_utama').upsert(coreRecord, { onConflict: 'nip' });
+            status: 'Selesai',
+            form_data: actualFormData
+          }).eq('nip', cleanNip);
         } catch (_) {}
       }
     }
@@ -12071,7 +12105,13 @@ const methods = {
         tmt_bulan: actualFormData.tmt_bulan || '1',
         tmt_tahun: actualFormData.tmt_tahun || '2026',
         tst_bulan: actualFormData.tst_bulan || '12',
-        tst_tahun: actualFormData.tst_tahun || '2026'
+        tst_tahun: actualFormData.tst_tahun || '2026',
+        nik: actualFormData.nik || '',
+        NIK: actualFormData.nik || '',
+        nik_ktp: actualFormData.nik || '',
+        NIK_KTP: actualFormData.nik || '',
+        nppu: actualFormData.nip || '',
+        NPPU: actualFormData.nip || ''
       });
     }
 
@@ -12676,13 +12716,19 @@ function buildKontrakDataContext(usulan, formData, employee) {
 
   const namaPegawai = rawNama;
   const nipPegawai = String((usulan && usulan.nip) || fd.nip || emp.nip || '').trim();
-  const nikPegawai = String(fd.nik || emp.nik || (usulan && usulan.nik) || (usulan && usulan.form_data && usulan.form_data.nik) || '').trim();
+  const nikPegawai = String((formData && formData.nik) || fd.nik || emp.nik || (usulan && usulan.nik) || (usulan && usulan.form_data && usulan.form_data.nik) || '').trim();
 
   const aliases = {
     nip: nipPegawai,
     NIP: nipPegawai,
+    nppu: nipPegawai,
+    NPPU: nipPegawai,
     nik: nikPegawai,
     NIK: nikPegawai,
+    nik_ktp: nikPegawai,
+    NIK_KTP: nikPegawai,
+    'nik ktp': nikPegawai,
+    'NIK KTP': nikPegawai,
     nama: namaPegawai,
     NAMA: namaPegawai,
     nama_lengkap: namaPegawai,

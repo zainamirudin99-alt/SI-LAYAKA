@@ -88,7 +88,7 @@ function kontrakGen_besaranUpahText_(pendidikan) {
  */
 function kontrakGen_buildContext_(formData) {
   formData = formData || {};
-  return {
+  return Object.assign({}, formData, {
     nama_lengkap: kontrakGen_bersih_(formData.nama_lengkap),
     nomor_surat_perjanjian: formData.nomor_surat_perjanjian || '', // REF: kosong bila tidak diinput
     tmp_lhr: kontrakGen_bersih_(formData.tmp_lhr),
@@ -104,10 +104,17 @@ function kontrakGen_buildContext_(formData) {
     tmt_kontrak: kontrakGen_hitungTmtKontrak_(formData.tmt_bulan, formData.tmt_tahun),
     tst_kontrak: kontrakGen_hitungTstKontrak_(formData.tst_bulan, formData.tst_tahun),
     tgl_buat: formatTanggalIndonesia_(new Date()) || '',
-    nip: formData.nip || '', // REF: usulan baru -> diisi manual NIK
+    nip: formData.nip || '',
+    NIP: formData.nip || '',
+    nppu: formData.nip || '',
+    NPPU: formData.nip || '',
+    nik: formData.nik || '',
+    NIK: formData.nik || '',
+    nik_ktp: formData.nik || '',
+    NIK_KTP: formData.nik || '',
     nomor_telepon: formData.nomor_telepon || '',
     besaran_upah: formData.besaran_upah_override || kontrakGen_besaranUpahText_(formData.pendidikan)
-  };
+  });
 }
 
 /** Opsi dropdown untuk form Kontrak: jangka waktu 1-12 bulan, daftar bulan, rentang tahun wajar. */

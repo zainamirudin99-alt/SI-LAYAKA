@@ -2780,6 +2780,14 @@
                     <button type="button" id="kontrak_btnHapusDraftNip" class="btn btn-sm btn-outline-danger" style="display:none; padding:2px 8px; font-size:11px; border-radius:4px; border:1px solid #ef4444; color:#ef4444; background:transparent; cursor:pointer;" onclick="hapusNipFromFormUsulan()" title="Hapus NIP draft ini dan ulangi generate NIP">🗑️ Hapus NIP</button>
                   </div>
                   <input type="text" id="kontrak_nipManual" class="field-input" />
+                  <div id="kontrak_draftNipBuatUlangWrap" style="display:none; margin-top:6px;">
+                    <label style="font-size:11px; font-weight:700; color:var(--primary); margin-bottom:2px; display:flex; align-items:center; gap:4px;">
+                      <span>📌 NIP Draft CPTU Tersimpan (Belum Selesai):</span>
+                    </label>
+                    <select id="kontrak_draftNipBuatUlangSelect" class="field-input" style="font-size:12px; padding:6px 10px; font-weight:600; color:var(--primary); border:1.5px dashed var(--primary); background:var(--surface-alt, #f0f9ff);" onchange="onSelectDraftNipBuatUlang(this.value)">
+                      <option value="">-- Pilih NIP Draft CPTU untuk Digunakan --</option>
+                    </select>
+                  </div>
                 </div>
                 <div class="stack-field autocomplete-wrap" style="position:relative;">
                   <label>Nama Lengkap</label>
@@ -12261,6 +12269,15 @@ function pilihModeKontrak(mode) {
     // Buat Ulang Perjanjian CPTU: semua kolom isian bisa diedit
     if (nipManualEl) nipManualEl.removeAttribute('readonly');
     if (searchWrap) searchWrap.style.display = 'block';
+    const draftWrap = document.getElementById('kontrak_draftNipBuatUlangWrap');
+    if (draftWrap) {
+      if (kontrakSelectedSubMenu === 'Calon Pegawai Tetap Undip NON ASN') {
+        draftWrap.style.display = 'block';
+        loadDraftNipOptionsForBuatUlang();
+      } else {
+        draftWrap.style.display = 'none';
+      }
+    }
   } else {
     // Perpanjangan standar
     if (role === 'normal') {
@@ -12296,6 +12313,44 @@ function pilihModeKontrak(mode) {
    ========================================================================== */
 
 let POPUP1_DRAFT_NIP_CACHE = [];
+
+async function loadDraftNipOptionsForBuatUlang() {
+  const selectEl = document.getElementById('kontrak_draftNipBuatUlangSelect');
+  if (!selectEl) return;
+  selectEl.innerHTML = '<option value="">Memeriksa NIP draft CPTU tersimpan...</option>';
+  try {
+    const res = await rpc('getDraftNipBelumDigunakan', [SESSION.token, {
+      layanan: kontrakSelectedLayanan,
+      sub_menu: kontrakSelectedSubMenu
+    }]);
+    const list = (res && res.success && Array.isArray(res.data)) ? res.data : [];
+    if (!list.length) {
+      selectEl.innerHTML = '<option value="">-- Tidak ada NIP draft CPTU (Ketik NIP manual bila perlu) --</option>';
+      return;
+    }
+    let opts = '<option value="">-- Pilih NIP Draft CPTU untuk Digunakan --</option>';
+    list.forEach(item => {
+      const nip = item.nip;
+      const ttl = [item.tmp_lhr, item.tgl_lhr ? formatDate(item.tgl_lhr) : ''].filter(Boolean).join(', ');
+      const nama = item.nama_lengkap ? `[${item.nama_lengkap}] ` : '';
+      const label = `${nip} ${nama}${ttl ? '(' + ttl + ')' : ''}`;
+      opts += `<option value="${escapeHtml(nip)}">${escapeHtml(label)}</option>`;
+    });
+    selectEl.innerHTML = opts;
+  } catch (err) {
+    selectEl.innerHTML = '<option value="">-- Gagal memuat NIP draft CPTU --</option>';
+  }
+}
+
+function onSelectDraftNipBuatUlang(selectedNip) {
+  if (!selectedNip) return;
+  const nipEl = document.getElementById('kontrak_nipManual');
+  if (nipEl) {
+    nipEl.value = selectedNip;
+    nipEl.removeAttribute('readonly');
+  }
+  showToast('info', `NIP CPTU ${selectedNip} dipilih dan diterapkan ke kolom NIP.`);
+}
 
 async function loadDraftNipOptionsForPopup1(selectedNipToKeep) {
   const selectEl = document.getElementById('pop1_draftNipSelect');
@@ -12922,6 +12977,17 @@ async function submitKontrakPopup1Nip(e) {
       };
     }
 
+    // Simpan draft NIP langsung ke database agar langsung tercatat meskipun belum selesai hingga generate
+    try {
+      rpc('saveNipBaruDraft', [SESSION.token, {
+        nip: nipVal,
+        tmp_lhr: tmpLhr || '',
+        tgl_lhr: tglLhr || null,
+        layanan: kontrakSelectedLayanan,
+        sub_menu: kontrakSelectedSubMenu
+      }]).catch(() => {});
+    } catch (_) {}
+
     if (btn) setBtnLoading(btn, false, 'Lanjut ➔ Pop-up 2 (Lihat Breakdown Structure NIP)');
     openKontrakPopup2BreakdownNip(nipVal, rincian, extraData);
   } catch (err) {
@@ -13198,6 +13264,10 @@ function kontrakResetForm_() {
   if (dynWrap) { dynWrap.innerHTML = ''; dynWrap.style.display = 'none'; }
   const btnHapusNip = document.getElementById('kontrak_btnHapusDraftNip');
   if (btnHapusNip) { btnHapusNip.style.display = 'none'; }
+  const draftWrap = document.getElementById('kontrak_draftNipBuatUlangWrap');
+  if (draftWrap) draftWrap.style.display = 'none';
+  const selDraft = document.getElementById('kontrak_draftNipBuatUlangSelect');
+  if (selDraft) selDraft.value = '';
   document.getElementById('kontrak_alamatMsg').textContent = '';
 }
 
@@ -13291,7 +13361,12 @@ async function kontrakIsiFormDariPegawai_(nip, nama) {
   if (nipEl) nipEl.value = nip;
   const nipManEl = document.getElementById('kontrak_nipManual');
   if (nipManEl) {
-    nipManEl.value = nip;
+    const selDraftVal = document.getElementById('kontrak_draftNipBuatUlangSelect')?.value;
+    if (kontrakSelectedMode === 'buat_ulang' && kontrakSelectedSubMenu === 'Calon Pegawai Tetap Undip NON ASN' && selDraftVal) {
+      nipManEl.value = selDraftVal;
+    } else {
+      nipManEl.value = nip;
+    }
     if (SESSION.user.role !== 'normal') {
       nipManEl.removeAttribute('readonly');
     }
@@ -13797,7 +13872,9 @@ async function runKontrakPreviewGenerate(mode) {
     try {
       const res = await rpc('previewKontrakDocument', [SESSION.token, payload]);
       if (res && res.success) {
-        if (res.base64) {
+        if ((res.isDocx || res.outputType === 'docx') && res.base64) {
+          openDocxPreviewModal(res.base64, res.fileName || 'Preview_Kontrak.docx');
+        } else if (res.base64) {
           const blobUrl = convertBase64ToBlobUrl_(res.base64, res.mimeType || 'application/pdf');
           openPreviewModal(blobUrl);
         } else {
@@ -13811,7 +13888,9 @@ async function runKontrakPreviewGenerate(mode) {
         google.script.run
           .withSuccessHandler(res => {
             if (res.success) {
-              if (res.base64) {
+              if ((res.isDocx || res.outputType === 'docx') && res.base64) {
+                openDocxPreviewModal(res.base64, res.fileName || 'Preview_Kontrak.docx');
+              } else if (res.base64) {
                 const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
                 openPreviewModal(blobUrl);
               } else {
@@ -13872,17 +13951,30 @@ function openKontrakResultModal(res) {
   const url = res.pdfUrl || res.pdfDownloadUrl || res.docViewUrl || res.viewUrl || '';
   const fileName = res.fileName || 'Dokumen_Kontrak';
 
+  let fileUrl = url;
+  if (res.base64) {
+    const mime = res.mimeType || (res.outputType === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/pdf');
+    fileUrl = convertBase64ToBlobUrl_(res.base64, mime);
+  }
+
+  let downloadFileName = fileName;
+  if ((res.isDocx || res.outputType === 'docx') && !downloadFileName.toLowerCase().endsWith('.docx')) {
+    downloadFileName += '.docx';
+  } else if (res.outputType === 'pdf' && !downloadFileName.toLowerCase().endsWith('.pdf')) {
+    downloadFileName += '.pdf';
+  }
+
   // 1. Akun Normal User: SELALU menghasilkan & mengunduh PDF
   // 2. Akun Admin & Super Admin: Sesuai format template (Google Docs atau DOCX Word)
   if (!isAdmin || res.outputType === 'pdf') {
-    const pdfLink = res.pdfUrl || res.pdfDownloadUrl || res.viewUrl || url;
-    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:12px 24px; font-weight:700; font-size:14px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" href="${pdfLink}" target="_blank" rel="noopener">📥 Unduh / Buka Dokumen PDF (${escapeHtml(fileName)})</a>`;
+    const pdfLink = fileUrl;
+    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:12px 24px; font-weight:700; font-size:14px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" href="${pdfLink}" target="_blank" rel="noopener" download="${escapeHtml(downloadFileName)}">📥 Unduh / Buka Dokumen PDF (${escapeHtml(downloadFileName)})</a>`;
   } else if (res.isDocx || res.outputType === 'docx') {
-    const docxLink = res.docViewUrl || res.viewUrl || url;
-    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:12px 24px; font-weight:700; font-size:14px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" href="${docxLink}" download="${escapeHtml(fileName)}.docx">📥 Unduh Dokumen MS Word (.docx) (${escapeHtml(fileName)})</a>`;
+    const docxLink = fileUrl;
+    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:12px 24px; font-weight:700; font-size:14px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" href="${docxLink}" download="${escapeHtml(downloadFileName)}">📥 Unduh Dokumen MS Word (.docx) (${escapeHtml(downloadFileName)})</a>`;
   } else {
-    const gdocsLink = res.docViewUrl || res.viewUrl || url;
-    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:12px 24px; font-weight:700; font-size:14px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" href="${gdocsLink}" target="_blank" rel="noopener">📄 Buka File Google Docs (${escapeHtml(fileName)}) ↗</a>`;
+    const gdocsLink = fileUrl;
+    linksHtml = `<a class="btn btn-primary" style="text-decoration:none; padding:12px 24px; font-weight:700; font-size:14px; border-radius:8px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);" href="${gdocsLink}" target="_blank" rel="noopener">📄 Buka File Google Docs (${escapeHtml(downloadFileName)}) ↗</a>`;
   }
 
   document.getElementById('modalBody').innerHTML = `
@@ -13962,28 +14054,32 @@ function openKontrakResultModal(res) {
 
   // Otomatis buka di tab baru atau trigger download file
   if (!isAdmin) {
-    const pdfTarget = res.pdfUrl || res.pdfDownloadUrl || res.viewUrl || url;
+    const pdfTarget = fileUrl;
     if (pdfTarget) {
       try {
-        const win = window.open(pdfTarget, '_blank');
-        if (!win) showToast('info', 'Harap izinkan pop-up di browser Anda untuk membuka file secara otomatis.');
+        const a = document.createElement('a');
+        a.href = pdfTarget;
+        a.download = downloadFileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
       } catch (_) {}
     }
   } else {
     if (res.isDocx || res.outputType === 'docx') {
-      const docxTarget = res.docViewUrl || res.viewUrl || url;
+      const docxTarget = fileUrl;
       if (docxTarget) {
         try {
           const a = document.createElement('a');
           a.href = docxTarget;
-          a.download = `${fileName}.docx`;
+          a.download = downloadFileName;
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
         } catch (_) {}
       }
     } else {
-      const gdocsTarget = res.docViewUrl || res.viewUrl || url;
+      const gdocsTarget = fileUrl;
       if (gdocsTarget) {
         try {
           const win = window.open(gdocsTarget, '_blank');

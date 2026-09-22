@@ -719,6 +719,43 @@ function generateSkFromUsulan(sessionToken, templateFileId, dataCtx) {
 }
 
 /**
+ * Bangun dataContext untuk dokumen Kontrak/Perjanjian Kerja (Google Docs).
+ */
+function buildKontrakDataContext(usulan, formData, employee) {
+  const fd = Object.assign({}, employee || {}, formData || (usulan ? usulan.form_data : {}) || {});
+  const nipVal = String((usulan && usulan.nip) || fd.nip || '').trim();
+  const nikVal = String(fd.nik || (usulan && usulan.nik) || (usulan && usulan.form_data && usulan.form_data.nik) || '').trim();
+  const namaVal = String(fd.nama_lengkap || fd.nama || (usulan && usulan.nama_lengkap) || '').trim();
+  const tglSekarang = formatTanggalIndonesia_(new Date());
+
+  const ctx = Object.assign({}, fd, {
+    nip: nipVal,
+    NIP: nipVal,
+    nppu: nipVal,
+    NPPU: nipVal,
+    nik: nikVal,
+    NIK: nikVal,
+    nik_ktp: nikVal,
+    NIK_KTP: nikVal,
+    nama: namaVal,
+    NAMA: namaVal,
+    nama_lengkap: namaVal,
+    NAMA_LENGKAP: namaVal,
+    pihak_kedua: namaVal,
+    PIHAK_KEDUA: namaVal,
+    tgl_buat: tglSekarang,
+    TGL_BUAT: tglSekarang,
+    tanggal_buat: tglSekarang,
+    TANGGAL_BUAT: tglSekarang,
+    tgl_sk: tglSekarang,
+    TGL_SK: tglSekarang,
+    tanggal: tglSekarang,
+    TANGGAL: tglSekarang
+  });
+  return ctx;
+}
+
+/**
  * PREVIEW KONTRAK DOKUMEN (Google Docs)
  */
 function previewKontrakDocument(sessionToken, payload) {
