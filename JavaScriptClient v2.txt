@@ -15851,7 +15851,25 @@ function findTemplateForJenis(jenis, targetTipe = null) {
     const sub = String(t.subMenu || t.sub_menu || t.judul || '').toLowerCase().replace(/\s+/g, '');
     return (sub.includes(target) || target.includes(sub)) && matchFilter(t);
   });
-  return match || null;
+  if (match) return match;
+
+  // 3. Interchangeable cross-match untuk SK CPTU <-> SPMT CPTU
+  if (target === 'skcptu' || target === 'spmtcptu') {
+    const altTarget = (target === 'skcptu') ? 'spmtcptu' : 'skcptu';
+    match = list.find(t => {
+      const sub = String(t.subMenu || t.sub_menu || '').toLowerCase().replace(/\s+/g, '');
+      return sub === altTarget && matchFilter(t);
+    });
+    if (match) return match;
+
+    match = list.find(t => {
+      const sub = String(t.subMenu || t.sub_menu || t.judul || '').toLowerCase().replace(/\s+/g, '');
+      return (sub.includes(altTarget) || altTarget.includes(sub)) && matchFilter(t);
+    });
+    if (match) return match;
+  }
+
+  return null;
 }
 
 async function buatSkInitForm() {
@@ -16294,11 +16312,17 @@ async function buatSkLoadPlaceholders() {
   if (wrapAct) wrapAct.style.display = 'flex';
   buatSkHitungGajiPokok();
 
-  // Khusus SK CPTU: Tampilkan opsi Batch Import Excel / Spreadsheet
+  // Khusus SK CPTU & SPMT CPTU: Tampilkan opsi Batch Import Excel / Spreadsheet
+  const isCptuBatchSupported = ['SK CPTU', 'SPMT CPTU'].includes(BUAT_SK.jenisSk);
   const cptuCard = document.getElementById('buatSk_cptuBatchCard');
   if (cptuCard) {
-    if (BUAT_SK.jenisSk === 'SK CPTU') {
+    if (isCptuBatchSupported) {
       cptuCard.style.display = 'block';
+      const cardTitleEl = document.getElementById('cptu_batchCardTitle');
+      if (cardTitleEl) cardTitleEl.textContent = `⚡ Mode Pembuatan Dokumen ${BUAT_SK.jenisSk}`;
+      if (typeof cptuUpdateDynamicBadges === 'function') {
+        cptuUpdateDynamicBadges(placeholders);
+      }
       if (typeof cptuSwitchMode === 'function') {
         cptuSwitchMode(BUAT_SK._cptuMode || 'single');
       }
@@ -16334,7 +16358,7 @@ function buatSkRenderDynamicFields(placeholders) {
   ]);
 
   const todayIso = new Date().toISOString().split('T')[0];
-  const isCptu = (BUAT_SK.jenisSk === 'SK CPTU');
+  const isCptu = ['SK CPTU', 'SPMT CPTU'].includes(BUAT_SK.jenisSk);
 
   const filtered = (placeholders || []).filter(p => {
     if (!p) return false;
@@ -16402,6 +16426,10 @@ function buatSkRenderDynamicFields(placeholders) {
             <input type="number" id="bsk_field_${mkgSuffix}_bulan" class="field-input" min="0" max="11" placeholder="Contoh: 2" oninput="buatSkHitungGajiPokok()" onchange="buatSkHitungGajiPokok()" />
           </div>
         </div>`;
+    } else if (key === 'gaji_pokok') {
+      inputHtml = `<input type="text" id="bsk_field_gaji_pokok" class="field-input ${isAutofilled ? 'bsk-auto-field' : ''}" placeholder="Gaji Pokok (Contoh: 3000000)" oninput="buatSkHitungGajiPokok()" onchange="buatSkHitungGajiPokok()" ${isAutofilled ? 'style="background:var(--surface-alt,#e2e8f0);color:var(--text-main,#0f172a);font-weight:600;"' : ''} />`;
+    } else if (key === 'total_gaji') {
+      inputHtml = `<input type="text" id="bsk_field_total_gaji" class="field-input ${isAutofilled ? 'bsk-auto-field' : ''}" placeholder="Total Gaji (80%)" oninput="this.dataset.userEdited='true'" ${isAutofilled ? 'style="background:var(--surface-alt,#e2e8f0);color:var(--text-main,#0f172a);font-weight:600;"' : ''} />`;
     } else {
       const valStr = isStrukturalField ? escHtml(BUAT_SK.jenisTutamStruktural) : '';
       inputHtml = `<input type="text" id="bsk_field_${key}" class="field-input ${isAutofilled ? 'bsk-auto-field' : ''}" value="${valStr}" placeholder="${escHtml(label)}" ${isAutofilled ? 'style="background:var(--surface-alt,#e2e8f0);color:var(--text-main,#0f172a);font-weight:600;"' : ''} />`;
@@ -16518,9 +16546,12 @@ function buatSkHitungGajiPokok() {
     || '0';
   const fieldGaji = document.getElementById('bsk_field_gaji_pokok');
   const fieldPangkat = document.getElementById('bsk_field_pangkat') || document.getElementById('bsk_field_nama_pangkat');
+  const fieldTotalGaji = document.getElementById('bsk_field_total_gaji');
+
+  const isCptu = ['SK CPTU', 'SPMT CPTU'].includes(BUAT_SK.jenisSk);
 
   if (fieldPangkat && gol) {
-    const pangkatResolved = getPangkatForGolongan(gol, BUAT_SK.jenisSk === 'SK CPTU');
+    const pangkatResolved = getPangkatForGolongan(gol, isCptu);
     if (pangkatResolved) fieldPangkat.value = pangkatResolved;
   }
 
@@ -16529,6 +16560,19 @@ function buatSkHitungGajiPokok() {
     const gaji = hitungGajiPokokNonAsn(gol, mkgNum);
     if (gaji > 0) {
       fieldGaji.value = 'Rp ' + gaji.toLocaleString('id-ID');
+    }
+  }
+
+  // Hitung otomatis total_gaji (80% x gaji_pokok) jika fieldTotalGaji ada
+  if (fieldTotalGaji && fieldGaji) {
+    const rawGaji = String(fieldGaji.value || '').replace(/[^0-9]/g, '');
+    const numGaji = parseInt(rawGaji, 10);
+    if (!isNaN(numGaji) && numGaji > 0) {
+      const g80 = Math.round(numGaji * 0.8);
+      // Otomatis isi jika belum diubah manual oleh pengguna atau nilainya kosong
+      if (!fieldTotalGaji.dataset.userEdited || !fieldTotalGaji.value) {
+        fieldTotalGaji.value = 'Rp ' + g80.toLocaleString('id-ID');
+      }
     }
   }
 }
@@ -16579,7 +16623,7 @@ function buatSkAutoFillFormFromEmp(emp) {
     nama:         empNama,
     jabatan:      empJab,
     golongan:     empGol,
-    pangkat:      emp.pangkat || (typeof getPangkatForGolongan === 'function' ? getPangkatForGolongan(empGol, BUAT_SK.jenisSk === 'SK CPTU') : '') || '',
+    pangkat:      emp.pangkat || (typeof getPangkatForGolongan === 'function' ? getPangkatForGolongan(empGol, ['SK CPTU', 'SPMT CPTU'].includes(BUAT_SK.jenisSk)) : '') || '',
     unit_es_ii:   empUnit,
     tmp_lhr:      emp.tmp_lhr || emp.tempat_lahir || '',
     tgl_lhr:      emp.tgl_lhr || emp.tanggal_lahir || '',
@@ -17159,9 +17203,11 @@ function cptuNormalizeHeader(rawHeader) {
   h = h.replace(/^\{\{\s*/, '').replace(/\s*\}\}$/, '').trim();
   h = h.toLowerCase().replace(/[\s\-]/g, '_');
 
-  // Pemetaan alias ke 15 placeholder standar SK CPTU
+  // Pemetaan alias ke placeholder CPTU (SK CPTU & SPMT CPTU)
   if (['no_sk', 'nomorsk', 'nomor_surat_keputusan', 'nosk'].includes(h)) return 'nomor_sk';
+  if (['no_spmt', 'nomorspmt', 'nomor_spmt', 'nospmt'].includes(h)) return 'nomor_spmt';
   if (['tmt_sk', 'tmt_mulai', 'tmt_pengangkatan', 'tmt_cptu'].includes(h)) return 'tmt';
+  if (['tmt_spmt'].includes(h)) return 'tmt_spmt';
   if (['nama', 'nama_pegawai', 'nama_dosen', 'nama_tendik'].includes(h)) return 'nama_lengkap';
   if (['nip_pegawai', 'nik', 'no_induk'].includes(h)) return 'nip';
   if (['tempat_lahir', 'tempat_lhr', 'tmplhr', 'tempat'].includes(h)) return 'tmp_lhr';
@@ -17172,11 +17218,43 @@ function cptuNormalizeHeader(rawHeader) {
   if (['gol', 'gol_ruang', 'golongan_ruang'].includes(h)) return 'golongan';
   if (['pangkat_golongan'].includes(h)) return 'pangkat';
   if (['gaji', 'gapok', 'nominal_gaji', 'gaji_cptu'].includes(h)) return 'gaji_pokok';
-  if (['total', 'gaji_total', 'total_gaji_diterima'].includes(h)) return 'total_gaji';
+  if (['total', 'gaji_total', 'total_gaji_diterima', 'totalgaji'].includes(h)) return 'total_gaji';
   if (['jabatan_fungsional', 'tugas'].includes(h)) return 'jabatan';
   if (['unit', 'unit_kerja', 'fakultas', 'departemen'].includes(h)) return 'unit_es_ii';
 
   return h;
+}
+
+function cptuUpdateDynamicBadges(placeholders) {
+  const container = document.getElementById('cptu_batchPlaceholderBadges');
+  if (!container) return;
+
+  const EXCLUDE = new Set(['pimpinan', 'nama_pimpinan', 'nama_jabatan', 'today']);
+  const isSpmt = (BUAT_SK.jenisSk === 'SPMT CPTU');
+
+  let fieldKeys = (placeholders && placeholders.length > 0)
+    ? placeholders.filter(p => {
+        if (!p) return false;
+        const s = String(p).trim();
+        if (s.startsWith('#') || s.startsWith('/')) return false;
+        if (EXCLUDE.has(s.toLowerCase())) return false;
+        return true;
+      })
+    : [];
+
+  if (!fieldKeys.length) {
+    fieldKeys = isSpmt ? [
+      'nomor_spmt', 'tmt', 'nama_lengkap', 'nip', 'tmp_lhr',
+      'tgl_lhr', 'pendidikan', 'jurusan', 'thn_lulus', 'pangkat',
+      'golongan', 'gaji_pokok', 'total_gaji', 'jabatan', 'unit_es_ii'
+    ] : [
+      'nomor_sk', 'tmt', 'nama_lengkap', 'nip', 'tmp_lhr',
+      'tgl_lhr', 'pendidikan', 'jurusan', 'thn_lulus', 'pangkat',
+      'golongan', 'gaji_pokok', 'total_gaji', 'jabatan', 'unit_es_ii'
+    ];
+  }
+
+  container.innerHTML = fieldKeys.map(k => `<span class="tag-chip"><code>{{${k}}}</code></span>`).join(' ');
 }
 
 function cptuDownloadExcelTemplate() {
@@ -17185,37 +17263,70 @@ function cptuDownloadExcelTemplate() {
     return;
   }
 
-  const headers = [
-    '{{nomor_sk}}', '{{tmt}}', '{{nama_lengkap}}', '{{nip}}', '{{tmp_lhr}}',
-    '{{tgl_lhr}}', '{{pendidikan}}', '{{jurusan}}', '{{thn_lulus}}', '{{pangkat}}',
-    '{{golongan}}', '{{gaji_pokok}}', '{{total_gaji}}', '{{jabatan}}', '{{unit_es_ii}}'
-  ];
+  const isSpmt = (BUAT_SK.jenisSk === 'SPMT CPTU');
+  const EXCLUDE = new Set(['pimpinan', 'nama_pimpinan', 'nama_jabatan', 'today']);
 
-  const sampleRow1 = [
-    '001/UN7.A/KP/2026', '1 Maret 2026', 'Dr. Budi Santoso, S.Kom., M.Cs.', 'H.7.199001012026031001', 'Semarang',
-    '1990-01-01', 'S3', 'Informatika', '2020', 'Penata Muda Tingkat I',
-    'III/b', '3000000', '', 'Dosen', 'Fakultas Sains dan Matematika'
-  ];
+  let fieldKeys = [];
+  if (BUAT_SK.placeholders && BUAT_SK.placeholders.length > 0) {
+    fieldKeys = BUAT_SK.placeholders.filter(p => {
+      if (!p) return false;
+      const s = String(p).trim();
+      if (s.startsWith('#') || s.startsWith('/')) return false;
+      if (EXCLUDE.has(s.toLowerCase())) return false;
+      return true;
+    });
+  }
 
-  const sampleRow2 = [
-    '002/UN7.A/KP/2026', '1 Maret 2026', 'Siti Rahmawati, S.T., M.Eng.', 'H.7.199205122026032002', 'Surakarta',
-    '1992-05-12', 'S2', 'Teknik Elektro', '2018', 'Penata Muda',
-    'III/a', '2800000', '', 'Dosen', 'Fakultas Teknik'
-  ];
+  if (!fieldKeys.length) {
+    fieldKeys = isSpmt ? [
+      'nomor_spmt', 'tmt', 'nama_lengkap', 'nip', 'tmp_lhr',
+      'tgl_lhr', 'pendidikan', 'jurusan', 'thn_lulus', 'pangkat',
+      'golongan', 'gaji_pokok', 'total_gaji', 'jabatan', 'unit_es_ii'
+    ] : [
+      'nomor_sk', 'tmt', 'nama_lengkap', 'nip', 'tmp_lhr',
+      'tgl_lhr', 'pendidikan', 'jurusan', 'thn_lulus', 'pangkat',
+      'golongan', 'gaji_pokok', 'total_gaji', 'jabatan', 'unit_es_ii'
+    ];
+  }
+
+  const headers = fieldKeys.map(k => `{{${k}}}`);
+
+  const getSampleVal = (k, idx) => {
+    const key = k.toLowerCase();
+    if (key.includes('nomor_spmt') || key.includes('nomorspmt') || key.includes('no_spmt')) {
+      return idx === 1 ? '001/UN7.A/SPMT/2026' : '002/UN7.A/SPMT/2026';
+    }
+    if (key.includes('nomor_sk') || key.includes('nomorsk') || key.includes('no_sk')) {
+      return idx === 1 ? '001/UN7.A/KP/2026' : '002/UN7.A/KP/2026';
+    }
+    if (key.includes('tmt')) return '1 Maret 2026';
+    if (key.includes('nama')) return idx === 1 ? 'Dr. Budi Santoso, S.Kom., M.Cs.' : 'Siti Rahmawati, S.T., M.Eng.';
+    if (key.includes('nip')) return idx === 1 ? 'H.7.199001012026031001' : 'H.7.199205122026032002';
+    if (key.includes('tmp') || key.includes('tempat')) return idx === 1 ? 'Semarang' : 'Surakarta';
+    if (key.includes('tgl') || key.includes('tanggal')) return idx === 1 ? '1990-01-01' : '1992-05-12';
+    if (key.includes('pendidikan') || key.includes('jenjang')) return idx === 1 ? 'S3' : 'S2';
+    if (key.includes('jurusan') || key.includes('prodi')) return idx === 1 ? 'Informatika' : 'Teknik Elektro';
+    if (key.includes('thn') || key.includes('tahun')) return idx === 1 ? '2020' : '2018';
+    if (key.includes('pangkat')) return idx === 1 ? 'Penata Muda Tingkat I' : 'Penata Muda';
+    if (key.includes('golongan') || key === 'gol') return idx === 1 ? 'III/b' : 'III/a';
+    if (key.includes('gaji_pokok') || key === 'gaji') return idx === 1 ? '3000000' : '2800000';
+    if (key.includes('total_gaji')) return '';
+    if (key.includes('jabatan')) return 'Dosen';
+    if (key.includes('unit')) return idx === 1 ? 'Fakultas Sains dan Matematika' : 'Fakultas Teknik';
+    return '';
+  };
+
+  const sampleRow1 = fieldKeys.map(k => getSampleVal(k, 1));
+  const sampleRow2 = fieldKeys.map(k => getSampleVal(k, 2));
 
   const ws = XLSX.utils.aoa_to_sheet([headers, sampleRow1, sampleRow2]);
+  ws['!cols'] = fieldKeys.map(k => ({ wch: Math.max(k.length + 6, 16) }));
 
-  // Set column widths
-  ws['!cols'] = [
-    { wch: 22 }, { wch: 15 }, { wch: 32 }, { wch: 26 }, { wch: 16 },
-    { wch: 14 }, { wch: 12 }, { wch: 22 }, { wch: 12 }, { wch: 24 },
-    { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 32 }
-  ];
-
+  const docName = isSpmt ? 'SPMT_CPTU' : 'SK_CPTU';
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Template_CPTU');
-  XLSX.writeFile(wb, 'Format_Template_SK_CPTU_Batch.xlsx');
-  showToast('success', '📥 Template Excel SK CPTU berhasil diunduh.');
+  XLSX.utils.book_append_sheet(wb, ws, `Template_${docName}`);
+  XLSX.writeFile(wb, `Format_Template_${docName}_Batch.xlsx`);
+  showToast('success', `📥 Template Excel ${isSpmt ? 'SPMT CPTU' : 'SK CPTU'} berhasil diunduh.`);
 }
 
 function cptuHandleBatchFileUpload(e) {
@@ -17281,7 +17392,7 @@ function cptuProcessParsedRows(rawRows) {
   }
 
   const REQUIRED_COLS = [
-    'nomor_sk', 'tmt', 'nama_lengkap', 'nip', 'tmp_lhr', 'tgl_lhr',
+    'nomor_sk', 'nomor_spmt', 'tmt', 'nama_lengkap', 'nip', 'tmp_lhr', 'tgl_lhr',
     'pendidikan', 'jurusan', 'thn_lulus', 'pangkat', 'golongan',
     'gaji_pokok', 'total_gaji', 'jabatan', 'unit_es_ii'
   ];
@@ -17298,10 +17409,16 @@ function cptuProcessParsedRows(rawRows) {
       r[normKey] = String(row[colKey] != null ? row[colKey] : '').trim();
     });
 
-    // Pastikan 15 kolom terinisialisasi
+    // Pastikan kolom standar terinisialisasi
     REQUIRED_COLS.forEach(col => {
       if (r[col] === undefined) r[col] = '';
     });
+
+    // Interoperabilitas template SK CPTU dan SPMT CPTU
+    if (r.nomor_sk && !r.nomor_spmt) r.nomor_spmt = r.nomor_sk;
+    if (r.nomor_spmt && !r.nomor_sk) r.nomor_sk = r.nomor_spmt;
+    if (r.tmt && !r.tmt_spmt) r.tmt_spmt = r.tmt;
+    if (r.tmt_spmt && !r.tmt) r.tmt = r.tmt_spmt;
 
     // Fallback nama jika nama_lengkap belum ada
     if (!r.nama_lengkap && r.nama) r.nama_lengkap = r.nama;
@@ -17317,6 +17434,20 @@ function cptuProcessParsedRows(rawRows) {
     // Auto resolve pangkat jika kosong dan golongan terisi
     if (r.golongan && !r.pangkat && typeof getPangkatForGolongan === 'function') {
       r.pangkat = getPangkatForGolongan(r.golongan, true) || '';
+    }
+
+    // Hitung otomatis total_gaji (80% x gaji_pokok)
+    const numGaji = parseInt(String(r.gaji_pokok || '').replace(/[^0-9]/g, ''), 10);
+    if (!isNaN(numGaji) && numGaji > 0) {
+      const g80 = Math.round(numGaji * 0.8);
+      if (!r.total_gaji) {
+        r.total_gaji = 'Rp ' + g80.toLocaleString('id-ID');
+      } else {
+        const numTotal = parseInt(String(r.total_gaji).replace(/[^0-9]/g, ''), 10);
+        if (!isNaN(numTotal) && numTotal > 0 && !String(r.total_gaji).toLowerCase().includes('rp')) {
+          r.total_gaji = 'Rp ' + numTotal.toLocaleString('id-ID');
+        }
+      }
     }
 
     parsed.push(r);
@@ -17358,16 +17489,26 @@ function cptuRenderBatchTable() {
       gajiDisp = 'Rp ' + numGaji.toLocaleString('id-ID');
     }
 
+    // Tampilan rapi total gaji (80%)
+    let totalGajiDisp = r.total_gaji || '-';
+    const numTotal = parseInt(String(r.total_gaji).replace(/[^0-9]/g, ''), 10);
+    if (!isNaN(numTotal) && numTotal > 0) {
+      totalGajiDisp = 'Rp ' + numTotal.toLocaleString('id-ID');
+    }
+
+    const nomorDoc = r.nomor_spmt || r.nomor_sk || '-';
+
     return `
       <tr style="border-bottom:1px solid var(--border,#e2e8f0);">
         <td style="padding:6px 10px; text-align:center; font-weight:600; color:var(--text-muted);">${i + 1}</td>
         <td style="padding:6px 10px; font-weight:700;">${escHtml(r.nama_lengkap || '-')}</td>
         <td style="padding:6px 10px; font-family:monospace; color:var(--primary); font-weight:600;">${escHtml(r.nip || '-')}</td>
-        <td style="padding:6px 10px;">${escHtml(r.nomor_sk || '-')}</td>
+        <td style="padding:6px 10px;">${escHtml(nomorDoc)}</td>
         <td style="padding:6px 10px;">${escHtml(r.tmt || '-')}</td>
         <td style="padding:6px 10px; font-weight:600;">${escHtml(r.golongan || '-')}</td>
         <td style="padding:6px 10px;">${escHtml(r.pangkat || '-')}</td>
         <td style="padding:6px 10px; font-weight:600; color:#16a34a;">${escHtml(gajiDisp)}</td>
+        <td style="padding:6px 10px; font-weight:600; color:#0284c7;">${escHtml(totalGajiDisp)}</td>
         <td style="padding:6px 10px;">${escHtml(r.jabatan || '-')}</td>
         <td style="padding:6px 10px;">${escHtml(r.unit_es_ii || '-')}</td>
         <td style="padding:6px 10px; text-align:center;">
@@ -17408,6 +17549,8 @@ async function cptuExecuteBatchGenerate() {
   }
 
   const jenisSk = BUAT_SK.jenisSk || 'SK CPTU';
+  const isSpmt = (jenisSk === 'SPMT CPTU');
+  const prefix = isSpmt ? 'SPMT_CPTU' : 'SK_CPTU';
   const templateId = BUAT_SK.templateId || ('default_' + jenisSk.toLowerCase().replace(/[^a-z0-9]/g, '_'));
 
   const total = rows.length;
@@ -17444,6 +17587,12 @@ async function cptuExecuteBatchGenerate() {
     }
     if (!form_data.tgl_sk) form_data.tgl_sk = defaultTglSk;
 
+    // Interoperabilitas nomor & tmt
+    if (form_data.nomor_sk && !form_data.nomor_spmt) form_data.nomor_spmt = form_data.nomor_sk;
+    if (form_data.nomor_spmt && !form_data.nomor_sk) form_data.nomor_sk = form_data.nomor_spmt;
+    if (form_data.tmt && !form_data.tmt_spmt) form_data.tmt_spmt = form_data.tmt;
+    if (form_data.tmt_spmt && !form_data.tmt) form_data.tmt = form_data.tmt_spmt;
+
     try {
       const res = await rpc('generateSkBaru', [SESSION.token, {
         jenis_sk: jenisSk,
@@ -17455,7 +17604,7 @@ async function cptuExecuteBatchGenerate() {
 
       if (res && res.success && res.base64) {
         const safeNama = String(row.nama_lengkap || row.nip || `Dokumen_${i+1}`).replace(/[^a-zA-Z0-9_\-]/g, '_');
-        const fileName = `${String(i + 1).padStart(2, '0')}_SK_CPTU_${safeNama}.docx`;
+        const fileName = `${String(i + 1).padStart(2, '0')}_${prefix}_${safeNama}.docx`;
 
         const byteChars = atob(res.base64);
         const byteArr = new Uint8Array(byteChars.length);
@@ -17483,13 +17632,13 @@ async function cptuExecuteBatchGenerate() {
       const a = document.createElement('a');
       const dateStr = new Date().toISOString().slice(0, 10);
       a.href = url;
-      a.download = `Batch_SK_CPTU_${dateStr}.zip`;
+      a.download = `Batch_${prefix}_${dateStr}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      showToast('success', `🎉 Berhasil membuat ${successCount} dokumen SK CPTU! Berkas ZIP sedang diunduh.`);
+      showToast('success', `🎉 Berhasil membuat ${successCount} dokumen ${jenisSk}! Berkas ZIP sedang diunduh.`);
     } catch(zipErr) {
       showToast('error', 'Gagal memaketkan ZIP: ' + zipErr.message);
     }

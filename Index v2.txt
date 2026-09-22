@@ -2079,7 +2079,7 @@
                   <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
                     <div>
                       <h4 style="margin:0 0 4px 0; font-size:15px; font-weight:700; color:var(--primary,#1e40af); display:flex; align-items:center; gap:8px;">
-                        <span>⚡ Mode Pembuatan Dokumen SK CPTU</span>
+                        <span id="cptu_batchCardTitle">⚡ Mode Pembuatan Dokumen SK CPTU</span>
                       </h4>
                       <p style="margin:0; font-size:12px; color:var(--text-muted);">Pilih apakah ingin mengisi form satu dokumen secara manual atau import banyak dokumen sekaligus melalui file Excel / Spreadsheet.</p>
                     </div>
@@ -2127,7 +2127,7 @@
                           <p style="font-size:11px; color:var(--text-main); margin:0 0 6px 0; line-height:1.5;">
                             Gunakan nama kolom berikut (mendukung dengan kurung kurawal <code>{{...}}</code> maupun tanpa kurung kurawal):
                           </p>
-                          <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
+                          <div id="cptu_batchPlaceholderBadges" style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
                             <span class="tag-chip"><code>{{nomor_sk}}</code></span>
                             <span class="tag-chip"><code>{{tmt}}</code></span>
                             <span class="tag-chip"><code>{{nama_lengkap}}</code></span>
@@ -2170,11 +2170,12 @@
                               <th style="padding:6px 10px;">#</th>
                               <th style="padding:6px 10px;">Nama Lengkap</th>
                               <th style="padding:6px 10px;">NIP</th>
-                              <th style="padding:6px 10px;">Nomor SK</th>
+                              <th style="padding:6px 10px;" id="cptu_th_nomorDoc">Nomor SK / SPMT</th>
                               <th style="padding:6px 10px;">TMT</th>
                               <th style="padding:6px 10px;">Golongan</th>
                               <th style="padding:6px 10px;">Pangkat</th>
                               <th style="padding:6px 10px;">Gaji Pokok</th>
+                              <th style="padding:6px 10px;">Total Gaji (80%)</th>
                               <th style="padding:6px 10px;">Jabatan</th>
                               <th style="padding:6px 10px;">Unit</th>
                               <th style="padding:6px 10px;">Aksi</th>

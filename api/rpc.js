@@ -636,9 +636,11 @@ function getPangkatForGolongan(gol, isCptu = false) {
 function enrichGajiPlaceholders(rawCtx, jenis_sk) {
   if (!rawCtx) return;
 
+  const isCptu = ['SK CPTU', 'SPMT CPTU'].includes(jenis_sk);
+
   // Auto-calculate pangkat dari golongan jika belum ada
   if (rawCtx.golongan && (!rawCtx.pangkat || !String(rawCtx.pangkat).trim())) {
-    rawCtx.pangkat = getPangkatForGolongan(rawCtx.golongan, jenis_sk === 'SK CPTU');
+    rawCtx.pangkat = getPangkatForGolongan(rawCtx.golongan, isCptu);
   }
 
   // Auto-calculate gaji_pokok dari golongan & mkg jika belum ada
@@ -678,7 +680,7 @@ function enrichGajiPlaceholders(rawCtx, jenis_sk) {
       rawCtx.gaji_80_terbilang = terbilang80Title;
       rawCtx.terbilang_gaji_80 = terbilang80Title;
 
-      const defaultTotalGaji = (jenis_sk === 'SK CPTU') ? `Rp ${gaji80Str}` : `Rp ${gajiStr}`;
+      const defaultTotalGaji = isCptu ? `Rp ${gaji80Str}` : `Rp ${gajiStr}`;
       if (!rawCtx.total_gaji || String(rawCtx.total_gaji).trim() === '') {
         rawCtx.total_gaji = defaultTotalGaji;
       } else {
@@ -689,7 +691,7 @@ function enrichGajiPlaceholders(rawCtx, jenis_sk) {
       }
       rawCtx.TOTAL_GAJI = rawCtx.total_gaji;
       rawCtx.total_gaji_rupiah = rawCtx.total_gaji;
-      rawCtx.total_gaji_terbilang = (jenis_sk === 'SK CPTU') ? terbilang80Title : terbilangGajiTitle;
+      rawCtx.total_gaji_terbilang = isCptu ? terbilang80Title : terbilangGajiTitle;
     }
   }
 }
@@ -4222,7 +4224,15 @@ const methods = {
         tmpl = allTmpls.find(t => {
           const sub = String(t.sub_menu || t.layanan || t.judul || '').toLowerCase().replace(/\s+/g, '');
           return sub.includes(target) || target.includes(sub);
-        }) || allTmpls[0];
+        });
+        if (!tmpl && (target === 'skcptu' || target === 'spmtcptu')) {
+          const altTarget = (target === 'skcptu') ? 'spmtcptu' : 'skcptu';
+          tmpl = allTmpls.find(t => {
+            const sub = String(t.sub_menu || t.layanan || t.judul || '').toLowerCase().replace(/\s+/g, '');
+            return sub.includes(altTarget) || altTarget.includes(sub);
+          });
+        }
+        if (!tmpl) tmpl = allTmpls[0];
       }
     }
 
@@ -4253,7 +4263,7 @@ const methods = {
       } catch (_) {}
     }
 
-    if (['SK CPTU', 'SK PTU 100%'].includes(jenis_sk) && rawCtx.golongan && rawCtx.masa_kerja_gol !== undefined) {
+    if (['SK CPTU', 'SK PTU 100%', 'SPMT CPTU'].includes(jenis_sk) && rawCtx.golongan && rawCtx.masa_kerja_gol !== undefined) {
       const gajiPokok = hitungGajiPokokNonAsn(rawCtx.golongan, Number(rawCtx.masa_kerja_gol || 0));
       if (gajiPokok > 0) rawCtx.gaji_pokok = formatRupiah(gajiPokok);
     }
@@ -4371,7 +4381,15 @@ const methods = {
         tmpl = allTmpls.find(t => {
           const sub = String(t.sub_menu || t.layanan || t.judul || '').toLowerCase().replace(/\s+/g, '');
           return sub.includes(target) || target.includes(sub);
-        }) || allTmpls[0];
+        });
+        if (!tmpl && (target === 'skcptu' || target === 'spmtcptu')) {
+          const altTarget = (target === 'skcptu') ? 'spmtcptu' : 'skcptu';
+          tmpl = allTmpls.find(t => {
+            const sub = String(t.sub_menu || t.layanan || t.judul || '').toLowerCase().replace(/\s+/g, '');
+            return sub.includes(altTarget) || altTarget.includes(sub);
+          });
+        }
+        if (!tmpl) tmpl = allTmpls[0];
       }
     }
 
@@ -4400,7 +4418,7 @@ const methods = {
       } catch (_) {}
     }
 
-    if (['SK CPTU', 'SK PTU 100%'].includes(jenis_sk) && rawCtx.golongan && rawCtx.masa_kerja_gol !== undefined) {
+    if (['SK CPTU', 'SK PTU 100%', 'SPMT CPTU'].includes(jenis_sk) && rawCtx.golongan && rawCtx.masa_kerja_gol !== undefined) {
       const gajiPokok = hitungGajiPokokNonAsn(rawCtx.golongan, Number(rawCtx.masa_kerja_gol || 0));
       if (gajiPokok > 0) rawCtx.gaji_pokok = formatRupiah(gajiPokok);
     }
