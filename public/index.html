@@ -7602,6 +7602,8 @@ function openModal() {
 function closeModal() {
   document.getElementById('modalOverlay').style.display = 'none';
   document.getElementById('modalBody').innerHTML = '';
+  const box = document.querySelector('#modalOverlay .modal-box');
+  if (box) box.style.maxWidth = '';
 }
 
 /* ------------------------- AUTO NIP GENERATOR MODAL & HELPER ------------------------- */
@@ -21068,59 +21070,57 @@ function buatSkTolakUsulan(id) {
 // template pertama agar template yang salah tidak dipakai.
 // ================================================================
 function findTemplateForJenis(jenis, targetTipe = null) {
-  // Guard: pastikan templatesList benar-benar array
   const list = Array.isArray(BUAT_SK.templatesList) ? BUAT_SK.templatesList
     : Array.isArray(BUAT_SK.templatesList?.data) ? BUAT_SK.templatesList.data
     : [];
-  if (list.length === 0) return null;
-  const target = String(jenis || '').toLowerCase().replace(/\s+/g, '');
+  if (list.length === 0 || !jenis) return null;
+  const target = String(jenis).trim();
+  const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const targetNorm = norm(target);
+  if (!targetNorm) return null;
+
   const filterTipe = targetTipe ? String(targetTipe).toLowerCase() : null;
 
   const matchFilter = (t) => {
     if (!filterTipe) return true;
-    // Cek dari field tipe (null = belum diset, cocokkan semua)
     const rawTipe = String(t.tipe || '').toLowerCase();
-    // Infer dari ekstensi fileId (camelCase dari API) atau file_id
     const fileId = String(t.fileId || t.file_id || '').toLowerCase();
     const inferredTipe = rawTipe || (fileId.endsWith('.docx') ? 'docx' : '');
 
-    // Jika tipe tidak diketahui / belum diset → tampilkan di semua filter
     if (!inferredTipe) return true;
     if (filterTipe === 'docx')  return inferredTipe === 'docx';
     if (filterTipe === 'gdocs') return inferredTipe === 'gdocs' || inferredTipe === 'gdrive';
     return true;
   };
 
-  // 1. Exact match pada sub_menu / subMenu
+  const cleanPrefix = s => String(s || '').replace(/^(buat|template|draft)\s*/i, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const targetClean = cleanPrefix(target);
+
+  // 1. Exact match pada sub_menu / subMenu (case-insensitive & alphanumeric normalized)
   let match = list.find(t => {
-    const sub = String(t.subMenu || t.sub_menu || '').toLowerCase().replace(/\s+/g, '');
-    return sub === target && matchFilter(t);
+    const subNorm = norm(t.subMenu || t.sub_menu || '');
+    return subNorm === targetNorm && matchFilter(t);
   });
   if (match) return match;
 
-  // 2. Substring match pada sub_menu / subMenu / judul
+  // 2. Exact match dengan toleransi prefix formal ("Buat SK CPTU" <-> "SK CPTU")
   match = list.find(t => {
-    const sub = String(t.subMenu || t.sub_menu || t.judul || '').toLowerCase().replace(/\s+/g, '');
-    return (sub.includes(target) || target.includes(sub)) && matchFilter(t);
+    const sub = String(t.subMenu || t.sub_menu || '');
+    if (!sub) return false;
+    return cleanPrefix(sub) === targetClean && matchFilter(t);
   });
   if (match) return match;
 
-  // 3. Interchangeable cross-match untuk SK CPTU <-> SPMT CPTU
-  if (target === 'skcptu' || target === 'spmtcptu') {
-    const altTarget = (target === 'skcptu') ? 'spmtcptu' : 'skcptu';
-    match = list.find(t => {
-      const sub = String(t.subMenu || t.sub_menu || '').toLowerCase().replace(/\s+/g, '');
-      return sub === altTarget && matchFilter(t);
-    });
-    if (match) return match;
+  // 3. Exact match pada judul jika judul persis sama dengan nama jenis
+  match = list.find(t => {
+    const jNorm = norm(t.judul || '');
+    if (!jNorm) return false;
+    return (jNorm === targetNorm || cleanPrefix(t.judul || '') === targetClean) && matchFilter(t);
+  });
+  if (match) return match;
 
-    match = list.find(t => {
-      const sub = String(t.subMenu || t.sub_menu || t.judul || '').toLowerCase().replace(/\s+/g, '');
-      return (sub.includes(altTarget) || altTarget.includes(sub)) && matchFilter(t);
-    });
-    if (match) return match;
-  }
-
+  // TIDAK ADA substring parsial (agar SPMT tidak mencocokkan SPMT CPTU)
+  // TIDAK ADA cross-match palsu (agar SK CPTU tidak mencocokkan SPMT CPTU)
   return null;
 }
 
@@ -22804,6 +22804,7 @@ async function cptuExecuteBatchGenerate() {
   const isSpmt = (jenisSk === 'SPMT CPTU');
   const prefix = isSpmt ? 'SPMT_CPTU' : 'SK_CPTU';
   const templateId = BUAT_SK.templateId || ('default_' + jenisSk.toLowerCase().replace(/[^a-z0-9]/g, '_'));
+  const tipeTemplate = BUAT_SK.tipeTemplate || document.getElementById('buatSk_tipeTemplate')?.value || 'docx';
 
   const total = rows.length;
   const progressWrap = document.getElementById('cptu_batchProgressWrap');
@@ -22818,6 +22819,7 @@ async function cptuExecuteBatchGenerate() {
   const zip = new JSZip();
   let successCount = 0;
   let failCount = 0;
+  const batchResults = [];
 
   const BULAN_NAMES = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
   const now = new Date();
@@ -22849,21 +22851,41 @@ async function cptuExecuteBatchGenerate() {
       const res = await rpc('generateSkBaru', [SESSION.token, {
         jenis_sk: jenisSk,
         template_id: templateId,
+        tipe: tipeTemplate,
         form_data: form_data,
         pejabat_dilantik: [],
         pejabat_diberhentikan: []
       }]);
 
-      if (res && res.success && res.base64) {
+      if (res && res.success) {
         const safeNama = String(row.nama_lengkap || row.nip || `Dokumen_${i+1}`).replace(/[^a-zA-Z0-9_\-]/g, '_');
         const fileName = `${String(i + 1).padStart(2, '0')}_${prefix}_${safeNama}.docx`;
 
-        const byteChars = atob(res.base64);
-        const byteArr = new Uint8Array(byteChars.length);
-        for (let b = 0; b < byteChars.length; b++) {
-          byteArr[b] = byteChars.charCodeAt(b);
+        if (res.base64) {
+          const byteChars = atob(res.base64);
+          const byteArr = new Uint8Array(byteChars.length);
+          for (let b = 0; b < byteChars.length; b++) {
+            byteArr[b] = byteChars.charCodeAt(b);
+          }
+          zip.file(fileName, byteArr);
         }
-        zip.file(fileName, byteArr);
+
+        const docUrl = res.viewUrl || res.docUrl || res.gdocsUrl || (res.fileId ? `https://docs.google.com/document/d/${res.fileId}/edit` : '');
+
+        batchResults.push({
+          no: i + 1,
+          nama: row.nama_lengkap || row.nama || `Pegawai #${i + 1}`,
+          nip: row.nip || '-',
+          nomor: row.nomor_spmt || row.nomor_sk || '-',
+          tmt: row.tmt || row.tmt_spmt || '-',
+          golongan: row.golongan || '-',
+          pangkat: row.pangkat || '-',
+          jabatan: row.jabatan || '-',
+          unit: row.unit || row.unit_es_ii || BUAT_SK.unitEsIi || '-',
+          viewUrl: docUrl,
+          fileName: fileName
+        });
+
         successCount++;
       } else {
         failCount++;
@@ -22880,17 +22902,32 @@ async function cptuExecuteBatchGenerate() {
   if (successCount > 0) {
     try {
       const zipBlob = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(zipBlob);
-      const a = document.createElement('a');
       const dateStr = new Date().toISOString().slice(0, 10);
-      a.href = url;
-      a.download = `Batch_${prefix}_${dateStr}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const zipFileName = `Batch_${prefix}_${dateStr}.zip`;
 
-      showToast('success', `🎉 Berhasil membuat ${successCount} dokumen ${jenisSk}! Berkas ZIP sedang diunduh.`);
+      const isGdocs = (tipeTemplate === 'gdocs' || BUAT_SK.tipeTemplate === 'gdocs');
+
+      if (isGdocs) {
+        cptuShowBatchGDocsResultModal({
+          jenisSk: jenisSk,
+          prefix: prefix,
+          items: batchResults,
+          zipBlob: zipBlob,
+          zipFileName: zipFileName
+        });
+        showToast('success', `🎉 Berhasil membuat ${successCount} dokumen Google Docs ${jenisSk}!`);
+      } else {
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = zipFileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showToast('success', `🎉 Berhasil membuat ${successCount} dokumen ${jenisSk}! Berkas ZIP sedang diunduh.`);
+      }
     } catch(zipErr) {
       showToast('error', 'Gagal memaketkan ZIP: ' + zipErr.message);
     }
@@ -22899,6 +22936,119 @@ async function cptuExecuteBatchGenerate() {
   }
 
   if (btnGen) btnGen.disabled = false;
+}
+
+/**
+ * Modal Hasil Pembuatan Dokumen Kolektif Google Docs
+ * Menampilkan daftar tautan Google Docs tiap pegawai dan tombol unduh ZIP paling terakhir.
+ */
+function cptuShowBatchGDocsResultModal(opt) {
+  const { jenisSk, items, zipBlob, zipFileName } = opt;
+  const modalOverlay = document.getElementById('modalOverlay');
+  const modalTitle = document.getElementById('modalTitle');
+  const modalBody = document.getElementById('modalBody');
+  if (!modalOverlay || !modalBody) return;
+
+  const box = modalOverlay.querySelector('.modal-box');
+  if (box) box.style.maxWidth = '940px';
+
+  if (modalTitle) {
+    modalTitle.innerHTML = `🎉 Hasil Dokumen Kolektif (${items.length} Data) — ${escHtml(jenisSk)}`;
+  }
+
+  const zipUrl = URL.createObjectURL(zipBlob);
+
+  const rowsHtml = items.map(item => `
+    <tr style="border-bottom: 1px solid var(--border);">
+      <td style="text-align: center; font-weight: 600; color: var(--text-muted); font-size: 13px; padding: 10px 8px;">${item.no}</td>
+      <td style="padding: 10px 12px;">
+        <div style="font-weight: 600; color: var(--text); font-size: 13.5px;">${escHtml(item.nama)}</div>
+        <div style="font-size: 11.5px; color: var(--text-muted); font-family: monospace; margin-top: 2px;">NIP: ${escHtml(item.nip)}</div>
+      </td>
+      <td style="padding: 10px 12px;">
+        <div style="font-size: 12.5px; color: var(--text); font-weight: 500;">${escHtml(item.jabatan)}</div>
+        <div style="font-size: 11.5px; color: var(--text-muted);">${escHtml(item.unit)}</div>
+      </td>
+      <td style="padding: 10px 12px;">
+        <div style="font-size: 12px; color: var(--text); font-weight: 500;">${escHtml(item.nomor)}</div>
+        <div style="font-size: 11px; color: var(--text-muted);">TMT: ${escHtml(item.tmt)}</div>
+      </td>
+      <td style="text-align: center; padding: 10px 12px;">
+        ${item.viewUrl && item.viewUrl !== '#'
+          ? `<a href="${escHtml(item.viewUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-outline" style="display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:6px 14px; font-weight:600; text-decoration:none; border-radius:6px; background:rgba(99,102,241,0.08); border-color:var(--primary); color:var(--primary); transition:all 0.15s ease;">
+               <span>📄 Buka GDocs</span>
+               <span style="font-size:11px;">↗</span>
+             </a>`
+          : `<span style="font-size:12px; color:var(--text-muted);">-</span>`
+        }
+      </td>
+    </tr>
+  `).join('');
+
+  modalBody.innerHTML = `
+    <div style="padding: 20px 24px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 18px; background:linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.08)); border:1px solid rgba(99,102,241,0.25); border-radius:10px; margin-bottom:18px;">
+        <div>
+          <div style="font-weight:700; font-size:14.5px; color:var(--text); margin-bottom:3px;">
+            📄 Dokumen Google Docs Siap Diakses
+          </div>
+          <div style="font-size:12.5px; color:var(--text-muted);">
+            Tautan dokumen Google Docs masing-masing pegawai telah selesai dibuat. Klik tombol <strong>Buka GDocs</strong> untuk membuka dokumen per orang, atau gunakan tombol di bawah untuk mengunduh seluruh dokumen sekaligus berupa berkas <strong>.ZIP</strong>.
+          </div>
+        </div>
+        <span class="badge" style="background:var(--success); color:#fff; font-weight:700; font-size:12px; padding:6px 14px; border-radius:20px; white-space:nowrap; flex-shrink:0;">
+          ✅ ${items.length} Dokumen
+        </span>
+      </div>
+
+      <div style="max-height: 48vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 20px; background: var(--surface);">
+        <table class="table-list" style="margin: 0; width: 100%; border-collapse: collapse;">
+          <thead style="position: sticky; top: 0; background: var(--surface-alt, #f8fafc); z-index: 2; border-bottom: 2px solid var(--border);">
+            <tr>
+              <th style="width: 45px; text-align: center; padding: 10px 8px;">#</th>
+              <th style="padding: 10px 12px;">Nama Pegawai &amp; NIP</th>
+              <th style="padding: 10px 12px;">Jabatan / Unit</th>
+              <th style="padding: 10px 12px;">Nomor SK / TMT</th>
+              <th style="text-align: center; width: 160px; padding: 10px 12px;">Tautan GDocs</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; padding-top:16px; border-top:1px solid var(--border); gap:12px; flex-wrap:wrap;">
+        <div style="font-size:12.5px; color:var(--text-muted);">
+          📦 Seluruh berkas (${items.length} dokumen Word .docx) telah dipaketkan ke dalam ZIP.
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()" style="padding:9px 18px; font-size:13px; font-weight:500;">
+            Tutup
+          </button>
+          <button type="button" id="cptu_btnDownloadZipFromModal" class="btn btn-primary" style="padding:9px 22px; font-size:13.5px; font-weight:700; display:inline-flex; align-items:center; gap:8px; box-shadow:0 2px 8px rgba(99,102,241,0.35);">
+            <span>📥</span>
+            <span>Download Semua Berupa ZIP</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  modalOverlay.style.display = 'flex';
+
+  const btnZip = document.getElementById('cptu_btnDownloadZipFromModal');
+  if (btnZip) {
+    btnZip.onclick = () => {
+      const a = document.createElement('a');
+      a.href = zipUrl;
+      a.download = zipFileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast('success', `📦 Berkas ZIP sedang diunduh: ${zipFileName}`);
+    };
+  }
 }
 
 // Helper HTML escape

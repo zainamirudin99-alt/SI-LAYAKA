@@ -4218,21 +4218,21 @@ const methods = {
     }
 
     if (!tmpl) {
-      const target = String(jenis_sk).toLowerCase().replace(/\s+/g, '');
+      const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const cleanPrefix = s => String(s || '').replace(/^(buat|template|draft)\s*/i, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const targetNorm = norm(jenis_sk);
+      const targetClean = cleanPrefix(jenis_sk);
+
       const { data: allTmpls } = await db.from('templates').select('id, file_id, judul, tipe, layanan, sub_menu');
       if (allTmpls && allTmpls.length > 0) {
         tmpl = allTmpls.find(t => {
-          const sub = String(t.sub_menu || t.layanan || t.judul || '').toLowerCase().replace(/\s+/g, '');
-          return sub.includes(target) || target.includes(sub);
+          const subNorm = norm(t.sub_menu || '');
+          if (subNorm && subNorm === targetNorm) return true;
+          if (cleanPrefix(t.sub_menu || '') === targetClean) return true;
+          const jNorm = norm(t.judul || '');
+          if (jNorm && (jNorm === targetNorm || cleanPrefix(t.judul || '') === targetClean)) return true;
+          return false;
         });
-        if (!tmpl && (target === 'skcptu' || target === 'spmtcptu')) {
-          const altTarget = (target === 'skcptu') ? 'spmtcptu' : 'skcptu';
-          tmpl = allTmpls.find(t => {
-            const sub = String(t.sub_menu || t.layanan || t.judul || '').toLowerCase().replace(/\s+/g, '');
-            return sub.includes(altTarget) || altTarget.includes(sub);
-          });
-        }
-        if (!tmpl) tmpl = allTmpls[0];
       }
     }
 
@@ -4342,11 +4342,63 @@ const methods = {
       renderedBuffer = createDefaultSkDocxBuffer(jenis_sk, dataCtx);
     }
 
+    const isGdocs = (tmpl && (tmpl.tipe === 'gdocs' || tmpl.tipe === 'gdrive' || String(tmpl.file_id).includes('docs.google.com'))) || (payload && payload.tipe === 'gdocs');
+    let viewUrl = null;
+    let fileId = null;
+
+    if (isGdocs && tmpl && tmpl.file_id) {
+      let cleanDriveId = String(tmpl.file_id).trim();
+      const m = cleanDriveId.match(/\/d\/([a-zA-Z0-9_-]{20,})/) || cleanDriveId.match(/id=([a-zA-Z0-9_-]{20,})/);
+      if (m) cleanDriveId = m[1];
+
+      const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+      if (gasUrl && /^[a-zA-Z0-9_-]{20,}$/.test(cleanDriveId)) {
+        try {
+          const shortId = uuidv4();
+          const remoteSession = {
+            id: shortId,
+            data: { nip: decoded.nip || '', nama_lengkap: decoded.nama || '', nama: decoded.nama || '', role: decoded.role || 'admin' }
+          };
+          const gasResponse = await fetch(gasUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              method: 'generateDocument',
+              params: [shortId, {
+                templateFileId: cleanDriveId,
+                formData: dataCtx,
+                dataCtx: dataCtx,
+                targetNip: rawCtx.nip || '',
+                layanan: 'Buat SK dan Surat',
+                subLayanan: jenis_sk
+              }],
+              remoteSession
+            })
+          });
+          const gasResult = await gasResponse.json();
+          if (gasResult && gasResult.success) {
+            viewUrl = gasResult.viewUrl;
+            fileId = gasResult.fileId;
+          }
+        } catch (gasErr) {
+          console.warn('[generateSkBaru] GAS call error:', gasErr.message);
+        }
+      }
+
+      if (!viewUrl && /^[a-zA-Z0-9_-]{20,}$/.test(cleanDriveId)) {
+        fileId = fileId || cleanDriveId;
+        viewUrl = `https://docs.google.com/document/d/${cleanDriveId}/edit`;
+      }
+    }
+
     const base64 = renderedBuffer.toString('base64');
     const safeName = String(jenis_sk).replace(/[^a-zA-Z0-9&]/g, '_') + '_' + new Date().getFullYear();
     return {
       success: true,
-      outputType: 'docx',
+      outputType: isGdocs ? 'gdocs' : 'docx',
+      viewUrl: viewUrl || null,
+      docUrl: viewUrl || null,
+      fileId: fileId || null,
       base64,
       fileName: `${safeName}.docx`,
       mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -4375,21 +4427,21 @@ const methods = {
     }
 
     if (!tmpl) {
-      const target = String(jenis_sk).toLowerCase().replace(/\s+/g, '');
+      const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const cleanPrefix = s => String(s || '').replace(/^(buat|template|draft)\s*/i, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const targetNorm = norm(jenis_sk);
+      const targetClean = cleanPrefix(jenis_sk);
+
       const { data: allTmpls } = await db.from('templates').select('id, file_id, judul, tipe, layanan, sub_menu');
       if (allTmpls && allTmpls.length > 0) {
         tmpl = allTmpls.find(t => {
-          const sub = String(t.sub_menu || t.layanan || t.judul || '').toLowerCase().replace(/\s+/g, '');
-          return sub.includes(target) || target.includes(sub);
+          const subNorm = norm(t.sub_menu || '');
+          if (subNorm && subNorm === targetNorm) return true;
+          if (cleanPrefix(t.sub_menu || '') === targetClean) return true;
+          const jNorm = norm(t.judul || '');
+          if (jNorm && (jNorm === targetNorm || cleanPrefix(t.judul || '') === targetClean)) return true;
+          return false;
         });
-        if (!tmpl && (target === 'skcptu' || target === 'spmtcptu')) {
-          const altTarget = (target === 'skcptu') ? 'spmtcptu' : 'skcptu';
-          tmpl = allTmpls.find(t => {
-            const sub = String(t.sub_menu || t.layanan || t.judul || '').toLowerCase().replace(/\s+/g, '');
-            return sub.includes(altTarget) || altTarget.includes(sub);
-          });
-        }
-        if (!tmpl) tmpl = allTmpls[0];
       }
     }
 
