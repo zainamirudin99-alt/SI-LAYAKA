@@ -1789,4 +1789,167 @@
     box-shadow: 0 0 12px rgba(0, 240, 255, 0.4) !important;
   }
 
+  /* =================================================================
+     5. HIGH CONTRAST TEXT VISIBILITY & UNIT CARDS OVERRIDE
+     Memastikan semua kartu unit (Sebaran Fakultas), modal, dan widget
+     memiliki teks kontras tinggi yang 100% jelas terbaca.
+  ================================================================= */
+
+  /* Button text inheritance */
+  body.theme-dark button {
+    color: #f8fafc;
+  }
+
+  /* Sebaran Fakultas & Dashboard Eligible Cards */
+  body.theme-dark .ce-dashboard-card,
+  body.theme-dark button.ce-dashboard-card {
+    background: rgba(14, 21, 38, 0.95) !important;
+    border: 1px solid rgba(0, 240, 255, 0.25) !important;
+    color: #f8fafc !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  body.theme-dark .ce-dashboard-card .cdc-title,
+  body.theme-dark .cdc-title,
+  body.theme-dark button.ce-dashboard-card .cdc-title,
+  body.theme-dark .ce-dashboard-card > div:first-child {
+    color: #f8fafc !important;
+    -webkit-text-fill-color: #f8fafc !important;
+    font-weight: 700 !important;
+    font-size: 13.5px !important;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9) !important;
+  }
+
+  body.theme-dark .ce-dashboard-card .cdc-count,
+  body.theme-dark .cdc-count,
+  body.theme-dark button.ce-dashboard-card .cdc-count {
+    color: #ff007f !important;
+    -webkit-text-fill-color: #ff007f !important;
+    text-shadow: 0 0 12px rgba(255, 0, 127, 0.6) !important;
+    font-weight: 800 !important;
+  }
+
+  body.theme-dark .ce-dashboard-card .cdc-sub,
+  body.theme-dark .cdc-sub,
+  body.theme-dark button.ce-dashboard-card .cdc-sub {
+    color: #94a3b8 !important;
+    -webkit-text-fill-color: #94a3b8 !important;
+    font-weight: 500 !important;
+    font-size: 12px !important;
+  }
+
+  body.theme-dark .ce-dashboard-card:hover,
+  body.theme-dark button.ce-dashboard-card:hover {
+    border-color: #00f0ff !important;
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.45) !important;
+    transform: translateY(-2px);
+  }
+
+  body.theme-dark .ce-dashboard-card:hover .cdc-title,
+  body.theme-dark button.ce-dashboard-card:hover .cdc-title {
+    color: #00f0ff !important;
+    -webkit-text-fill-color: #00f0ff !important;
+    text-shadow: 0 0 8px rgba(0, 240, 255, 0.6) !important;
+  }
+
+  /* Level 3 List Items */
+  body.theme-dark .ce-dashboard-list-item {
+    background: rgba(14, 21, 38, 0.95) !important;
+    border: 1px solid rgba(0, 240, 255, 0.22) !important;
+    color: #f8fafc !important;
+  }
+  body.theme-dark .ce-dashboard-list-item .cdli-name {
+    color: #f8fafc !important;
+    -webkit-text-fill-color: #f8fafc !important;
+    font-weight: 600 !important;
+  }
+  body.theme-dark .ce-dashboard-list-item .cdli-meta {
+    color: #94a3b8 !important;
+    -webkit-text-fill-color: #94a3b8 !important;
+  }
+  body.theme-dark .ce-dashboard-list-item:hover {
+    border-color: #00f0ff !important;
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.3) !important;
+  }
+
+  /* Summary Widgets (Check Eligible Header) */
+  body.theme-dark #ceSummaryWidgets [style*="background:var(--surface)"] {
+    background: rgba(14, 21, 38, 0.95) !important;
+    border: 1px solid rgba(0, 240, 255, 0.25) !important;
+  }
+  body.theme-dark #ceSummaryWidgets [style*="color:#15803d"] {
+    color: #34d399 !important;
+  }
+  body.theme-dark #ceSummaryWidgets [style*="color:#1d4ed8"] {
+    color: #60a5fa !important;
+  }
+  body.theme-dark #ceSummaryWidgets [style*="color:#7e22ce"] {
+    color: #c084fc !important;
+  }
+  body.theme-dark #ceSummaryWidgets [style*="background:var(--surface-alt)"] {
+    background: #162035 !important;
+    border-color: #243552 !important;
+  }
+  body.theme-dark #ceSummaryWidgets [style*="color:var(--text)"] {
+    color: #f8fafc !important;
+    -webkit-text-fill-color: #f8fafc !important;
+  }
+
+  /* Universal Override for Inline Hardcoded Dark Text in Modals & Content */
+  body.theme-dark [style*="color:#1e293b"],
+  body.theme-dark [style*="color:#0f172a"],
+  body.theme-dark [style*="color:#334155"],
+  body.theme-dark [style*="color:#475569"],
+  body.theme-dark [style*="color:#1f2937"],
+  body.theme-dark [style*="color: #000000"],
+  body.theme-dark [style*="color:#000000"],
+  body.theme-dark [style*="color: black"] {
+    color: #f8fafc !important;
+    -webkit-text-fill-color: #f8fafc !important;
+  }
+
+  /* Modal Container & Content in Dark Mode */
+  body.theme-dark #modalBody,
+  body.theme-dark #modalBody * {
+    color: inherit;
+  }
+  body.theme-dark #modalBody [style*="background:#eff6ff"] {
+    background: rgba(0, 240, 255, 0.1) !important;
+    border-color: rgba(0, 240, 255, 0.3) !important;
+  }
+  body.theme-dark #modalBody [style*="color:#1e40af"],
+  body.theme-dark #modalBody [style*="color:#3b82f6"] {
+    color: #00f0ff !important;
+    -webkit-text-fill-color: #00f0ff !important;
+  }
+  body.theme-dark #modalBody [style*="border-bottom:2px solid #e2e8f0"] {
+    border-bottom-color: rgba(0, 240, 255, 0.3) !important;
+  }
+
+  /* Usulan Masuk Modal */
+  body.theme-dark #umStatusDetailModal {
+    background: rgba(3, 5, 10, 0.88) !important;
+  }
+  body.theme-dark #umStatusDetailModal .um-import-card,
+  body.theme-dark #umStatusDetailModal > div {
+    background: #0e1526 !important;
+    border: 1px solid rgba(0, 240, 255, 0.3) !important;
+    color: #f8fafc !important;
+  }
+
+  /* Docx Preview Container */
+  body.theme-dark #docxPreviewContainer {
+    background: #0e1526 !important;
+    color: #f8fafc !important;
+    border-color: #22324d !important;
+  }
+  body.theme-dark #docxPreviewContainer section.docx {
+    background: #162035 !important;
+    color: #f8fafc !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+  }
+  body.theme-dark #docxPreviewContainer section.docx * {
+    color: #f8fafc !important;
+  }
+
 </style>
