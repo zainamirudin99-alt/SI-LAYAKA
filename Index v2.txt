@@ -42,14 +42,14 @@
   <div id="loginScreen">
     <div class="login-topbar">
       <div class="brand-title" style="display:flex; align-items:center; gap:8px;">
-        <img src="logo-silayaka.png" alt="SILAYAKA Logo" style="height:26px; width:auto; object-fit:contain;" />
+        <img id="loginBrandLogo" src="logo-silayaka.png" alt="SILAYAKA Logo" style="height:26px; width:auto; object-fit:contain;" />
         <span>SI-LAYAKA Personnel</span>
       </div>
       <div class="login-topbar-actions">
-        <button type="button" class="topbar-btn" title="Toggle Theme" onclick="document.getElementById('themeToggleBtn').click();">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        <button type="button" class="topbar-btn theme-toggle-btn" id="loginThemeToggleBtn" title="Ganti Tema (Light / Godzilla Dark)" aria-label="Ganti Tema (Light / Godzilla Dark)">
+          <span id="loginThemeBtnIcon" class="theme-btn-icon" style="font-size:18px;">🌙</span>
         </button>
-        <button type="button" class="topbar-btn" title="Bantuan" onclick="alert('Jika Anda mengalami kendala login, silakan hubungi Administrator DOSDM Universitas Diponegoro.');">
+        <button type="button" class="topbar-btn" title="Bantuan" aria-label="Bantuan" onclick="alert('Jika Anda mengalami kendala login, silakan hubungi Administrator DOSDM Universitas Diponegoro.');">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
         </button>
       </div>
@@ -172,7 +172,7 @@
       <!-- SIDEBAR -->
       <div class="sidebar">
         <div class="sidebar-brand">
-          <img src="logo-silayaka.png" alt="SILAYAKA Logo" class="sidebar-brand-logo" />
+          <img id="sidebarBrandLogo" src="logo-silayaka.png" alt="SILAYAKA Logo" class="sidebar-brand-logo" />
           <span>SISTEM LAYANAN<br>ADMINISTRASI KEPEGAWAIAN</span>
         </div>
 
@@ -217,13 +217,19 @@
       <div class="main-content">
         <div class="topbar">
           <div style="display:flex; align-items:center; gap:12px;">
-            <button type="button" class="mobile-only btn btn-secondary" onclick="const sb=document.querySelector('.sidebar'); if(sb) sb.classList.toggle('mobile-open');" style="padding:6px 12px; font-size:16px; border-radius:6px; font-weight:bold;">
+            <button type="button" class="mobile-only btn btn-secondary" onclick="const sb=document.querySelector('.sidebar'); if(sb) sb.classList.toggle('mobile-open');" style="padding:6px 12px; font-size:16px; border-radius:6px; font-weight:bold;" aria-label="Buka Menu Navigasi">
               ☰
             </button>
             <div>
               <h2 id="topbarTitle">Kenaikan Pangkat</h2>
               <div class="breadcrumb">Sistem Layanan Administrasi Kepegawaian</div>
             </div>
+          </div>
+          <div class="topbar-actions" style="display:flex; align-items:center; gap:10px;">
+            <button type="button" class="topbar-theme-btn" id="appThemeToggleBtn" title="Ganti Tema (Light / Godzilla Dark)" aria-label="Ganti Tema (Light / Godzilla Dark)">
+              <span id="appThemeBtnIcon" class="theme-btn-icon">🌙</span>
+              <span id="appThemeBtnLabel" class="theme-btn-label">Godzilla Dark</span>
+            </button>
           </div>
         </div>
 

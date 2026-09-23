@@ -162,20 +162,67 @@ function initTheme() {
   document.body.classList.add('theme-' + saved);
   updateThemeIcon(saved);
 }
-function bindThemeToggle() {
-  document.getElementById('themeToggleBtn').addEventListener('click', () => {
-    const isDark = document.body.classList.contains('theme-dark');
-    const next = isDark ? 'light' : 'dark';
-    document.body.classList.remove('theme-light', 'theme-dark');
-    document.body.classList.add('theme-' + next);
-    localStorage.setItem('sikp_theme', next);
-    updateThemeIcon(next);
-  });
+
+function toggleTheme() {
+  const isDark = document.body.classList.contains('theme-dark');
+  const next = isDark ? 'light' : 'dark';
+  document.body.classList.remove('theme-light', 'theme-dark');
+  document.body.classList.add('theme-' + next);
+  localStorage.setItem('sikp_theme', next);
+  updateThemeIcon(next);
 }
+
+function bindThemeToggle() {
+  const masterBtn = document.getElementById('themeToggleBtn');
+  if (masterBtn) masterBtn.addEventListener('click', toggleTheme);
+
+  const loginBtn = document.getElementById('loginThemeToggleBtn');
+  if (loginBtn) loginBtn.addEventListener('click', toggleTheme);
+
+  const appBtn = document.getElementById('appThemeToggleBtn');
+  if (appBtn) appBtn.addEventListener('click', toggleTheme);
+}
+
 function updateThemeIcon(mode) {
+  const isDark = mode === 'dark';
+
   const btn = document.getElementById('themeToggleBtn');
-  btn.textContent = mode === 'dark' ? '🌙' : '☀️';
-  document.getElementById('themeLabel').textContent = mode === 'dark' ? 'Dark' : 'Light';
+  if (btn) btn.textContent = isDark ? '🌙' : '☀️';
+
+  const label = document.getElementById('themeLabel');
+  if (label) label.textContent = isDark ? 'Dark' : 'Light';
+
+  // Login topbar button
+  const loginIcon = document.getElementById('loginThemeBtnIcon');
+  if (loginIcon) loginIcon.textContent = isDark ? '☀️' : '🌙';
+  const loginBtn = document.getElementById('loginThemeToggleBtn');
+  if (loginBtn) {
+    const tip = isDark ? 'Beralih ke Mode Terang (Default)' : 'Beralih ke Mode Gelap Godzilla';
+    loginBtn.title = tip;
+    loginBtn.setAttribute('aria-label', tip);
+  }
+
+  // App topbar button
+  const appIcon = document.getElementById('appThemeBtnIcon');
+  if (appIcon) appIcon.textContent = isDark ? '☀️' : '🌙';
+  const appLabel = document.getElementById('appThemeBtnLabel');
+  if (appLabel) appLabel.textContent = isDark ? 'Mode Terang' : 'Godzilla Dark';
+  const appBtn = document.getElementById('appThemeToggleBtn');
+  if (appBtn) {
+    const tip = isDark ? 'Beralih ke Mode Terang (Default)' : 'Beralih ke Mode Gelap Godzilla';
+    appBtn.title = tip;
+    appBtn.setAttribute('aria-label', tip);
+  }
+
+  // Swap Brand Logos (Godzilla neon logo on dark mode)
+  const loginLogo = document.getElementById('loginBrandLogo');
+  if (loginLogo) {
+    loginLogo.src = isDark ? 'darkmode.png' : 'logo-silayaka.png';
+  }
+  const sidebarLogo = document.getElementById('sidebarBrandLogo');
+  if (sidebarLogo) {
+    sidebarLogo.src = isDark ? 'darkmode.png' : 'logo-silayaka.png';
+  }
 }
 
 /* ------------------------- SESSION / LOGIN ------------------------- */

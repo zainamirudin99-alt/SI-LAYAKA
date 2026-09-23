@@ -39,27 +39,27 @@
     --font-display: 'Sora', 'Inter', system-ui, sans-serif;
   }
 
-  /* ============ 2. DARK THEME (Cyberpunk - Gundam Mecha vs Godzilla Atomic Kaiju) ============ */
+  /* ============ 2. DARK THEME (Godzilla Atomic Kaiju Theme - Mencekam & High Contrast) ============ */
   body.theme-dark {
-    --bg: #090d16;
-    --bg-gradient: radial-gradient(circle at 20% 20%, #111827 0%, #090d16 65%, #05070e 100%);
-    --surface: #111827;
-    --surface-alt: #1e293b;
-    --border: #334155;
+    --bg: #070a12;
+    --bg-gradient: radial-gradient(circle at 15% 15%, #111827 0%, #080d18 55%, #03050a 100%);
+    --surface: #0e1526;
+    --surface-alt: #162035;
+    --border: #22324d;
     --text: #f8fafc;
     --text-muted: #94a3b8;
-    --primary: #00f0ff; /* Gundam Beam / Neon Cyan */
+    --primary: #00f0ff; /* Godzilla Atomic Breath Neon Cyan */
     --primary-hover: #00c8d6;
-    --primary-soft: rgba(0, 240, 255, 0.15);
-    --accent: #ff007f;  /* Godzilla Atomic Pulse / Neon Magenta */
+    --primary-soft: rgba(0, 240, 255, 0.16);
+    --accent: #ff007f;  /* Godzilla Dorsal Fin Atomic Pulse */
     --accent-glow: rgba(255, 0, 127, 0.35);
     --success: #10b981; /* Kaiju Emerald Radiation */
     --danger: #ff3355;
-    --shadow: 0 8px 32px rgba(0, 240, 255, 0.12), 0 0 0 1px rgba(255, 0, 127, 0.15);
-    --sidebar-bg: #0b0f19;
+    --shadow: 0 8px 32px rgba(0, 240, 255, 0.14), 0 0 0 1px rgba(0, 240, 255, 0.2);
+    --sidebar-bg: #060911;
     --sidebar-text: #cbd5e1;
     --sidebar-active: #00f0ff;
-    --input-bg: #1e293b;
+    --input-bg: #0e1526;
     --font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
     --font-display: 'Orbitron', 'Sora', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
@@ -179,6 +179,65 @@
   .topbar-btn:hover {
     background: var(--surface-alt);
     color: var(--text);
+  }
+
+  /* Theme Toggle Buttons (Login and Dashboard) */
+  .topbar-btn.theme-toggle-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+  }
+  body.theme-dark .topbar-btn.theme-toggle-btn {
+    background: rgba(14, 21, 38, 0.95);
+    color: #00f0ff;
+    border-color: rgba(0, 240, 255, 0.4);
+    box-shadow: 0 0 14px rgba(0, 240, 255, 0.25);
+  }
+  body.theme-dark .topbar-btn.theme-toggle-btn:hover {
+    border-color: #00f0ff;
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
+  }
+
+  .topbar-theme-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    background: #ffffff;
+    color: #1e293b;
+    border: 1px solid #cbd5e1;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .topbar-theme-btn:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+    transform: translateY(-1px);
+  }
+  body.theme-dark .topbar-theme-btn {
+    background: rgba(14, 21, 38, 0.9);
+    color: #00f0ff;
+    border: 1px solid rgba(0, 240, 255, 0.5);
+    box-shadow: 0 0 14px rgba(0, 240, 255, 0.25), inset 0 0 8px rgba(0, 240, 255, 0.1);
+    text-shadow: 0 0 6px rgba(0, 240, 255, 0.6);
+  }
+  body.theme-dark .topbar-theme-btn:hover {
+    background: rgba(0, 240, 255, 0.15);
+    border-color: #00f0ff;
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.45);
+    transform: translateY(-1px);
   }
   .login-center-body {
     flex: 1;
@@ -599,13 +658,13 @@
 
   .main-content { flex: 1; padding: 26px 30px; min-width: 0; }
   .topbar {
-    display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; padding-right: 120px;
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; gap: 16px;
   }
   .topbar h2 { margin: 0; font-size: 21px; }
   .topbar .breadcrumb { font-size: 12.5px; color: var(--text-muted); }
   body.theme-dark .topbar h2 {
-    color: var(--accent); letter-spacing: 0.4px;
-    text-shadow: 0 0 6px var(--accent), 0 0 16px rgba(255,46,224,0.45);
+    color: #00f0ff; letter-spacing: 0.4px;
+    text-shadow: 0 0 8px rgba(0, 240, 255, 0.6), 0 0 18px rgba(255, 0, 127, 0.4);
   }
 
   /* Mecha Card Style */
@@ -1418,8 +1477,316 @@
     border-color: #274463 !important;
   }
 
+  /* =================================================================
+     4. TEMA GODZILLA KAIJU DARK MODE (MENCEKAM & HIGH CONTRAST)
+     Semua teks, input, dropdown, tabel, kartu, tab, badge, dan modal
+     disesuaikan agar kontras tinggi (WCAG compliant) dan jelas terbaca.
+     Light mode tetap 100% seperti semula.
+  ================================================================= */
 
+  /* Global Text Visibility in Dark Mode */
+  body.theme-dark {
+    color: var(--text);
+  }
 
+  body.theme-dark label,
+  body.theme-dark .stack-field > label,
+  body.theme-dark .form-label,
+  body.theme-dark .field-label {
+    color: #e2e8f0 !important;
+    font-weight: 600;
+  }
 
+  body.theme-dark .breadcrumb,
+  body.theme-dark .text-muted,
+  body.theme-dark small,
+  body.theme-dark .help-text {
+    color: #94a3b8 !important;
+  }
+
+  /* Headings with Godzilla Atomic Glow */
+  body.theme-dark h1,
+  body.theme-dark h2,
+  body.theme-dark h3,
+  body.theme-dark .card-title,
+  body.theme-dark .kp-title {
+    color: #00f0ff !important;
+    text-shadow: 0 0 10px rgba(0, 240, 255, 0.5), 0 0 20px rgba(255, 0, 127, 0.3) !important;
+  }
+
+  body.theme-dark h4,
+  body.theme-dark h5,
+  body.theme-dark h6 {
+    color: #f8fafc !important;
+  }
+
+  /* Form Controls (Input, Select, Textarea) - Crisp white text on deep kaiju abyss */
+  body.theme-dark input:not([type="checkbox"]):not([type="radio"]),
+  body.theme-dark select,
+  body.theme-dark textarea {
+    background-color: #0e1526 !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    border: 1px solid #22324d !important;
+    border-radius: var(--radius-sm);
+    font-family: 'JetBrains Mono', 'Inter', monospace;
+  }
+
+  body.theme-dark input::placeholder,
+  body.theme-dark textarea::placeholder {
+    color: #94a3b8 !important;
+    opacity: 1 !important;
+  }
+
+  body.theme-dark select option {
+    background-color: #0e1526 !important;
+    color: #ffffff !important;
+  }
+
+  body.theme-dark input:focus,
+  body.theme-dark select:focus,
+  body.theme-dark textarea:focus {
+    border-color: #00f0ff !important;
+    box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.25), 0 0 14px rgba(0, 240, 255, 0.45) !important;
+    outline: none !important;
+  }
+
+  /* Universal Override for Read-Only & Disabled Inputs in Dark Mode (No Black-on-Dark!) */
+  body.theme-dark input:read-only,
+  body.theme-dark input:disabled,
+  body.theme-dark input[readonly],
+  body.theme-dark select:disabled,
+  body.theme-dark select[readonly],
+  body.theme-dark textarea:read-only,
+  body.theme-dark textarea:disabled,
+  body.theme-dark #kontrakUserForm input:read-only,
+  body.theme-dark #kontrakUserForm input:disabled,
+  body.theme-dark #kontrakUserForm input[readonly],
+  body.theme-dark #kontrakUserForm select:disabled,
+  body.theme-dark #kontrakUserForm select[readonly] {
+    background-color: #162035 !important;
+    color: #e2e8f0 !important;
+    -webkit-text-fill-color: #e2e8f0 !important;
+    border-color: #243552 !important;
+    cursor: not-allowed !important;
+    opacity: 0.9 !important;
+  }
+
+  /* Cards & Panels */
+  body.theme-dark .card,
+  body.theme-dark .kp-panel,
+  body.theme-dark .tmt-year-card,
+  body.theme-dark .tmt-month-card,
+  body.theme-dark .kp-entry-card,
+  body.theme-dark .ce-info-card,
+  body.theme-dark .um-dashboard-card {
+    background: rgba(14, 21, 38, 0.92) !important;
+    border: 1px solid rgba(0, 240, 255, 0.22) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.65), 0 0 16px rgba(0, 240, 255, 0.08) !important;
+    color: #f8fafc !important;
+  }
+
+  body.theme-dark .card::before {
+    background: linear-gradient(90deg, #00f0ff 0%, #ff007f 100%) !important;
+    opacity: 0.85 !important;
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.5) !important;
+  }
+
+  /* Buttons in Godzilla Theme */
+  body.theme-dark .btn-primary {
+    background: linear-gradient(135deg, #00f0ff 0%, #00b4d8 100%) !important;
+    color: #050811 !important;
+    font-weight: 800 !important;
+    border: none !important;
+    box-shadow: 0 0 18px rgba(0, 240, 255, 0.45) !important;
+    text-shadow: none !important;
+  }
+
+  body.theme-dark .btn-primary:hover {
+    background: linear-gradient(135deg, #38bdf8 0%, #00f0ff 100%) !important;
+    box-shadow: 0 0 25px rgba(0, 240, 255, 0.7) !important;
+    transform: translateY(-1px);
+  }
+
+  body.theme-dark .btn-secondary {
+    background: #162035 !important;
+    color: #f8fafc !important;
+    border: 1px solid #22324d !important;
+  }
+
+  body.theme-dark .btn-secondary:hover {
+    background: #1e2c47 !important;
+    border-color: #00f0ff !important;
+    color: #00f0ff !important;
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.25) !important;
+  }
+
+  /* Tables in Dark Mode */
+  body.theme-dark table th,
+  body.theme-dark .dyn-table th,
+  body.theme-dark .tmt-table th {
+    background: #162035 !important;
+    color: #00f0ff !important;
+    border-color: #22324d !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.5px !important;
+  }
+
+  body.theme-dark table td,
+  body.theme-dark .dyn-table td,
+  body.theme-dark .tmt-table td {
+    color: #f8fafc !important;
+    border-color: #22324d !important;
+    background: transparent !important;
+  }
+
+  body.theme-dark table tr:hover,
+  body.theme-dark .dyn-table tr:hover,
+  body.theme-dark .tmt-table tr:hover {
+    background: rgba(0, 240, 255, 0.05) !important;
+  }
+
+  /* Tabs & Nav */
+  body.theme-dark .tabs {
+    border-bottom: 1px solid #22324d !important;
+  }
+
+  body.theme-dark .tab-btn {
+    color: #94a3b8 !important;
+  }
+
+  body.theme-dark .tab-btn:hover {
+    color: #00f0ff !important;
+    background: rgba(0, 240, 255, 0.06) !important;
+  }
+
+  body.theme-dark .tab-btn.active {
+    color: #00f0ff !important;
+    background: rgba(0, 240, 255, 0.12) !important;
+    border-bottom: 3px solid #00f0ff !important;
+    text-shadow: 0 0 10px rgba(0, 240, 255, 0.5) !important;
+  }
+
+  /* Sidebar */
+  body.theme-dark .sidebar {
+    background: #060911 !important;
+    border-right: 1px solid #1a2538 !important;
+  }
+
+  body.theme-dark .sidebar-brand span {
+    color: #00f0ff !important;
+    text-shadow: 0 0 12px rgba(0, 240, 255, 0.5) !important;
+  }
+
+  body.theme-dark .nav-item {
+    color: #94a3b8 !important;
+  }
+
+  body.theme-dark .nav-item:hover {
+    color: #f8fafc !important;
+    background: rgba(0, 240, 255, 0.08) !important;
+  }
+
+  body.theme-dark .nav-item.active {
+    color: #00f0ff !important;
+    background: rgba(0, 240, 255, 0.15) !important;
+    border-left: 3px solid #00f0ff !important;
+    text-shadow: 0 0 8px rgba(0, 240, 255, 0.4) !important;
+  }
+
+  body.theme-dark .sidebar-footer {
+    border-top: 1px solid #1a2538 !important;
+  }
+
+  body.theme-dark .user-chip {
+    background: #0e1526 !important;
+    border: 1px solid #22324d !important;
+  }
+
+  body.theme-dark .user-chip .u-name {
+    color: #f8fafc !important;
+  }
+
+  body.theme-dark #sidebarUserRole {
+    color: #00f0ff !important;
+  }
+
+  /* Modals */
+  body.theme-dark .modal-overlay {
+    background: rgba(3, 5, 10, 0.85) !important;
+    backdrop-filter: blur(6px) !important;
+  }
+
+  body.theme-dark .modal-box {
+    background: #0e1526 !important;
+    border: 1px solid rgba(0, 240, 255, 0.35) !important;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.9), 0 0 24px rgba(0, 240, 255, 0.2) !important;
+    color: #f8fafc !important;
+  }
+
+  body.theme-dark .modal-header {
+    background: #162035 !important;
+    border-bottom: 1px solid #22324d !important;
+    color: #00f0ff !important;
+  }
+
+  /* Autocomplete & Dropdowns */
+  body.theme-dark .autocomplete-list {
+    background: #0e1526 !important;
+    border: 1px solid rgba(0, 240, 255, 0.3) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8) !important;
+  }
+
+  body.theme-dark .autocomplete-item {
+    color: #f8fafc !important;
+  }
+
+  body.theme-dark .autocomplete-item:hover {
+    background: rgba(0, 240, 255, 0.15) !important;
+    color: #00f0ff !important;
+  }
+
+  body.theme-dark .autocomplete-item small {
+    color: #94a3b8 !important;
+  }
+
+  /* TMT Accordions */
+  body.theme-dark .tmt-year-header {
+    background: #162035 !important;
+    color: #f8fafc !important;
+    border-color: #22324d !important;
+  }
+
+  body.theme-dark .tmt-year-header:hover {
+    background: rgba(0, 240, 255, 0.1) !important;
+    color: #00f0ff !important;
+  }
+
+  body.theme-dark .tmt-month-title {
+    color: #00f0ff !important;
+  }
+
+  /* Badges & Chips */
+  body.theme-dark .badge-autofill {
+    background: rgba(16, 185, 129, 0.2) !important;
+    color: #34d399 !important;
+    border: 1px solid rgba(16, 185, 129, 0.4) !important;
+  }
+
+  body.theme-dark .mecha-chip,
+  body.theme-dark .struktural-chip {
+    background: #162035 !important;
+    color: #cbd5e1 !important;
+    border-color: #22324d !important;
+  }
+
+  body.theme-dark .mecha-chip.active,
+  body.theme-dark .struktural-chip:has(input:checked) {
+    background: #00f0ff !important;
+    color: #050811 !important;
+    border-color: #00f0ff !important;
+    font-weight: 700 !important;
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.4) !important;
+  }
 
 </style>

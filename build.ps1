@@ -113,5 +113,9 @@ if (-not (Test-Path "public")) {
     New-Item -ItemType Directory -Path "public"
 }
 
+if (Test-Path "darkmode.png") {
+    Copy-Item "darkmode.png" "public/darkmode.png" -Force
+}
+
 [System.IO.File]::WriteAllText("public/index.html", $output, [System.Text.Encoding]::UTF8)
 Write-Output "Successfully built public/index.html!"
