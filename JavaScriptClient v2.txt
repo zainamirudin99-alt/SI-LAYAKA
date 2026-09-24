@@ -752,13 +752,22 @@ function logoutUser() {
 
 function setBtnLoading(btn, loading, label) {
   if (!btn) return;
-  btn.disabled = loading;
+  btn.disabled = !!loading;
   if (loading) {
+    if (!btn.dataset.origHtml) {
+      btn.dataset.origHtml = btn.innerHTML;
+    }
     btn.setAttribute('data-loading', 'true');
-    btn.innerHTML = '<span class="spinner"></span> ' + label;
+    const txt = label || 'Memproses...';
+    btn.innerHTML = '<span class="spinner"></span> ' + txt;
   } else {
     btn.removeAttribute('data-loading');
-    btn.innerHTML = label;
+    if (label !== undefined && label !== null && label !== '') {
+      btn.innerHTML = label;
+    } else if (btn.dataset.origHtml) {
+      btn.innerHTML = btn.dataset.origHtml;
+    }
+    delete btn.dataset.origHtml;
   }
 }
 
@@ -2139,36 +2148,44 @@ function openDownloadModalVercel(res) {
   document.getElementById('modalOverlay').style.display = 'flex';
 }
 
-function runPreviewVercel(payload) {
+function runPreviewVercel(payload, btn) {
   showToast('info', 'Membuat preview dokumen...');
   google.script.run
     .withSuccessHandler(res => {
-      if (res.success) {
+      if (btn) setBtnLoading(btn, false, 'Preview');
+      if (res && res.success) {
         if (res.outputType === 'pdf') {
           openPreviewModal(res.pdfUrl);
         } else {
           openDocxPreviewModal(res.base64, res.fileName);
         }
       } else {
-        showToast('error', res.message);
+        showToast('error', (res && res.message) || 'Gagal membuat preview.');
       }
     })
-    .withFailureHandler(err => showToast('error', 'Gagal preview: ' + (err.message || err)))
+    .withFailureHandler(err => {
+      if (btn) setBtnLoading(btn, false, 'Preview');
+      showToast('error', 'Gagal preview: ' + (err.message || err));
+    })
     .previewDocumentVercel(SESSION.token, payload);
 }
 
-function runGenerateVercel(payload) {
+function runGenerateVercel(payload, btn) {
   showToast('info', 'Memproses dokumen, mohon tunggu...');
   google.script.run
     .withSuccessHandler(res => {
-      if (res.success) {
-        showToast('success', `${res.fileName} berhasil dibuat.`);
+      if (btn) setBtnLoading(btn, false, 'Generate');
+      if (res && res.success) {
+        showToast('success', `${res.fileName || 'Dokumen'} berhasil dibuat.`);
         openDownloadModalVercel(res);
       } else {
-        showToast('error', res.message);
+        showToast('error', (res && res.message) || 'Gagal memproses dokumen.');
       }
     })
-    .withFailureHandler(err => showToast('error', 'Gagal generate: ' + (err.message || err)))
+    .withFailureHandler(err => {
+      if (btn) setBtnLoading(btn, false, 'Generate');
+      showToast('error', 'Gagal generate: ' + (err.message || err));
+    })
     .generateDocumentVercel(SESSION.token, payload);
 }
 
@@ -2212,26 +2229,32 @@ function handlePreviewGenerate(opt, mode) {
 
   const payload = { templateId, templateFileId: templateId, entries, subLayanan, layanan: 'Kenaikan Pangkat' };
 
+  const btnId = opt === 'A' ? (mode === 'preview' ? 'optA_previewBtn' : 'optA_generateBtn') : (mode === 'preview' ? 'optB_previewBtn' : 'optB_generateBtn');
+  const btn = document.getElementById(btnId);
+  const loadingLabel = mode === 'preview' ? 'Membuat Preview...' : 'Memproses...';
+  setBtnLoading(btn, true, loadingLabel);
+
   if (tipe === 'docx') {
     if (mode === 'preview') {
-      runPreviewVercel(payload);
+      runPreviewVercel(payload, btn);
     } else {
-      runGenerateVercel(payload);
+      runGenerateVercel(payload, btn);
     }
   } else {
     payload.templateFileId = templateId;
     if (mode === 'preview') {
-      runPreview(payload);
+      runPreview(payload, btn);
     } else {
-      runGenerate(payload);
+      runGenerate(payload, btn);
     }
   }
 }
 
-async function runPreview(payload) {
+async function runPreview(payload, btn) {
   showToast('info', 'Membuat preview dokumen...');
   try {
     const res = await rpc('previewDocument', [SESSION.token, payload]);
+    if (btn) setBtnLoading(btn, false, 'Preview');
     if (res && res.success) {
       if (res.base64) {
         const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
@@ -2248,7 +2271,8 @@ async function runPreview(payload) {
     if (typeof google !== 'undefined' && google.script && google.script.run) {
       google.script.run
         .withSuccessHandler(res => {
-          if (res.success) {
+          if (btn) setBtnLoading(btn, false, 'Preview');
+          if (res && res.success) {
             if (res.base64) {
               const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
               openPreviewModal(blobUrl);
@@ -2256,12 +2280,16 @@ async function runPreview(payload) {
               openPreviewModal(res.previewUrl);
             }
           } else {
-            showToast('error', res.message);
+            showToast('error', (res && res.message) || 'Gagal preview.');
           }
         })
-        .withFailureHandler(e => showToast('error', 'Gagal preview: ' + (e.message || e)))
+        .withFailureHandler(e => {
+          if (btn) setBtnLoading(btn, false, 'Preview');
+          showToast('error', 'Gagal preview: ' + (e.message || e));
+        })
         .previewDocument(SESSION.token, payload);
     } else {
+      if (btn) setBtnLoading(btn, false, 'Preview');
       showToast('error', 'Gagal preview: ' + (err.message || err));
     }
   }
@@ -2278,10 +2306,11 @@ function convertBase64ToBlobUrl_(base64, mimeType) {
   return URL.createObjectURL(blob);
 }
 
-async function runGenerate(payload) {
+async function runGenerate(payload, btn) {
   showToast('info', 'Memproses dokumen, mohon tunggu...');
   try {
     const res = await rpc('generateDocument', [SESSION.token, payload]);
+    if (btn) setBtnLoading(btn, false, 'Generate');
     if (res && res.success) {
       showToast('success', `${res.fileName || 'Dokumen'} berhasil dibuat.`);
       openDownloadModal(res);
@@ -2292,16 +2321,21 @@ async function runGenerate(payload) {
     if (typeof google !== 'undefined' && google.script && google.script.run) {
       google.script.run
         .withSuccessHandler(res => {
-          if (res.success) {
-            showToast('success', `${res.fileName} berhasil dibuat.`);
+          if (btn) setBtnLoading(btn, false, 'Generate');
+          if (res && res.success) {
+            showToast('success', `${res.fileName || 'Dokumen'} berhasil dibuat.`);
             openDownloadModal(res);
           } else {
-            showToast('error', res.message);
+            showToast('error', (res && res.message) || 'Gagal generate.');
           }
         })
-        .withFailureHandler(e => showToast('error', 'Gagal generate: ' + (e.message || e)))
+        .withFailureHandler(e => {
+          if (btn) setBtnLoading(btn, false, 'Generate');
+          showToast('error', 'Gagal generate: ' + (e.message || e));
+        })
         .generateDocument(SESSION.token, payload);
     } else {
+      if (btn) setBtnLoading(btn, false, 'Generate');
       showToast('error', 'Gagal generate: ' + (err.message || err));
     }
   }
@@ -2945,11 +2979,14 @@ function deleteTemplateHandler(id) {
     .deleteTemplate(SESSION.token, id);
 }
 
-async function previewDocxTemplate(id) {
+async function previewDocxTemplate(id, btnEl) {
   if (!id) return showToast('error', 'Template ID tidak valid atau belum diupload.');
+  const btn = btnEl || document.getElementById('buatSk_btnPreviewTemplate');
+  if (btn) setBtnLoading(btn, true, 'Membuat preview...');
   showToast('info', 'Membuat preview template...');
   try {
     const res = await rpc('getTemplateViewUrl', [SESSION.token, id]);
+    if (btn) setBtnLoading(btn, false);
     if (res && res.success) {
       document.getElementById('modalTitle').textContent = 'Preview Template: ' + (res.judul || '');
       if (res.tipe === 'gdocs') {
@@ -2978,6 +3015,7 @@ async function previewDocxTemplate(id) {
       showToast('error', res?.message || 'Gagal memuat preview template.');
     }
   } catch(err) {
+    if (btn) setBtnLoading(btn, false);
     showToast('error', 'Gagal memproses preview: ' + (err.message || err));
   }
 }
@@ -9249,9 +9287,12 @@ async function runKontrakPreviewGenerate(mode) {
   };
 
   if (mode === 'preview') {
+    const previewBtn = document.getElementById('kontrak_previewBtn');
+    if (previewBtn) setBtnLoading(previewBtn, true, 'Membuat Preview...');
     showToast('info', 'Membuat preview Kontrak...');
     try {
       const res = await rpc('previewKontrakDocument', [SESSION.token, payload]);
+      if (previewBtn) setBtnLoading(previewBtn, false, 'Preview');
       if (res && res.success) {
         if ((res.isDocx || res.outputType === 'docx') && res.base64) {
           openDocxPreviewModal(res.base64, res.fileName || 'Preview_Kontrak.docx');
@@ -9268,6 +9309,7 @@ async function runKontrakPreviewGenerate(mode) {
       if (typeof google !== 'undefined' && google.script && google.script.run) {
         google.script.run
           .withSuccessHandler(res => {
+            if (previewBtn) setBtnLoading(previewBtn, false, 'Preview');
             if (res.success) {
               if ((res.isDocx || res.outputType === 'docx') && res.base64) {
                 openDocxPreviewModal(res.base64, res.fileName || 'Preview_Kontrak.docx');
@@ -9281,9 +9323,13 @@ async function runKontrakPreviewGenerate(mode) {
               showToast('error', res.message);
             }
           })
-          .withFailureHandler(err => showToast('error', 'Gagal preview Kontrak: ' + (err.message || err)))
+          .withFailureHandler(err => {
+            if (previewBtn) setBtnLoading(previewBtn, false, 'Preview');
+            showToast('error', 'Gagal preview Kontrak: ' + (err.message || err));
+          })
           .previewKontrakDocument(SESSION.token, payload);
       } else {
+        if (previewBtn) setBtnLoading(previewBtn, false, 'Preview');
         showToast('error', 'Gagal preview: ' + (rpcErr.message || rpcErr));
       }
     }
@@ -17037,7 +17083,8 @@ async function buatSkImportFromSpreadsheet() {
 }
 
 // Generate SK
-async function buatSkGenerate() {
+async function buatSkGenerate(btnEl) {
+  const btn = btnEl || document.getElementById('buatSk_btnGenerate');
   const jenisSk   = BUAT_SK.jenisSk || document.getElementById('buatSk_jenisSk')?.value || '';
   if (!jenisSk) return showToast('error', 'Silakan pilih Jenis SK / Surat terlebih dahulu.');
   const templateId = BUAT_SK.templateId || document.getElementById('buatSk_template')?.value || ('default_' + jenisSk.toLowerCase().replace(/[^a-z0-9]/g, '_'));
@@ -17079,6 +17126,7 @@ async function buatSkGenerate() {
     form_data.tugas_tambahan         = BUAT_SK.jenisTutamStruktural;
   }
 
+  if (btn) setBtnLoading(btn, true, 'Memproses...');
   showLoadingOverlay('Memproses Pembuatan SK...');
   try {
     const res = await rpc('generateSkBaru', [SESSION.token, {
@@ -17087,6 +17135,7 @@ async function buatSkGenerate() {
       pejabat_diberhentikan: BUAT_SK.pejabatDiberhentikan
     }]);
     hideLoadingOverlay();
+    if (btn) setBtnLoading(btn, false, '⚡ Buat SK');
 
     if (res.success && res.base64) {
       // Download DOCX
@@ -17115,11 +17164,16 @@ async function buatSkGenerate() {
     } else {
       showToast('error', res.message || 'Gagal membuat SK.');
     }
-  } catch(e) { hideLoadingOverlay(); showToast('error', 'Error: ' + (e.message || e)); }
+  } catch(e) {
+    hideLoadingOverlay();
+    if (btn) setBtnLoading(btn, false, '⚡ Buat SK');
+    showToast('error', 'Error: ' + (e.message || e));
+  }
 }
 
 // Preview SK
-async function buatSkPreview() {
+async function buatSkPreview(btnEl) {
+  const btn = btnEl || document.getElementById('buatSk_btnPreview');
   const jenisSk   = BUAT_SK.jenisSk || document.getElementById('buatSk_jenisSk')?.value || '';
   if (!jenisSk) return showToast('error', 'Silakan pilih Jenis SK / Surat terlebih dahulu.');
   const templateId = BUAT_SK.templateId || document.getElementById('buatSk_template')?.value || ('default_' + jenisSk.toLowerCase().replace(/[^a-z0-9]/g, '_'));
@@ -17158,6 +17212,7 @@ async function buatSkPreview() {
     form_data.tugas_tambahan         = BUAT_SK.jenisTutamStruktural;
   }
 
+  if (btn) setBtnLoading(btn, true, 'Membuat Preview...');
   showLoadingOverlay('Membuat Preview SK...');
   try {
     const res = await rpc('previewSkBaru', [SESSION.token, {
@@ -17166,6 +17221,7 @@ async function buatSkPreview() {
       pejabat_diberhentikan: BUAT_SK.pejabatDiberhentikan
     }]);
     hideLoadingOverlay();
+    if (btn) setBtnLoading(btn, false, '👁️ Preview SK');
 
     if (res.success && res.pdfUrl) {
       openPreviewModal(res.pdfUrl);
@@ -17178,7 +17234,11 @@ async function buatSkPreview() {
     } else {
       showToast('error', res.message || 'Gagal membuat Preview SK.');
     }
-  } catch(e) { hideLoadingOverlay(); showToast('error', 'Error Preview: ' + (e.message || e)); }
+  } catch(e) {
+    hideLoadingOverlay();
+    if (btn) setBtnLoading(btn, false, '👁️ Preview SK');
+    showToast('error', 'Error Preview: ' + (e.message || e));
+  }
 }
 function buatSkReset() {
   BUAT_SK.jenisSk = null; BUAT_SK.templateId = null; BUAT_SK.unitEsIi = null;
@@ -17609,7 +17669,7 @@ async function cptuExecuteBatchGenerate() {
   const btnGen = document.getElementById('cptu_batchGenerateBtn');
 
   if (progressWrap) progressWrap.style.display = 'block';
-  if (btnGen) btnGen.disabled = true;
+  if (btnGen) setBtnLoading(btnGen, true, 'Sedang Membuat Dokumen Kolektif...');
 
   const zip = new JSZip();
   let successCount = 0;
@@ -17730,7 +17790,7 @@ async function cptuExecuteBatchGenerate() {
     showToast('error', 'Semua pembuatan dokumen batch gagal. Periksa kembali format data template.');
   }
 
-  if (btnGen) btnGen.disabled = false;
+  if (btnGen) setBtnLoading(btnGen, false, '🚀 Generate Semua Dokumen (Batch .ZIP)');
 }
 
 /**

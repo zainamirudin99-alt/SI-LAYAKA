@@ -869,9 +869,22 @@
   .table-list th { color: var(--text-muted); font-size: 11.5px; text-transform: uppercase; }
 
   .spinner {
-    width: 16px; height: 16px; border-radius: 50%;
-    border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
-    animation: spin 0.7s linear infinite; display: inline-block;
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid rgba(128, 128, 128, 0.25); border-top-color: currentColor;
+    animation: spin 0.7s linear infinite; display: inline-block; vertical-align: -2px;
+  }
+  .btn-primary .spinner, .btn-danger .spinner {
+    border-color: rgba(255, 255, 255, 0.35);
+    border-top-color: #fff;
+  }
+  .btn-outline .spinner, .btn-secondary .spinner {
+    border-color: rgba(0, 0, 0, 0.15);
+    border-top-color: currentColor;
+  }
+  body.theme-godzilla .btn-outline .spinner,
+  body.theme-godzilla .btn-secondary .spinner {
+    border-color: rgba(255, 255, 255, 0.2);
+    border-top-color: currentColor;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 

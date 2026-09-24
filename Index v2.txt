@@ -2021,7 +2021,7 @@
                       <option value="docx">📄 Word Document (.docx)</option>
                       <option value="gdocs">🌐 Google Docs</option>
                     </select>
-                    <button type="button" class="btn btn-outline" id="buatSk_btnPreviewTemplate" onclick="if(BUAT_SK.templateId) previewDocxTemplate(BUAT_SK.templateId)" title="Preview file template yang digunakan" style="display:none; white-space:nowrap; height:42px; padding:0 16px; font-weight:600; font-size:13px; align-items:center; gap:6px; flex-shrink:0;">
+                    <button type="button" class="btn btn-outline" id="buatSk_btnPreviewTemplate" onclick="if(BUAT_SK.templateId) previewDocxTemplate(BUAT_SK.templateId, this)" title="Preview file template yang digunakan" style="display:none; white-space:nowrap; height:42px; padding:0 16px; font-weight:600; font-size:13px; align-items:center; gap:6px; flex-shrink:0;">
                       👁️ Preview Template
                     </button>
                   </div>
@@ -2286,8 +2286,8 @@
 
               <!-- Tombol Generate & Preview -->
               <div id="buatSk_actionBar" style="display:none;margin-top:24px;padding-top:16px;border-top:1px solid var(--border);gap:10px;flex-wrap:wrap;">
-                <button class="btn btn-primary" onclick="buatSkGenerate()" style="font-weight:700;">⚡ Buat SK</button>
-                <button class="btn btn-secondary" onclick="buatSkPreview()" style="font-weight:600;background:var(--surface-alt);color:var(--text-main);border:1px solid var(--border);">👁️ Preview SK</button>
+                <button class="btn btn-primary" id="buatSk_btnGenerate" onclick="buatSkGenerate(this)" style="font-weight:700;">⚡ Buat SK</button>
+                <button class="btn btn-secondary" id="buatSk_btnPreview" onclick="buatSkPreview(this)" style="font-weight:600;background:var(--surface-alt);color:var(--text-main);border:1px solid var(--border);">👁️ Preview SK</button>
                 <button class="btn btn-secondary" onclick="buatSkReset()">🔄 Reset Form</button>
               </div>
 
