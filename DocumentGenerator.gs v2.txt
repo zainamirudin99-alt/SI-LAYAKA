@@ -156,9 +156,9 @@ function renderTemplateCopy_(templateFileId, dataContext, tempName, preProcessFn
   renderDocumentBody_(body, dataContext);
   // Proses juga header & footer bila ada tag di sana
   const header = doc.getHeader();
-  if (header) renderDocumentBody_(header, dataContext);
+  if (header && header.getText().indexOf('{{') !== -1) renderDocumentBody_(header, dataContext);
   const footer = doc.getFooter();
-  if (footer) renderDocumentBody_(footer, dataContext);
+  if (footer && footer.getText().indexOf('{{') !== -1) renderDocumentBody_(footer, dataContext);
 
   doc.saveAndClose();
   return copy; // File Drive
@@ -214,9 +214,9 @@ function renderMultiEntryDocument_(templateFileId, entries, tempName) {
   const mainDoc = DocumentApp.openById(mainCopy.getId());
   renderDocumentBody_(mainDoc.getBody(), entries[0].dataContext);
   const mainHeader = mainDoc.getHeader();
-  if (mainHeader) renderDocumentBody_(mainHeader, entries[0].dataContext);
+  if (mainHeader && mainHeader.getText().indexOf('{{') !== -1) renderDocumentBody_(mainHeader, entries[0].dataContext);
   const mainFooter = mainDoc.getFooter();
-  if (mainFooter) renderDocumentBody_(mainFooter, entries[0].dataContext);
+  if (mainFooter && mainFooter.getText().indexOf('{{') !== -1) renderDocumentBody_(mainFooter, entries[0].dataContext);
 
   // Entri ke-2 dst: render template SEKALI LAGI di salinan sementara
   // terpisah (supaya variabel "set" antar-entri tidak saling tertukar),

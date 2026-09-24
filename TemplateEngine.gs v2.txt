@@ -241,87 +241,71 @@ function processSignaturePlaceholderInBody_(container, dataContext) {
 }
 
 function renderDocumentBody_(body, dataContext) {
-  // 0) Sisipkan foto 3x4 dan tanda tangan digital (jika ada tag) dan saring base64 dari teks
-  processPhotoPlaceholderInBody_(body, dataContext);
-  processSignaturePlaceholderInBody_(body, dataContext);
+  // 0) Sisipkan foto 3x4 dan tanda tangan digital (hanya jika ada tag relevan dalam teks)
+  const fullBodyText = body.getText();
+  const textLower = fullBodyText.toLowerCase();
 
-  // 1) Proses loop tabel dinamis dahulu (agar tag di dalamnya baru
-  //    diproses setelah baris digandakan sesuai jumlah data). Mendukung
-  //    LEBIH DARI SATU loop berbeda dalam dokumen yang sama.
-  processTableLoops_(body, dataContext);
-
-  // 2) Isi tag {{..}} di SETIAP SEL TABEL langsung di sel itu sendiri
-  //    (clear + tulis ulang SATU paragraf bersih), BUKAN lewat
-  //    body.replaceText() global seperti sebelumnya. Termasuk tabel
-  //    yang bersarang di dalam sel tabel lain (lihat findAllTablesRecursive_).
-  //
-  //    ALASAN PENTING: rumus panjang di template (mis. rumus golongan
-  //    yang ditulis 18-21 baris terpisah demi keterbacaan saat mengedit)
-  //    tersimpan sebagai BANYAK paragraf terpisah DALAM SATU SEL.
-  //    body.replaceText() cuma mengosongkan TEKS pada tiap paragraf yang
-  //    cocok, tapi PARAGRAF KOSONGNYA TETAP ADA -- baris tabel jadi tetap
-  //    setinggi rumus mentahnya (belasan baris kosong) walau hasil akhir
-  //    yang tercetak cuma satu angka pendek ("850"), sehingga tabel &
-  //    jumlah halaman dokumen membengkak. Dengan clear()+appendParagraph()
-  //    di level sel, seluruh paragraf sisa itu ikut terhapus dan diganti
-  //    SATU paragraf berisi hasil akhir saja -- tinggi baris otomatis
-  //    mengikuti PANJANG HASIL, bukan panjang rumus mentahnya.
-  //
-  //    Sel yang sudah diisi lewat loop (langkah 1, via fillRowPlaceholders_)
-  //    otomatis dilewati di sini karena sudah tidak ada "{{" tersisa.
-  findAllTablesRecursive_(body).forEach(table => renderTableCellsInPlace_(table, dataContext));
-
-  // 3) Sisa tag {{..}} pada PARAGRAF BIASA (luar tabel -- heading, baris
-  //    tanda tangan, dst.) diisi lewat body.replaceText() seperti semula.
-  //    Ini aman karena paragraf biasa di luar tabel tidak ditulis sebagai
-  //    rumus multi-baris, jadi tidak kena masalah sisa-paragraf-kosong.
-  const fullText = body.getText();
-  const found = [];
-  const seen = {};
-  let m;
-  TAG_REGEX.lastIndex = 0;
-  while ((m = TAG_REGEX.exec(fullText)) !== null) {
-    const key = m[1];
-    if (!seen[key]) { seen[key] = true; found.push(key); }
+  if (textLower.indexOf('foto') !== -1 || textLower.indexOf('photo') !== -1) {
+    processPhotoPlaceholderInBody_(body, dataContext);
+  }
+  if (textLower.indexOf('ttd') !== -1 || textLower.indexOf('signature') !== -1 || textLower.indexOf('tanda_tangan') !== -1) {
+    processSignaturePlaceholderInBody_(body, dataContext);
   }
 
-  found.forEach(rawExpr => {
-    let value;
-    try {
-      value = evaluateAndFormat_(rawExpr, dataContext);
-    } catch (e) {
-      value = `[ERROR:${rawExpr}]`;
-    }
-    const pattern = '\\{\\{\\s*' + escapeRegex_(rawExpr) + '\\s*\\}\\}';
-    const repVal = escapeReplacement_(value);
-    try {
-      body.replaceText(pattern, repVal);
-    } catch (e) {
-      body.replaceText(pattern, repVal === '' ? ' ' : repVal);
-    }
-  });
+  // 1) Proses loop tabel dinamis dahulu (hanya jika ada marker loop {# / {{#)
+  if (fullBodyText.indexOf('{#') !== -1 || fullBodyText.indexOf('{{#') !== -1) {
+    processTableLoops_(body, dataContext);
+  }
 
-  // 4) Auto-fit tinggi baris tabel & pastikan seluruh isi tabel berukuran font 9 HANYA jika Opsi B (AK Konversi Kumulatif)
+  // 2) Kumpulkan semua tabel CUKUP SEKALI, lalu isi tag di setiap sel
   const isOpsiB = String(dataContext.sub_layanan || dataContext.sub_menu || dataContext.subLayanan || '').toLowerCase().includes('kumulatif');
-  findAllTablesRecursive_(body).forEach(table => {
-    autoFitTableRows_(table);
-    if (isOpsiB) {
-      enforceMinFontSizeInContainer_(table, 9);
+  const tables = findAllTablesRecursive_(body);
+  tables.forEach(table => renderTableCellsInPlace_(table, dataContext, isOpsiB));
+
+  // 3) Sisa tag {{..}} pada PARAGRAF BIASA (luar tabel -- heading, baris tanda tangan, dst.)
+  const remainingText = body.getText();
+  if (remainingText.indexOf('{{') !== -1) {
+    const found = [];
+    const seen = {};
+    let m;
+    TAG_REGEX.lastIndex = 0;
+    while ((m = TAG_REGEX.exec(remainingText)) !== null) {
+      const key = m[1];
+      if (!seen[key]) { seen[key] = true; found.push(key); }
     }
-  });
+
+    found.forEach(rawExpr => {
+      let value;
+      try {
+        value = evaluateAndFormat_(rawExpr, dataContext);
+      } catch (e) {
+        value = `[ERROR:${rawExpr}]`;
+      }
+      const pattern = '\\{\\{\\s*' + escapeRegex_(rawExpr) + '\\s*\\}\\}';
+      const repVal = escapeReplacement_(value);
+      try {
+        body.replaceText(pattern, repVal);
+      } catch (e) {
+        body.replaceText(pattern, repVal === '' ? ' ' : repVal);
+      }
+    });
+  }
 }
 
 /** Isi tag {{..}} di setiap sel sebuah tabel, sel per sel (lihat renderCellTextInPlace_). */
-function renderTableCellsInPlace_(table, dataContext) {
+function renderTableCellsInPlace_(table, dataContext, isOpsiB) {
   for (let r = 0; r < table.getNumRows(); r++) {
     const row = table.getRow(r);
+    let rowNeedsAutoFit = false;
     for (let c = 0; c < row.getNumCells(); c++) {
       const cell = row.getCell(c);
-      // Sel yang berisi tabel BERSARANG dilewati di sini -- clear() akan
-      // menghapus tabel anaknya. Tabel bersarang itu diproses SENDIRI
-      // (findAllTablesRecursive_ sudah menemukannya sebagai tabel terpisah).
+      // Sel yang berisi tabel BERSARANG dilewati di sini -- diproses sebagai tabel terpisah
       if (cellHasNestedTable_(cell)) continue;
-      renderCellTextInPlace_(cell, dataContext);
+      const collapsed = renderCellTextInPlace_(cell, dataContext, isOpsiB);
+      if (collapsed) rowNeedsAutoFit = true;
+    }
+    if (rowNeedsAutoFit) {
+      try { row.setMinimumHeight(0); } catch (_) {}
     }
   }
 }
@@ -365,9 +349,9 @@ function cellHasImage_(cell) {
  *   tag diisi LANGSUNG DI DALAM paragraf masing-masing, TANPA menggabungkan
  *   paragraf sama sekali, menjaga integritas gambar tanda tangan digital.
  */
-function renderCellTextInPlace_(cell, dataContext) {
+function renderCellTextInPlace_(cell, dataContext, isOpsiB) {
   const originalText = cell.getText();
-  if (originalText.indexOf('{{') === -1) return; // tidak ada tag -> lewati, hemat proses
+  if (originalText.indexOf('{{') === -1) return false; // tidak ada tag -> lewati, hemat proses
 
   // JANGAN PERNAH lakukan cell.clear() jika sel memuat gambar (InlineImage) atau memuat placeholder tanda tangan/foto/pejabat!
   const hasImage = cellHasImage_(cell);
@@ -396,12 +380,11 @@ function renderCellTextInPlace_(cell, dataContext) {
     if (newText !== originalText) {
       cell.clear();
       const newP = cell.appendParagraph(newText || ' ');
-      const isOpsiB = String(dataContext.sub_layanan || dataContext.sub_menu || dataContext.subLayanan || '').toLowerCase().includes('kumulatif');
       if (isOpsiB) {
         enforceMinFontSizeInParagraph_(newP, 9);
       }
     }
-    return;
+    return true; // sel formula di-collapse, baris perlu auto-fit minimumHeight = 0
   }
 
   // --- Sel biasa (label+nilai, blok tanda tangan, dsb.): isi tag PER PARAGRAF, struktur baris
@@ -432,6 +415,7 @@ function renderCellTextInPlace_(cell, dataContext) {
       }
     }
   }
+  return false;
 }
 
 function enforceMinFontSizeInContainer_(container, targetSize) {
@@ -464,16 +448,20 @@ function enforceMinFontSizeInParagraph_(paragraph, targetSize) {
   targetSize = targetSize || 9;
   if (!paragraph) return;
   try {
-    const numChildren = paragraph.getNumChildren();
-    for (let i = 0; i < numChildren; i++) {
-      const child = paragraph.getChild(i);
-      if (child.getType() === DocumentApp.ElementType.TEXT) {
-        const textEl = child.asText();
-        textEl.setFontSize(targetSize);
-      }
+    const textEl = paragraph.editAsText();
+    if (textEl && textEl.getText().length > 0) {
+      textEl.setFontSize(targetSize);
     }
   } catch (e) {
-    // ignore
+    try {
+      const numChildren = paragraph.getNumChildren();
+      for (let i = 0; i < numChildren; i++) {
+        const child = paragraph.getChild(i);
+        if (child.getType() === DocumentApp.ElementType.TEXT) {
+          child.asText().setFontSize(targetSize);
+        }
+      }
+    } catch (_) {}
   }
 }
 

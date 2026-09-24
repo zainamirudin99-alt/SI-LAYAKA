@@ -5144,7 +5144,7 @@ if (typeof google === 'undefined' || !google.script || !google.script.run) {
               }
               return async function(...args) {
                 const ctrl = new AbortController();
-                const timer = setTimeout(() => ctrl.abort(), 30000);
+                const timer = setTimeout(() => ctrl.abort(), 120000);
                 try {
                   const response = await fetch('/api/rpc', {
                     method: 'POST',
@@ -5175,7 +5175,7 @@ if (typeof google === 'undefined' || !google.script || !google.script.run) {
                   }
                 } catch (err) {
                   clearTimeout(timer);
-                  const msg = err.name === 'AbortError' ? 'Request timeout (30s)' : (err.message || String(err));
+                  const msg = err.name === 'AbortError' ? 'Request timeout (120s)' : (err.message || String(err));
                   console.error('[RPC] catch:', builderProp, msg);
                   if (failureHandler) failureHandler({ message: msg });
                 }
@@ -7366,45 +7366,49 @@ function openDownloadModalVercel(res) {
   document.getElementById('modalOverlay').style.display = 'flex';
 }
 
-function runPreviewVercel(payload, btn) {
+async function runPreviewVercel(payload, btn) {
   showToast('info', 'Membuat preview dokumen...');
-  google.script.run
-    .withSuccessHandler(res => {
-      if (btn) setBtnLoading(btn, false, 'Preview');
-      if (res && res.success) {
-        if (res.outputType === 'pdf') {
-          openPreviewModal(res.pdfUrl);
-        } else {
-          openDocxPreviewModal(res.base64, res.fileName);
-        }
+  try {
+    const res = await rpc('previewDocumentVercel', [SESSION.token, payload]);
+    if (btn) setBtnLoading(btn, false, 'Preview');
+    const otherBtn = document.getElementById(btn?.id?.includes('optA') ? 'optA_generateBtn' : 'optB_generateBtn');
+    if (otherBtn) otherBtn.disabled = false;
+    if (res && res.success) {
+      if (res.outputType === 'pdf') {
+        openPreviewModal(res.pdfUrl);
       } else {
-        showToast('error', (res && res.message) || 'Gagal membuat preview.');
+        openDocxPreviewModal(res.base64, res.fileName);
       }
-    })
-    .withFailureHandler(err => {
-      if (btn) setBtnLoading(btn, false, 'Preview');
-      showToast('error', 'Gagal preview: ' + (err.message || err));
-    })
-    .previewDocumentVercel(SESSION.token, payload);
+    } else {
+      showToast('error', (res && res.message) || 'Gagal membuat preview.');
+    }
+  } catch (err) {
+    if (btn) setBtnLoading(btn, false, 'Preview');
+    const otherBtn = document.getElementById(btn?.id?.includes('optA') ? 'optA_generateBtn' : 'optB_generateBtn');
+    if (otherBtn) otherBtn.disabled = false;
+    showToast('error', 'Gagal preview: ' + (err.message || err));
+  }
 }
 
-function runGenerateVercel(payload, btn) {
+async function runGenerateVercel(payload, btn) {
   showToast('info', 'Memproses dokumen, mohon tunggu...');
-  google.script.run
-    .withSuccessHandler(res => {
-      if (btn) setBtnLoading(btn, false, 'Generate');
-      if (res && res.success) {
-        showToast('success', `${res.fileName || 'Dokumen'} berhasil dibuat.`);
-        openDownloadModalVercel(res);
-      } else {
-        showToast('error', (res && res.message) || 'Gagal memproses dokumen.');
-      }
-    })
-    .withFailureHandler(err => {
-      if (btn) setBtnLoading(btn, false, 'Generate');
-      showToast('error', 'Gagal generate: ' + (err.message || err));
-    })
-    .generateDocumentVercel(SESSION.token, payload);
+  try {
+    const res = await rpc('generateDocumentVercel', [SESSION.token, payload]);
+    if (btn) setBtnLoading(btn, false, 'Generate');
+    const otherBtn = document.getElementById(btn?.id?.includes('optA') ? 'optA_previewBtn' : 'optB_previewBtn');
+    if (otherBtn) otherBtn.disabled = false;
+    if (res && res.success) {
+      showToast('success', `${res.fileName || 'Dokumen'} berhasil dibuat.`);
+      openDownloadModalVercel(res);
+    } else {
+      showToast('error', (res && res.message) || 'Gagal memproses dokumen.');
+    }
+  } catch (err) {
+    if (btn) setBtnLoading(btn, false, 'Generate');
+    const otherBtn = document.getElementById(btn?.id?.includes('optA') ? 'optA_previewBtn' : 'optB_previewBtn');
+    if (otherBtn) otherBtn.disabled = false;
+    showToast('error', 'Gagal generate: ' + (err.message || err));
+  }
 }
 
 function handlePreviewGenerate(opt, mode) {
@@ -7449,6 +7453,10 @@ function handlePreviewGenerate(opt, mode) {
 
   const btnId = opt === 'A' ? (mode === 'preview' ? 'optA_previewBtn' : 'optA_generateBtn') : (mode === 'preview' ? 'optB_previewBtn' : 'optB_generateBtn');
   const btn = document.getElementById(btnId);
+  const otherBtnId = opt === 'A' ? (mode === 'preview' ? 'optA_generateBtn' : 'optA_previewBtn') : (mode === 'preview' ? 'optB_generateBtn' : 'optB_previewBtn');
+  const otherBtn = document.getElementById(otherBtnId);
+  if (otherBtn) otherBtn.disabled = true;
+
   const loadingLabel = mode === 'preview' ? 'Membuat Preview...' : 'Memproses...';
   setBtnLoading(btn, true, loadingLabel);
 
@@ -7473,6 +7481,8 @@ async function runPreview(payload, btn) {
   try {
     const res = await rpc('previewDocument', [SESSION.token, payload]);
     if (btn) setBtnLoading(btn, false, 'Preview');
+    const otherBtn = document.getElementById(btn?.id?.includes('optA') ? 'optA_generateBtn' : 'optB_generateBtn');
+    if (otherBtn) otherBtn.disabled = false;
     if (res && res.success) {
       if (res.base64) {
         const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
@@ -7486,30 +7496,10 @@ async function runPreview(payload, btn) {
       showToast('error', res?.message || 'Gagal preview.');
     }
   } catch (err) {
-    if (typeof google !== 'undefined' && google.script && google.script.run) {
-      google.script.run
-        .withSuccessHandler(res => {
-          if (btn) setBtnLoading(btn, false, 'Preview');
-          if (res && res.success) {
-            if (res.base64) {
-              const blobUrl = convertBase64ToBlobUrl_(res.base64, 'application/pdf');
-              openPreviewModal(blobUrl);
-            } else {
-              openPreviewModal(res.previewUrl);
-            }
-          } else {
-            showToast('error', (res && res.message) || 'Gagal preview.');
-          }
-        })
-        .withFailureHandler(e => {
-          if (btn) setBtnLoading(btn, false, 'Preview');
-          showToast('error', 'Gagal preview: ' + (e.message || e));
-        })
-        .previewDocument(SESSION.token, payload);
-    } else {
-      if (btn) setBtnLoading(btn, false, 'Preview');
-      showToast('error', 'Gagal preview: ' + (err.message || err));
-    }
+    if (btn) setBtnLoading(btn, false, 'Preview');
+    const otherBtn = document.getElementById(btn?.id?.includes('optA') ? 'optA_generateBtn' : 'optB_generateBtn');
+    if (otherBtn) otherBtn.disabled = false;
+    showToast('error', 'Gagal preview: ' + (err.message || err));
   }
 }
 
@@ -7529,6 +7519,8 @@ async function runGenerate(payload, btn) {
   try {
     const res = await rpc('generateDocument', [SESSION.token, payload]);
     if (btn) setBtnLoading(btn, false, 'Generate');
+    const otherBtn = document.getElementById(btn?.id?.includes('optA') ? 'optA_previewBtn' : 'optB_previewBtn');
+    if (otherBtn) otherBtn.disabled = false;
     if (res && res.success) {
       showToast('success', `${res.fileName || 'Dokumen'} berhasil dibuat.`);
       openDownloadModal(res);
@@ -7536,26 +7528,10 @@ async function runGenerate(payload, btn) {
       showToast('error', res?.message || 'Gagal generate.');
     }
   } catch (err) {
-    if (typeof google !== 'undefined' && google.script && google.script.run) {
-      google.script.run
-        .withSuccessHandler(res => {
-          if (btn) setBtnLoading(btn, false, 'Generate');
-          if (res && res.success) {
-            showToast('success', `${res.fileName || 'Dokumen'} berhasil dibuat.`);
-            openDownloadModal(res);
-          } else {
-            showToast('error', (res && res.message) || 'Gagal generate.');
-          }
-        })
-        .withFailureHandler(e => {
-          if (btn) setBtnLoading(btn, false, 'Generate');
-          showToast('error', 'Gagal generate: ' + (e.message || e));
-        })
-        .generateDocument(SESSION.token, payload);
-    } else {
-      if (btn) setBtnLoading(btn, false, 'Generate');
-      showToast('error', 'Gagal generate: ' + (err.message || err));
-    }
+    if (btn) setBtnLoading(btn, false, 'Generate');
+    const otherBtn = document.getElementById(btn?.id?.includes('optA') ? 'optA_previewBtn' : 'optB_previewBtn');
+    if (otherBtn) otherBtn.disabled = false;
+    showToast('error', 'Gagal generate: ' + (err.message || err));
   }
 }
 

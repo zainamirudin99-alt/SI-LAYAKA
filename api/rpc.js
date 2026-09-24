@@ -11373,7 +11373,7 @@ const methods = {
 
     const enrichedPayload = Object.assign({}, payload, { templateFileId });
     if (enrichedPayload.entries && Array.isArray(enrichedPayload.entries)) {
-      for (const entry of enrichedPayload.entries) {
+      await Promise.all(enrichedPayload.entries.map(async (entry) => {
         const nip = entry.targetNip || (entry.formData && entry.formData.nip) || decoded.nip;
         let employee = {};
         try {
@@ -11440,7 +11440,7 @@ const methods = {
             }
           }
         }
-      }
+      }));
     }
 
     const gasUrl = process.env.GOOGLE_SCRIPT_URL;
@@ -11461,18 +11461,29 @@ const methods = {
       }
     };
 
-    const response = await fetch(gasUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        method: 'previewDocument',
-        params: [shortId, enrichedPayload],
-        remoteSession
-      })
-    });
-
-    const gasResult = await parseGasResponse(response, 'previewDocument-GAS');
-    return gasResult;
+    const gasCtrl = new AbortController();
+    const gasTimer = setTimeout(() => gasCtrl.abort(), 55000);
+    try {
+      const response = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'previewDocument',
+          params: [shortId, enrichedPayload],
+          remoteSession
+        }),
+        signal: gasCtrl.signal
+      });
+      clearTimeout(gasTimer);
+      const gasResult = await parseGasResponse(response, 'previewDocument-GAS');
+      return gasResult;
+    } catch (gasErr) {
+      clearTimeout(gasTimer);
+      if (gasErr.name === 'AbortError') {
+        return { success: false, message: 'Waktu preview di Google Apps Script melebihi batas (55s). Silakan gunakan template Word (.docx) untuk preview instan.' };
+      }
+      return { success: false, message: 'Gagal terhubung ke Google Apps Script: ' + gasErr.message };
+    }
   },
 
   async generateDocument(args) {
@@ -11502,7 +11513,7 @@ const methods = {
 
     const enrichedPayload = Object.assign({}, payload, { templateFileId });
     if (enrichedPayload.entries && Array.isArray(enrichedPayload.entries)) {
-      for (const entry of enrichedPayload.entries) {
+      await Promise.all(enrichedPayload.entries.map(async (entry) => {
         const nip = entry.targetNip || (entry.formData && entry.formData.nip) || decoded.nip;
         let employee = {};
         try {
@@ -11569,7 +11580,7 @@ const methods = {
             }
           }
         }
-      }
+      }));
     }
 
     const gasUrl = process.env.GOOGLE_SCRIPT_URL;
@@ -11590,27 +11601,36 @@ const methods = {
       }
     };
 
-    const response = await fetch(gasUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        method: 'generateDocument',
-        params: [shortId, enrichedPayload],
-        remoteSession
-      })
-    });
-
-    const gasResult = await parseGasResponse(response, 'generateDocument-GAS');
-    if (gasResult && gasResult.success && enrichedPayload.layanan === 'Kenaikan Pangkat' && enrichedPayload.entries) {
-      for (const entry of enrichedPayload.entries) {
-        try {
-          await methods.tandaiOpsiKpSelesai([token, entry.targetNip, enrichedPayload.subLayanan]);
-        } catch (dbErr) {
-          console.error('[generateDocument post-process] Gagal tandai opsi KP:', dbErr.message);
-        }
+    const gasCtrl = new AbortController();
+    const gasTimer = setTimeout(() => gasCtrl.abort(), 55000);
+    try {
+      const response = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'generateDocument',
+          params: [shortId, enrichedPayload],
+          remoteSession
+        }),
+        signal: gasCtrl.signal
+      });
+      clearTimeout(gasTimer);
+      const gasResult = await parseGasResponse(response, 'generateDocument-GAS');
+      if (gasResult && gasResult.success && enrichedPayload.layanan === 'Kenaikan Pangkat' && enrichedPayload.entries) {
+        await Promise.all(enrichedPayload.entries.map(entry =>
+          methods.tandaiOpsiKpSelesai([token, entry.targetNip, enrichedPayload.subLayanan]).catch(dbErr => {
+            console.error('[generateDocument post-process] Gagal tandai opsi KP:', dbErr.message);
+          })
+        ));
       }
+      return gasResult;
+    } catch (gasErr) {
+      clearTimeout(gasTimer);
+      if (gasErr.name === 'AbortError') {
+        return { success: false, message: 'Waktu proses di Google Apps Script melebihi batas (55s). Silakan gunakan template Word (.docx) untuk generate instan.' };
+      }
+      return { success: false, message: 'Gagal terhubung ke Google Apps Script: ' + gasErr.message };
     }
-    return gasResult;
   },
 
   async getDraftNipBelumDigunakan(args) {

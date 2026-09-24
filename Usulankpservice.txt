@@ -197,7 +197,6 @@ function tandaiOpsiUsulanKpSelesai_(nip, subLayanan, diprosesOlehNip) {
     const sheet = ensureUsulanKpSheet_();
     const values = sheet.getDataRange().getValues();
     const now = new Date();
-    const employees = getAllEmployees_();
     const nipTarget = String(nip || '').trim();
 
     for (let i = 1; i < values.length; i++) {
@@ -213,6 +212,7 @@ function tandaiOpsiUsulanKpSelesai_(nip, subLayanan, diprosesOlehNip) {
       const opsiBSelesai = subLayanan === 'AK Konversi Kumulatif' ? true : !!values[i][11];
 
       if (opsiASelesai && opsiBSelesai) {
+        const employees = getAllEmployees_();
         const emp = employees.find(e => String(e.nip || '').trim() === nipBaris);
         const notifAkhir = tentukanNotifStatusAkhir_(emp && emp.status_kepegawaian);
         sheet.getRange(i + 1, 10, 1, 1).setValue(notifAkhir); // kolom J = Status

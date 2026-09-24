@@ -27,7 +27,7 @@ if (typeof google === 'undefined' || !google.script || !google.script.run) {
               }
               return async function(...args) {
                 const ctrl = new AbortController();
-                const timer = setTimeout(() => ctrl.abort(), 30000);
+                const timer = setTimeout(() => ctrl.abort(), 120000);
                 try {
                   const response = await fetch('/api/rpc', {
                     method: 'POST',
@@ -58,7 +58,7 @@ if (typeof google === 'undefined' || !google.script || !google.script.run) {
                   }
                 } catch (err) {
                   clearTimeout(timer);
-                  const msg = err.name === 'AbortError' ? 'Request timeout (30s)' : (err.message || String(err));
+                  const msg = err.name === 'AbortError' ? 'Request timeout (120s)' : (err.message || String(err));
                   console.error('[RPC] catch:', builderProp, msg);
                   if (failureHandler) failureHandler({ message: msg });
                 }
