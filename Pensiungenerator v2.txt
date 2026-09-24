@@ -60,6 +60,45 @@ function pensiunGen_tanggalOrDash_(val) {
   return r === '' ? '-' : r;
 }
 
+function pensiunGen_formatTanggalSlash_(val) {
+  if (val === null || val === undefined) return '-';
+  const str = String(val).trim();
+  if (str === '' || str === '-') return '-';
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) return str;
+
+  const dmySlashMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmySlashMatch) {
+    return String(dmySlashMatch[1]).padStart(2, '0') + '/' + String(dmySlashMatch[2]).padStart(2, '0') + '/' + dmySlashMatch[3];
+  }
+
+  const dmyDashMatch = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dmyDashMatch) {
+    return String(dmyDashMatch[1]).padStart(2, '0') + '/' + String(dmyDashMatch[2]).padStart(2, '0') + '/' + dmyDashMatch[3];
+  }
+
+  const isoMatch = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (isoMatch) {
+    return String(isoMatch[3]).padStart(2, '0') + '/' + String(isoMatch[2]).padStart(2, '0') + '/' + isoMatch[1];
+  }
+
+  const bulanMap = {
+    januari: '01', februari: '02', maret: '03', april: '04', mei: '05', juni: '06',
+    juli: '07', agustus: '08', september: '09', oktober: '10', november: '11', desember: '12'
+  };
+  const indMatch = str.match(/^(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})/);
+  if (indMatch && bulanMap[indMatch[2].toLowerCase()]) {
+    return String(indMatch[1]).padStart(2, '0') + '/' + bulanMap[indMatch[2].toLowerCase()] + '/' + indMatch[3];
+  }
+
+  const d = (val instanceof Date) ? val : new Date(str);
+  if (d instanceof Date && !isNaN(d.getTime())) {
+    return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+  }
+
+  return str;
+}
+
 /**
  * REF: buildFamilyRows() -- susun array baris keluarga siap-cetak:
  * - baris yang seluruh field-nya kosong DIBUANG (tidak dicetak jadi baris)
@@ -83,10 +122,12 @@ function pensiunGen_buildFamilyRows_(rawArray, fieldNames, dateFields, upperFiel
     const row = { no: String(idx + 1) };
     fieldNames.forEach(f => {
       const val = item[f];
-      if (dateFields.indexOf(f) !== -1) row[f] = pensiunGen_tanggalOrDash_(val);
+      if (dateFields.indexOf(f) !== -1) row[f] = pensiunGen_formatTanggalSlash_(val);
       else if (upperFields.indexOf(f) !== -1) row[f] = pensiunGen_upperOrDash_(val);
       else row[f] = pensiunGen_dash_(val);
     });
+    if (row.tg_lahir_anak && !row.tgl_lahir_anak) row.tgl_lahir_anak = row.tg_lahir_anak;
+    if (row.tgl_lahir_anak && !row.tg_lahir_anak) row.tg_lahir_anak = row.tgl_lahir_anak;
     return row;
   });
 }
@@ -97,7 +138,7 @@ function pensiunGen_buildFamilyRows_(rawArray, fieldNames, dateFields, upperFiel
 const PENSIUN_PASANGAN_FIELDS = ['nik', 'nama_pasangan', 'tgl_lahir_pasangan', 'tgl_kawin', 'tgl_cerai', 'keterangan_pasangan'];
 const PENSIUN_ANAK_FIELDS = ['nik', 'nama_anak', 'tg_lahir_anak', 'nama_ortu', 'keterangan_anak'];
 const PENSIUN_PASANGAN_DATE_FIELDS = ['tgl_lahir_pasangan', 'tgl_kawin', 'tgl_cerai'];
-const PENSIUN_ANAK_DATE_FIELDS = ['tg_lahir_anak'];
+const PENSIUN_ANAK_DATE_FIELDS = ['tg_lahir_anak', 'tgl_lahir_anak'];
 const PENSIUN_PASANGAN_UPPER_FIELDS = ['nama_pasangan'];
 const PENSIUN_ANAK_UPPER_FIELDS = ['nama_anak', 'nama_ortu'];
 
@@ -189,6 +230,7 @@ function pensiunGen_buildDpcpContext_(formData) {
   const tglSekarang = pensiunGen_tanggalUpper_(new Date());
 
   const ctx = {
+    ...formData,
     nip: formData.nip || '',
     nama_lengkap: pensiunGen_upper_(formData.nama_lengkap),
     nama: pensiunGen_upper_(formData.nama),
@@ -212,13 +254,13 @@ function pensiunGen_buildDpcpContext_(formData) {
     pendidikan_pertama: pensiunGen_upper_(formData.pendidikan_pertama),
     cltn: pensiunGen_upper_(formData.cltn) || '0 TAHUN 0 BULAN',
     pmk: pensiunGen_upper_(formData.pmk) || '0 TAHUN 0 BULAN',
-    akhir_tmt_kerja: jenisPensiunFields.akhirTmtKerja,
+    akhir_tmt_kerja: pensiunGen_upper_(jenisPensiunFields.akhirTmtKerja),
     bulan_terakhir_bekerja: pensiunGen_tanggalUpper_(formData.bulan_terakhir_bekerja),
-    jenis_pensiun1: jenisPensiunFields.jp1,
-    jenis_pensiun2: jenisPensiunFields.jp2,
-    jenis_pensiun3: jenisPensiunFields.jp3,
-    nama_ttd: jenisPensiunFields.namaTtd,
-    nip_ttd: jenisPensiunFields.nipTtd,
+    jenis_pensiun1: pensiunGen_upper_(jenisPensiunFields.jp1),
+    jenis_pensiun2: pensiunGen_upper_(jenisPensiunFields.jp2),
+    jenis_pensiun3: pensiunGen_upper_(jenisPensiunFields.jp3),
+    nama_ttd: pensiunGen_upper_(jenisPensiunFields.namaTtd),
+    nip_ttd: pensiunGen_upper_(jenisPensiunFields.nipTtd),
     tgl_buat: tglSekarang,
     today: tglSekarang,
 
@@ -227,6 +269,7 @@ function pensiunGen_buildDpcpContext_(formData) {
   };
 
   ctx._fotoBase64 = formData.fotoBase64 || '';
+  ctx._isDpcp = true;
   return makeAllStringsUpper_(ctx);
 }
 

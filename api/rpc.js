@@ -765,6 +765,10 @@ function processDataCtxFormatting(dataCtx, isDpcp = false) {
     // Pertahankan nilai dan format asli tanpa mengubah kapitalisasi atau font secara paksa
     result[k] = v;
   }
+  if (isDpcp) {
+    result._isDpcp = true;
+    return makeAllStringsUpper(result);
+  }
   return result;
 }
 
@@ -2032,6 +2036,21 @@ function replaceDocxPlaceholdersDirectly(templateBuffer, dataCtx, targetFont = n
     });
 
     xml = cleanDocxTableCellLeadingEmptyParagraphs(xml);
+
+    // Jika dokumen adalah DPCP, seluruh hasil generate otomatis uppercase
+    if (dataCtx && dataCtx._isDpcp) {
+      xml = xml.replace(/(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/gi, (m, openTag, text, closeTag) => {
+        let upper = text.toUpperCase();
+        upper = upper
+          .replace(/&AMP;/g, '&amp;')
+          .replace(/&LT;/g, '&lt;')
+          .replace(/&GT;/g, '&gt;')
+          .replace(/&QUOT;/g, '&quot;')
+          .replace(/&APOS;/g, '&apos;');
+        return openTag + upper + closeTag;
+      });
+    }
+
     zip.file(fileName, xml);
   }
 
@@ -2843,8 +2862,10 @@ function docxEvaluateTag(rawExpr, dataCtx) {
   // Identifier tunggal → auto-format tanggal / auto-ceil desimal
   const isBareIdent = /^[A-Za-z0-9_\s]+$/.test(mainExpr);
   if (isBareIdent && filters.length === 0) {
-    const isDateField = DATE_TAG_PREFIXES.some(p => mainExpr.indexOf(p) === 0);
     const raw = dataCtx[mainExpr] ?? dataCtx[mainExpr.toLowerCase()] ?? dataCtx[mainExpr.toUpperCase()] ?? dataCtx[mainExpr.replace(/\s+/g, '_')] ?? dataCtx[mainExpr.toLowerCase().replace(/\s+/g, '_')];
+    const isFamilyDateField = ['tgl_lahir_pasangan', 'tgl_kawin', 'tgl_cerai', 'tg_lahir_anak', 'tgl_lahir_anak'].includes(mainExpr.toLowerCase());
+    if (isFamilyDateField) return pensiunGen_formatTanggalSlash(raw);
+    const isDateField = DATE_TAG_PREFIXES.some(p => mainExpr.indexOf(p) === 0);
     if (isDateField) return docxFormatTanggal(raw);
     if (typeof raw === 'object' && raw !== null) return raw;
     const processed = docxCeil2Decimal(raw);
@@ -2855,8 +2876,10 @@ function docxEvaluateTag(rawExpr, dataCtx) {
   const ddm = mainExpr.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*\[[^\]]*\]$/);
   if (ddm && filters.length === 0) {
     const key = ddm[1];
-    const isDateField = DATE_TAG_PREFIXES.some(p => key.indexOf(p) === 0);
     const raw = dataCtx[key];
+    const isFamilyDateField = ['tgl_lahir_pasangan', 'tgl_kawin', 'tgl_cerai', 'tg_lahir_anak', 'tgl_lahir_anak'].includes(key.toLowerCase());
+    if (isFamilyDateField) return pensiunGen_formatTanggalSlash(raw);
+    const isDateField = DATE_TAG_PREFIXES.some(p => key.indexOf(p) === 0);
     if (isDateField) return docxFormatTanggal(raw);
     if (typeof raw === 'object' && raw !== null) return raw;
     const processed = docxCeil2Decimal(raw);
@@ -13031,6 +13054,45 @@ function pensiunGen_tanggalOrDash(val) {
   return pensiunGen_tanggalUpper(val) || '-';
 }
 
+function pensiunGen_formatTanggalSlash(val) {
+  if (val === null || val === undefined) return '-';
+  const str = String(val).trim();
+  if (str === '' || str === '-') return '-';
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) return str;
+
+  const dmySlashMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmySlashMatch) {
+    return String(dmySlashMatch[1]).padStart(2, '0') + '/' + String(dmySlashMatch[2]).padStart(2, '0') + '/' + dmySlashMatch[3];
+  }
+
+  const dmyDashMatch = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dmyDashMatch) {
+    return String(dmyDashMatch[1]).padStart(2, '0') + '/' + String(dmyDashMatch[2]).padStart(2, '0') + '/' + dmyDashMatch[3];
+  }
+
+  const isoMatch = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (isoMatch) {
+    return String(isoMatch[3]).padStart(2, '0') + '/' + String(isoMatch[2]).padStart(2, '0') + '/' + isoMatch[1];
+  }
+
+  const bulanMap = {
+    januari: '01', februari: '02', maret: '03', april: '04', mei: '05', juni: '06',
+    juli: '07', agustus: '08', september: '09', oktober: '10', november: '11', desember: '12'
+  };
+  const indMatch = str.match(/^(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})/);
+  if (indMatch && bulanMap[indMatch[2].toLowerCase()]) {
+    return String(indMatch[1]).padStart(2, '0') + '/' + bulanMap[indMatch[2].toLowerCase()] + '/' + indMatch[3];
+  }
+
+  const d = (val instanceof Date) ? val : new Date(str);
+  if (d instanceof Date && !isNaN(d.getTime())) {
+    return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+  }
+
+  return str;
+}
+
 function pensiunGen_buildFamilyRows(rawArray, fieldNames, dateFields, upperFields) {
   const filtered = (rawArray || []).filter(item => {
     if (!item) return false;
@@ -13047,10 +13109,12 @@ function pensiunGen_buildFamilyRows(rawArray, fieldNames, dateFields, upperField
     const row = { no: String(idx + 1) };
     fieldNames.forEach(f => {
       const val = item[f];
-      if (dateFields.indexOf(f) !== -1) row[f] = pensiunGen_tanggalOrDash(val);
+      if (dateFields.indexOf(f) !== -1) row[f] = pensiunGen_formatTanggalSlash(val);
       else if (upperFields.indexOf(f) !== -1) row[f] = pensiunGen_upperOrDash(val);
       else row[f] = pensiunGen_dash(val);
     });
+    if (row.tg_lahir_anak && !row.tgl_lahir_anak) row.tgl_lahir_anak = row.tg_lahir_anak;
+    if (row.tgl_lahir_anak && !row.tg_lahir_anak) row.tg_lahir_anak = row.tgl_lahir_anak;
     return row;
   });
 }
@@ -13058,7 +13122,7 @@ function pensiunGen_buildFamilyRows(rawArray, fieldNames, dateFields, upperField
 const PENSIUN_PASANGAN_FIELDS = ['nik', 'nama_pasangan', 'tgl_lahir_pasangan', 'tgl_kawin', 'tgl_cerai', 'keterangan_pasangan'];
 const PENSIUN_ANAK_FIELDS = ['nik', 'nama_anak', 'tg_lahir_anak', 'nama_ortu', 'keterangan_anak'];
 const PENSIUN_PASANGAN_DATE_FIELDS = ['tgl_lahir_pasangan', 'tgl_kawin', 'tgl_cerai'];
-const PENSIUN_ANAK_DATE_FIELDS = ['tg_lahir_anak'];
+const PENSIUN_ANAK_DATE_FIELDS = ['tg_lahir_anak', 'tgl_lahir_anak'];
 const PENSIUN_PASANGAN_UPPER_FIELDS = ['nama_pasangan'];
 const PENSIUN_ANAK_UPPER_FIELDS = ['nama_anak', 'nama_ortu'];
 
@@ -13124,7 +13188,8 @@ function makeAllStringsUpper(obj) {
   if (typeof obj === 'object') {
     const res = {};
     for (const key of Object.keys(obj)) {
-      res[key] = makeAllStringsUpper(obj[key]);
+      if (key === '_fotoBase64' || key === 'fotoBase64') res[key] = obj[key];
+      else res[key] = makeAllStringsUpper(obj[key]);
     }
     return res;
   }
@@ -13140,6 +13205,7 @@ function rpcBuildDpcpContext(formData) {
   const tglSekarang = pensiunGen_tanggalUpper(new Date());
 
   const ctx = {
+    ...formData,
     nip: formData.nip || '',
     nama_lengkap: pensiunGen_upper(formData.nama_lengkap),
     nama: pensiunGen_upper(formData.nama),
@@ -13177,6 +13243,8 @@ function rpcBuildDpcpContext(formData) {
     anak: pensiunGen_buildFamilyRows(formData.anak, PENSIUN_ANAK_FIELDS, PENSIUN_ANAK_DATE_FIELDS, PENSIUN_ANAK_FIELDS)
   };
 
+  ctx._fotoBase64 = formData.fotoBase64 || '';
+  ctx._isDpcp = true;
   return makeAllStringsUpper(ctx);
 }
 

@@ -524,8 +524,10 @@ function evaluateAndFormat_(rawExpr, dataContext) {
   // auto-format tanggal jika key diawali tgl_ / tmt_, dan TIDAK ada filter.
   const isBareIdentifier = /^[A-Za-z_][A-Za-z0-9_]*$/.test(mainExpr);
   if (isBareIdentifier && filters.length === 0) {
-    const isDateField = CONFIG.DATE_TAG_PREFIXES.some(p => mainExpr.indexOf(p) === 0);
     const raw = dataContext[mainExpr];
+    const isFamilyDateField = ['tgl_lahir_pasangan', 'tgl_kawin', 'tgl_cerai', 'tg_lahir_anak', 'tgl_lahir_anak'].indexOf(mainExpr.toLowerCase()) !== -1;
+    if (isFamilyDateField) return (typeof pensiunGen_formatTanggalSlash_ === 'function') ? pensiunGen_formatTanggalSlash_(raw) : (raw || '-');
+    const isDateField = CONFIG.DATE_TAG_PREFIXES.some(p => mainExpr.indexOf(p) === 0);
     if (isDateField) return formatTanggalIndonesia_(raw);
     return raw === undefined || raw === null ? '' : String(raw);
   }
@@ -538,8 +540,10 @@ function evaluateAndFormat_(rawExpr, dataContext) {
   const dropdownMatch = mainExpr.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*\[[^\]]*\]$/);
   if (dropdownMatch && filters.length === 0) {
     const key = dropdownMatch[1];
-    const isDateField = CONFIG.DATE_TAG_PREFIXES.some(p => key.indexOf(p) === 0);
     const raw = dataContext[key];
+    const isFamilyDateField = ['tgl_lahir_pasangan', 'tgl_kawin', 'tgl_cerai', 'tg_lahir_anak', 'tgl_lahir_anak'].indexOf(key.toLowerCase()) !== -1;
+    if (isFamilyDateField) return (typeof pensiunGen_formatTanggalSlash_ === 'function') ? pensiunGen_formatTanggalSlash_(raw) : (raw || '-');
+    const isDateField = CONFIG.DATE_TAG_PREFIXES.some(p => key.indexOf(p) === 0);
     if (isDateField) return formatTanggalIndonesia_(raw);
     return raw === undefined || raw === null ? '' : String(raw);
   }
