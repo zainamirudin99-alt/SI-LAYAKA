@@ -839,6 +839,30 @@ function cleanDocxTableCellLeadingEmptyParagraphs(xml) {
   return xml;
 }
 
+function cleanDocxTableCellSplitFormulas(xml) {
+  if (!xml || typeof xml !== 'string' || !xml.includes('<w:tc')) return xml;
+  return xml.replace(/<w:tc\b[^>]*>[\s\S]*?<\/w:tc>/gi, (tcXml) => {
+    if (/w:drawing|pic:pic|ttd|signature|pas_foto|foto/i.test(tcXml)) return tcXml;
+    if (tcXml.includes('{{') && tcXml.includes('}}')) {
+      const pMatches = tcXml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/gi);
+      if (pMatches && pMatches.length > 1) {
+        const hasSplitTag = pMatches.some(p => {
+          const opens = (p.match(/\{\{/g) || []).length;
+          const closes = (p.match(/\}\}/g) || []).length;
+          return opens !== closes;
+        });
+        if (hasSplitTag) {
+          const tcPrMatch = tcXml.match(/<w:tcPr\b[^>]*>[\s\S]*?<\/w:tcPr>/i);
+          const tcPr = tcPrMatch ? tcPrMatch[0] : '';
+          const allText = tcXml.replace(/<[^>]+>/g, '').trim();
+          return `<w:tc>${tcPr}<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${allText}</w:t></w:r></w:p></w:tc>`;
+        }
+      }
+    }
+    return tcXml;
+  });
+}
+
 function docxProcessTableLoops(xml, dataCtx) {
   if (!xml || typeof xml !== 'string' || !xml.includes('<w:tbl')) return xml;
 
@@ -1397,6 +1421,7 @@ function docxRenderTemplate(templateBuffer, dataCtx, targetFont = null) {
         content = docxCleanMassalLoops(content);
         content = cleanWordXmlParagraphBraces(content);
         content = cleanDocxTableCellLeadingEmptyParagraphs(content);
+        content = cleanDocxTableCellSplitFormulas(content);
         content = docxProcessTableLoops(content, dataCtx);
         zip.file(fileName, content);
       }

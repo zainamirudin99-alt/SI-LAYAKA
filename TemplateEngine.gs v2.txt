@@ -290,23 +290,60 @@ function renderDocumentBody_(body, dataContext) {
       }
     });
   }
+
+  // 4) Rapikan paragraf kosong berlebih di luar tabel agar tanda tangan & tembusan tidak terdorong ke halaman baru
+  cleanExcessiveEmptyParagraphsInBody_(body);
+}
+
+/**
+ * Menghapus paragraf kosong berturut-turut di luar tabel (menyisakan maks 1 paragraf kosong untuk spasi wajar),
+ * sehingga bagian tanda tangan, tanggal penetapan, dan tembusan tidak terlempar ke halaman baru.
+ */
+function cleanExcessiveEmptyParagraphsInBody_(body) {
+  try {
+    const total = body.getNumChildren();
+    let consecutiveEmpty = 0;
+    for (let i = total - 1; i >= 0; i--) {
+      const el = body.getChild(i);
+      if (el.getType() === DocumentApp.ElementType.PARAGRAPH) {
+        const p = el.asParagraph();
+        const text = p.getText().trim();
+        const numC = p.getNumChildren();
+        let hasMedia = false;
+        for (let c = 0; c < numC; c++) {
+          const cType = p.getChild(c).getType();
+          if (cType === DocumentApp.ElementType.INLINE_IMAGE || cType === DocumentApp.ElementType.PAGE_BREAK) {
+            hasMedia = true;
+            break;
+          }
+        }
+        if (text === '' && !hasMedia) {
+          consecutiveEmpty++;
+          if (consecutiveEmpty > 1) {
+            try { p.removeFromParent(); } catch (_) {}
+          }
+        } else {
+          consecutiveEmpty = 0;
+        }
+      } else {
+        consecutiveEmpty = 0;
+      }
+    }
+  } catch (_) {}
 }
 
 /** Isi tag {{..}} di setiap sel sebuah tabel, sel per sel (lihat renderCellTextInPlace_). */
 function renderTableCellsInPlace_(table, dataContext, isOpsiB) {
   for (let r = 0; r < table.getNumRows(); r++) {
     const row = table.getRow(r);
-    let rowNeedsAutoFit = false;
     for (let c = 0; c < row.getNumCells(); c++) {
       const cell = row.getCell(c);
       // Sel yang berisi tabel BERSARANG dilewati di sini -- diproses sebagai tabel terpisah
       if (cellHasNestedTable_(cell)) continue;
-      const collapsed = renderCellTextInPlace_(cell, dataContext, isOpsiB);
-      if (collapsed) rowNeedsAutoFit = true;
+      renderCellTextInPlace_(cell, dataContext, isOpsiB);
     }
-    if (rowNeedsAutoFit) {
-      try { row.setMinimumHeight(0); } catch (_) {}
-    }
+    // Set auto-fit minimum height = 0 di setiap baris tabel agar tinggi sel selalu rapat mengikuti konten
+    try { row.setMinimumHeight(0); } catch (_) {}
   }
 }
 
@@ -340,30 +377,44 @@ function cellHasImage_(cell) {
 /**
  * Evaluasi semua tag {{..}} pada teks SATU sel tabel.
  *
- * DUA PERILAKU BERBEDA tergantung JUMLAH PARAGRAF di dalam sel:
- * - Sel dengan BANYAK paragraf (> AMBANG_PARAGRAF_FORMULA, HANYA untuk rumus AK
- *   Konversi yang sengaja ditulis 15-21 baris terpisah demi keterbacaan
- *   saat mengedit template): di-COLLAPSE jadi SATU paragraf hasil akhir.
+ * DUA PERILAKU BERBEDA tergantung sifat konten di dalam sel:
+ * - Sel rumus (multi-baris formula perhitungan yang sengaja ditulis terpisah demi keterbacaan):
+ *   di-COLLAPSE jadi SATU paragraf hasil akhir bersih tanpa meninggalkan baris kosong.
  *   Sel yang memuat gambar (InlineImage) atau blok tanda tangan/biodata TIDAK PERNAH di-collapse.
  * - Sel biasa (label di satu baris, nilai di baris lain, blok tanda tangan, dsb.):
- *   tag diisi LANGSUNG DI DALAM paragraf masing-masing, TANPA menggabungkan
- *   paragraf sama sekali, menjaga integritas gambar tanda tangan digital.
+ *   tag diisi LANGSUNG DI DALAM paragraf masing-masing, menjaga integritas struktur dan gambar.
  */
 function renderCellTextInPlace_(cell, dataContext, isOpsiB) {
   const originalText = cell.getText();
-  if (originalText.indexOf('{{') === -1) return false; // tidak ada tag -> lewati, hemat proses
+  if (originalText.indexOf('{{') === -1) {
+    if (isOpsiB) {
+      const nChild = cell.getNumChildren();
+      for (let i = 0; i < nChild; i++) {
+        const ch = cell.getChild(i);
+        if (ch.getType() === DocumentApp.ElementType.PARAGRAPH) {
+          enforceMinFontSizeInParagraph_(ch.asParagraph(), 9);
+        }
+      }
+    }
+    return false;
+  }
 
   // JANGAN PERNAH lakukan cell.clear() jika sel memuat gambar (InlineImage) atau memuat placeholder tanda tangan/foto/pejabat!
   const hasImage = cellHasImage_(cell);
-  const isSignatureOrPhotoCell = /ttd|signature|foto|pas_foto|pejabat|penilai|pegawai/i.test(originalText);
-  // Sel rumus multi-baris hanya untuk formula perhitungan (mis. rumus AK Konversi yang sengaja ditulis belasan baris)
-  const isFormulaCell = !hasImage && !isSignatureOrPhotoCell && /\{\{\s*(?:if|set|ak_|konversi|kumulatif|golongan|pangkat|dpcp)\b/i.test(originalText);
+  const isSignatureOrPhotoCell = /ttd|signature|foto|pas_foto|pejabat|penilai/i.test(originalText);
 
-  const AMBANG_PARAGRAF_FORMULA = 5;
   const numAnak = cell.getNumChildren();
+  const trimmed = originalText.trim();
+  // Sel rumus multi-baris: jika sel memiliki lebih dari 1 paragraf, bukan gambar/ttd/foto,
+  // dan merupakan formula (misal: diapit {{ }}, mengandung ternary ?: atau kata kunci kalkulasi/predikat/jabatan/bulan/golongan)
+  const isFormulaCell = !hasImage && !isSignatureOrPhotoCell && (
+    (trimmed.startsWith('{{') && trimmed.endsWith('}}')) ||
+    /\{\{[\s\S]*?\?[\s\S]*?:[\s\S]*?\}\}/.test(originalText) ||
+    /\{\{\s*(?:if|set|ak_|konversi|kumulatif|golongan|pangkat|dpcp|predikat|jabatan|bulan|num|sum)\b/i.test(originalText)
+  );
 
-  if (numAnak > AMBANG_PARAGRAF_FORMULA && isFormulaCell) {
-    // --- Sel rumus multi-baris: collapse ke SATU paragraf (perilaku lama, dipertahankan HANYA untuk rumus). ---
+  if (numAnak > 1 && isFormulaCell) {
+    // --- Sel rumus multi-baris: collapse ke SATU paragraf bersih tanpa baris kosong yang tersisa. ---
     let newText = originalText;
     let m;
     TAG_REGEX.lastIndex = 0;
@@ -377,42 +428,42 @@ function renderCellTextInPlace_(cell, dataContext, isOpsiB) {
       }
       newText = newText.split(m[0]).join(value);
     }
-    if (newText !== originalText) {
-      cell.clear();
-      const newP = cell.appendParagraph(newText || ' ');
-      if (isOpsiB) {
-        enforceMinFontSizeInParagraph_(newP, 9);
-      }
+    cell.clear();
+    const newP = cell.appendParagraph(newText ? newText.trim() : ' ');
+    if (isOpsiB) {
+      enforceMinFontSizeInParagraph_(newP, 9);
     }
-    return true; // sel formula di-collapse, baris perlu auto-fit minimumHeight = 0
+    return true;
   }
 
-  // --- Sel biasa (label+nilai, blok tanda tangan, dsb.): isi tag PER PARAGRAF, struktur baris
-  // template dipertahankan PERSIS -- tidak ada paragraf atau gambar yang digabung/dihapus. ---
+  // --- Sel biasa (label+nilai, paragraf tunggal, blok tanda tangan, dsb.): isi tag PER PARAGRAF ---
   for (let i = 0; i < numAnak; i++) {
     const child = cell.getChild(i);
     if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
     const paragraph = child.asParagraph();
     const paraText = paragraph.getText();
-    if (paraText.indexOf('{{') === -1) continue; // paragraf tanpa tag -- JANGAN disentuh
-
-    let m2;
-    TAG_REGEX.lastIndex = 0;
-    while ((m2 = TAG_REGEX.exec(paraText)) !== null) {
-      const rawExpr = m2[1];
-      let value;
-      try {
-        value = evaluateAndFormat_(rawExpr, dataContext);
-      } catch (e) {
-        value = `[ERROR:${rawExpr}]`;
+    if (paraText.indexOf('{{') !== -1) {
+      let m2;
+      TAG_REGEX.lastIndex = 0;
+      while ((m2 = TAG_REGEX.exec(paraText)) !== null) {
+        const rawExpr = m2[1];
+        let value;
+        try {
+          value = evaluateAndFormat_(rawExpr, dataContext);
+        } catch (e) {
+          value = `[ERROR:${rawExpr}]`;
+        }
+        const pattern = '\\{\\{\\s*' + escapeRegex_(rawExpr) + '\\s*\\}\\}';
+        const repVal = escapeReplacement_(value);
+        try {
+          paragraph.replaceText(pattern, repVal);
+        } catch (e) {
+          paragraph.replaceText(pattern, repVal === '' ? ' ' : repVal);
+        }
       }
-      const pattern = '\\{\\{\\s*' + escapeRegex_(rawExpr) + '\\s*\\}\\}';
-      const repVal = escapeReplacement_(value);
-      try {
-        paragraph.replaceText(pattern, repVal);
-      } catch (e) {
-        paragraph.replaceText(pattern, repVal === '' ? ' ' : repVal);
-      }
+    }
+    if (isOpsiB) {
+      enforceMinFontSizeInParagraph_(paragraph, 9);
     }
   }
   return false;
