@@ -20145,7 +20145,34 @@ window.currentGuideState = {
 /**
  * Deteksi menu dan sub-menu yang sedang aktif di layar
  */
+/**
+ * Helper: Kategorisasi Role Pengguna Saat Ini
+ * - 'admin': super_admin, admin
+ * - 'atasan': supervisor, manajer, wakil_direktur, direktur, wakil_rektor, rektor, atasan
+ * - 'user': user, normal, staff, atau default
+ */
+function getAppUserRoleCategory() {
+  const r = (SESSION && SESSION.user && SESSION.user.role) ? String(SESSION.user.role).toLowerCase() : "user";
+  if (r === "super_admin" || r === "admin") {
+    return "admin";
+  }
+  if (/supervisor|manajer|direktur|rektor|atasan/i.test(r)) {
+    return "atasan";
+  }
+  return "user";
+}
+
+/**
+ * Deteksi menu dan sub-menu yang sedang aktif di layar
+ * Memfilter sub-menu dan role sesuai hak akses pengguna:
+ * - User & Normal: hanya alur & panduan yang relevan untuk pegawai
+ * - Atasan: alur & panduan yang relevan untuk atasan
+ * - Admin & Superadmin: semua alur dan panduan
+ */
 function detectCurrentActiveGuideContext() {
+  const userCategory = getAppUserRoleCategory();
+  const isAdmin = (userCategory === "admin");
+
   // 1. Deteksi Active View (prioritaskan .nav-item[data-view].active)
   let activeMenuKey = "kenaikan-pangkat";
   const activeNav = document.querySelector('.nav-item[data-view].active');
@@ -20177,30 +20204,46 @@ function detectCurrentActiveGuideContext() {
   let activeSubMenuKey = "";
   const menuConfig = GUIDE_REGISTRY[activeMenuKey];
   if (menuConfig && menuConfig.subMenus) {
-    const subMenuKeys = Object.keys(menuConfig.subMenus);
+    const allSubMenuKeys = Object.keys(menuConfig.subMenus);
+
+    // Ambil sub-menu yang sah berdasarkan role pengguna
+    let allowedSubMenuKeys = allSubMenuKeys;
+    if (!isAdmin) {
+      allowedSubMenuKeys = allSubMenuKeys.filter(k => {
+        const sm = menuConfig.subMenus[k];
+        if (!sm || !sm.roleGuides) return false;
+        if (userCategory === "atasan") {
+          return Boolean(sm.roleGuides["atasan"] || sm.roleGuides["user"]);
+        }
+        return Boolean(sm.roleGuides["user"]);
+      });
+      if (allowedSubMenuKeys.length === 0) {
+        allowedSubMenuKeys = allSubMenuKeys;
+      }
+    }
 
     if (activeMenuKey === "kenaikan-pangkat") {
       const activeTabBtn = document.querySelector('[data-tab-group="kp"] .tab-btn.active');
       const target = activeTabBtn ? activeTabBtn.getAttribute('data-tab-target') : "";
-      if (target && menuConfig.subMenus[target]) {
+      if (target && allowedSubMenuKeys.includes(target)) {
         activeSubMenuKey = target;
       }
     } else if (activeMenuKey === "pensiun") {
       const activeTabBtn = document.querySelector('[data-tab-group="pensiun"] .tab-btn.active');
       const target = activeTabBtn ? activeTabBtn.getAttribute('data-tab-target') : "";
-      if (target && menuConfig.subMenus[target]) {
+      if (target && allowedSubMenuKeys.includes(target)) {
         activeSubMenuKey = target;
       }
     } else if (activeMenuKey === "kontrak") {
       const activeKontrakBtn = document.querySelector('#kontrakAdminTabs .tab-btn.active');
-      if (activeKontrakBtn && menuConfig.subMenus[activeKontrakBtn.id]) {
+      if (activeKontrakBtn && allowedSubMenuKeys.includes(activeKontrakBtn.id)) {
         activeSubMenuKey = activeKontrakBtn.id;
       } else {
         const kontrakTabs = ["tabBtnKontrakAdminBuat", "tabBtnKontrakAdminReview", "tabBtnKontrakAtasan", "tabBtnKontrakUserStatus"];
         for (const tId of kontrakTabs) {
           const btn = document.getElementById(tId);
           if (btn && (btn.classList.contains("active") || btn.classList.contains("btn-primary") || btn.style.display !== "none")) {
-            if (menuConfig.subMenus[tId]) {
+            if (allowedSubMenuKeys.includes(tId)) {
               activeSubMenuKey = tId;
               break;
             }
@@ -20216,38 +20259,38 @@ function detectCurrentActiveGuideContext() {
       for (const t of buatSkTabs) {
         const btn = document.getElementById(t.id);
         if (btn && (btn.classList.contains("btn-primary") || btn.classList.contains("active"))) {
-          activeSubMenuKey = t.key;
-          break;
+          if (allowedSubMenuKeys.includes(t.key)) {
+            activeSubMenuKey = t.key;
+            break;
+          }
         }
       }
     }
 
-    // Default jika belum terdeteksi spesifik
-    if (!activeSubMenuKey || !menuConfig.subMenus[activeSubMenuKey]) {
-      activeSubMenuKey = subMenuKeys[0];
+    // Default jika belum terdeteksi spesifik atau tidak masuk di allowedSubMenuKeys
+    if (!activeSubMenuKey || !allowedSubMenuKeys.includes(activeSubMenuKey)) {
+      activeSubMenuKey = allowedSubMenuKeys[0];
     }
   }
 
-  // 3. Deteksi User Role & Pemetaan Role Terdekat
-  const rawRole = (SESSION && SESSION.user && SESSION.user.role) ? String(SESSION.user.role).toLowerCase() : "user";
-  let userBaseRole = "user";
-  if (rawRole === "super_admin" || rawRole === "admin") {
-    userBaseRole = "admin";
-  } else if (/supervisor|manajer|direktur|rektor|atasan/i.test(rawRole)) {
-    userBaseRole = "atasan";
-  } else {
-    userBaseRole = "user";
-  }
-
+  // 3. Tentukan Active Role Key
+  let activeRoleKey = "user";
   const activeSubConfig = menuConfig && menuConfig.subMenus && menuConfig.subMenus[activeSubMenuKey];
-  let activeRoleKey = userBaseRole;
-  if (activeSubConfig && activeSubConfig.roleGuides) {
-    if (activeSubConfig.roleGuides[userBaseRole]) {
-      activeRoleKey = userBaseRole;
-    } else if (activeSubConfig.defaultRole && activeSubConfig.roleGuides[activeSubConfig.defaultRole]) {
-      activeRoleKey = activeSubConfig.defaultRole;
+
+  if (!isAdmin) {
+    if (userCategory === "atasan" && activeSubConfig && activeSubConfig.roleGuides && activeSubConfig.roleGuides["atasan"]) {
+      activeRoleKey = "atasan";
     } else {
-      activeRoleKey = Object.keys(activeSubConfig.roleGuides)[0];
+      activeRoleKey = "user";
+    }
+  } else {
+    // Admin & Super Admin: gunakan role 'admin' jika ada, atau fallback ke role pertama
+    if (activeSubConfig && activeSubConfig.roleGuides) {
+      if (activeSubConfig.roleGuides["admin"]) {
+        activeRoleKey = "admin";
+      } else {
+        activeRoleKey = Object.keys(activeSubConfig.roleGuides)[0];
+      }
     }
   }
 
@@ -20334,12 +20377,18 @@ function switchGuideView(viewType) {
 function switchGuideSubMenu(subMenuKey) {
   window.currentGuideState.activeSubMenuKey = subMenuKey;
   
-  // Sesuaikan role jika sub-menu yang dipilih tidak mendukung role aktif
+  const userCategory = getAppUserRoleCategory();
+  const isAdmin = (userCategory === "admin");
   const menuConfig = GUIDE_REGISTRY[window.currentGuideState.activeMenuKey];
   const subMenuConfig = menuConfig && menuConfig.subMenus && menuConfig.subMenus[subMenuKey];
-  if (subMenuConfig && subMenuConfig.roleGuides) {
-    if (!subMenuConfig.roleGuides[window.currentGuideState.activeRoleKey]) {
-      window.currentGuideState.activeRoleKey = subMenuConfig.defaultRole || Object.keys(subMenuConfig.roleGuides)[0];
+
+  if (!isAdmin) {
+    window.currentGuideState.activeRoleKey = (userCategory === "atasan" && subMenuConfig.roleGuides["atasan"]) ? "atasan" : (subMenuConfig.roleGuides["user"] ? "user" : Object.keys(subMenuConfig.roleGuides)[0]);
+  } else {
+    if (subMenuConfig && subMenuConfig.roleGuides) {
+      if (!subMenuConfig.roleGuides[window.currentGuideState.activeRoleKey]) {
+        window.currentGuideState.activeRoleKey = subMenuConfig.defaultRole || Object.keys(subMenuConfig.roleGuides)[0];
+      }
     }
   }
 
@@ -20347,9 +20396,13 @@ function switchGuideSubMenu(subMenuKey) {
 }
 
 /**
- * Switch Role Panduan
+ * Switch Role Panduan (Khusus Admin & Super Admin)
  */
 function switchGuideRole(roleKey) {
+  const userCategory = getAppUserRoleCategory();
+  if (userCategory !== "admin") {
+    return; // Proteksi agar akun user/normal tidak bisa berpindah role ke admin
+  }
   window.currentGuideState.activeRoleKey = roleKey;
   renderGuideContent();
 }
@@ -20365,33 +20418,61 @@ function renderGuideContent() {
   const subMenuConfig = menuConfig.subMenus && menuConfig.subMenus[state.activeSubMenuKey];
   if (!subMenuConfig) return;
 
+  const userCategory = getAppUserRoleCategory();
+  const isAdmin = (userCategory === "admin");
+
   // 1. Update Header Title & Role Badge
   const titleTextEl = document.getElementById("guideMenuTitleText");
   if (titleTextEl) {
     titleTextEl.textContent = `Panduan: ${menuConfig.title} — ${subMenuConfig.title}`;
   }
 
-  const userRole = (SESSION && SESSION.user && SESSION.user.role) ? SESSION.user.role.toUpperCase() : "USER";
+  const userRole = (SESSION && SESSION.user && SESSION.user.role) ? String(SESSION.user.role).toUpperCase() : "USER";
   const userRoleBadgeEl = document.getElementById("guideUserRoleBadge");
   if (userRoleBadgeEl) {
-    userRoleBadgeEl.textContent = `ROLE ANDA: ${userRole}`;
+    userRoleBadgeEl.textContent = `ROLE: ${userRole}`;
   }
 
-  // 2. Render Sub-Menu Tabs
+  // 2. Render Sub-Menu Tabs (Filter berdasarkan role: admin melihat semua, user/normal melihat yang relevan saja)
   const subMenuTabsEl = document.getElementById("guideSubMenuTabs");
   if (subMenuTabsEl) {
-    const subMenuKeys = Object.keys(menuConfig.subMenus);
-    subMenuTabsEl.innerHTML = subMenuKeys.map(k => {
-      const sm = menuConfig.subMenus[k];
-      const isActive = (k === state.activeSubMenuKey) ? "active" : "";
-      return `<button type="button" class="guide-sub-tab-btn ${isActive}" onclick="switchGuideSubMenu('${k}')">${sm.title}</button>`;
-    }).join("");
+    const allSubMenuKeys = Object.keys(menuConfig.subMenus);
+    let visibleSubMenuKeys = allSubMenuKeys;
+
+    if (!isAdmin) {
+      visibleSubMenuKeys = allSubMenuKeys.filter(k => {
+        const sm = menuConfig.subMenus[k];
+        if (!sm || !sm.roleGuides) return false;
+        if (userCategory === "atasan") {
+          return Boolean(sm.roleGuides["atasan"] || sm.roleGuides["user"]);
+        }
+        return Boolean(sm.roleGuides["user"]);
+      });
+      if (visibleSubMenuKeys.length === 0) {
+        visibleSubMenuKeys = allSubMenuKeys;
+      }
+    }
+
+    if (visibleSubMenuKeys.length > 1) {
+      subMenuTabsEl.style.display = "flex";
+      subMenuTabsEl.innerHTML = visibleSubMenuKeys.map(k => {
+        const sm = menuConfig.subMenus[k];
+        const isActive = (k === state.activeSubMenuKey) ? "active" : "";
+        return `<button type="button" class="guide-sub-tab-btn ${isActive}" onclick="switchGuideSubMenu('${k}')">${sm.title}</button>`;
+      }).join("");
+    } else if (visibleSubMenuKeys.length === 1) {
+      subMenuTabsEl.style.display = "flex";
+      const singleKey = visibleSubMenuKeys[0];
+      const sm = menuConfig.subMenus[singleKey];
+      subMenuTabsEl.innerHTML = `<span class="guide-single-sub-indicator">📌 Sub Menu: <strong>${sm.title}</strong></span>`;
+    } else {
+      subMenuTabsEl.style.display = "none";
+    }
   }
 
-  // 3. Render Role Switcher
+  // 3. Render Role Switcher (Admin & Super Admin bisa beralih role; User & Normal melihat role pribadinya)
   const roleSwitcherEl = document.getElementById("guideRoleSwitcherContainer");
   if (roleSwitcherEl) {
-    const availableRoles = Object.keys(subMenuConfig.roleGuides || {});
     const roleLabels = {
       "user": "👤 Pegawai / Pengusul",
       "admin": "🛡️ Admin / Verifikator",
@@ -20399,24 +20480,38 @@ function renderGuideContent() {
       "atasan": "👔 Atasan Langsung"
     };
 
-    if (availableRoles.length > 1) {
-      let roleHtml = `<span class="guide-role-label">Lihat Panduan Sebagai:</span>`;
-      availableRoles.forEach(r => {
-        const isActive = (r === state.activeRoleKey) ? "active" : "";
-        const label = roleLabels[r] || r.toUpperCase();
-        roleHtml += `<button type="button" class="guide-role-pill ${isActive}" onclick="switchGuideRole('${r}')">${label}</button>`;
-      });
-      roleSwitcherEl.innerHTML = roleHtml;
-      roleSwitcherEl.style.display = "flex";
+    if (isAdmin) {
+      // Admin & Super Admin: MUNCUL SEMUA ALUR DENGAN ROLE SWITCHER LENGKAP
+      const availableRoles = Object.keys(subMenuConfig.roleGuides || {});
+      if (availableRoles.length > 1) {
+        let roleHtml = `<span class="guide-role-label">Lihat Panduan Sebagai:</span>`;
+        availableRoles.forEach(r => {
+          const isActive = (r === state.activeRoleKey) ? "active" : "";
+          const label = roleLabels[r] || r.toUpperCase();
+          roleHtml += `<button type="button" class="guide-role-pill ${isActive}" onclick="switchGuideRole('${r}')">${label}</button>`;
+        });
+        roleSwitcherEl.innerHTML = roleHtml;
+        roleSwitcherEl.style.display = "flex";
+      } else {
+        const singleRole = availableRoles[0] || "admin";
+        const label = roleLabels[singleRole] || singleRole.toUpperCase();
+        roleSwitcherEl.innerHTML = `<span class="guide-role-label">Panduan: <strong>${label}</strong></span>`;
+        roleSwitcherEl.style.display = "flex";
+      }
     } else {
-      const singleRole = availableRoles[0] || "user";
-      const label = roleLabels[singleRole] || singleRole.toUpperCase();
-      roleSwitcherEl.innerHTML = `<span class="guide-role-label">Panduan Khusus: <strong>${label}</strong></span>`;
+      // User / Normal / Atasan: Muncul HANYA sesuai rolenya tanpa switcher admin
+      const targetRole = (userCategory === "atasan" && subMenuConfig.roleGuides["atasan"]) ? "atasan" : "user";
+      const userLabel = roleLabels[targetRole] || "👤 Pegawai / Pengusul";
+      roleSwitcherEl.innerHTML = `<span class="guide-role-label">Panduan Khusus Role Anda: <strong>${userLabel}</strong></span>`;
       roleSwitcherEl.style.display = "flex";
     }
   }
 
   // 4. Ambil Panduan untuk Role yang Dipilih
+  if (!isAdmin) {
+    state.activeRoleKey = (userCategory === "atasan" && subMenuConfig.roleGuides["atasan"]) ? "atasan" : (subMenuConfig.roleGuides["user"] ? "user" : Object.keys(subMenuConfig.roleGuides)[0]);
+  }
+
   let guideData = subMenuConfig.roleGuides && subMenuConfig.roleGuides[state.activeRoleKey];
   if (!guideData && subMenuConfig.roleGuides) {
     const firstRole = Object.keys(subMenuConfig.roleGuides)[0];
@@ -20506,6 +20601,7 @@ function renderGuideContent() {
 }
 
 // Global window exposure
+window.getAppUserRoleCategory = getAppUserRoleCategory;
 window.openAppGuideModal = openAppGuideModal;
 window.closeAppGuideModal = closeAppGuideModal;
 window.handleGuideOverlayClick = handleGuideOverlayClick;
