@@ -1992,6 +1992,498 @@
     color: #f8fafc !important;
   }
 
+  /* =================================================================
+     SISTEM PANDUAN & ALUR PROSES (GUIDE MODAL & TOPBAR BUTTON)
+     ================================================================= */
+  .topbar-guide-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 14px;
+    border-radius: 18px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    background: #ffffff;
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
+    box-shadow: 0 1px 4px rgba(37, 99, 235, 0.08);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .topbar-guide-btn:hover {
+    background: #eff6ff;
+    border-color: #3b82f6;
+    color: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(37, 99, 235, 0.15);
+  }
+  body.theme-dark .topbar-guide-btn {
+    background: rgba(14, 21, 38, 0.9);
+    color: #00f0ff;
+    border: 1px solid rgba(0, 240, 255, 0.5);
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.2), inset 0 0 6px rgba(0, 240, 255, 0.08);
+    text-shadow: 0 0 6px rgba(0, 240, 255, 0.6);
+  }
+  body.theme-dark .topbar-guide-btn:hover {
+    background: rgba(0, 240, 255, 0.15);
+    border-color: #00f0ff;
+    box-shadow: 0 0 18px rgba(0, 240, 255, 0.45);
+    transform: translateY(-1px);
+  }
+
+  /* Guide Modal Overlay */
+  .guide-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 99999;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+  .guide-modal-overlay.active {
+    display: flex;
+    opacity: 1;
+  }
+
+  /* Guide Modal Card */
+  .guide-modal-card {
+    background: #ffffff;
+    width: 95%;
+    max-width: 960px;
+    max-height: 90vh;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: scale(0.96);
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .guide-modal-overlay.active .guide-modal-card {
+    transform: scale(1);
+  }
+  body.theme-dark .guide-modal-card {
+    background: #0e1526;
+    border: 1px solid rgba(0, 240, 255, 0.35);
+    box-shadow: 0 0 35px rgba(0, 240, 255, 0.2), 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+  }
+
+  /* Header */
+  .guide-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #ffffff;
+  }
+  body.theme-dark .guide-modal-header {
+    background: #0e1526;
+    border-bottom-color: rgba(0, 240, 255, 0.25);
+  }
+  .guide-header-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .guide-header-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  body.theme-dark .guide-header-title {
+    color: #00f0ff;
+    text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+  }
+  .guide-badge-role {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+  }
+  body.theme-dark .guide-badge-role {
+    background: rgba(0, 240, 255, 0.15);
+    color: #00f0ff;
+    border-color: rgba(0, 240, 255, 0.4);
+  }
+  .guide-close-btn {
+    background: transparent;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #64748b;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .guide-close-btn:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+  }
+  body.theme-dark .guide-close-btn {
+    color: #94a3b8;
+  }
+  body.theme-dark .guide-close-btn:hover {
+    background: rgba(0, 240, 255, 0.15);
+    color: #00f0ff;
+  }
+
+  /* Sub-menu Tabs Bar */
+  .guide-sub-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 10px 24px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  body.theme-dark .guide-sub-tabs {
+    background: #090e1c;
+    border-bottom-color: rgba(0, 240, 255, 0.15);
+  }
+  .guide-sub-tab-btn {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12.5px;
+    font-weight: 600;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #475569;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .guide-sub-tab-btn:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+    border-color: #94a3b8;
+  }
+  .guide-sub-tab-btn.active {
+    background: #2563eb;
+    color: #ffffff;
+    border-color: #2563eb;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+  }
+  body.theme-dark .guide-sub-tab-btn {
+    background: #0e1526;
+    color: #94a3b8;
+    border-color: rgba(0, 240, 255, 0.25);
+  }
+  body.theme-dark .guide-sub-tab-btn:hover {
+    color: #00f0ff;
+    border-color: rgba(0, 240, 255, 0.5);
+  }
+  body.theme-dark .guide-sub-tab-btn.active {
+    background: rgba(0, 240, 255, 0.2);
+    color: #00f0ff;
+    border-color: #00f0ff;
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
+  }
+
+  /* Control bar: Role switcher & Tab view switcher */
+  .guide-controls-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 24px;
+    background: #ffffff;
+    border-bottom: 1px solid #f1f5f9;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  body.theme-dark .guide-controls-bar {
+    background: #0e1526;
+    border-bottom-color: rgba(0, 240, 255, 0.1);
+  }
+  .guide-role-switcher {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .guide-role-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+  }
+  body.theme-dark .guide-role-label {
+    color: #94a3b8;
+  }
+  .guide-role-pill {
+    padding: 4px 12px;
+    border-radius: 14px;
+    font-size: 11.5px;
+    font-weight: 600;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .guide-role-pill:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+  }
+  .guide-role-pill.active {
+    background: #3b82f6;
+    color: #ffffff;
+    border-color: #3b82f6;
+  }
+  body.theme-dark .guide-role-pill {
+    background: #111a30;
+    color: #94a3b8;
+    border-color: rgba(0, 240, 255, 0.2);
+  }
+  body.theme-dark .guide-role-pill:hover {
+    color: #00f0ff;
+    border-color: rgba(0, 240, 255, 0.4);
+  }
+  body.theme-dark .guide-role-pill.active {
+    background: rgba(0, 240, 255, 0.25);
+    color: #00f0ff;
+    border-color: #00f0ff;
+  }
+
+  .guide-view-switch {
+    display: inline-flex;
+    background: #f1f5f9;
+    border-radius: 8px;
+    padding: 3px;
+    gap: 4px;
+  }
+  body.theme-dark .guide-view-switch {
+    background: #090e1c;
+  }
+  .guide-view-switch-btn {
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: none;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .guide-view-switch-btn.active {
+    background: #ffffff;
+    color: #0f172a;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  body.theme-dark .guide-view-switch-btn {
+    color: #94a3b8;
+  }
+  body.theme-dark .guide-view-switch-btn.active {
+    background: #162035;
+    color: #00f0ff;
+    box-shadow: 0 0 8px rgba(0, 240, 255, 0.25);
+  }
+
+  /* Body Content */
+  .guide-modal-body {
+    padding: 20px 24px;
+    overflow-y: auto;
+    flex: 1;
+    scrollbar-width: thin;
+  }
+
+  /* Step Card Styles */
+  .guide-step-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 12px;
+    transition: all 0.2s;
+  }
+  .guide-step-card:hover {
+    border-color: #cbd5e1;
+    background: #f1f5f9;
+  }
+  body.theme-dark .guide-step-card {
+    background: #111a30;
+    border-color: rgba(0, 240, 255, 0.15);
+  }
+  body.theme-dark .guide-step-card:hover {
+    background: #162035;
+    border-color: rgba(0, 240, 255, 0.35);
+  }
+  .guide-step-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #2563eb;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  body.theme-dark .guide-step-num {
+    background: rgba(0, 240, 255, 0.2);
+    color: #00f0ff;
+    border: 1px solid #00f0ff;
+    box-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+  }
+  .guide-step-content {
+    flex: 1;
+  }
+  .guide-step-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 4px;
+  }
+  body.theme-dark .guide-step-title {
+    color: #f1f5f9;
+  }
+  .guide-step-desc {
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.5;
+  }
+  body.theme-dark .guide-step-desc {
+    color: #94a3b8;
+  }
+
+  /* Tips box */
+  .guide-tips-box {
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    font-size: 12.5px;
+    color: #1e40af;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  body.theme-dark .guide-tips-box {
+    background: rgba(0, 240, 255, 0.08);
+    border-color: rgba(0, 240, 255, 0.3);
+    color: #00f0ff;
+  }
+
+  /* Flowchart Visual Pipeline */
+  .guide-flowchart-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 10px 0;
+  }
+  .guide-flow-node {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    border-radius: 12px;
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+    position: relative;
+    transition: all 0.2s;
+  }
+  body.theme-dark .guide-flow-node {
+    background: #111a30;
+    border-color: rgba(0, 240, 255, 0.3);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.1);
+  }
+  .guide-flow-node.node-start {
+    border-color: #10b981;
+    background: #f0fdf4;
+  }
+  body.theme-dark .guide-flow-node.node-start {
+    border-color: #10b981;
+    background: rgba(16, 185, 129, 0.15);
+  }
+  .guide-flow-node.node-decision {
+    border-color: #f59e0b;
+    background: #fffbeb;
+  }
+  body.theme-dark .guide-flow-node.node-decision {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.15);
+  }
+  .guide-flow-node.node-end {
+    border-color: #6366f1;
+    background: #eef2ff;
+  }
+  body.theme-dark .guide-flow-node.node-end {
+    border-color: #6366f1;
+    background: rgba(99, 102, 241, 0.15);
+  }
+  .guide-flow-node-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .guide-flow-node-text {
+    flex: 1;
+  }
+  .guide-flow-node-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 3px;
+  }
+  body.theme-dark .guide-flow-node-title {
+    color: #f8fafc;
+  }
+  .guide-flow-node-desc {
+    font-size: 12.5px;
+    color: #64748b;
+  }
+  body.theme-dark .guide-flow-node-desc {
+    color: #94a3b8;
+  }
+  .guide-flow-arrow {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #94a3b8;
+    font-size: 18px;
+    margin: -4px 0;
+  }
+  body.theme-dark .guide-flow-arrow {
+    color: #00f0ff;
+  }
+  .guide-flow-branches {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+    margin: 6px 0;
+  }
 </style>
   <!-- Libraries for Word template previewing & Excel/Spreadsheet parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -2192,10 +2684,14 @@
               <div class="breadcrumb">Sistem Layanan Administrasi Kepegawaian</div>
             </div>
           </div>
-          <div class="topbar-actions" style="display:flex; align-items:center; gap:10px;">
+          <div class="topbar-actions" style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
             <button type="button" class="topbar-theme-btn" id="appThemeToggleBtn" title="Ganti Tema (Light / Godzilla Dark)" aria-label="Ganti Tema (Light / Godzilla Dark)">
               <span id="appThemeBtnIcon" class="theme-btn-icon">🌙</span>
               <span id="appThemeBtnLabel" class="theme-btn-label">Godzilla Dark</span>
+            </button>
+            <button type="button" class="topbar-guide-btn" id="appGuideBtn" title="Alur & Panduan Penggunaan Menu Ini" aria-label="Alur & Panduan Penggunaan Menu Ini" onclick="openAppGuideModal()">
+              <span class="guide-btn-icon">📖</span>
+              <span class="guide-btn-label">Alur & Panduan</span>
             </button>
           </div>
         </div>
@@ -5203,6 +5699,59 @@
         <a id="modalNotaDinasOpenBtn" href="#" target="_blank" class="btn btn-primary" style="padding:9px 20px; font-weight:700; font-size:13px; background:#16a34a; border-color:#16a34a; text-decoration:none; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(22,163,74,0.25);">
           <span>🌐 Buka Dokumen Google Docs</span>
         </a>
+      </div>
+    </div>
+  <!-- =================================================================
+       MODAL PANDUAN & ALUR PROSES (DYNAMIC MULTI-ROLE GUIDE MODAL)
+       ================================================================= -->
+  <div id="appGuideModal" class="guide-modal-overlay" onclick="handleGuideOverlayClick(event)">
+    <div class="guide-modal-card" role="dialog" aria-modal="true" aria-labelledby="guideModalTitle">
+      <!-- Modal Header -->
+      <div class="guide-modal-header">
+        <div class="guide-header-title-wrap">
+          <h3 id="guideModalTitle" class="guide-header-title">
+            <span>🗺️</span>
+            <span id="guideMenuTitleText">Alur & Panduan Penggunaan</span>
+          </h3>
+          <span id="guideUserRoleBadge" class="guide-badge-role">ROLE: ADMIN</span>
+        </div>
+        <button type="button" id="guideCloseBtn" class="guide-close-btn" onclick="closeAppGuideModal()" title="Tutup Panduan (Esc)" aria-label="Tutup Panduan">
+          ✕
+        </button>
+      </div>
+
+      <!-- Sub-menu Selector Tabs -->
+      <div id="guideSubMenuTabs" class="guide-sub-tabs">
+        <!-- Dynamic Sub-menu Tabs injected here -->
+      </div>
+
+      <!-- Control Bar: Role Switcher & View Mode (Langkah vs Diagram) -->
+      <div class="guide-controls-bar">
+        <div id="guideRoleSwitcherContainer" class="guide-role-switcher">
+          <!-- Dynamic Role Switcher pills injected here -->
+        </div>
+        <div class="guide-view-switch">
+          <button type="button" class="guide-view-switch-btn active" id="guideViewBtnSteps" onclick="switchGuideView('steps')">
+            📝 Langkah-Langkah
+          </button>
+          <button type="button" class="guide-view-switch-btn" id="guideViewBtnFlow" onclick="switchGuideView('flowchart')">
+            🗺️ Diagram Alir
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Body Content -->
+      <div class="guide-modal-body">
+        <!-- Steps View -->
+        <div id="guideStepsView">
+          <div id="guideStepsContainer"></div>
+          <div id="guideTipsContainer"></div>
+        </div>
+
+        <!-- Flowchart View -->
+        <div id="guideFlowchartView" style="display:none;">
+          <div id="guideFlowchartContainer"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -24588,6 +25137,1191 @@ async function bukaModalGenerateSkp(usulanId) {
     showToast('error', 'Gagal membuka formulir SKP: ' + (err.message || err));
   }
 }
+
+/* =================================================================
+   SISTEM PANDUAN & ALUR PROSES DINAMIS (GUIDE REGISTRY & CONTROLLER)
+   Mendukung multi-role, deteksi kontekstual, langkah-langkah detail,
+   dan visual flowchart pipeline interaktif.
+   ================================================================= */
+
+const GUIDE_REGISTRY = {
+  "kenaikan-pangkat": {
+    title: "Kenaikan Pangkat",
+    icon: "📈",
+    subMenus: {
+      "tab-checkEligible": {
+        title: "0. Check Eligible",
+        roles: ["user", "admin", "super_admin"],
+        defaultRole: "user",
+        roleGuides: {
+          "user": {
+            badge: "Sebagai Pegawai / Pengusul",
+            steps: [
+              {
+                title: "1. Buka Tab '0. Check Eligible'",
+                desc: "Masuk ke menu Kenaikan Pangkat lalu pilih tab pertama '0. Check Eligible'."
+              },
+              {
+                title: "2. Cari Data Diri di Tabel Skrining",
+                desc: "Temukan nama/NIP Anda pada tabel skrining masa kerja atau ketik NIP/Nama Anda di kolom pencarian pegawai. Periksa masa kerja dalam pangkat terakhir (minimal 4 tahun untuk kenaikan pangkat reguler)."
+              },
+              {
+                title: "3. Input Predikat Kinerja SKP",
+                desc: "Pilih predikat kinerja SKP 2 tahun terakhir (misal: 'Baik' atau 'Sangat Baik') pada kalkulator simulasi angka kredit konversi."
+              },
+              {
+                title: "4. Klik Tombol 'Hitung / Cek Eligibility'",
+                desc: "Sistem akan memvalidasi apakah masa kerja pangkat dan angka kredit Anda memenuhi syarat kenaikan pangkat ke jenjang/golongan berikutnya."
+              },
+              {
+                title: "5. Klik 'Ajukan Usulan'",
+                desc: "Jika hasil pengecekan berstatus 'Eligible', klik tombol '📨 Ajukan Usulan' untuk mengunggah berkas syarat (SK Pangkat Terakhir, SK Jabatan, SKP 2 tahun)."
+              },
+              {
+                title: "6. Pantau di 'Status Usulan Saya'",
+                desc: "Setelah usulan terkirim, Anda dapat memantau status verifikasi oleh tim DOSDM melalui tab 'Status Usulan Saya'."
+              }
+            ],
+            tips: "Pastikan berkas SK Pangkat Terakhir dan SKP sudah berformat PDF jelas dengan ukuran file di bawah 5MB sebelum diajukan.",
+            flowchart: [
+              { id: 1, type: "start", icon: "🚀", title: "Mulai", desc: "Buka Tab 0. Check Eligible" },
+              { id: 2, type: "process", icon: "🔍", title: "Cari Data Diri", desc: "Periksa masa kerja golongan & TMT Pangkat" },
+              { id: 3, type: "process", icon: "🧮", title: "Input Predikat SKP", desc: "Masukkan predikat kinerja 2 tahun terakhir" },
+              { id: 4, type: "decision", icon: "❓", title: "Cek Kelayakan", desc: "Apakah memenuhi syarat masa kerja & SKP?",
+                branches: [
+                  { label: "Tidak Eligible", desc: "Perbaiki nilai SKP atau tunggu masa kerja 4 tahun terpenuhi." },
+                  { label: "Eligible (Layak)", desc: "Lanjut klik tombol 'Ajukan Usulan'." }
+                ]
+              },
+              { id: 5, type: "process", icon: "📤", title: "Unggah Berkas", desc: "Upload berkas SK Pangkat, SK Jabatan, & SKP" },
+              { id: 6, type: "end", icon: "✅", title: "Selesai Usulan", desc: "Usulan terkirim ke DOSDM; pantau di tab 'Status Usulan Saya'" }
+            ]
+          },
+          "admin": {
+            badge: "Sebagai Admin / Verifikator DOSDM",
+            steps: [
+              {
+                title: "1. Filter Dashboard Kelayakan",
+                desc: "Gunakan filter Unit Kerja Es. II dan Periode Kenaikan Pangkat (April/Oktober) untuk melihat daftar pegawai yang mendekati masa kenaikan pangkat."
+              },
+              {
+                title: "2. Verifikasi Angka Kredit Pegawai",
+                desc: "Pilih pegawai yang eligible, lalu gunakan kalkulator AK konversi untuk menghitung perolehan angka kredit tahunan atau kumulatif."
+              },
+              {
+                title: "3. Tentukan Jalur Penetapan AK",
+                desc: "Klik tombol 'Lanjut ke Opsi A →' untuk memproses penetapan PAK Konversi Tahunan, atau 'Lanjut ke Opsi B →' untuk akumulasi penetapan PAK Konversi Kumulatif."
+              }
+            ],
+            tips: "Gunakan fitur skrining administratif sebelum membuka periode usulan kenaikan pangkat untuk mendata calon pengusul di setiap fakultas/unit.",
+            flowchart: [
+              { id: 1, type: "start", icon: "📊", title: "Buka Dashboard Eligible", desc: "Admin memfilter unit kerja & periode KP" },
+              { id: 2, type: "process", icon: "👥", title: "Pilih Pegawai", desc: "Validasi TMT Pangkat & data SKP pegawai" },
+              { id: 3, type: "process", icon: "🧮", title: "Simulasi Angka Kredit", desc: "Hitung koefisien jenjang jabatan & persentase predikat" },
+              { id: 4, type: "decision", icon: "🔀", title: "Pilih Format Penetapan", desc: "Tentukan format dokumen PAK yang akan diterbitkan",
+                branches: [
+                  { label: "Opsi A (Tahunan)", desc: "Klik 'Lanjut ke Opsi A' untuk PAK Konversi Tahunan." },
+                  { label: "Opsi B (Kumulatif)", desc: "Klik 'Lanjut ke Opsi B' untuk PAK Konversi Kumulatif." }
+                ]
+              },
+              { id: 5, type: "end", icon: "✅", title: "Masuk Form Opsi A/B", desc: "Data otomatis terisi di form pembuatan dokumen PAK" }
+            ]
+          }
+        }
+      },
+      "tab-optA": {
+        title: "Opsi A: AK Konversi Tahunan",
+        roles: ["admin", "super_admin"],
+        defaultRole: "admin",
+        roleGuides: {
+          "admin": {
+            badge: "Sebagai Admin / Verifikator DOSDM",
+            steps: [
+              {
+                title: "1. Pilih Pegawai & Jenjang Jabatan",
+                desc: "Pilih nama/NIP pegawai yang akan dibuatkan PAK Konversi Tahunan (bisa otomatis terisi dari tombol Lanjut di Check Eligible)."
+              },
+              {
+                title: "2. Masukkan Periode & Predikat Kinerja",
+                desc: "Tentukan Tahun Penilaian serta tanggal periode. Pilih predikat SKP (Sangat Baik: 150%, Baik: 100%, Butuh Perbaikan: 75%, Kurang: 50%, Sangat Kurang: 25%)."
+              },
+              {
+                title: "3. Hitung AK Otomatis",
+                desc: "Sistem otomatis mengalikan koefisien jenjang jabatan fungsional dengan persentase predikat kinerja untuk mendapatkan perolehan AK tahunan."
+              },
+              {
+                title: "4. Input Pejabat Penilai & Atasan",
+                desc: "Lengkapi data Pejabat Penilai Kinerja dan Atasan Pejabat Penilai (Nama, NIP, Pangkat/Golongan, Jabatan, Unit Kerja)."
+              },
+              {
+                title: "5. Preview & Generate Dokumen",
+                desc: "Klik 'Preview' untuk melihat draf dokumen Word, kemudian klik 'Generate' untuk mengunduh naskah resmi PAK Konversi Tahunan (.docx/.pdf)."
+              }
+            ],
+            tips: "Tombol '+ Tambah Data' dapat digunakan jika ingin memasukkan penilaian untuk beberapa periode tahun sekaligus dalam satu lampiran.",
+            flowchart: [
+              { id: 1, type: "start", icon: "📝", title: "Pilih Pegawai", desc: "Pilih NIP & jenjang jabatan fungsional" },
+              { id: 2, type: "process", icon: "📅", title: "Input Periode & Predikat", desc: "Pilih tahun penilaian & predikat kinerja SKP" },
+              { id: 3, type: "process", icon: "⚙️", title: "Kalkulasi Otomatis", desc: "Sistem menghitung angka kredit tahunan" },
+              { id: 4, type: "process", icon: "✍️", title: "Isi Pejabat Penilai", desc: "Input data penilai & atasan penilai kinerja" },
+              { id: 5, type: "decision", icon: "👁️", title: "Preview Draf", desc: "Periksa susunan naskah PAK",
+                branches: [
+                  { label: "Perlu Revisi", desc: "Sesuaikan data isian atau koefisien angka kredit." },
+                  { label: "Format Sesuai", desc: "Lanjutkan ke proses generate dokumen resmi." }
+                ]
+              },
+              { id: 6, type: "end", icon: "📄", title: "Generate Dokumen PAK", desc: "Dokumen PAK Tahunan resmi terbit (.docx/.pdf)" }
+            ]
+          }
+        }
+      },
+      "tab-optB": {
+        title: "Opsi B: AK Konversi Kumulatif",
+        roles: ["admin", "super_admin"],
+        defaultRole: "admin",
+        roleGuides: {
+          "admin": {
+            badge: "Sebagai Admin / Verifikator DOSDM",
+            steps: [
+              {
+                title: "1. Pilih Pegawai Target",
+                desc: "Pilih pegawai yang akan dihitung akumulasi angka kreditnya untuk kenaikan pangkat atau kenaikan jenjang jabatan."
+              },
+              {
+                title: "2. Input Saldo Awal Angka Kredit",
+                desc: "Masukkan saldo awal AK jika pegawai memiliki perolehan angka kredit dari periode konvensional sebelumnya."
+              },
+              {
+                title: "3. Masukkan Riwayat Konversi Tahunan",
+                desc: "Tambahkan rincian perolehan AK konversi dari tahun-tahun sebelumnya. Sistem akan menjumlahkan total perolehan AK kumulatif."
+              },
+              {
+                title: "4. Analisis Kekurangan Angka Kredit",
+                desc: "Sistem membandingkan total AK kumulatif dengan syarat minimal AK jenjang target. Jika ada kekurangan, sistem memberikan keterangan selisihnya."
+              },
+              {
+                title: "5. Generate Dokumen PAK Kumulatif",
+                desc: "Lengkapi data pejabat penetap, klik 'Preview' lalu klik 'Generate' untuk mengunduh naskah resmi PAK Kumulatif."
+              }
+            ],
+            tips: "Pastikan saldo awal angka kredit telah diverifikasi dari PAK konvensional terakhir yang telah disahkan BKN.",
+            flowchart: [
+              { id: 1, type: "start", icon: "👥", title: "Pilih Pegawai", desc: "Identifikasi jenjang asal dan jenjang target" },
+              { id: 2, type: "process", icon: "🏦", title: "Input Saldo Awal", desc: "Masukkan saldo AK konvensional / periode lalu" },
+              { id: 3, type: "process", icon: "➕", title: "Tambah Riwayat Tahunan", desc: "Input perolehan AK tiap tahun berjalan" },
+              { id: 4, type: "decision", icon: "📊", title: "Evaluasi AK Kumulatif", desc: "Apakah total AK mencapai syarat jenjang baru?",
+                branches: [
+                  { label: "Belum Cukup", desc: "Sistem menampilkan selisih kekurangan AK yang harus dipenuhi." },
+                  { label: "Mencukupi", desc: "Siap diterbitkan Penetapan Angka Kredit Kumulatif." }
+                ]
+              },
+              { id: 5, type: "end", icon: "📄", title: "Generate PAK Kumulatif", desc: "Dokumen resmi terbit untuk kelengkapan berkas SK" }
+            ]
+          }
+        }
+      },
+      "tab-usulanMasuk": {
+        title: "📨 Usulan Masuk",
+        roles: ["admin", "super_admin"],
+        defaultRole: "admin",
+        roleGuides: {
+          "admin": {
+            badge: "Sebagai Admin / Verifikator DOSDM",
+            steps: [
+              {
+                title: "1. Periksa Daftar Usulan",
+                desc: "Buka tab '📨 Usulan Masuk' untuk melihat antrean berkas pengajuan kenaikan pangkat dari pegawai berbagai unit."
+              },
+              {
+                title: "2. Input / Import Usulan Masal",
+                desc: "Admin juga dapat menambahkan usulan via 'Form Input Usulan Masuk Baru' atau 'Scraper & Import Data Usulan' dari spreadsheet multi-sheet."
+              },
+              {
+                title: "3. Periksa Kelengkapan Berkas",
+                desc: "Buka rincian berkas pegawai (SK Pangkat, SK Jabatan, PAK, SKP 2 tahun, ijazah terakhir) dan cek kesesuaian dokumen."
+              },
+              {
+                title: "4. Verifikasi Status",
+                desc: "Jika berkas kurang/salah: pilih status 'Perbaikan Berkas / Ditolak' dengan catatan revisi. Jika lengkap: pilih status 'Disetujui'."
+              },
+              {
+                title: "5. Otomatisasi ke Antrean SK",
+                desc: "Usulan yang berstatus 'Disetujui' akan otomatis diteruskan ke tab '📝 Siap Buat SK' untuk pembuatan draf keputusan."
+              }
+            ],
+            tips: "Pastikan memberikan catatan revisi yang spesifik agar pegawai memahami dokumen apa yang harus diperbaiki pada tab status mereka.",
+            flowchart: [
+              { id: 1, type: "start", icon: "📥", title: "Buka Usulan Masuk", desc: "Lihat antrean berkas pengajuan pegawai" },
+              { id: 2, type: "process", icon: "🔎", title: "Pemeriksaan Dokumen", desc: "Validasi SK, PAK, dan SKP yang diunggah" },
+              { id: 3, type: "decision", icon: "⚖️", title: "Verifikasi Berkas", desc: "Apakah dokumen lengkap dan sah?",
+                branches: [
+                  { label: "Tidak Lengkap", desc: "Ubah status ke 'Perbaikan Berkas' & kirim catatan." },
+                  { label: "Lengkap & Valid", desc: "Ubah status ke 'Disetujui'." }
+                ]
+              },
+              { id: 4, type: "end", icon: "⏩", title: "Lanjut ke Siap Buat SK", desc: "Data masuk ke daftar antrean pembuatan SK Kenaikan Pangkat" }
+            ]
+          }
+        }
+      },
+      "tab-siapSk": {
+        title: "📝 Siap Buat SK",
+        roles: ["admin", "super_admin"],
+        defaultRole: "admin",
+        roleGuides: {
+          "admin": {
+            badge: "Sebagai Admin / Pembuat SK DOSDM",
+            steps: [
+              {
+                title: "1. Pilih Kelompok TMT",
+                desc: "Buka tab '📝 Siap Buat SK' dan pilih daftar usulan berdasarkan kelompok TMT (misal TMT 1 April atau 1 Oktober)."
+              },
+              {
+                title: "2. Pilih Pegawai",
+                desc: "Klik pegawai yang akan dibuatkan Surat Keputusan Kenaikan Pangkat."
+              },
+              {
+                title: "3. Isi Form Isian Dinamis SK",
+                desc: "Lengkapi Nomor SK, Tanggal SK, Pejabat Penandatangan (Rektor / Pejabat Kuasa), Gaji Pokok Baru, dan Masa Kerja Golongan Baru."
+              },
+              {
+                title: "4. Preview & Generate Draft SK",
+                desc: "Klik 'Preview SK' untuk memastikan redaksi naskah sesuai template resmi, lalu klik 'Buat / Generate Draft SK'."
+              },
+              {
+                title: "5. Approval & Upload Final SK",
+                desc: "Draft SK dikirim ke proses Approval SK pimpinan. Setelah ditandatangani, file SK final diunggah di tab 'Upload Final SK' agar pegawai dapat mengunduhnya."
+              }
+            ],
+            tips: "Pastikan tabel gaji pokok baru telah disinkronkan dengan peraturan gaji ASN/Undip terbaru sebelum men-generate draft SK.",
+            flowchart: [
+              { id: 1, type: "start", icon: "📅", title: "Pilih Kelompok TMT", desc: "Filter berdasarkan periode TMT 1 April / 1 Oktober" },
+              { id: 2, type: "process", icon: "👤", title: "Pilih Pegawai Lolos", desc: "Pilih pegawai dari daftar usulan disetujui" },
+              { id: 3, type: "process", icon: "📝", title: "Input Form Dinamis SK", desc: "Isi No SK, Pejabat TTD, dan Gaji Pokok Baru" },
+              { id: 4, type: "decision", icon: "👁️", title: "Preview SK", desc: "Cek tata letak dan klausa keputusan",
+                branches: [
+                  { label: "Koreksi Isian", desc: "Sesuaikan nomor SK atau gaji pokok baru." },
+                  { label: "Naskah Tepat", desc: "Klik tombol 'Buat / Generate Draft SK'." }
+                ]
+              },
+              { id: 5, type: "process", icon: "🔑", title: "Approval Pimpinan", desc: "Naskah diproses di tab Approval SK" },
+              { id: 6, type: "end", icon: "📤", title: "Upload Final SK", desc: "SK final bertandatangan diupload untuk diunduh pegawai" }
+            ]
+          }
+        }
+      }
+    }
+  },
+
+  "kontrak": {
+    title: "Manajemen Kontrak",
+    icon: "📋",
+    subMenus: {
+      "tabBtnKontrakUserStatus": {
+        title: "Usulan Kontrak Saya",
+        roles: ["user", "admin", "super_admin"],
+        defaultRole: "user",
+        roleGuides: {
+          "user": {
+            badge: "Sebagai Pegawai Non-ASN / Pengusul",
+            steps: [
+              {
+                title: "1. Buka Tab 'Usulan Kontrak Saya'",
+                desc: "Lihat ringkasan status kontrak aktif dan riwayat perpanjangan kontrak Anda."
+              },
+              {
+                title: "2. Klik 'Pengajuan Usulan Kontrak'",
+                desc: "Klik tombol pengajuan untuk membuat usulan kontrak baru atau perpanjangan kontrak periode berikutnya."
+              },
+              {
+                title: "3. Isi Formulir & Tautan Lampiran Drive",
+                desc: "Lengkapi data tugas dan cantumkan tautan Google Drive berisi berkas pendukung (Laporan Kinerja, Surat Permohonan, dll)."
+              },
+              {
+                title: "4. Tanda Tangan Digital pada TTD Pad",
+                desc: "Bubuhi tanda tangan digital Anda pada kotak TTD Pad yang tersedia di bawah form."
+              },
+              {
+                title: "5. Submit & Pantau Progres",
+                desc: "Klik 'Ajukan Usulan' dan pantau status persetujuan berjenjang: Menunggu Review Atasan -> Menunggu Review Admin DOSDM -> Disetujui."
+              }
+            ],
+            tips: "Pastikan izin akses tautan Google Drive diatur ke 'Siapa saja yang memiliki link dapat melihat' agar verifikator dapat membuka berkas Anda.",
+            flowchart: [
+              { id: 1, type: "start", icon: "📝", title: "Buka Usulan Kontrak", desc: "Periksa masa berlaku kontrak berjalan" },
+              { id: 2, type: "process", icon: "✍️", title: "Isi Form Pengajuan", desc: "Lengkapi data perpanjangan & link berkas Drive" },
+              { id: 3, type: "process", icon: "🖊️", title: "Tanda Tangan Digital", desc: "Bubuhi tanda tangan pada TTD Pad" },
+              { id: 4, type: "process", icon: "📤", title: "Submit Usulan", desc: "Kirim usulan ke Atasan Langsung unit" },
+              { id: 5, type: "end", icon: "⏳", title: "Pantau Status", desc: "Menunggu review Atasan Langsung & Admin DOSDM" }
+            ]
+          }
+        }
+      },
+      "tabBtnKontrakAtasan": {
+        title: "👔 Review Usulan Bawahan (Atasan Langsung)",
+        roles: ["atasan", "admin", "super_admin"],
+        defaultRole: "atasan",
+        roleGuides: {
+          "atasan": {
+            badge: "Sebagai Atasan Langsung Unit",
+            steps: [
+              {
+                title: "1. Buka Tab '👔 Review Usulan Bawahan'",
+                desc: "Periksa daftar pengajuan perpanjangan kontrak dari bawahan di unit kerja Anda (ditandai dengan badge usulan pending)."
+              },
+              {
+                title: "2. Evaluasi Kinerja Bawahan",
+                desc: "Buka rincian pengajuan, periksa laporan capaian kinerja, kedisiplinan, dan berkas lampiran pendukung."
+              },
+              {
+                title: "3. Tentukan Keputusan Rekomendasi",
+                desc: "Pilih 'Setujui / Direkomendasikan' jika kinerja memenuhi kriteria, atau 'Tolak' disertai alasan evaluasi."
+              },
+              {
+                title: "4. Bubuhi Tanda Tangan Atasan",
+                desc: "Jika disetujui, bubuhkan tanda tangan digital pada kotak TTD Pad untuk mengesahkan rekomendasi."
+              },
+              {
+                title: "5. Teruskan ke Admin DOSDM",
+                desc: "Kirim hasil review. Usulan yang direkomendasikan otomatis diteruskan ke Admin Kepegawaian DOSDM."
+              }
+            ],
+            tips: "Lakukan review sebelum batas akhir pengusulan perpanjangan kontrak tahunan agar berkas bawahan dapat diproses tepat waktu.",
+            flowchart: [
+              { id: 1, type: "start", icon: "👔", title: "Buka Review Bawahan", desc: "Cek antrean usulan perpanjangan kontrak" },
+              { id: 2, type: "process", icon: "📋", title: "Evaluasi Kinerja", desc: "Periksa laporan tugas & kedisiplinan pegawai" },
+              { id: 3, type: "decision", icon: "⚖️", title: "Keputusan Rekomendasi", desc: "Apakah kinerja memenuhi standar perpanjangan?",
+                branches: [
+                  { label: "Tidak Direkomendasikan", desc: "Tolak usulan & berikan catatan evaluasi ke bawahan." },
+                  { label: "Direkomendasikan", desc: "Bubuhi tanda tangan digital pada TTD Pad." }
+                ]
+              },
+              { id: 4, type: "end", icon: "📨", title: "Kirim ke DOSDM", desc: "Usulan diteruskan ke tahap Review Admin DOSDM" }
+            ]
+          }
+        }
+      },
+      "tabBtnKontrakAdminReview": {
+        title: "Review Usulan Unit",
+        roles: ["admin", "super_admin"],
+        defaultRole: "admin",
+        roleGuides: {
+          "admin": {
+            badge: "Sebagai Admin Kepegawaian DOSDM",
+            steps: [
+              {
+                title: "1. Filter Usulan per Unit & Tahun",
+                desc: "Buka tab 'Review Usulan Unit', gunakan filter Unit Kerja dan Tahun Anggaran Kontrak."
+              },
+              {
+                title: "2. Verifikasi Formasi & Anggaran",
+                desc: "Buka usulan pegawai yang telah disetujui atasan langsungnya. Validasi kesesuaian formasi unit dan ketersediaan pagu honorarium."
+              },
+              {
+                title: "3. Buat Surat Nota Dinas",
+                desc: "Klik '📝 Buat Surat Nota Dinas' untuk membuat draf telaah rekomendasi hasil evaluasi perpanjangan kontrak unit."
+              },
+              {
+                title: "4. Finalisasi Persetujuan",
+                desc: "Setelah disetujui pimpinan, tandai usulan disetujui untuk melanjutkan ke proses penerbitan Surat Perjanjian Kerja."
+              }
+            ],
+            tips: "Gunakan fitur Nota Dinas otomatis untuk menghasilkan rangkuman evaluasi per unit dalam format Google Docs.",
+            flowchart: [
+              { id: 1, type: "start", icon: "🏢", title: "Filter Usulan Unit", desc: "Pilih unit kerja & tahun anggaran kontrak" },
+              { id: 2, type: "process", icon: "🔍", title: "Validasi Formasi & Pagu", desc: "Cek kesesuaian anggaran honorarium unit" },
+              { id: 3, type: "process", icon: "📝", title: "Generate Nota Dinas", desc: "Buat nota dinas telaah hasil evaluasi unit" },
+              { id: 4, type: "end", icon: "✅", title: "Siap Buat Kontrak", desc: "Usulan disetujui siap diterbitkan dokumen kontraknya" }
+            ]
+          }
+        }
+      },
+      "tabBtnKontrakAdminBuat": {
+        title: "Buat Kontrak (Admin)",
+        roles: ["admin", "super_admin"],
+        defaultRole: "admin",
+        roleGuides: {
+          "admin": {
+            badge: "Sebagai Admin Pembuat Kontrak DOSDM",
+            steps: [
+              {
+                title: "1. Pilih Kategori & Sub-Menu Kontrak",
+                desc: "Pilih kategori pegawai kontrak (Tendik Non-ASN, Dosen Kontrak, dll) dan sub-menu template yang sesuai."
+              },
+              {
+                title: "2. Kelola Akses Mandiri (Opsional)",
+                desc: "Klik '🔐 Kelola Akses Mandiri per Kategori' jika ingin mengatur unit mana saja yang dapat mengakses sub-menu terkait."
+              },
+              {
+                title: "3. Pilih Mode Pembuatan",
+                desc: "Pilih 'Mode Tunggal (Single)' untuk membuat kontrak perorangan, atau 'Mode Kolektif (Batch)' untuk banyak pegawai sekaligus."
+              },
+              {
+                title: "4. Isi Rincian Perjanjian Kerja",
+                desc: "Lengkapi data Nomor Kontrak, Periode Masa Berlaku, Nilai Gaji Pokok/Honorarium, dan Uraian Tugas."
+              },
+              {
+                title: "5. Preview & Generate Kontrak",
+                desc: "Klik 'Preview' untuk melihat format naskah kontrak, lalu klik 'Generate' untuk mengunduh naskah resmi (.docx/.pdf)."
+              }
+            ],
+            tips: "Pada mode Batch, pastikan kolom NIP dan Nama pada data masal sesuai dengan format template sebelum men-generate dokumen.",
+            flowchart: [
+              { id: 1, type: "start", icon: "📑", title: "Pilih Kategori Kontrak", desc: "Tentukan kategori & sub-menu dokumen perjanjian" },
+              { id: 2, type: "process", icon: "🔀", title: "Pilih Mode Pembuatan", desc: "Tentukan Mode Tunggal atau Mode Batch Kolektif" },
+              { id: 3, type: "process", icon: "✍️", title: "Input Klausul Kontrak", desc: "Isi nomor kontrak, periode kerja, & gaji pokok" },
+              { id: 4, type: "decision", icon: "👁️", title: "Preview Naskah", desc: "Validasi tata letak dan pasal perjanjian",
+                branches: [
+                  { label: "Perbaiki Isian", desc: "Koreksi klausul atau masa berlaku perjanjian." },
+                  { label: "Format Sesuai", desc: "Klik tombol 'Generate' dokumen kontrak." }
+                ]
+              },
+              { id: 5, type: "end", icon: "📄", title: "Dokumen Kontrak Terbit", desc: "Naskah Surat Perjanjian Kerja resmi siap ditandatangani" }
+            ]
+          }
+        }
+      }
+    }
+  },
+
+  "pensiun": {
+    title: "Layanan Pensiun",
+    icon: "📜",
+    subMenus: {
+      "tab-dpcp": {
+        title: "Buat DPCP",
+        roles: ["user", "admin", "super_admin"],
+        defaultRole: "user",
+        roleGuides: {
+          "user": {
+            badge: "Sebagai Pegawai / Calon Pensiun",
+            steps: [
+              {
+                title: "1. Buka Tab 'DPCP'",
+                desc: "Tombol akan menampilkan teks 'Cari Pegawai Manual / Ajukan Usulan'."
+              },
+              {
+                title: "2. Isi Data Calon Pensiun",
+                desc: "Lengkapi data NIP, Nama, dan Jenis Pensiun (Mencapai Batas Usia Pensiun / BUP, Pensiun Dini, Janda/Duda, Uzur)."
+              },
+              {
+                title: "3. Input Data Keluarga Tertanggung",
+                desc: "Gunakan tombol '+ Tambah Pasangan' dan '+ Tambah Anak' untuk memasukkan anggota keluarga yang masuk daftar tunjangan pensiun."
+              },
+              {
+                title: "4. Isi Alamat Pensiun & Kantor Bayar",
+                desc: "Masukkan alamat domisili lengkap setelah pensiun serta kantor cabang pembayaran pensiun yang dituju (Taspen/Bank)."
+              },
+              {
+                title: "5. Preview & Ajukan Usulan",
+                desc: "Klik 'Preview DPCP' dan 'Preview SUPER' (Surat Pernyataan). Unggah berkas syarat (SK CPNS, SK Terakhir, KTP, KK, Akta Nikah/Anak) lalu kirim usulan ke DOSDM."
+              }
+            ],
+            tips: "Pastikan data tanggal lahir anak dan tanggal perkawinan sesuai dengan dokumen akta resmi untuk kelancaran penetapan hak pensiun.",
+            flowchart: [
+              { id: 1, type: "start", icon: "📄", title: "Buka Tab DPCP", desc: "Mulai pengisian formulir data perorangan calon pensiun" },
+              { id: 2, type: "process", icon: "👤", title: "Isi Data Diri & Jenis Pensiun", desc: "Tentukan kategori pensiun (BUP, Dini, Janda/Duda)" },
+              { id: 3, type: "process", icon: "👨‍👩‍👧", title: "Input Susunan Keluarga", desc: "Tambah data pasangan & anak tertanggung tunjangan" },
+              { id: 4, type: "process", icon: "🏠", title: "Isi Alamat & Kantor Bayar", desc: "Lengkapi domisili purna tugas & cabang Taspen/Bank" },
+              { id: 5, type: "decision", icon: "👁️", title: "Preview Dokumen", desc: "Periksa draft DPCP dan SUPER",
+                branches: [
+                  { label: "Koreksi Data", desc: "Perbaiki susunan keluarga atau alamat." },
+                  { label: "Data Sesuai", desc: "Upload berkas pendukung dan submit usulan ke DOSDM." }
+                ]
+              },
+              { id: 6, type: "end", icon: "⏳", title: "Pantau Status Usulan", desc: "Usulan terkirim; verifikasi dipantau di 'Status Usulan Saya'" }
+            ]
+          },
+          "admin": {
+            badge: "Sebagai Admin Kepegawaian DOSDM",
+            steps: [
+              {
+                title: "1. Monitoring BUP Unit",
+                desc: "Buka dashboard pensiun untuk memantau daftar pegawai yang mendekati BUP 1-2 tahun ke depan per unit kerja."
+              },
+              {
+                title: "2. Input / Buka Form DPCP Lengkap",
+                desc: "Klik nama pegawai dari daftar atau gunakan 'Cari Pegawai Manual / Isi Form DPCP' untuk verifikasi data menyeluruh."
+              },
+              {
+                title: "3. Sinkronisasi Data Riwayat & Keluarga",
+                desc: "Verifikasi riwayat kepangkatan, masa kerja pensiun, serta kelengkapan berkas keluarga tertanggung."
+              },
+              {
+                title: "4. Generate DPCP & SUPER",
+                desc: "Klik 'Preview DPCP' & 'Preview SUPER', lalu klik 'Generate DPCP' & 'Generate SUPER' untuk menghasilkan dokumen resmi siap cetak/arsip."
+              }
+            ],
+            tips: "Dokumen DPCP dan SUPER yang telah digenerate dapat langsung dicetak untuk kelengkapan berkas pengusulan SK Pensiun ke BKN / universitas.",
+            flowchart: [
+              { id: 1, type: "start", icon: "📊", title: "Monitoring BUP", desc: "Admin memantau pegawai mendekati usia pensiun" },
+              { id: 2, type: "process", icon: "📋", title: "Buka Form DPCP", desc: "Sinkronisasi riwayat pangkat & data keluarga" },
+              { id: 3, type: "process", icon: "✍️", title: "Lengkapi Pejabat Pengesah", desc: "Input data pejabat pengesah formulir DPCP" },
+              { id: 4, type: "end", icon: "📄", title: "Generate DPCP & SUPER", desc: "Dokumen DPCP dan Surat Pernyataan resmi terbit" }
+            ]
+          }
+        }
+      },
+      "tab-skPensiunNonAsn": {
+        title: "Buat SK Pensiun Pegawai Undip Non ASN",
+        roles: ["admin", "super_admin"],
+        defaultRole: "admin",
+        roleGuides: {
+          "admin": {
+            badge: "Sebagai Admin Kepegawaian DOSDM",
+            steps: [
+              {
+                title: "1. Buka Tab '📜 Buat SK Pensiun Non ASN'",
+                desc: "Masuk ke tab pembuatan SK pensiun khusus pegawai tetap Undip Non-ASN."
+              },
+              {
+                title: "2. Pilih Pegawai Non-ASN yang Disetujui",
+                desc: "Pilih pegawai dari daftar usulan pensiun yang berkas administrasinya telah lengkap dan disetujui."
+              },
+              {
+                title: "3. Isi Form Isian Dinamis SK Pensiun",
+                desc: "Lengkapi Nomor SK, Tanggal Keputusan, Pejabat Penetap (Rektor), TMT Pensiun, Masa Kerja Pensiun, Gaji Terakhir, dan Hak Santunan/THT Pensiun sesuai regulasi."
+              },
+              {
+                title: "4. Preview SK Pensiun",
+                desc: "Klik tombol '👁️ Preview SK Pensiun' untuk memeriksa klausa konsiderans, diktum keputusan, dan tabel perhitungan hak pensiun."
+              },
+              {
+                title: "5. Generate & Upload Final SK",
+                desc: "Klik 'Generate SK Pensiun Non-ASN' (.docx/.pdf). Setelah ditandatangani Rektor, unggah file SK final di tab 'Upload Final SK Pensiun' agar dapat diunduh pegawai."
+              }
+            ],
+            tips: "Pastikan penghitungan masa kerja pensiun dan hak pesangon/santunan telah divalidasi dengan bagian keuangan universitas.",
+            flowchart: [
+              { id: 1, type: "start", icon: "📜", title: "Buka Tab SK Pensiun", desc: "Khusus untuk pegawai Undip Non-ASN" },
+              { id: 2, type: "process", icon: "👤", title: "Pilih Pegawai Lolos", desc: "Pilih pegawai dari usulan pensiun disetujui" },
+              { id: 3, type: "process", icon: "📝", title: "Isi Form Dinamis SK", desc: "Input No SK, TMT, masa kerja, & hak santunan pensiun" },
+              { id: 4, type: "decision", icon: "👁️", title: "Preview SK Pensiun", desc: "Periksa teks keputusan & rincian nominal",
+                branches: [
+                  { label: "Perbaiki Data", desc: "Sesuaikan perhitungan nominal atau masa kerja." },
+                  { label: "Format Sesuai", desc: "Klik tombol 'Generate SK Pensiun'." }
+                ]
+              },
+              { id: 5, type: "process", icon: "✍️", title: "Penandatanganan Rektor", desc: "SK diproses ke pimpinan untuk pengesahan resmi" },
+              { id: 6, type: "end", icon: "📤", title: "Upload Final SK", desc: "Upload berkas final di tab Upload agar pegawai dapat mengunduh" }
+            ]
+          }
+        }
+      }
+    }
+  },
+
+  "pmk": {
+    title: "Usul PMK & PG",
+    icon: "🎓",
+    subMenus: {
+      "tab-pmkDefault": {
+        title: "Pengajuan & Verifikasi PMK & PG",
+        roles: ["user", "admin", "super_admin"],
+        defaultRole: "user",
+        roleGuides: {
+          "user": {
+            badge: "Sebagai Pegawai PNS / Pengusul",
+            steps: [
+              {
+                title: "1. Pelajari Persyaratan Dokumen",
+                desc: "Klik tombol '📋 Syarat-Syarat PMK & PG' untuk membaca regulasi dan dokumen wajib (Ijazah & transkrip legalisir, SK Izin Belajar / Tugas Belajar, Akreditasi Prodi, SK Pengangkatan pertama, bukti pengalaman kerja untuk PMK)."
+              },
+              {
+                title: "2. Klik Tombol '➕ Ajukan Usulan'",
+                desc: "Buka modal formulir pengajuan usulan baru."
+              },
+              {
+                title: "3. Tentukan Jenis Usulan",
+                desc: "Pilih 'Peninjauan Masa Kerja (PMK)' untuk mengakui masa kerja sebelum CPNS, atau 'Pencantuman Gelar (PG)' untuk mencantumkan ijazah baru ke dalam profil PNS."
+              },
+              {
+                title: "4. Lengkapi Data & Tautan Berkas Drive",
+                desc: "Isi rincian universitas, nama gelar/masa kerja, serta cantumkan tautan Google Drive berkas persyaratan lengkap."
+              },
+              {
+                title: "5. Kirim Usulan & Pantau Status",
+                desc: "Klik tombol kirim dan pantau status pemrosesan pada tabel (Diajukan -> Siap Diajukan ke SIASN & Update E-duk -> Selesai)."
+              }
+            ],
+            tips: "Pastikan program studi dan ijazah telah terdaftar resmi di Pangkalan Data Pendidikan Tinggi (PDDikti) Kemdikbudristek.",
+            flowchart: [
+              { id: 1, type: "start", icon: "🎓", title: "Buka Menu Usul PMK & PG", desc: "Pelajari syarat berkas via tombol 'Syarat-Syarat'" },
+              { id: 2, type: "process", icon: "➕", title: "Klik 'Ajukan Usulan'", desc: "Pilih jenis usulan: PMK atau Pencantuman Gelar" },
+              { id: 3, type: "process", icon: "📎", title: "Isi Rincian & Link Drive", desc: "Input data pendidikan/masa kerja & tautan dokumen" },
+              { id: 4, type: "process", icon: "📤", title: "Kirim Pengajuan", desc: "Usulan masuk ke sistem verifikasi DOSDM" },
+              { id: 5, type: "end", icon: "⏳", title: "Pantau Status", desc: "Tindak lanjut verifikasi dipantau di tabel riwayat" }
+            ]
+          },
+          "admin": {
+            badge: "Sebagai Admin Verifikator DOSDM",
+            steps: [
+              {
+                title: "1. Filter Daftar Usulan",
+                desc: "Gunakan filter status usulan (Semua, Diajukan, Siap Diajukan SIASN, Selesai, Ditolak) untuk menyaring pengajuan."
+              },
+              {
+                title: "2. Verifikasi Keabsahan Berkas",
+                desc: "Periksa kesesuaian dokumen: keabsahan ijazah di PDDikti, kesesuaian SK Izin Belajar / Tugas Belajar, akreditasi prodi, dan bukti masa kerja sah sebelum CPNS."
+              },
+              {
+                title: "3. Perbarui Status Verifikasi",
+                desc: "Jika berkas kurang: pilih 'Ditolak / Perbaikan' dengan catatan kekurangan. Jika berkas lengkap: pilih 'Siap diajukan ke SIASN dan update E-duk'."
+              },
+              {
+                title: "4. Integrasi SIASN & Update E-Duk",
+                desc: "Ajukan usulan ke sistem SIASN BKN. Setelah persetujuan teknis/SK BKN terbit, ubah status menjadi 'Selesai' dan sinkronkan data ke E-Duk pegawai."
+              }
+            ],
+            tips: "Pastikan nomor surat izin belajar dan tanggal kelulusan sesuai dengan data pada pangkalan data nasional BKN.",
+            flowchart: [
+              { id: 1, type: "start", icon: "📥", title: "Buka Daftar Usulan", desc: "Filter status usulan yang berstatus 'Diajukan'" },
+              { id: 2, type: "process", icon: "🔍", title: "Verifikasi Dokumen", desc: "Cek validitas PDDikti, Izin Belajar, & bukti kerja" },
+              { id: 3, type: "decision", icon: "⚖️", title: "Hasil Verifikasi", desc: "Apakah dokumen memenuhi ketentuan BKN?",
+                branches: [
+                  { label: "Tidak Memenuhi", desc: "Ubah status ke 'Ditolak/Perbaikan' & kirim catatan." },
+                  { label: "Memenuhi Syarat", desc: "Ubah ke 'Siap diajukan ke SIASN & update E-duk'." }
+                ]
+              },
+              { id: 4, type: "process", icon: "🌐", title: "Proses Layanan SIASN", desc: "Input pengajuan ke portal SIASN BKN" },
+              { id: 5, type: "end", icon: "✅", title: "Update E-Duk & Selesai", desc: "SK terbit, perbarui profil kepegawaian internal" }
+            ]
+          }
+        }
+      }
+    }
+  },
+
+  "buat-sk": {
+    title: "Buat SK dan Surat",
+    icon: "⚡",
+    subMenus: {
+      "tabBuatSkUsulSk": {
+        title: "📤 Usul SK",
+        roles: ["user", "admin", "super_admin"],
+        defaultRole: "user",
+        roleGuides: {
+          "user": {
+            badge: "Sebagai Pengusul (Pegawai / Unit Kerja)",
+            steps: [
+              {
+                title: "1. Buka Tab '📤 Usul SK'",
+                desc: "Masuk ke menu Buat SK dan Surat, pilih tab '📤 Usul SK'."
+              },
+              {
+                title: "2. Cari Pegawai yang Diusulkan",
+                desc: "Ketik Nama atau NIP pegawai yang akan diusulkan pada kolom pencarian pegawai."
+              },
+              {
+                title: "3. Tentukan Jenis Proposal & Template",
+                desc: "Pilih Jenis Proposal (SK Jabatan Tugas Tambahan, Surat Tugas, SK Panitia, dll) serta pilih template dokumen yang dituju."
+              },
+              {
+                title: "4. Isi Rincian & Lampiran Dokumen",
+                desc: "Lengkapi dasar pertimbangan penugasan dan tautan Google Drive berisi nota dinas pengantar dari pimpinan unit."
+              },
+              {
+                title: "5. Submit Usulan & Pantau Riwayat",
+                desc: "Klik 'Ajukan Usulan SK / Surat'. Pantau status pemrosesan pada tabel '📋 Riwayat Usulan Saya'."
+              }
+            ],
+            tips: "Pastikan nota dinas pengusulan dari Dekan / Kepala Unit telah dilampirkan sebelum mengirimkan usulan.",
+            flowchart: [
+              { id: 1, type: "start", icon: "📤", title: "Buka Tab Usul SK", desc: "Mulai formulir pengajuan usulan SK atau surat dinas" },
+              { id: 2, type: "process", icon: "🔍", title: "Cari Pegawai Diusulkan", desc: "Ketik nama/NIP pegawai penerima SK" },
+              { id: 3, type: "process", icon: "📋", title: "Pilih Jenis Proposal", desc: "Tentukan template dokumen & jenis tugas jabatan" },
+              { id: 4, type: "process", icon: "📎", title: "Input Rincian & Berkas", desc: "Isi dasar pertimbangan & link nota dinas pengantar" },
+              { id: 5, type: "end", icon: "⏳", title: "Submit & Pantau", desc: "Usulan masuk antrean verifikasi Admin DOSDM" }
+            ]
+          }
+        }
+      },
+      "tabBuatSkUsulanMasuk": {
+        title: "📥 Usulan Masuk",
+        roles: ["admin", "super_admin"],
+        defaultRole: "admin",
+        roleGuides: {
+          "admin": {
+            badge: "Sebagai Admin Verifikator DOSDM",
+            steps: [
+              {
+                title: "1. Buka Tab '📥 Usulan Masuk'",
+                desc: "Periksa daftar pengajuan usulan SK dan surat dinas yang diajukan oleh berbagai fakultas dan unit."
+              },
+              {
+                title: "2. Verifikasi Kelayakan & Bukti Pendukung",
+                desc: "Periksa nota dinas usulan, kesesuaian formasi penugasan, dan masa berlaku tugas jabatan."
+              },
+              {
+                title: "3. Tentukan Aksi Verifikasi",
+                desc: "Klik 'Tolak / Minta Revisi' jika ada persyaratan yang belum lengkap, atau klik 'Setujui' untuk melanjutkan ke tahap penerbitan naskah SK."
+              },
+              {
+                title: "4. Teruskan ke Pembuatan Dokumen",
+                desc: "Usulan yang disetujui siap diproses pada tab '⚡ Buat SK dan Surat'."
+              }
+            ],
+            tips: "Pastikan memeriksa ketersediaan jabatan struktural/tugas tambahan agar tidak terjadi tumpang tindih penugasan.",
+            flowchart: [
+              { id: 1, type: "start", icon: "📥", title: "Buka Usulan Masuk", desc: "Periksa daftar pengajuan SK dari unit kerja" },
+              { id: 2, type: "process", icon: "🔎", title: "Verifikasi Berkas", desc: "Periksa nota dinas pengantar & justifikasi tugas" },
+              { id: 3, type: "decision", icon: "⚖️", title: "Keputusan Verifikasi", desc: "Apakah usulan memenuhi syarat penugasan?",
+                branches: [
+                  { label: "Minta Revisi", desc: "Kembalikan ke unit kerja dengan catatan perbaikan." },
+                  { label: "Disetujui", desc: "Usulan disetujui untuk dibuatkan naskah SK resmi." }
+                ]
+              },
+              { id: 4, type: "end", icon: "⚡", title: "Siap Buat SK", desc: "Data diteruskan ke tab '⚡ Buat SK dan Surat'" }
+            ]
+          }
+        }
+      },
+      "tabBuatSkBuatSk": {
+        title: "⚡ Buat SK dan Surat",
+        roles: ["admin", "super_admin"],
+        defaultRole: "admin",
+        roleGuides: {
+          "admin": {
+            badge: "Sebagai Admin Pembuat SK DOSDM",
+            steps: [
+              {
+                title: "1. Pilih Jenis Dokumen / Template",
+                desc: "Pilih jenis SK dari daftar template yang tersedia (atau klik '+' untuk menambah template jenis SK baru)."
+              },
+              {
+                title: "2. Tentukan Mode Pembuatan",
+                desc: "Pilih '📝 Form Tunggal' untuk pembuatan satu naskah SK, atau '⚡ Buat SK Kolektif' untuk pembuatan banyak dokumen massal."
+              },
+              {
+                title: "3. Isi Data SK (Mode Tunggal)",
+                desc: "Lengkapi Nomor SK, Judul Keputusan, Tanggal Penetapan, Pejabat Penandatangan, Pejabat yang Dilantik, dan Pejabat yang Diberhentikan (jika ada serah terima)."
+              },
+              {
+                title: "4. Mode Kolektif / Batch",
+                desc: "Jika memilih mode batch, unggah spreadsheet data pegawai, petakan kolom data ke variabel placeholder template, lalu klik '🚀 Generate Semua Dokumen (Batch .ZIP)'."
+              },
+              {
+                title: "5. Preview & Generate SK",
+                desc: "Klik '👁️ Preview SK' untuk memeriksa draf dokumen, lalu klik '⚡ Buat SK' untuk mengunduh naskah resmi (.docx/.pdf)."
+              }
+            ],
+            tips: "Gunakan fitur pejabat diberhentikan jika SK tersebut sekaligus mencabut atau memberhentikan pejabat periode sebelumnya.",
+            flowchart: [
+              { id: 1, type: "start", icon: "⚡", title: "Pilih Template SK", desc: "Tentukan jenis surat keputusan atau surat dinas" },
+              { id: 2, type: "decision", icon: "🔀", title: "Pilih Mode Pembuatan", desc: "Tentukan format proses pembuatan dokumen",
+                branches: [
+                  { label: "Mode Tunggal", desc: "Isi data SK, pejabat dilantik, & pejabat diberhentikan." },
+                  { label: "Mode Batch Kolektif", desc: "Upload data Excel & mapping variabel placeholder." }
+                ]
+              },
+              { id: 3, type: "process", icon: "👁️", title: "Preview Dokumen", desc: "Validasi tata letak draf SK keputusan" },
+              { id: 4, type: "end", icon: "📄", title: "Generate Dokumen SK", desc: "Dokumen resmi terbit (.docx / .pdf / batch .ZIP)" }
+            ]
+          }
+        }
+      }
+    }
+  },
+
+  "template": {
+    title: "Manajemen Template",
+    icon: "⚙️",
+    subMenus: {
+      "tab-templateDefault": {
+        title: "Kelola & Tambah Template",
+        roles: ["admin", "super_admin"],
+        defaultRole: "admin",
+        roleGuides: {
+          "admin": {
+            badge: "Sebagai Admin / Super Admin DOSDM",
+            steps: [
+              {
+                title: "1. Buka Menu 'Manajemen Template'",
+                desc: "Menu ini khusus digunakan oleh administrator untuk mengonfigurasi template dokumen seluruh sistem."
+              },
+              {
+                title: "2. Tambah Template Baru",
+                desc: "Pilih tipe template: 'Google Docs (via link)' atau 'Upload Dokumen Word (.docx)'. Pilih Kategori Layanan target (Kenaikan Pangkat, Pensiun, Kontrak, PMK, Buat SK, dll)."
+              },
+              {
+                title: "3. Scan Tag Placeholder Otomatis",
+                desc: "Sistem akan memindai dan memvalidasi semua tag variabel yang ada di dalam template (seperti {nama}, {nip}, {jabatan}, {tmt}, {gaji_pokok})."
+              },
+              {
+                title: "4. Simpan ke Database",
+                desc: "Beri nama template dan deskripsi yang jelas, lalu klik simpan untuk mendaftarkan template ke database."
+              },
+              {
+                title: "5. Uji Coba Template (Test Preview)",
+                desc: "Buka tabel daftar template, klik tombol 'Test Preview' untuk menguji apakah template engine merender data simulasi dengan tepat dan rapi."
+              },
+              {
+                title: "6. Glosarium Tag Placeholder",
+                desc: "Periksa glosarium tag di bagian bawah untuk melihat daftar variabel resmi yang didukung sistem (rumus terbilang rupiah, tanggal hijriah/masehi, dll)."
+              }
+            ],
+            tips: "Pastikan izin akses tautan Google Drive diatur ke 'Anyone with the link can view' agar sistem dapat mengunduh dan membaca template secara otomatis.",
+            flowchart: [
+              { id: 1, type: "start", icon: "⚙️", title: "Buka Manajemen Template", desc: "Kelola seluruh template dokumen sistem" },
+              { id: 2, type: "process", icon: "📄", title: "Pilih Tipe Template", desc: "Pilih link Google Docs atau file upload .docx" },
+              { id: 3, type: "process", icon: "🏷️", title: "Tentukan Kategori & Sub-Menu", desc: "Hubungkan template dengan modul layanan terkait" },
+              { id: 4, type: "process", icon: "🔍", title: "Scan Tag Placeholder", desc: "Sistem mendeteksi dan memvalidasi variabel dokumen" },
+              { id: 5, type: "decision", icon: "🧪", title: "Uji Coba Test Preview", desc: "Apakah template berhasil dirender dengan rapi?",
+                branches: [
+                  { label: "Variabel Error", desc: "Cek glosarium tag dan perbaiki penulisan placeholder." },
+                  { label: "Render Sukses", desc: "Template tersimpan & aktif di menu terkait." }
+                ]
+              },
+              { id: 6, type: "end", icon: "✅", title: "Template Aktif", desc: "Template siap digunakan untuk pembuatan dokumen resmi" }
+            ]
+          }
+        }
+      }
+    }
+  }
+};
+
+/* State Panduan Aktif */
+window.currentGuideState = {
+  activeMenuKey: "kenaikan-pangkat",
+  activeSubMenuKey: "tab-checkEligible",
+  activeRoleKey: "user",
+  activeViewType: "steps" // "steps" atau "flowchart"
+};
+
+/**
+ * Deteksi menu dan sub-menu yang sedang aktif di layar
+ */
+function detectCurrentActiveGuideContext() {
+  // 1. Deteksi Active View
+  let activeMenuKey = "kenaikan-pangkat";
+  const views = [
+    { id: "view-kenaikan-pangkat", key: "kenaikan-pangkat" },
+    { id: "view-kontrak", key: "kontrak" },
+    { id: "view-pensiun", key: "pensiun" },
+    { id: "view-pmk", key: "pmk" },
+    { id: "view-buat-sk", key: "buat-sk" },
+    { id: "view-template", key: "template" }
+  ];
+
+  for (const v of views) {
+    const el = document.getElementById(v.id);
+    if (el && el.style.display !== "none" && !el.classList.contains("hidden")) {
+      activeMenuKey = v.key;
+      break;
+    }
+  }
+
+  // 2. Deteksi Active Sub-Menu (Tab)
+  let activeSubMenuKey = "";
+  const menuConfig = GUIDE_REGISTRY[activeMenuKey];
+  if (menuConfig && menuConfig.subMenus) {
+    const subMenuKeys = Object.keys(menuConfig.subMenus);
+
+    if (activeMenuKey === "kenaikan-pangkat") {
+      const activeTabBtn = document.querySelector('[data-tab-group="kp"].tabs .tab-btn.active');
+      const target = activeTabBtn ? activeTabBtn.getAttribute('data-tab-target') : "";
+      if (target && menuConfig.subMenus[target]) {
+        activeSubMenuKey = target;
+      }
+    } else if (activeMenuKey === "pensiun") {
+      const activeTabBtn = document.querySelector('[data-tab-group="pensiun"].tabs .tab-btn.active');
+      const target = activeTabBtn ? activeTabBtn.getAttribute('data-tab-target') : "";
+      if (target && menuConfig.subMenus[target]) {
+        activeSubMenuKey = target;
+      }
+    } else if (activeMenuKey === "kontrak") {
+      const kontrakTabs = ["tabBtnKontrakAdminBuat", "tabBtnKontrakAdminReview", "tabBtnKontrakAtasan", "tabBtnKontrakUserStatus"];
+      for (const tId of kontrakTabs) {
+        const btn = document.getElementById(tId);
+        if (btn && (btn.classList.contains("active") || btn.classList.contains("btn-primary"))) {
+          if (menuConfig.subMenus[tId]) activeSubMenuKey = tId;
+          break;
+        }
+      }
+    } else if (activeMenuKey === "buat-sk") {
+      const buatSkTabs = [
+        { id: "tabBuatSkUsulSk", key: "tabBuatSkUsulSk" },
+        { id: "tabBuatSkUsulanMasuk", key: "tabBuatSkUsulanMasuk" },
+        { id: "tabBuatSkBuatSk", key: "tabBuatSkBuatSk" }
+      ];
+      for (const t of buatSkTabs) {
+        const btn = document.getElementById(t.id);
+        if (btn && btn.classList.contains("btn-primary")) {
+          activeSubMenuKey = t.key;
+          break;
+        }
+      }
+    }
+
+    // Default jika belum terdeteksi spesifik
+    if (!activeSubMenuKey || !menuConfig.subMenus[activeSubMenuKey]) {
+      activeSubMenuKey = subMenuKeys[0];
+    }
+  }
+
+  // 3. Deteksi User Role
+  const userRole = (SESSION && SESSION.user && SESSION.user.role) ? SESSION.user.role : "user";
+  let activeRoleKey = "user";
+  if (userRole === "super_admin" || userRole === "admin") {
+    activeRoleKey = "admin";
+  } else {
+    activeRoleKey = "user";
+  }
+
+  return { activeMenuKey, activeSubMenuKey, activeRoleKey };
+}
+
+/**
+ * Buka Modal Panduan Penggunaan
+ */
+function openAppGuideModal() {
+  const context = detectCurrentActiveGuideContext();
+  window.currentGuideState.activeMenuKey = context.activeMenuKey;
+  window.currentGuideState.activeSubMenuKey = context.activeSubMenuKey;
+  window.currentGuideState.activeRoleKey = context.activeRoleKey;
+  window.currentGuideState.activeViewType = "steps";
+
+  renderGuideContent();
+
+  const modal = document.getElementById("appGuideModal");
+  if (modal) {
+    modal.classList.add("active");
+    document.addEventListener("keydown", handleGuideKeyDown);
+  }
+}
+
+/**
+ * Tutup Modal Panduan
+ */
+function closeAppGuideModal() {
+  const modal = document.getElementById("appGuideModal");
+  if (modal) {
+    modal.classList.remove("active");
+    document.removeEventListener("keydown", handleGuideKeyDown);
+  }
+}
+
+/**
+ * Handle klik di luar kartu modal
+ */
+function handleGuideOverlayClick(e) {
+  if (e.target && e.target.id === "appGuideModal") {
+    closeAppGuideModal();
+  }
+}
+
+/**
+ * Handle tombol Escape
+ */
+function handleGuideKeyDown(e) {
+  if (e.key === "Escape" || e.keyCode === 27) {
+    closeAppGuideModal();
+  }
+}
+
+/**
+ * Switch Tab Tampilan: Langkah-Langkah vs Diagram Alir
+ */
+function switchGuideView(viewType) {
+  window.currentGuideState.activeViewType = viewType;
+
+  const btnSteps = document.getElementById("guideViewBtnSteps");
+  const btnFlow = document.getElementById("guideViewBtnFlow");
+  const stepsView = document.getElementById("guideStepsView");
+  const flowView = document.getElementById("guideFlowchartView");
+
+  if (viewType === "steps") {
+    if (btnSteps) btnSteps.classList.add("active");
+    if (btnFlow) btnFlow.classList.remove("active");
+    if (stepsView) stepsView.style.display = "block";
+    if (flowView) flowView.style.display = "none";
+  } else {
+    if (btnSteps) btnSteps.classList.remove("active");
+    if (btnFlow) btnFlow.classList.add("active");
+    if (stepsView) stepsView.style.display = "none";
+    if (flowView) flowView.style.display = "block";
+  }
+}
+
+/**
+ * Switch Sub-Menu Panduan
+ */
+function switchGuideSubMenu(subMenuKey) {
+  window.currentGuideState.activeSubMenuKey = subMenuKey;
+  
+  // Sesuaikan role jika sub-menu yang dipilih tidak mendukung role aktif
+  const menuConfig = GUIDE_REGISTRY[window.currentGuideState.activeMenuKey];
+  const subMenuConfig = menuConfig && menuConfig.subMenus && menuConfig.subMenus[subMenuKey];
+  if (subMenuConfig && subMenuConfig.roles) {
+    if (!subMenuConfig.roles.includes(window.currentGuideState.activeRoleKey)) {
+      window.currentGuideState.activeRoleKey = subMenuConfig.defaultRole || subMenuConfig.roles[0];
+    }
+  }
+
+  renderGuideContent();
+}
+
+/**
+ * Switch Role Panduan
+ */
+function switchGuideRole(roleKey) {
+  window.currentGuideState.activeRoleKey = roleKey;
+  renderGuideContent();
+}
+
+/**
+ * Render Konten Panduan Lengkap
+ */
+function renderGuideContent() {
+  const state = window.currentGuideState;
+  const menuConfig = GUIDE_REGISTRY[state.activeMenuKey];
+  if (!menuConfig) return;
+
+  const subMenuConfig = menuConfig.subMenus && menuConfig.subMenus[state.activeSubMenuKey];
+  if (!subMenuConfig) return;
+
+  // 1. Update Header Title & Role Badge
+  const titleTextEl = document.getElementById("guideMenuTitleText");
+  if (titleTextEl) {
+    titleTextEl.textContent = `Panduan: ${menuConfig.title} — ${subMenuConfig.title}`;
+  }
+
+  const userRole = (SESSION && SESSION.user && SESSION.user.role) ? SESSION.user.role.toUpperCase() : "USER";
+  const userRoleBadgeEl = document.getElementById("guideUserRoleBadge");
+  if (userRoleBadgeEl) {
+    userRoleBadgeEl.textContent = `ROLE ANDA: ${userRole}`;
+  }
+
+  // 2. Render Sub-Menu Tabs
+  const subMenuTabsEl = document.getElementById("guideSubMenuTabs");
+  if (subMenuTabsEl) {
+    const subMenuKeys = Object.keys(menuConfig.subMenus);
+    subMenuTabsEl.innerHTML = subMenuKeys.map(k => {
+      const sm = menuConfig.subMenus[k];
+      const isActive = (k === state.activeSubMenuKey) ? "active" : "";
+      return `<button type="button" class="guide-sub-tab-btn ${isActive}" onclick="switchGuideSubMenu('${k}')">${sm.title}</button>`;
+    }).join("");
+  }
+
+  // 3. Render Role Switcher
+  const roleSwitcherEl = document.getElementById("guideRoleSwitcherContainer");
+  if (roleSwitcherEl) {
+    const availableRoles = subMenuConfig.roles || ["user"];
+    const roleLabels = {
+      "user": "👤 Pegawai / Pengusul",
+      "admin": "🛡️ Admin / Verifikator",
+      "super_admin": "⚡ Super Admin",
+      "atasan": "👔 Atasan Langsung"
+    };
+
+    if (availableRoles.length > 1) {
+      let roleHtml = `<span class="guide-role-label">Lihat Panduan Sebagai:</span>`;
+      availableRoles.forEach(r => {
+        const isActive = (r === state.activeRoleKey) ? "active" : "";
+        const label = roleLabels[r] || r.toUpperCase();
+        roleHtml += `<button type="button" class="guide-role-pill ${isActive}" onclick="switchGuideRole('${r}')">${label}</button>`;
+      });
+      roleSwitcherEl.innerHTML = roleHtml;
+      roleSwitcherEl.style.display = "flex";
+    } else {
+      const singleRole = availableRoles[0];
+      const label = roleLabels[singleRole] || singleRole.toUpperCase();
+      roleSwitcherEl.innerHTML = `<span class="guide-role-label">Panduan Khusus: <strong>${label}</strong></span>`;
+      roleSwitcherEl.style.display = "flex";
+    }
+  }
+
+  // 4. Ambil Panduan untuk Role yang Dipilih
+  let guideData = subMenuConfig.roleGuides && subMenuConfig.roleGuides[state.activeRoleKey];
+  if (!guideData && subMenuConfig.roleGuides) {
+    // Fallback ke role pertama yang tersedia
+    const firstRole = Object.keys(subMenuConfig.roleGuides)[0];
+    guideData = subMenuConfig.roleGuides[firstRole];
+  }
+
+  if (!guideData) return;
+
+  // 5. Render Langkah-Langkah (Steps View)
+  const stepsContainer = document.getElementById("guideStepsContainer");
+  if (stepsContainer) {
+    const stepsHtml = (guideData.steps || []).map((st, idx) => {
+      return `
+        <div class="guide-step-card">
+          <div class="guide-step-num">${idx + 1}</div>
+          <div class="guide-step-content">
+            <div class="guide-step-title">${st.title}</div>
+            <div class="guide-step-desc">${st.desc}</div>
+          </div>
+        </div>
+      `;
+    }).join("");
+    stepsContainer.innerHTML = stepsHtml;
+  }
+
+  // Render Tips
+  const tipsContainer = document.getElementById("guideTipsContainer");
+  if (tipsContainer) {
+    if (guideData.tips) {
+      tipsContainer.innerHTML = `
+        <div class="guide-tips-box">
+          <span style="font-size:18px;">💡</span>
+          <div><strong>Tips Penting:</strong> ${guideData.tips}</div>
+        </div>
+      `;
+      tipsContainer.style.display = "block";
+    } else {
+      tipsContainer.style.display = "none";
+    }
+  }
+
+  // 6. Render Flowchart (Diagram Alir)
+  const flowchartContainer = document.getElementById("guideFlowchartContainer");
+  if (flowchartContainer) {
+    const flowNodes = guideData.flowchart || [];
+    let flowHtml = `<div class="guide-flowchart-wrapper">`;
+
+    flowNodes.forEach((node, idx) => {
+      let nodeClass = "node-process";
+      if (node.type === "start") nodeClass = "node-start";
+      if (node.type === "decision") nodeClass = "node-decision";
+      if (node.type === "end") nodeClass = "node-end";
+
+      flowHtml += `
+        <div class="guide-flow-node ${nodeClass}">
+          <div class="guide-flow-node-icon">${node.icon || "📌"}</div>
+          <div class="guide-flow-node-text">
+            <div class="guide-flow-node-title">${node.title}</div>
+            <div class="guide-flow-node-desc">${node.desc}</div>
+          </div>
+        </div>
+      `;
+
+      // Render branch box jika node berbentuk keputusan
+      if (node.branches && node.branches.length > 0) {
+        flowHtml += `<div class="guide-flow-branches">`;
+        node.branches.forEach(b => {
+          flowHtml += `
+            <div style="background:var(--surface-alt, #f8fafc); border:1px dashed #cbd5e1; border-radius:8px; padding:10px 14px; font-size:12px;">
+              <div style="font-weight:700; color:#3b82f6; margin-bottom:3px;">➔ ${b.label}</div>
+              <div style="color:var(--text-muted, #64748b);">${b.desc}</div>
+            </div>
+          `;
+        });
+        flowHtml += `</div>`;
+      }
+
+      // Render tanda panah penghubung jika bukan node terakhir
+      if (idx < flowNodes.length - 1) {
+        flowHtml += `<div class="guide-flow-arrow">↓</div>`;
+      }
+    });
+
+    flowHtml += `</div>`;
+    flowchartContainer.innerHTML = flowHtml;
+  }
+}
+
 </script>
 
 </body>

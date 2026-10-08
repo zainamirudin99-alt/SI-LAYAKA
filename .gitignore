@@ -4,3 +4,4 @@ node_modules/
 scratch/
 
 .env.example
+migrate_to_supabase.gs
