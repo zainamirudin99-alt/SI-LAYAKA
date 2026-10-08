@@ -122,5 +122,10 @@ if (Test-Path "Art Center Civic Park Panorama.png") {
     Copy-Item "Art Center Civic Park Panorama.png" "public/Art Center Civic Park Panorama.png" -Force
 }
 
+if (Test-Path "Universitas Diponegoro Multi Dome Aerial Panorama.png") {
+    Copy-Item "Universitas Diponegoro Multi Dome Aerial Panorama.png" "public/undip-multi-dome-aerial.png" -Force
+    Copy-Item "Universitas Diponegoro Multi Dome Aerial Panorama.png" "public/Universitas Diponegoro Multi Dome Aerial Panorama.png" -Force
+}
+
 [System.IO.File]::WriteAllText("public/index.html", $output, [System.Text.Encoding]::UTF8)
 Write-Output "Successfully built public/index.html!"

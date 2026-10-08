@@ -3157,17 +3157,29 @@ const methods = {
       }
 
       if (emp) {
-        const valid = extractPassword(emp.nip, emp.status_kepegawaian);
-        if (!valid || String(password).trim() !== valid) {
-          return { success: false, message: `Password salah. Gunakan ${CONFIG.PASSWORD_DIGIT_LENGTH} digit pertama dari NIP.` };
-        }
-
-        let role = 'normal', sub_role = null;
+        let role = 'normal', sub_role = null, customPass = null, fotoUrl = null;
         try {
           const roles = await getUserRole(emp.nip);
           role = roles.role || 'normal';
           sub_role = roles.sub_role || null;
         } catch (_) {}
+
+        try {
+          const db = getDb();
+          const { data: ur } = await db.from('user_roles').select('*').eq('nip', emp.nip).maybeSingle();
+          if (ur) {
+            customPass = ur.custom_password || null;
+            fotoUrl = ur.foto_url || null;
+          }
+        } catch (_) {}
+
+        const validDefault = extractPassword(emp.nip, emp.status_kepegawaian);
+        const inputPass = String(password).trim();
+        const isPasswordValid = customPass ? (inputPass === String(customPass).trim()) : (validDefault && inputPass === validDefault);
+
+        if (!isPasswordValid) {
+          return { success: false, message: customPass ? 'Password salah.' : `Password salah. Gunakan ${CONFIG.PASSWORD_DIGIT_LENGTH} digit pertama dari NIP.` };
+        }
 
         const token = signToken(emp, role, sub_role);
         return {
@@ -3181,7 +3193,8 @@ const methods = {
             status_kepegawaian: emp.status_kepegawaian || '',
             unitEsIi: emp.unit_es_ii || '',
             role,
-            sub_role
+            sub_role,
+            foto_url: fotoUrl
           }
         };
       }
@@ -3383,14 +3396,160 @@ const methods = {
 
   async getProfilSaya(args) {
     const [token] = extractArgs(args);
-    const decoded=verifyToken(token);
-    const db=getDb();
-    const {data,error}=await db.from('data_utama').select('*').eq('nip',decoded.nip).maybeSingle();
+    const decoded = verifyToken(token);
+    const db = getDb();
+    const { data, error } = await db.from('data_utama').select('*').eq('nip', decoded.nip).maybeSingle();
     if (error) throw error;
-    if (!data) return {success:false,message:'Data tidak ditemukan.'};
-    const profil={};
-    CONFIG.PROFIL_NORMAL_FIELDS.forEach(f=>{ profil[f]=formatTanggalIndonesia(data[f])||data[f]||''; });
-    return {success:true,profil};
+    if (!data) return { success: false, message: 'Data tidak ditemukan.' };
+    const profil = { ...data };
+    CONFIG.PROFIL_NORMAL_FIELDS.forEach(f => { profil[f] = formatTanggalIndonesia(data[f]) || data[f] || ''; });
+    
+    // Ambil info tambahan (foto_url, peran) dari user_roles
+    try {
+      const { data: ur } = await db.from('user_roles').select('*').eq('nip', decoded.nip).maybeSingle();
+      if (ur) {
+        profil.foto_url = ur.foto_url || null;
+        profil.peran = ur.role || decoded.peran || 'normal';
+      }
+    } catch (_) {}
+
+    // Ambil pengajuan perubahan profil jika ada yang berstatus PENDING
+    try {
+      const { data: permohonan } = await db.from('perubahan_data_profil').select('*').eq('nip', decoded.nip).eq('status', 'PENDING').order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (permohonan) {
+        profil.pending_perubahan = permohonan;
+      }
+    } catch (_) {}
+
+    return { success: true, profil };
+  },
+
+  async updateFotoProfil(args) {
+    const [token, fotoUrl] = extractArgs(args);
+    const decoded = verifyToken(token);
+    const db = getDb();
+    const cleanUrl = String(fotoUrl || '').trim();
+    try {
+      await db.from('user_roles').upsert({ nip: decoded.nip, foto_url: cleanUrl, tanggal_diubah: new Date().toISOString() }, { onConflict: 'nip' });
+    } catch (err) {
+      console.warn('[updateFotoProfil] warning:', err.message);
+    }
+    return { success: true, message: 'Foto profil berhasil diperbarui.', foto_url: cleanUrl };
+  },
+
+  async gantiPasswordProfil(args) {
+    const [token, oldPass, newPass] = extractArgs(args);
+    const decoded = verifyToken(token);
+    const db = getDb();
+    
+    if (!newPass || String(newPass).trim().length < 6) {
+      return { success: false, message: 'Password baru minimal 6 karakter.' };
+    }
+    
+    let emp = null;
+    try { emp = await findEmployeeByNip(decoded.nip); } catch (_) {}
+
+    let customPass = null;
+    try {
+      const { data: ur } = await db.from('user_roles').select('*').eq('nip', decoded.nip).maybeSingle();
+      customPass = ur?.custom_password || null;
+    } catch (_) {}
+
+    const validDefault = extractPassword(decoded.nip, emp?.status_kepegawaian);
+    const inputOld = String(oldPass || '').trim();
+    const isValid = customPass ? (inputOld === String(customPass).trim()) : (validDefault && inputOld === validDefault);
+    
+    if (!isValid) {
+      return { success: false, message: 'Password lama yang Anda masukkan tidak sesuai.' };
+    }
+
+    try {
+      await db.from('user_roles').upsert({ nip: decoded.nip, custom_password: String(newPass).trim(), tanggal_diubah: new Date().toISOString() }, { onConflict: 'nip' });
+    } catch (err) {
+      console.error('[gantiPasswordProfil] error:', err.message);
+      return { success: false, message: 'Gagal memperbarui password di database.' };
+    }
+
+    return { success: true, message: 'Password berhasil diperbarui. Silakan gunakan password baru ini pada login berikutnya.' };
+  },
+
+  async ajukanPerubahanDataProfil(args) {
+    const [token, dataUsulan, alasan, linkDokumen] = extractArgs(args);
+    const decoded = verifyToken(token);
+    const db = getDb();
+    
+    const payload = {
+      nip: decoded.nip,
+      nama: decoded.nama || (dataUsulan && dataUsulan.nama_lengkap) || '',
+      data_usulan: dataUsulan,
+      alasan: String(alasan || '').trim(),
+      link_dokumen: String(linkDokumen || '').trim(),
+      status: 'PENDING',
+      created_at: new Date().toISOString()
+    };
+    
+    try {
+      const { error } = await db.from('perubahan_data_profil').insert(payload);
+      if (error) {
+        // Fallback simpan di user_roles
+        await db.from('user_roles').upsert({
+          nip: decoded.nip,
+          pending_perubahan: payload,
+          tanggal_diubah: new Date().toISOString()
+        }, { onConflict: 'nip' });
+      }
+    } catch (e) {
+      console.warn('[ajukanPerubahanDataProfil] fallback error:', e.message);
+    }
+
+    return { success: true, message: 'Pengajuan perubahan data profil berhasil dikirimkan dan menunggu validasi Admin/Super Admin.' };
+  },
+
+  async getDaftarPengajuanPerubahanProfil(args) {
+    const [token] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+    let daftar = [];
+    try {
+      const { data, error } = await db.from('perubahan_data_profil').select('*').order('created_at', { ascending: false });
+      if (!error && data) daftar = data;
+    } catch (_) {}
+    return { success: true, daftar };
+  },
+
+  async prosesValidasiPerubahanProfil(args) {
+    const [token, pengajuanId, status, catatanAdmin, nipTarget, dataUsulan] = extractArgs(args);
+    const caller = requireRole(token, ['admin', 'super_admin']);
+    const db = getDb();
+    
+    if (status === 'APPROVED' && nipTarget && dataUsulan) {
+      const updatePayload = {};
+      ['nama_lengkap', 'unit_kerja', 'jabatan', 'golongan', 'no_hp', 'email'].forEach(k => {
+        if (dataUsulan[k] !== undefined && dataUsulan[k] !== null && String(dataUsulan[k]).trim() !== '') {
+          updatePayload[k] = dataUsulan[k];
+        }
+      });
+      if (Object.keys(updatePayload).length > 0) {
+        try {
+          await db.from('data_utama').update(updatePayload).eq('nip', nipTarget);
+        } catch (upErr) {
+          console.warn('[prosesValidasiPerubahanProfil] update data_utama error:', upErr.message);
+        }
+      }
+    }
+
+    try {
+      if (pengajuanId) {
+        await db.from('perubahan_data_profil').update({
+          status: status,
+          catatan_admin: catatanAdmin || null,
+          reviewed_by: caller.nip,
+          reviewed_at: new Date().toISOString()
+        }).eq('id', pengajuanId);
+      }
+    } catch (_) {}
+
+    return { success: true, message: `Pengajuan perubahan data berhasil ${status === 'APPROVED' ? 'disetujui dan data resmi pegawai telah diperbarui' : 'ditolak'}.` };
   },
 
   // ---- ROLES ----

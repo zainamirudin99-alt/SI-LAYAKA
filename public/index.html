@@ -2872,6 +2872,70 @@
     gap: 12px;
     margin: 6px 0;
   }
+
+  /* =================================================================
+     PROFIL SAYA: PANORAMA BACKGROUND & GLASSMORPHIC PROFILE STYLING
+     ================================================================= */
+  #view-profil-saya.profile-view-wrapper {
+    position: relative;
+    border-radius: 16px;
+    padding: 24px;
+    background-color: #f1f5f9;
+    background-image: 
+      linear-gradient(135deg, rgba(248, 250, 252, 0.88) 0%, rgba(241, 245, 249, 0.84) 50%, rgba(219, 234, 254, 0.90) 100%),
+      url('undip-multi-dome-aerial.png');
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border);
+    transition: background 0.3s ease;
+  }
+
+  body.theme-light #view-profil-saya.profile-view-wrapper {
+    background-image: 
+      linear-gradient(135deg, rgba(248, 250, 252, 0.88) 0%, rgba(241, 245, 249, 0.84) 50%, rgba(219, 234, 254, 0.90) 100%),
+      url('undip-multi-dome-aerial.png');
+  }
+
+  body.theme-dark #view-profil-saya.profile-view-wrapper {
+    background-color: #070a12;
+    background-image: 
+      linear-gradient(135deg, rgba(7, 10, 18, 0.92) 0%, rgba(14, 21, 38, 0.88) 50%, rgba(3, 5, 10, 0.95) 100%),
+      url('undip-multi-dome-aerial.png');
+    border-color: rgba(0, 240, 255, 0.2);
+    box-shadow: 0 0 30px rgba(0, 240, 255, 0.1);
+  }
+
+  /* Glassmorphism Cards inside Profile View */
+  .profile-glass-card {
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08) !important;
+  }
+
+  body.theme-dark .profile-glass-card {
+    background: rgba(14, 21, 38, 0.88) !important;
+    border-color: rgba(0, 240, 255, 0.25) !important;
+    box-shadow: 0 0 25px rgba(0, 240, 255, 0.12), 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  /* Clickable Topbar User Chip */
+  .topbar-user-chip {
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .topbar-user-chip:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+    border-color: var(--primary);
+  }
+  body.theme-dark .topbar-user-chip:hover {
+    border-color: #00f0ff;
+    box-shadow: 0 0 18px rgba(0, 240, 255, 0.35);
+  }
 </style>
   <!-- Libraries for Word template previewing & Excel/Spreadsheet parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -3143,9 +3207,10 @@
             <div class="topbar-profile-divider"></div>
 
             <div class="topbar-user-profile">
-              <div class="user-chip topbar-user-chip" title="Profil Pengguna">
+              <div class="user-chip topbar-user-chip" id="topbarUserChipBtn" onclick="navigateToProfilSaya()" title="Klik untuk membuka Profil Saya" style="cursor:pointer;">
                 <div class="user-avatar-circle">
-                  <span class="material-symbols-outlined">person</span>
+                  <img id="topbarUserAvatarImg" src="" alt="Foto" style="display:none; width:100%; height:100%; border-radius:50%; object-fit:cover;" />
+                  <span id="topbarUserAvatarIcon" class="material-symbols-outlined">person</span>
                 </div>
                 <div class="user-meta-info">
                   <span class="u-name" id="sidebarUserName">-</span>
@@ -4730,10 +4795,10 @@
         </div>
       </div>
 
-        <!-- ============ VIEW: PROFIL SAYA (peran 'normal') ============ -->
-        <div class="view-panel" id="view-profil-saya" style="display:none;">
-          <!-- Restricted Access Banner -->
-          <div class="mecha-border" style="margin-bottom:24px; padding:20px; background:var(--surface-alt); display:flex; align-items:flex-start; gap:16px;">
+        <!-- ============ VIEW: PROFIL SAYA (peran 'normal' & semua peran) ============ -->
+        <div class="view-panel profile-view-wrapper" id="view-profil-saya" style="display:none;">
+          <!-- Restricted Access Banner (khusus normal user) -->
+          <div class="mecha-border profile-glass-card" id="profileRestrictedBanner" style="margin-bottom:24px; padding:20px; background:var(--surface-alt); display:flex; align-items:flex-start; gap:16px;">
             <div style="padding:10px; background:var(--primary-soft); border-radius:8px; color:var(--primary); flex-shrink:0;">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
             </div>
@@ -4758,17 +4823,23 @@
             <!-- Right Column: Avatar Card & Recent Activity -->
             <div style="grid-column: span 4 / span 4; display:flex; flex-direction:column; gap:24px;">
               <!-- Photo Verified Card -->
-              <div class="mecha-border" style="padding:16px; background:var(--surface); text-align:center;">
-                <div style="position:relative; width:100%; aspect-ratio:1/1; background:var(--surface-alt); border-radius:6px; overflow:hidden; display:flex; align-items:center; justify-content:center; margin-bottom:14px; border:1px solid var(--border);">
-                  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                  <div class="label-tech" style="position:absolute; bottom:12px; right:12px; background:var(--primary); color:#fff; padding:4px 8px; border-radius:4px; font-size:10px;">Photo Verified</div>
+              <div class="mecha-border profile-glass-card" style="padding:20px; background:var(--surface); text-align:center;">
+                <div style="position:relative; width:100%; aspect-ratio:1/1; background:var(--surface-alt); border-radius:10px; overflow:hidden; display:flex; align-items:center; justify-content:center; margin-bottom:14px; border:1px solid var(--border);">
+                  <img id="prof_side_avatar_img" src="" alt="Foto Profil" style="display:none; width:100%; height:100%; object-fit:cover;" />
+                  <svg id="prof_side_avatar_svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  <div class="label-tech" style="position:absolute; bottom:10px; right:10px; background:var(--primary); color:#fff; padding:4px 8px; border-radius:4px; font-size:10px; font-weight:700; letter-spacing:0.5px;">PHOTO VERIFIED</div>
                 </div>
                 <div style="font-weight:700; font-size:16px; color:var(--text);" id="prof_side_nama">Pegawai UNDIP</div>
                 <div style="font-size:13px; color:var(--text-muted); margin-top:2px;" id="prof_side_nip">NIP: -</div>
+                
+                <button type="button" class="btn btn-outline" onclick="bukaModalGantiFoto()" style="width:100%; margin-top:14px; font-size:12.5px; padding:8px 12px; gap:6px; font-weight:600;">
+                  <span class="material-symbols-outlined" style="font-size:17px;">photo_camera</span>
+                  <span>Ubah Foto (Google Drive)</span>
+                </button>
               </div>
 
               <!-- Status Timeline Card -->
-              <div class="mecha-border" style="padding:20px; background:var(--surface);">
+              <div class="mecha-border profile-glass-card" style="padding:20px; background:var(--surface);">
                 <div class="label-tech" style="color:var(--primary); margin-bottom:16px;">Aktivitas Terakhir</div>
                 <div style="display:flex; flex-direction:column; gap:18px;">
                   <div style="display:flex; gap:12px; align-items:flex-start;">
@@ -6220,6 +6291,152 @@
         </div>
       </div>
     </div>
+  <!-- =================================================================
+       MODALS: PROFIL PENGGUNA (FOTO, PASSWORD, VALIDASI PERUBAHAN DATA)
+       ================================================================= -->
+  <!-- 1. Modal Ganti Foto Profil -->
+  <div id="modalGantiFotoProfil" class="guide-modal-overlay" style="display:none;" onclick="if(event.target===this)tutupModalGantiFoto()">
+    <div class="guide-modal-card" style="max-width:520px;">
+      <div class="guide-modal-header">
+        <h3 class="guide-header-title">📷 Ubah Foto Profil (Google Drive)</h3>
+        <button type="button" class="guide-close-btn" onclick="tutupModalGantiFoto()" title="Tutup">✕</button>
+      </div>
+      <div style="padding:24px;">
+        <div class="field" style="margin-bottom:14px;">
+          <label for="inputFotoGdriveUrl">Link Foto Google Drive atau URL Gambar</label>
+          <input type="text" id="inputFotoGdriveUrl" placeholder="https://drive.google.com/file/d/.../view?usp=sharing" oninput="previewGdrivePhoto(this.value)" />
+        </div>
+        
+        <div style="margin-bottom:16px; padding:12px 14px; background:var(--surface-alt); border-radius:8px; border:1px solid var(--border); font-size:12px; line-height:1.5; color:var(--text-muted);">
+          💡 <strong>Panduan Link Google Drive:</strong>
+          <ol style="margin:6px 0 0 16px; padding:0;">
+            <li>Upload foto ke Google Drive Anda.</li>
+            <li>Klik kanan pada file &gt; <em>Bagikan (Share)</em> &gt; Ubah akses menjadi <strong>Siapa saja yang memiliki link (Anyone with the link)</strong>.</li>
+            <li>Salin link tersebut dan tempelkan di kotak di atas. Foto akan langsung ditampilkan tanpa memakan kuota database Supabase Anda.</li>
+          </ol>
+        </div>
+
+        <!-- Live Preview Box -->
+        <div style="text-align:center; margin-bottom:20px;">
+          <div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:8px;">PREVIEW FOTO</div>
+          <div style="width:130px; height:130px; border-radius:50%; margin:0 auto; overflow:hidden; border:2px dashed var(--border); display:flex; align-items:center; justify-content:center; background:var(--surface-alt); position:relative;">
+            <img id="previewFotoGdriveImg" src="" alt="Preview" style="display:none; width:100%; height:100%; object-fit:cover;" />
+            <span id="previewFotoGdrivePlaceholder" style="font-size:12px; color:var(--text-muted);">Belum ada preview</span>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" class="btn btn-secondary" onclick="tutupModalGantiFoto()">Batal</button>
+          <button type="button" class="btn btn-primary" onclick="simpanFotoProfilGdrive()">💾 Simpan Foto Profil</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Modal Ganti Password -->
+  <div id="modalGantiPasswordProfil" class="guide-modal-overlay" style="display:none;" onclick="if(event.target===this)tutupModalGantiPassword()">
+    <div class="guide-modal-card" style="max-width:480px;">
+      <div class="guide-modal-header">
+        <h3 class="guide-header-title">🔑 Ganti Password Akun</h3>
+        <button type="button" class="guide-close-btn" onclick="tutupModalGantiPassword()" title="Tutup">✕</button>
+      </div>
+      <div style="padding:24px;">
+        <div class="field" style="margin-bottom:14px;">
+          <label for="inputPassLama">Password Saat Ini (Password Lama / NIP 8 Digit)</label>
+          <input type="password" id="inputPassLama" placeholder="Masukkan password saat ini" required />
+        </div>
+        <div class="field" style="margin-bottom:14px;">
+          <label for="inputPassBaru">Password Baru (Minimal 6 Karakter)</label>
+          <input type="password" id="inputPassBaru" placeholder="Masukkan password baru" required />
+        </div>
+        <div class="field" style="margin-bottom:20px;">
+          <label for="inputPassKonfirmasi">Konfirmasi Password Baru</label>
+          <input type="password" id="inputPassKonfirmasi" placeholder="Ulangi password baru" required />
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" class="btn btn-secondary" onclick="tutupModalGantiPassword()">Batal</button>
+          <button type="button" class="btn btn-primary" onclick="simpanPasswordBaruProfil()">Simpan Password</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Modal Ajukan Perubahan Data Profil (Wajib Validasi Admin) -->
+  <div id="modalAjukanPerubahanData" class="guide-modal-overlay" style="display:none;" onclick="if(event.target===this)tutupModalAjukanPerubahanData()">
+    <div class="guide-modal-card" style="max-width:680px; max-height:90vh; overflow-y:auto;">
+      <div class="guide-modal-header">
+        <h3 class="guide-header-title">✏️ Formulir Pengajuan Perubahan Data Profil</h3>
+        <button type="button" class="guide-close-btn" onclick="tutupModalAjukanPerubahanData()" title="Tutup">✕</button>
+      </div>
+      <div style="padding:24px;">
+        <div style="margin-bottom:18px; padding:12px 16px; border-radius:8px; background:rgba(37,99,235,0.08); border:1px solid rgba(37,99,235,0.25); color:var(--text); font-size:12.5px; line-height:1.5;">
+          ℹ️ <strong>Catatan Prosedur Kepegawaian:</strong> Perubahan data personal (nama, gelar, jabatan, unit kerja, golongan) wajib diverifikasi dan disetujui terlebih dahulu oleh <strong>Administrator / Super Administrator DOSDM UNDIP</strong> sebelum diterapkan ke sistem kepegawaian resmi.
+        </div>
+
+        <form id="formAjukanPerubahanData" onsubmit="event.preventDefault(); kirimPengajuanPerubahanData();">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div class="field">
+              <label for="editNamaLengkap">Nama Lengkap (beserta Gelar) <span style="color:#ef4444;">*</span></label>
+              <input type="text" id="editNamaLengkap" required />
+            </div>
+            <div class="field">
+              <label for="editNip">NIP (Username Sistem)</label>
+              <input type="text" id="editNip" readonly style="opacity:0.7; cursor:not-allowed;" />
+            </div>
+            <div class="field">
+              <label for="editUnitKerja">Unit Kerja <span style="color:#ef4444;">*</span></label>
+              <input type="text" id="editUnitKerja" required />
+            </div>
+            <div class="field">
+              <label for="editJabatan">Jabatan Terakhir <span style="color:#ef4444;">*</span></label>
+              <input type="text" id="editJabatan" required />
+            </div>
+            <div class="field">
+              <label for="editGolongan">Pangkat / Golongan</label>
+              <input type="text" id="editGolongan" placeholder="cth. Penata Tk. I / III/d" />
+            </div>
+            <div class="field">
+              <label for="editNoHp">Nomor WhatsApp / HP</label>
+              <input type="text" id="editNoHp" placeholder="cth. 08123456789" />
+            </div>
+          </div>
+
+          <div class="field" style="margin-top:16px;">
+            <label for="editLinkDokumen">Link Dokumen Pendukung (Google Drive)</label>
+            <input type="text" id="editLinkDokumen" placeholder="Link bukti SK / KTP / Ijazah di Google Drive" />
+            <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Lampirkan link dokumen pendukung untuk mempermudah verifikasi berkas oleh verifikator.</div>
+          </div>
+
+          <div class="field" style="margin-top:16px;">
+            <label for="editAlasanPerubahan">Alasan / Keterangan Perubahan Data <span style="color:#ef4444;">*</span></label>
+            <textarea id="editAlasanPerubahan" rows="3" placeholder="Jelaskan alasan dan rincian perubahan data ini..." required style="width:100%; box-sizing:border-box;"></textarea>
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:24px;">
+            <button type="button" class="btn btn-secondary" onclick="tutupModalAjukanPerubahanData()">Batal</button>
+            <button type="submit" class="btn btn-primary">📤 Kirim Pengajuan ke Admin</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Modal Validasi Perubahan Profil untuk Admin & Super Admin -->
+  <div id="modalAdminValidasiProfil" class="guide-modal-overlay" style="display:none;" onclick="if(event.target===this)tutupModalAdminValidasiProfil()">
+    <div class="guide-modal-card" style="max-width:840px; max-height:90vh; overflow-y:auto;">
+      <div class="guide-modal-header">
+        <h3 class="guide-header-title">🛡️ Validasi Usulan Perubahan Data Pegawai</h3>
+        <button type="button" class="guide-close-btn" onclick="tutupModalAdminValidasiProfil()" title="Tutup">✕</button>
+      </div>
+      <div style="padding:24px;">
+        <p style="font-size:13px; color:var(--text-muted); margin:0 0 16px 0;">
+          Daftar permohonan pembaruan data profil yang diajukan oleh pegawai. Tinjau kesesuaian berkas dan alasan sebelum menyetujui.
+        </p>
+        <div id="daftarPengajuanProfilContainer">
+          <div style="text-align:center; padding:32px; color:var(--text-muted);">Memuat daftar pengajuan...</div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -6662,6 +6879,7 @@ function showApp() {
   const roleLabel = SESSION.user.role ? (SESSION.user.role.toUpperCase().replace(/_/g, ' ')) : '';
   const unitLabel = SESSION.user.unitEsIi ? ` · ${SESSION.user.unitEsIi}` : '';
   document.getElementById('sidebarUserRole').textContent = (SESSION.user.jabatan || SESSION.user.status_kepegawaian || roleLabel) + unitLabel;
+  if (SESSION.user && SESSION.user.foto_url) { updateUserAvatarUI(SESSION.user.foto_url); }
   terapkanBatasanPeran_();
   if (SESSION.user.role !== 'normal') {
     loadTemplateList();
@@ -6811,12 +7029,96 @@ function terapkanBatasanPeran_() {
   if (viewAktif === 'buat-sk') onEnterBuatSkView();
 }
 
-/** Muat & tampilkan data diri terbatas (peran 'normal'). */
+/** Navigasi langsung ke halaman Profil Saya saat avatar/chip di topbar diklik */
+function navigateToProfilSaya() {
+  document.querySelectorAll('.nav-item[data-view]').forEach(i => i.classList.remove('active'));
+  document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
+  
+  const viewProfil = document.getElementById('view-profil-saya');
+  if (viewProfil) viewProfil.style.display = 'block';
+  
+  const topbarTitle = document.getElementById('topbarTitle');
+  if (topbarTitle) topbarTitle.textContent = 'Profil Saya';
+  
+  const navItem = document.querySelector('.nav-item[data-view="profil-saya"]');
+  if (navItem) navItem.classList.add('active');
+  
+  loadProfilSaya();
+}
+
+/** Helper konversi link Google Drive ke direct viewable URL */
+function convertGoogleDriveUrl(url) {
+  if (!url) return '';
+  const str = String(url).trim();
+  // Format: https://drive.google.com/file/d/FILE_ID/view...
+  const matchFile = str.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (matchFile && matchFile[1]) {
+    return 'https://lh3.googleusercontent.com/d/' + matchFile[1];
+  }
+  // Format: ?id=FILE_ID
+  const matchId = str.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (matchId && matchId[1]) {
+    return 'https://lh3.googleusercontent.com/d/' + matchId[1];
+  }
+  return str;
+}
+
+/** Update avatar display di topbar dan profile card */
+function updateUserAvatarUI(fotoUrl) {
+  const directUrl = convertGoogleDriveUrl(fotoUrl);
+  const topbarImg = document.getElementById('topbarUserAvatarImg');
+  const topbarIcon = document.getElementById('topbarUserAvatarIcon');
+  const sideImg = document.getElementById('prof_side_avatar_img');
+  const sideSvg = document.getElementById('prof_side_avatar_svg');
+
+  if (directUrl) {
+    if (topbarImg) {
+      topbarImg.src = directUrl;
+      topbarImg.style.display = 'block';
+      topbarImg.onerror = () => { topbarImg.style.display = 'none'; if (topbarIcon) topbarIcon.style.display = 'inline-block'; };
+    }
+    if (topbarIcon) topbarIcon.style.display = 'none';
+
+    if (sideImg) {
+      sideImg.src = directUrl;
+      sideImg.style.display = 'block';
+      sideImg.onerror = () => { sideImg.style.display = 'none'; if (sideSvg) sideSvg.style.display = 'block'; };
+    }
+    if (sideSvg) sideSvg.style.display = 'none';
+  } else {
+    if (topbarImg) topbarImg.style.display = 'none';
+    if (topbarIcon) topbarIcon.style.display = 'inline-block';
+    if (sideImg) sideImg.style.display = 'none';
+    if (sideSvg) sideSvg.style.display = 'block';
+  }
+}
+
+/** Global cache profil aktif */
+let currentLoadedProfil = null;
+
+/** Muat & tampilkan data diri pengguna */
 function loadProfilSaya() {
+  const container = document.getElementById('profilSayaContent');
+  if (container) {
+    container.innerHTML = '<div class="profile-glass-card mecha-border" style="padding:40px; text-align:center; color:var(--text-muted);"><div class="spinner" style="margin:0 auto 12px auto;"></div>Memuat data profil Anda...</div>';
+  }
+
+  // Tampilkan / sembunyikan restricted access banner sesuai peran
+  const restrictedBanner = document.getElementById('profileRestrictedBanner');
+  if (restrictedBanner) {
+    const userRole = (SESSION.user && SESSION.user.role) || SESSION.peran || 'normal';
+    restrictedBanner.style.display = (userRole === 'normal') ? 'flex' : 'none';
+  }
+
   google.script.run
     .withSuccessHandler(res => {
       if (!res.success) { showToast('error', res.message); return; }
-      renderProfilSayaView(res.profil || {});
+      currentLoadedProfil = res.profil || {};
+      renderProfilSayaView(currentLoadedProfil);
+      if (currentLoadedProfil.foto_url) {
+        if (SESSION.user) SESSION.user.foto_url = currentLoadedProfil.foto_url;
+        updateUserAvatarUI(currentLoadedProfil.foto_url);
+      }
     })
     .withFailureHandler(err => showToast('error', 'Gagal memuat profil: ' + (err.message || err)))
     .getProfilSaya(SESSION.token);
@@ -6836,14 +7138,16 @@ function renderProfilSayaView(profil) {
   };
 
   const p = profil || {};
-  const nama = p.nama_lengkap || SESSION.nama || (SESSION.user && SESSION.user.nama_lengkap) || '-';
+  const nama = p.nama_lengkap || SESSION.nama || (SESSION.user && SESSION.user.nama) || '-';
   const nip = p.nip || SESSION.nip || (SESSION.user && SESSION.user.nip) || '-';
-  const unit = p.unit_kerja || SESSION.unit_kerja || (SESSION.user && SESSION.user.unit_kerja) || '-';
-  const jabatan = p.jabatan || SESSION.jabatan || '-';
-  const golongan = p.golongan || SESSION.golongan || '-';
+  const unit = p.unit_kerja || SESSION.unit_kerja || (SESSION.user && SESSION.user.unitKerja) || (SESSION.user && SESSION.user.unitEsIi) || '-';
+  const jabatan = p.jabatan || (SESSION.user && SESSION.user.jabatan) || '-';
+  const golongan = p.golongan || (SESSION.user && SESSION.user.golongan) || '-';
   const pensiun = p.tmt_pensiun_bup || p.tgl_lhr || '-';
-  const statPeg = p.status_kepegawaian || 'Aktif';
-  const statBek = p.status_bekerja || 'Aktif';
+  const statPeg = p.status_kepegawaian || (SESSION.user && SESSION.user.status_kepegawaian) || 'Aktif';
+  const statBek = p.status_bekerja || 'Aktif Bekerja';
+  const roleName = (SESSION.user && SESSION.user.role) || SESSION.peran || 'Normal User';
+  const isAdminOrSuper = ['admin', 'super_admin'].includes((SESSION.user && SESSION.user.role) || SESSION.peran);
 
   const sideNama = document.getElementById('prof_side_nama');
   if (sideNama) sideNama.textContent = nama;
@@ -6853,46 +7157,79 @@ function renderProfilSayaView(profil) {
   const container = document.getElementById('profilSayaContent');
   if (!container) return;
 
+  // Banner jika ada pengajuan pending
+  let pendingNoticeHtml = '';
+  if (p.pending_perubahan && p.pending_perubahan.status === 'PENDING') {
+    const tglPengajuan = p.pending_perubahan.created_at ? new Date(p.pending_perubahan.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Baru saja';
+    pendingNoticeHtml = `
+      <div style="margin-bottom:20px; padding:16px 20px; border-radius:10px; background:rgba(245, 158, 11, 0.12); border:1px solid rgba(245, 158, 11, 0.35); display:flex; align-items:flex-start; gap:14px;">
+        <span class="material-symbols-outlined" style="color:#f59e0b; font-size:24px; flex-shrink:0;">hourglass_top</span>
+        <div style="flex:1;">
+          <div style="font-weight:700; color:#b45309; font-size:14px; margin-bottom:3px;">Pengajuan Perubahan Data Sedang Ditinjau Admin</div>
+          <div style="font-size:12.5px; color:var(--text); line-height:1.5;">
+            Anda mengajukan perubahan data pada <strong>${escapeHtml(tglPengajuan)}</strong>. Data baru akan otomatis aktif setelah diverifikasi dan disetujui oleh Administrator / Super Administrator DOSDM UNDIP.
+          </div>
+          ${p.pending_perubahan.alasan ? `<div style="font-size:12px; color:var(--text-muted); margin-top:6px; font-style:italic;">Catatan Alasan: "${escapeHtml(p.pending_perubahan.alasan)}"</div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
   container.innerHTML = `
-    <div class="mecha-border" style="padding:28px; background:var(--surface);">
+    <div class="mecha-border profile-glass-card" style="padding:28px;">
+      ${pendingNoticeHtml}
+
       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; flex-wrap:wrap; gap:12px;">
         <div>
-          <div class="label-tech" style="color:var(--primary); margin-bottom:4px;">Identitas Pegawai</div>
+          <div class="label-tech" style="color:var(--primary); margin-bottom:4px; font-weight:700; letter-spacing:1px;">IDENTITAS PEGAWAI</div>
           <h3 style="margin:0; font-family:'Sora',sans-serif; font-size:22px; font-weight:700; color:var(--text);">Data Utama Personal</h3>
         </div>
-        <button type="button" class="btn btn-outline" onclick="alert('Untuk mengajukan perubahan data utama profil, silakan hubungi Subbagian Kepegawaian DOSDM UNDIP dengan membawa dokumen pendukung.');" style="font-size:12px; font-weight:600; padding:6px 14px;">
-          ✏️ Ajukan Perubahan
-        </button>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          <button type="button" class="btn btn-outline" onclick="bukaModalGantiPassword()" style="font-size:12px; font-weight:600; padding:7px 14px; gap:6px;">
+            <span class="material-symbols-outlined" style="font-size:16px;">lock_reset</span>
+            <span>Ganti Password</span>
+          </button>
+          <button type="button" class="btn btn-primary" onclick="bukaModalAjukanPerubahanData()" style="font-size:12px; font-weight:600; padding:7px 14px; gap:6px;">
+            <span class="material-symbols-outlined" style="font-size:16px;">edit</span>
+            <span>Ajukan Perubahan</span>
+          </button>
+          ${isAdminOrSuper ? `
+            <button type="button" class="btn btn-secondary" onclick="bukaModalAdminValidasiProfil()" style="font-size:12px; font-weight:600; padding:7px 14px; gap:6px; border:1px solid var(--primary); color:var(--primary);">
+              <span class="material-symbols-outlined" style="font-size:16px;">verified_user</span>
+              <span>Validasi Usulan Pegawai</span>
+            </button>
+          ` : ''}
+        </div>
       </div>
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px 36px;">
         <div>
-          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">Nama Lengkap</label>
+          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">NAMA LENGKAP</label>
           <p style="margin:0; font-size:16px; font-weight:700; color:var(--text);">${escapeHtml(nama)}</p>
         </div>
         <div>
           <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">NIP / NIK</label>
-          <p style="margin:0; font-size:16px; font-weight:700; color:var(--text);">${escapeHtml(nip)} <span class="badge-auto-fill">(auto-fill)</span></p>
+          <p style="margin:0; font-size:16px; font-weight:700; color:var(--text);">${escapeHtml(nip)} <span class="badge-auto-fill" style="font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(37,99,235,0.15); color:var(--primary); font-weight:600;">(auto-fill)</span></p>
         </div>
         <div>
-          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">Unit Kerja</label>
+          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">UNIT KERJA</label>
           <p style="margin:0; font-size:15px; font-weight:600; color:var(--text);">${escapeHtml(unit)}</p>
         </div>
         <div>
-          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">Jabatan Terakhir</label>
+          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">JABATAN TERAKHIR</label>
           <p style="margin:0; font-size:15px; font-weight:600; color:var(--text);">${escapeHtml(jabatan)}</p>
         </div>
         <div>
-          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">Pangkat / Golongan</label>
+          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">PANGKAT / GOLONGAN</label>
           <p style="margin:0; font-size:15px; font-weight:600; color:var(--text);">${escapeHtml(golongan)}</p>
         </div>
         <div>
-          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">TMT BUP (Pensiun)</label>
+          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">TMT BUP (PENSIUN)</label>
           <p style="margin:0; font-size:15px; font-weight:600; color:var(--text);">${escapeHtml(pensiun)}</p>
         </div>
-        ${Object.keys(p).filter(k => !['nama_lengkap','nip','unit_kerja','jabatan','golongan','tmt_pensiun_bup','tgl_lhr','status_kepegawaian','status_bekerja'].includes(k)).map(k => `
+        ${Object.keys(p).filter(k => !['nama_lengkap','nip','unit_kerja','jabatan','golongan','tmt_pensiun_bup','tgl_lhr','status_kepegawaian','status_bekerja','foto_url','peran','pending_perubahan','id','created_at','updated_at'].includes(k)).map(k => `
           <div>
-            <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">${escapeHtml(labelMap[k] || k)}</label>
+            <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">${escapeHtml(labelMap[k] || k.toUpperCase())}</label>
             <p style="margin:0; font-size:15px; font-weight:600; color:var(--text);">${escapeHtml(p[k] || '-')}</p>
           </div>
         `).join('')}
@@ -6900,21 +7237,338 @@ function renderProfilSayaView(profil) {
 
       <!-- Summary Stats Bar -->
       <div style="margin-top:32px; border-top:1px solid var(--border); display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; padding-top:24px;">
-        <div style="background:var(--surface-alt); padding:16px; border-radius:8px; text-align:center;">
-          <div class="label-tech" style="color:var(--text-muted); margin-bottom:4px;">Status Akun</div>
-          <div style="font-family:'Sora',sans-serif; font-size:17px; font-weight:700; color:var(--primary);">${escapeHtml(SESSION.peran || 'Normal User')}</div>
+        <div style="background:var(--surface-alt); padding:16px; border-radius:10px; text-align:center; border:1px solid var(--border);">
+          <div class="label-tech" style="color:var(--text-muted); margin-bottom:4px; font-size:11px;">STATUS AKUN</div>
+          <div style="font-family:'Sora',sans-serif; font-size:16px; font-weight:700; color:var(--primary);">${escapeHtml(roleName.toUpperCase().replace(/_/g, ' '))}</div>
         </div>
-        <div style="background:var(--surface-alt); padding:16px; border-radius:8px; text-align:center;">
-          <div class="label-tech" style="color:var(--text-muted); margin-bottom:4px;">Status Kepegawaian</div>
-          <div style="font-family:'Sora',sans-serif; font-size:17px; font-weight:700; color:var(--primary);">${escapeHtml(statPeg)}</div>
+        <div style="background:var(--surface-alt); padding:16px; border-radius:10px; text-align:center; border:1px solid var(--border);">
+          <div class="label-tech" style="color:var(--text-muted); margin-bottom:4px; font-size:11px;">STATUS KEPEGAWAIAN</div>
+          <div style="font-family:'Sora',sans-serif; font-size:16px; font-weight:700; color:var(--primary);">${escapeHtml(statPeg)}</div>
         </div>
-        <div style="background:var(--surface-alt); padding:16px; border-radius:8px; text-align:center;">
-          <div class="label-tech" style="color:var(--text-muted); margin-bottom:4px;">Status Bekerja</div>
-          <div style="font-family:'Sora',sans-serif; font-size:17px; font-weight:700; color:var(--primary);">${escapeHtml(statBek)}</div>
+        <div style="background:var(--surface-alt); padding:16px; border-radius:10px; text-align:center; border:1px solid var(--border);">
+          <div class="label-tech" style="color:var(--text-muted); margin-bottom:4px; font-size:11px;">STATUS BEKERJA</div>
+          <div style="font-family:'Sora',sans-serif; font-size:16px; font-weight:700; color:var(--primary);">${escapeHtml(statBek)}</div>
         </div>
       </div>
     </div>
   `;
+}
+
+/** ---------------- MODAL 1: GANTI FOTO VIA GOOGLE DRIVE ---------------- */
+function bukaModalGantiFoto() {
+  const modal = document.getElementById('modalGantiFotoProfil');
+  if (!modal) return;
+  const input = document.getElementById('inputLinkFotoGdrive');
+  const preview = document.getElementById('previewFotoGdriveImg');
+  const placeholder = document.getElementById('previewFotoGdrivePlaceholder');
+  
+  if (currentLoadedProfil && currentLoadedProfil.foto_url) {
+    if (input) input.value = currentLoadedProfil.foto_url;
+    if (preview) {
+      preview.src = convertGoogleDriveUrl(currentLoadedProfil.foto_url);
+      preview.style.display = 'block';
+    }
+    if (placeholder) placeholder.style.display = 'none';
+  } else {
+    if (input) input.value = '';
+    if (preview) { preview.src = ''; preview.style.display = 'none'; }
+    if (placeholder) placeholder.style.display = 'block';
+  }
+  modal.style.display = 'flex';
+}
+
+function tutupModalGantiFoto() {
+  const modal = document.getElementById('modalGantiFotoProfil');
+  if (modal) modal.style.display = 'none';
+}
+
+function previewGdrivePhoto() {
+  const input = document.getElementById('inputLinkFotoGdrive');
+  const preview = document.getElementById('previewFotoGdriveImg');
+  const placeholder = document.getElementById('previewFotoGdrivePlaceholder');
+  const rawUrl = input ? input.value.trim() : '';
+
+  if (!rawUrl) {
+    if (preview) preview.style.display = 'none';
+    if (placeholder) placeholder.style.display = 'block';
+    return;
+  }
+
+  const directUrl = convertGoogleDriveUrl(rawUrl);
+  if (preview) {
+    preview.src = directUrl;
+    preview.onload = () => {
+      preview.style.display = 'block';
+      if (placeholder) placeholder.style.display = 'none';
+    };
+    preview.onerror = () => {
+      preview.style.display = 'none';
+      if (placeholder) {
+        placeholder.textContent = 'Gagal memuat link foto. Pastikan link dapat diakses publik.';
+        placeholder.style.display = 'block';
+      }
+    };
+  }
+}
+
+function simpanFotoProfilGdrive() {
+  const input = document.getElementById('inputLinkFotoGdrive');
+  const url = input ? input.value.trim() : '';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      showToast('success', res.message || 'Foto profil berhasil disimpan.');
+      if (currentLoadedProfil) currentLoadedProfil.foto_url = res.foto_url;
+      if (SESSION.user) SESSION.user.foto_url = res.foto_url;
+      updateUserAvatarUI(res.foto_url);
+      tutupModalGantiFoto();
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal menyimpan foto: ' + (err.message || err)))
+    .updateFotoProfil(SESSION.token, url);
+}
+
+/** ---------------- MODAL 2: GANTI PASSWORD ---------------- */
+function bukaModalGantiPassword() {
+  const modal = document.getElementById('modalGantiPasswordProfil');
+  if (!modal) return;
+  const inOld = document.getElementById('inputPassLama');
+  const inNew = document.getElementById('inputPassBaru');
+  const inConf = document.getElementById('inputPassKonfirmasi');
+  if (inOld) inOld.value = '';
+  if (inNew) inNew.value = '';
+  if (inConf) inConf.value = '';
+  modal.style.display = 'flex';
+}
+
+function tutupModalGantiPassword() {
+  const modal = document.getElementById('modalGantiPasswordProfil');
+  if (modal) modal.style.display = 'none';
+}
+
+function simpanPasswordBaruProfil() {
+  const inOld = document.getElementById('inputPassLama');
+  const inNew = document.getElementById('inputPassBaru');
+  const inConf = document.getElementById('inputPassKonfirmasi');
+
+  const oldPass = inOld ? inOld.value.trim() : '';
+  const newPass = inNew ? inNew.value.trim() : '';
+  const confPass = inConf ? inConf.value.trim() : '';
+
+  if (!oldPass) { showToast('warning', 'Masukkan password saat ini.'); return; }
+  if (!newPass || newPass.length < 6) { showToast('warning', 'Password baru minimal 6 karakter.'); return; }
+  if (newPass !== confPass) { showToast('warning', 'Konfirmasi password baru tidak cocok.'); return; }
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      showToast('success', res.message);
+      tutupModalGantiPassword();
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal mengganti password: ' + (err.message || err)))
+    .gantiPasswordProfil(SESSION.token, oldPass, newPass);
+}
+
+/** ---------------- MODAL 3: AJUKAN PERUBAHAN DATA ---------------- */
+function bukaModalAjukanPerubahanData() {
+  const modal = document.getElementById('modalAjukanPerubahanData');
+  if (!modal) return;
+  
+  const p = currentLoadedProfil || {};
+  const nama = p.nama_lengkap || SESSION.nama || (SESSION.user && SESSION.user.nama) || '';
+  const nip = p.nip || SESSION.nip || (SESSION.user && SESSION.user.nip) || '';
+  const unit = p.unit_kerja || SESSION.unit_kerja || (SESSION.user && SESSION.user.unitKerja) || (SESSION.user && SESSION.user.unitEsIi) || '';
+  const jabatan = p.jabatan || (SESSION.user && SESSION.user.jabatan) || '';
+  const golongan = p.golongan || (SESSION.user && SESSION.user.golongan) || '';
+  const noHp = p.no_hp || '';
+
+  const elNama = document.getElementById('editNamaLengkap');
+  const elNip = document.getElementById('editNip');
+  const elUnit = document.getElementById('editUnitKerja');
+  const elJab = document.getElementById('editJabatan');
+  const elGol = document.getElementById('editGolongan');
+  const elHp = document.getElementById('editNoHp');
+  const elDoc = document.getElementById('editLinkDokumen');
+  const elAlasan = document.getElementById('editAlasanPerubahan');
+
+  if (elNama) elNama.value = nama;
+  if (elNip) elNip.value = nip;
+  if (elUnit) elUnit.value = unit;
+  if (elJab) elJab.value = jabatan;
+  if (elGol) elGol.value = golongan;
+  if (elHp) elHp.value = noHp;
+  if (elDoc) elDoc.value = '';
+  if (elAlasan) elAlasan.value = '';
+
+  modal.style.display = 'flex';
+}
+
+function tutupModalAjukanPerubahanData() {
+  const modal = document.getElementById('modalAjukanPerubahanData');
+  if (modal) modal.style.display = 'none';
+}
+
+function kirimPengajuanPerubahanData() {
+  const elNama = document.getElementById('editNamaLengkap');
+  const elUnit = document.getElementById('editUnitKerja');
+  const elJab = document.getElementById('editJabatan');
+  const elGol = document.getElementById('editGolongan');
+  const elHp = document.getElementById('editNoHp');
+  const elDoc = document.getElementById('editLinkDokumen');
+  const elAlasan = document.getElementById('editAlasanPerubahan');
+
+  const dataUsulan = {
+    nama_lengkap: elNama ? elNama.value.trim() : '',
+    unit_kerja: elUnit ? elUnit.value.trim() : '',
+    jabatan: elJab ? elJab.value.trim() : '',
+    golongan: elGol ? elGol.value.trim() : '',
+    no_hp: elHp ? elHp.value.trim() : ''
+  };
+  const alasan = elAlasan ? elAlasan.value.trim() : '';
+  const linkDokumen = elDoc ? elDoc.value.trim() : '';
+
+  if (!dataUsulan.nama_lengkap || !dataUsulan.unit_kerja || !dataUsulan.jabatan) {
+    showToast('warning', 'Nama lengkap, unit kerja, dan jabatan wajib diisi.');
+    return;
+  }
+  if (!alasan) {
+    showToast('warning', 'Alasan pengajuan perubahan data wajib diisi.');
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      showToast('success', res.message);
+      tutupModalAjukanPerubahanData();
+      loadProfilSaya();
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal mengirim pengajuan: ' + (err.message || err)))
+    .ajukanPerubahanDataProfil(SESSION.token, dataUsulan, alasan, linkDokumen);
+}
+
+/** ---------------- MODAL 4: ADMIN / SUPER ADMIN VALIDASI PROFIL ---------------- */
+function bukaModalAdminValidasiProfil() {
+  const modal = document.getElementById('modalAdminValidasiProfil');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  loadAdminValidasiProfilList();
+}
+
+function tutupModalAdminValidasiProfil() {
+  const modal = document.getElementById('modalAdminValidasiProfil');
+  if (modal) modal.style.display = 'none';
+}
+
+function loadAdminValidasiProfilList() {
+  const container = document.getElementById('daftarPengajuanProfilContainer');
+  if (!container) return;
+  container.innerHTML = '<div style="text-align:center; padding:32px; color:var(--text-muted);"><div class="spinner" style="margin:0 auto 12px auto;"></div>Memuat daftar pengajuan pegawai...</div>';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { container.innerHTML = `<div class="ce-dashboard-card cdc-empty">${escapeHtml(res.message)}</div>`; return; }
+      renderAdminValidasiProfilList(res.daftar || []);
+    })
+    .withFailureHandler(err => {
+      container.innerHTML = `<div class="ce-dashboard-card cdc-empty">Gagal memuat: ${escapeHtml(err.message || err)}</div>`;
+    })
+    .getDaftarPengajuanPerubahanProfil(SESSION.token);
+}
+
+function renderAdminValidasiProfilList(daftar) {
+  const container = document.getElementById('daftarPengajuanProfilContainer');
+  if (!container) return;
+
+  if (!daftar || daftar.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center; padding:40px 20px; background:var(--surface-alt); border-radius:10px; border:1px dashed var(--border);">
+        <span class="material-symbols-outlined" style="font-size:42px; color:var(--text-muted); opacity:0.6;">task_alt</span>
+        <div style="font-size:15px; font-weight:700; color:var(--text); margin-top:8px;">Semua Beres!</div>
+        <div style="font-size:13px; color:var(--text-muted); margin-top:4px;">Tidak ada usulan perubahan profil yang perlu divalidasi saat ini.</div>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = daftar.map(item => {
+    const isPending = item.status === 'PENDING';
+    const statusColor = isPending ? '#f59e0b' : (item.status === 'APPROVED' ? '#10b981' : '#ef4444');
+    const u = item.data_usulan || {};
+    const tgl = item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+
+    return `
+      <div class="mecha-border" style="padding:20px; margin-bottom:16px; background:var(--surface); border-radius:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <div>
+            <div style="font-weight:700; font-size:16px; color:var(--text);">${escapeHtml(item.nama || u.nama_lengkap || '-')}</div>
+            <div style="font-size:12.5px; color:var(--text-muted);">NIP: ${escapeHtml(item.nip || '-')} · Diajukan: ${escapeHtml(tgl)}</div>
+          </div>
+          <span style="font-size:11px; font-weight:700; padding:4px 10px; border-radius:6px; background:${statusColor}22; color:${statusColor}; border:1px solid ${statusColor}44;">
+            ${escapeHtml(item.status)}
+          </span>
+        </div>
+
+        <!-- Detail Data Usulan -->
+        <div style="background:var(--surface-alt); padding:14px; border-radius:8px; margin-bottom:12px; font-size:13px; display:grid; grid-template-columns:1fr 1fr; gap:10px 16px;">
+          <div><strong style="color:var(--text-muted);">Nama Usulan:</strong> <span style="font-weight:600; color:var(--text);">${escapeHtml(u.nama_lengkap || '-')}</span></div>
+          <div><strong style="color:var(--text-muted);">Unit Kerja:</strong> <span style="font-weight:600; color:var(--text);">${escapeHtml(u.unit_kerja || '-')}</span></div>
+          <div><strong style="color:var(--text-muted);">Jabatan:</strong> <span style="font-weight:600; color:var(--text);">${escapeHtml(u.jabatan || '-')}</span></div>
+          <div><strong style="color:var(--text-muted);">Golongan:</strong> <span style="font-weight:600; color:var(--text);">${escapeHtml(u.golongan || '-')}</span></div>
+          <div><strong style="color:var(--text-muted);">No HP / WA:</strong> <span style="font-weight:600; color:var(--text);">${escapeHtml(u.no_hp || '-')}</span></div>
+          <div>
+            <strong style="color:var(--text-muted);">Dokumen Pendukung:</strong> 
+            ${item.link_dokumen ? `<a href="${escapeHtml(item.link_dokumen)}" target="_blank" rel="noopener" style="color:var(--primary); font-weight:600; text-decoration:underline;">Lihat Google Drive ↗</a>` : '<span style="color:var(--text-muted);">-</span>'}
+          </div>
+        </div>
+
+        <div style="font-size:13px; color:var(--text); margin-bottom:14px; line-height:1.5;">
+          <strong>Alasan Perubahan:</strong> <em>"${escapeHtml(item.alasan || '-')}"</em>
+        </div>
+
+        ${isPending ? `
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-top:1px solid var(--border); padding-top:12px;">
+            <input type="text" id="catatanAdmin_${escapeHtml(item.id || item.nip)}" placeholder="Catatan verifikator (opsional)..." style="flex:1; min-width:200px; padding:6px 12px; font-size:12.5px; border-radius:6px; border:1px solid var(--border); background:var(--surface);" />
+            <div style="display:flex; gap:8px;">
+              <button type="button" class="btn btn-secondary" onclick="prosesValidasiProfilItem('${escapeHtml(item.id || '')}', 'REJECTED', '${escapeHtml(item.nip || '')}', null)" style="font-size:12px; padding:6px 14px; color:#ef4444; border-color:#ef4444;">
+                ✕ Tolak Usulan
+              </button>
+              <button type="button" class="btn btn-primary" onclick='prosesValidasiProfilItem("${escapeHtml(item.id || '')}", "APPROVED", "${escapeHtml(item.nip || '')}", ${JSON.stringify(u)})' style="font-size:12px; padding:6px 14px; background:#10b981; border-color:#10b981;">
+                ✓ Setujui & Terapkan Data
+              </button>
+            </div>
+          </div>
+        ` : `
+          <div style="font-size:12px; color:var(--text-muted); border-top:1px solid var(--border); padding-top:8px;">
+            Ditinjau oleh verifikator: <strong>${escapeHtml(item.reviewed_by || '-')}</strong> pada ${escapeHtml(item.reviewed_at ? new Date(item.reviewed_at).toLocaleDateString('id-ID') : '-')}
+            ${item.catatan_admin ? ` | Catatan: "${escapeHtml(item.catatan_admin)}"` : ''}
+          </div>
+        `}
+      </div>
+    `;
+  }).join('');
+}
+
+function prosesValidasiProfilItem(id, status, nip, dataUsulan) {
+  const catatanInput = document.getElementById('catatanAdmin_' + (id || nip));
+  const catatan = catatanInput ? catatanInput.value.trim() : '';
+
+  if (status === 'REJECTED' && !confirm('Apakah Anda yakin ingin menolak usulan perubahan data pegawai ini?')) {
+    return;
+  }
+  if (status === 'APPROVED' && !confirm('Setujui pengajuan ini dan terapkan perubahan langsung ke data utama pegawai?')) {
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      showToast('success', res.message);
+      loadAdminValidasiProfilList();
+      loadProfilSaya();
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memproses validasi: ' + (err.message || err)))
+    .prosesValidasiPerubahanProfil(SESSION.token, id, status, catatan, nip, dataUsulan);
 }
 
 /* ------------------------- MENU PERUBAHAN STATUS AKUN (Super Admin) ------------------------- */

@@ -296,9 +296,10 @@
             <div class="topbar-profile-divider"></div>
 
             <div class="topbar-user-profile">
-              <div class="user-chip topbar-user-chip" title="Profil Pengguna">
+              <div class="user-chip topbar-user-chip" id="topbarUserChipBtn" onclick="navigateToProfilSaya()" title="Klik untuk membuka Profil Saya" style="cursor:pointer;">
                 <div class="user-avatar-circle">
-                  <span class="material-symbols-outlined">person</span>
+                  <img id="topbarUserAvatarImg" src="" alt="Foto" style="display:none; width:100%; height:100%; border-radius:50%; object-fit:cover;" />
+                  <span id="topbarUserAvatarIcon" class="material-symbols-outlined">person</span>
                 </div>
                 <div class="user-meta-info">
                   <span class="u-name" id="sidebarUserName">-</span>
@@ -1883,10 +1884,10 @@
         </div>
       </div>
 
-        <!-- ============ VIEW: PROFIL SAYA (peran 'normal') ============ -->
-        <div class="view-panel" id="view-profil-saya" style="display:none;">
-          <!-- Restricted Access Banner -->
-          <div class="mecha-border" style="margin-bottom:24px; padding:20px; background:var(--surface-alt); display:flex; align-items:flex-start; gap:16px;">
+        <!-- ============ VIEW: PROFIL SAYA (peran 'normal' & semua peran) ============ -->
+        <div class="view-panel profile-view-wrapper" id="view-profil-saya" style="display:none;">
+          <!-- Restricted Access Banner (khusus normal user) -->
+          <div class="mecha-border profile-glass-card" id="profileRestrictedBanner" style="margin-bottom:24px; padding:20px; background:var(--surface-alt); display:flex; align-items:flex-start; gap:16px;">
             <div style="padding:10px; background:var(--primary-soft); border-radius:8px; color:var(--primary); flex-shrink:0;">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
             </div>
@@ -1911,17 +1912,23 @@
             <!-- Right Column: Avatar Card & Recent Activity -->
             <div style="grid-column: span 4 / span 4; display:flex; flex-direction:column; gap:24px;">
               <!-- Photo Verified Card -->
-              <div class="mecha-border" style="padding:16px; background:var(--surface); text-align:center;">
-                <div style="position:relative; width:100%; aspect-ratio:1/1; background:var(--surface-alt); border-radius:6px; overflow:hidden; display:flex; align-items:center; justify-content:center; margin-bottom:14px; border:1px solid var(--border);">
-                  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                  <div class="label-tech" style="position:absolute; bottom:12px; right:12px; background:var(--primary); color:#fff; padding:4px 8px; border-radius:4px; font-size:10px;">Photo Verified</div>
+              <div class="mecha-border profile-glass-card" style="padding:20px; background:var(--surface); text-align:center;">
+                <div style="position:relative; width:100%; aspect-ratio:1/1; background:var(--surface-alt); border-radius:10px; overflow:hidden; display:flex; align-items:center; justify-content:center; margin-bottom:14px; border:1px solid var(--border);">
+                  <img id="prof_side_avatar_img" src="" alt="Foto Profil" style="display:none; width:100%; height:100%; object-fit:cover;" />
+                  <svg id="prof_side_avatar_svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  <div class="label-tech" style="position:absolute; bottom:10px; right:10px; background:var(--primary); color:#fff; padding:4px 8px; border-radius:4px; font-size:10px; font-weight:700; letter-spacing:0.5px;">PHOTO VERIFIED</div>
                 </div>
                 <div style="font-weight:700; font-size:16px; color:var(--text);" id="prof_side_nama">Pegawai UNDIP</div>
                 <div style="font-size:13px; color:var(--text-muted); margin-top:2px;" id="prof_side_nip">NIP: -</div>
+                
+                <button type="button" class="btn btn-outline" onclick="bukaModalGantiFoto()" style="width:100%; margin-top:14px; font-size:12.5px; padding:8px 12px; gap:6px; font-weight:600;">
+                  <span class="material-symbols-outlined" style="font-size:17px;">photo_camera</span>
+                  <span>Ubah Foto (Google Drive)</span>
+                </button>
               </div>
 
               <!-- Status Timeline Card -->
-              <div class="mecha-border" style="padding:20px; background:var(--surface);">
+              <div class="mecha-border profile-glass-card" style="padding:20px; background:var(--surface);">
                 <div class="label-tech" style="color:var(--primary); margin-bottom:16px;">Aktivitas Terakhir</div>
                 <div style="display:flex; flex-direction:column; gap:18px;">
                   <div style="display:flex; gap:12px; align-items:flex-start;">
@@ -3370,6 +3377,152 @@
         <!-- Flowchart View -->
         <div id="guideFlowchartView" style="display:none;">
           <div id="guideFlowchartContainer"></div>
+        </div>
+      </div>
+    </div>
+  <!-- =================================================================
+       MODALS: PROFIL PENGGUNA (FOTO, PASSWORD, VALIDASI PERUBAHAN DATA)
+       ================================================================= -->
+  <!-- 1. Modal Ganti Foto Profil -->
+  <div id="modalGantiFotoProfil" class="guide-modal-overlay" style="display:none;" onclick="if(event.target===this)tutupModalGantiFoto()">
+    <div class="guide-modal-card" style="max-width:520px;">
+      <div class="guide-modal-header">
+        <h3 class="guide-header-title">📷 Ubah Foto Profil (Google Drive)</h3>
+        <button type="button" class="guide-close-btn" onclick="tutupModalGantiFoto()" title="Tutup">✕</button>
+      </div>
+      <div style="padding:24px;">
+        <div class="field" style="margin-bottom:14px;">
+          <label for="inputFotoGdriveUrl">Link Foto Google Drive atau URL Gambar</label>
+          <input type="text" id="inputFotoGdriveUrl" placeholder="https://drive.google.com/file/d/.../view?usp=sharing" oninput="previewGdrivePhoto(this.value)" />
+        </div>
+        
+        <div style="margin-bottom:16px; padding:12px 14px; background:var(--surface-alt); border-radius:8px; border:1px solid var(--border); font-size:12px; line-height:1.5; color:var(--text-muted);">
+          💡 <strong>Panduan Link Google Drive:</strong>
+          <ol style="margin:6px 0 0 16px; padding:0;">
+            <li>Upload foto ke Google Drive Anda.</li>
+            <li>Klik kanan pada file &gt; <em>Bagikan (Share)</em> &gt; Ubah akses menjadi <strong>Siapa saja yang memiliki link (Anyone with the link)</strong>.</li>
+            <li>Salin link tersebut dan tempelkan di kotak di atas. Foto akan langsung ditampilkan tanpa memakan kuota database Supabase Anda.</li>
+          </ol>
+        </div>
+
+        <!-- Live Preview Box -->
+        <div style="text-align:center; margin-bottom:20px;">
+          <div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:8px;">PREVIEW FOTO</div>
+          <div style="width:130px; height:130px; border-radius:50%; margin:0 auto; overflow:hidden; border:2px dashed var(--border); display:flex; align-items:center; justify-content:center; background:var(--surface-alt); position:relative;">
+            <img id="previewFotoGdriveImg" src="" alt="Preview" style="display:none; width:100%; height:100%; object-fit:cover;" />
+            <span id="previewFotoGdrivePlaceholder" style="font-size:12px; color:var(--text-muted);">Belum ada preview</span>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" class="btn btn-secondary" onclick="tutupModalGantiFoto()">Batal</button>
+          <button type="button" class="btn btn-primary" onclick="simpanFotoProfilGdrive()">💾 Simpan Foto Profil</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Modal Ganti Password -->
+  <div id="modalGantiPasswordProfil" class="guide-modal-overlay" style="display:none;" onclick="if(event.target===this)tutupModalGantiPassword()">
+    <div class="guide-modal-card" style="max-width:480px;">
+      <div class="guide-modal-header">
+        <h3 class="guide-header-title">🔑 Ganti Password Akun</h3>
+        <button type="button" class="guide-close-btn" onclick="tutupModalGantiPassword()" title="Tutup">✕</button>
+      </div>
+      <div style="padding:24px;">
+        <div class="field" style="margin-bottom:14px;">
+          <label for="inputPassLama">Password Saat Ini (Password Lama / NIP 8 Digit)</label>
+          <input type="password" id="inputPassLama" placeholder="Masukkan password saat ini" required />
+        </div>
+        <div class="field" style="margin-bottom:14px;">
+          <label for="inputPassBaru">Password Baru (Minimal 6 Karakter)</label>
+          <input type="password" id="inputPassBaru" placeholder="Masukkan password baru" required />
+        </div>
+        <div class="field" style="margin-bottom:20px;">
+          <label for="inputPassKonfirmasi">Konfirmasi Password Baru</label>
+          <input type="password" id="inputPassKonfirmasi" placeholder="Ulangi password baru" required />
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" class="btn btn-secondary" onclick="tutupModalGantiPassword()">Batal</button>
+          <button type="button" class="btn btn-primary" onclick="simpanPasswordBaruProfil()">Simpan Password</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Modal Ajukan Perubahan Data Profil (Wajib Validasi Admin) -->
+  <div id="modalAjukanPerubahanData" class="guide-modal-overlay" style="display:none;" onclick="if(event.target===this)tutupModalAjukanPerubahanData()">
+    <div class="guide-modal-card" style="max-width:680px; max-height:90vh; overflow-y:auto;">
+      <div class="guide-modal-header">
+        <h3 class="guide-header-title">✏️ Formulir Pengajuan Perubahan Data Profil</h3>
+        <button type="button" class="guide-close-btn" onclick="tutupModalAjukanPerubahanData()" title="Tutup">✕</button>
+      </div>
+      <div style="padding:24px;">
+        <div style="margin-bottom:18px; padding:12px 16px; border-radius:8px; background:rgba(37,99,235,0.08); border:1px solid rgba(37,99,235,0.25); color:var(--text); font-size:12.5px; line-height:1.5;">
+          ℹ️ <strong>Catatan Prosedur Kepegawaian:</strong> Perubahan data personal (nama, gelar, jabatan, unit kerja, golongan) wajib diverifikasi dan disetujui terlebih dahulu oleh <strong>Administrator / Super Administrator DOSDM UNDIP</strong> sebelum diterapkan ke sistem kepegawaian resmi.
+        </div>
+
+        <form id="formAjukanPerubahanData" onsubmit="event.preventDefault(); kirimPengajuanPerubahanData();">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div class="field">
+              <label for="editNamaLengkap">Nama Lengkap (beserta Gelar) <span style="color:#ef4444;">*</span></label>
+              <input type="text" id="editNamaLengkap" required />
+            </div>
+            <div class="field">
+              <label for="editNip">NIP (Username Sistem)</label>
+              <input type="text" id="editNip" readonly style="opacity:0.7; cursor:not-allowed;" />
+            </div>
+            <div class="field">
+              <label for="editUnitKerja">Unit Kerja <span style="color:#ef4444;">*</span></label>
+              <input type="text" id="editUnitKerja" required />
+            </div>
+            <div class="field">
+              <label for="editJabatan">Jabatan Terakhir <span style="color:#ef4444;">*</span></label>
+              <input type="text" id="editJabatan" required />
+            </div>
+            <div class="field">
+              <label for="editGolongan">Pangkat / Golongan</label>
+              <input type="text" id="editGolongan" placeholder="cth. Penata Tk. I / III/d" />
+            </div>
+            <div class="field">
+              <label for="editNoHp">Nomor WhatsApp / HP</label>
+              <input type="text" id="editNoHp" placeholder="cth. 08123456789" />
+            </div>
+          </div>
+
+          <div class="field" style="margin-top:16px;">
+            <label for="editLinkDokumen">Link Dokumen Pendukung (Google Drive)</label>
+            <input type="text" id="editLinkDokumen" placeholder="Link bukti SK / KTP / Ijazah di Google Drive" />
+            <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Lampirkan link dokumen pendukung untuk mempermudah verifikasi berkas oleh verifikator.</div>
+          </div>
+
+          <div class="field" style="margin-top:16px;">
+            <label for="editAlasanPerubahan">Alasan / Keterangan Perubahan Data <span style="color:#ef4444;">*</span></label>
+            <textarea id="editAlasanPerubahan" rows="3" placeholder="Jelaskan alasan dan rincian perubahan data ini..." required style="width:100%; box-sizing:border-box;"></textarea>
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:24px;">
+            <button type="button" class="btn btn-secondary" onclick="tutupModalAjukanPerubahanData()">Batal</button>
+            <button type="submit" class="btn btn-primary">📤 Kirim Pengajuan ke Admin</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Modal Validasi Perubahan Profil untuk Admin & Super Admin -->
+  <div id="modalAdminValidasiProfil" class="guide-modal-overlay" style="display:none;" onclick="if(event.target===this)tutupModalAdminValidasiProfil()">
+    <div class="guide-modal-card" style="max-width:840px; max-height:90vh; overflow-y:auto;">
+      <div class="guide-modal-header">
+        <h3 class="guide-header-title">🛡️ Validasi Usulan Perubahan Data Pegawai</h3>
+        <button type="button" class="guide-close-btn" onclick="tutupModalAdminValidasiProfil()" title="Tutup">✕</button>
+      </div>
+      <div style="padding:24px;">
+        <p style="font-size:13px; color:var(--text-muted); margin:0 0 16px 0;">
+          Daftar permohonan pembaruan data profil yang diajukan oleh pegawai. Tinjau kesesuaian berkas dan alasan sebelum menyetujui.
+        </p>
+        <div id="daftarPengajuanProfilContainer">
+          <div style="text-align:center; padding:32px; color:var(--text-muted);">Memuat daftar pengajuan...</div>
         </div>
       </div>
     </div>

@@ -2845,4 +2845,68 @@
     gap: 12px;
     margin: 6px 0;
   }
+
+  /* =================================================================
+     PROFIL SAYA: PANORAMA BACKGROUND & GLASSMORPHIC PROFILE STYLING
+     ================================================================= */
+  #view-profil-saya.profile-view-wrapper {
+    position: relative;
+    border-radius: 16px;
+    padding: 24px;
+    background-color: #f1f5f9;
+    background-image: 
+      linear-gradient(135deg, rgba(248, 250, 252, 0.88) 0%, rgba(241, 245, 249, 0.84) 50%, rgba(219, 234, 254, 0.90) 100%),
+      url('undip-multi-dome-aerial.png');
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border);
+    transition: background 0.3s ease;
+  }
+
+  body.theme-light #view-profil-saya.profile-view-wrapper {
+    background-image: 
+      linear-gradient(135deg, rgba(248, 250, 252, 0.88) 0%, rgba(241, 245, 249, 0.84) 50%, rgba(219, 234, 254, 0.90) 100%),
+      url('undip-multi-dome-aerial.png');
+  }
+
+  body.theme-dark #view-profil-saya.profile-view-wrapper {
+    background-color: #070a12;
+    background-image: 
+      linear-gradient(135deg, rgba(7, 10, 18, 0.92) 0%, rgba(14, 21, 38, 0.88) 50%, rgba(3, 5, 10, 0.95) 100%),
+      url('undip-multi-dome-aerial.png');
+    border-color: rgba(0, 240, 255, 0.2);
+    box-shadow: 0 0 30px rgba(0, 240, 255, 0.1);
+  }
+
+  /* Glassmorphism Cards inside Profile View */
+  .profile-glass-card {
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08) !important;
+  }
+
+  body.theme-dark .profile-glass-card {
+    background: rgba(14, 21, 38, 0.88) !important;
+    border-color: rgba(0, 240, 255, 0.25) !important;
+    box-shadow: 0 0 25px rgba(0, 240, 255, 0.12), 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  /* Clickable Topbar User Chip */
+  .topbar-user-chip {
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .topbar-user-chip:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+    border-color: var(--primary);
+  }
+  body.theme-dark .topbar-user-chip:hover {
+    border-color: #00f0ff;
+    box-shadow: 0 0 18px rgba(0, 240, 255, 0.35);
+  }
 </style>

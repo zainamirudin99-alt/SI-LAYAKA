@@ -346,6 +346,7 @@ function showApp() {
   const roleLabel = SESSION.user.role ? (SESSION.user.role.toUpperCase().replace(/_/g, ' ')) : '';
   const unitLabel = SESSION.user.unitEsIi ? ` · ${SESSION.user.unitEsIi}` : '';
   document.getElementById('sidebarUserRole').textContent = (SESSION.user.jabatan || SESSION.user.status_kepegawaian || roleLabel) + unitLabel;
+  if (SESSION.user && SESSION.user.foto_url) { updateUserAvatarUI(SESSION.user.foto_url); }
   terapkanBatasanPeran_();
   if (SESSION.user.role !== 'normal') {
     loadTemplateList();
@@ -495,12 +496,96 @@ function terapkanBatasanPeran_() {
   if (viewAktif === 'buat-sk') onEnterBuatSkView();
 }
 
-/** Muat & tampilkan data diri terbatas (peran 'normal'). */
+/** Navigasi langsung ke halaman Profil Saya saat avatar/chip di topbar diklik */
+function navigateToProfilSaya() {
+  document.querySelectorAll('.nav-item[data-view]').forEach(i => i.classList.remove('active'));
+  document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
+  
+  const viewProfil = document.getElementById('view-profil-saya');
+  if (viewProfil) viewProfil.style.display = 'block';
+  
+  const topbarTitle = document.getElementById('topbarTitle');
+  if (topbarTitle) topbarTitle.textContent = 'Profil Saya';
+  
+  const navItem = document.querySelector('.nav-item[data-view="profil-saya"]');
+  if (navItem) navItem.classList.add('active');
+  
+  loadProfilSaya();
+}
+
+/** Helper konversi link Google Drive ke direct viewable URL */
+function convertGoogleDriveUrl(url) {
+  if (!url) return '';
+  const str = String(url).trim();
+  // Format: https://drive.google.com/file/d/FILE_ID/view...
+  const matchFile = str.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (matchFile && matchFile[1]) {
+    return 'https://lh3.googleusercontent.com/d/' + matchFile[1];
+  }
+  // Format: ?id=FILE_ID
+  const matchId = str.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (matchId && matchId[1]) {
+    return 'https://lh3.googleusercontent.com/d/' + matchId[1];
+  }
+  return str;
+}
+
+/** Update avatar display di topbar dan profile card */
+function updateUserAvatarUI(fotoUrl) {
+  const directUrl = convertGoogleDriveUrl(fotoUrl);
+  const topbarImg = document.getElementById('topbarUserAvatarImg');
+  const topbarIcon = document.getElementById('topbarUserAvatarIcon');
+  const sideImg = document.getElementById('prof_side_avatar_img');
+  const sideSvg = document.getElementById('prof_side_avatar_svg');
+
+  if (directUrl) {
+    if (topbarImg) {
+      topbarImg.src = directUrl;
+      topbarImg.style.display = 'block';
+      topbarImg.onerror = () => { topbarImg.style.display = 'none'; if (topbarIcon) topbarIcon.style.display = 'inline-block'; };
+    }
+    if (topbarIcon) topbarIcon.style.display = 'none';
+
+    if (sideImg) {
+      sideImg.src = directUrl;
+      sideImg.style.display = 'block';
+      sideImg.onerror = () => { sideImg.style.display = 'none'; if (sideSvg) sideSvg.style.display = 'block'; };
+    }
+    if (sideSvg) sideSvg.style.display = 'none';
+  } else {
+    if (topbarImg) topbarImg.style.display = 'none';
+    if (topbarIcon) topbarIcon.style.display = 'inline-block';
+    if (sideImg) sideImg.style.display = 'none';
+    if (sideSvg) sideSvg.style.display = 'block';
+  }
+}
+
+/** Global cache profil aktif */
+let currentLoadedProfil = null;
+
+/** Muat & tampilkan data diri pengguna */
 function loadProfilSaya() {
+  const container = document.getElementById('profilSayaContent');
+  if (container) {
+    container.innerHTML = '<div class="profile-glass-card mecha-border" style="padding:40px; text-align:center; color:var(--text-muted);"><div class="spinner" style="margin:0 auto 12px auto;"></div>Memuat data profil Anda...</div>';
+  }
+
+  // Tampilkan / sembunyikan restricted access banner sesuai peran
+  const restrictedBanner = document.getElementById('profileRestrictedBanner');
+  if (restrictedBanner) {
+    const userRole = (SESSION.user && SESSION.user.role) || SESSION.peran || 'normal';
+    restrictedBanner.style.display = (userRole === 'normal') ? 'flex' : 'none';
+  }
+
   google.script.run
     .withSuccessHandler(res => {
       if (!res.success) { showToast('error', res.message); return; }
-      renderProfilSayaView(res.profil || {});
+      currentLoadedProfil = res.profil || {};
+      renderProfilSayaView(currentLoadedProfil);
+      if (currentLoadedProfil.foto_url) {
+        if (SESSION.user) SESSION.user.foto_url = currentLoadedProfil.foto_url;
+        updateUserAvatarUI(currentLoadedProfil.foto_url);
+      }
     })
     .withFailureHandler(err => showToast('error', 'Gagal memuat profil: ' + (err.message || err)))
     .getProfilSaya(SESSION.token);
@@ -520,14 +605,16 @@ function renderProfilSayaView(profil) {
   };
 
   const p = profil || {};
-  const nama = p.nama_lengkap || SESSION.nama || (SESSION.user && SESSION.user.nama_lengkap) || '-';
+  const nama = p.nama_lengkap || SESSION.nama || (SESSION.user && SESSION.user.nama) || '-';
   const nip = p.nip || SESSION.nip || (SESSION.user && SESSION.user.nip) || '-';
-  const unit = p.unit_kerja || SESSION.unit_kerja || (SESSION.user && SESSION.user.unit_kerja) || '-';
-  const jabatan = p.jabatan || SESSION.jabatan || '-';
-  const golongan = p.golongan || SESSION.golongan || '-';
+  const unit = p.unit_kerja || SESSION.unit_kerja || (SESSION.user && SESSION.user.unitKerja) || (SESSION.user && SESSION.user.unitEsIi) || '-';
+  const jabatan = p.jabatan || (SESSION.user && SESSION.user.jabatan) || '-';
+  const golongan = p.golongan || (SESSION.user && SESSION.user.golongan) || '-';
   const pensiun = p.tmt_pensiun_bup || p.tgl_lhr || '-';
-  const statPeg = p.status_kepegawaian || 'Aktif';
-  const statBek = p.status_bekerja || 'Aktif';
+  const statPeg = p.status_kepegawaian || (SESSION.user && SESSION.user.status_kepegawaian) || 'Aktif';
+  const statBek = p.status_bekerja || 'Aktif Bekerja';
+  const roleName = (SESSION.user && SESSION.user.role) || SESSION.peran || 'Normal User';
+  const isAdminOrSuper = ['admin', 'super_admin'].includes((SESSION.user && SESSION.user.role) || SESSION.peran);
 
   const sideNama = document.getElementById('prof_side_nama');
   if (sideNama) sideNama.textContent = nama;
@@ -537,46 +624,79 @@ function renderProfilSayaView(profil) {
   const container = document.getElementById('profilSayaContent');
   if (!container) return;
 
+  // Banner jika ada pengajuan pending
+  let pendingNoticeHtml = '';
+  if (p.pending_perubahan && p.pending_perubahan.status === 'PENDING') {
+    const tglPengajuan = p.pending_perubahan.created_at ? new Date(p.pending_perubahan.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Baru saja';
+    pendingNoticeHtml = `
+      <div style="margin-bottom:20px; padding:16px 20px; border-radius:10px; background:rgba(245, 158, 11, 0.12); border:1px solid rgba(245, 158, 11, 0.35); display:flex; align-items:flex-start; gap:14px;">
+        <span class="material-symbols-outlined" style="color:#f59e0b; font-size:24px; flex-shrink:0;">hourglass_top</span>
+        <div style="flex:1;">
+          <div style="font-weight:700; color:#b45309; font-size:14px; margin-bottom:3px;">Pengajuan Perubahan Data Sedang Ditinjau Admin</div>
+          <div style="font-size:12.5px; color:var(--text); line-height:1.5;">
+            Anda mengajukan perubahan data pada <strong>${escapeHtml(tglPengajuan)}</strong>. Data baru akan otomatis aktif setelah diverifikasi dan disetujui oleh Administrator / Super Administrator DOSDM UNDIP.
+          </div>
+          ${p.pending_perubahan.alasan ? `<div style="font-size:12px; color:var(--text-muted); margin-top:6px; font-style:italic;">Catatan Alasan: "${escapeHtml(p.pending_perubahan.alasan)}"</div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
   container.innerHTML = `
-    <div class="mecha-border" style="padding:28px; background:var(--surface);">
+    <div class="mecha-border profile-glass-card" style="padding:28px;">
+      ${pendingNoticeHtml}
+
       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; flex-wrap:wrap; gap:12px;">
         <div>
-          <div class="label-tech" style="color:var(--primary); margin-bottom:4px;">Identitas Pegawai</div>
+          <div class="label-tech" style="color:var(--primary); margin-bottom:4px; font-weight:700; letter-spacing:1px;">IDENTITAS PEGAWAI</div>
           <h3 style="margin:0; font-family:'Sora',sans-serif; font-size:22px; font-weight:700; color:var(--text);">Data Utama Personal</h3>
         </div>
-        <button type="button" class="btn btn-outline" onclick="alert('Untuk mengajukan perubahan data utama profil, silakan hubungi Subbagian Kepegawaian DOSDM UNDIP dengan membawa dokumen pendukung.');" style="font-size:12px; font-weight:600; padding:6px 14px;">
-          ✏️ Ajukan Perubahan
-        </button>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          <button type="button" class="btn btn-outline" onclick="bukaModalGantiPassword()" style="font-size:12px; font-weight:600; padding:7px 14px; gap:6px;">
+            <span class="material-symbols-outlined" style="font-size:16px;">lock_reset</span>
+            <span>Ganti Password</span>
+          </button>
+          <button type="button" class="btn btn-primary" onclick="bukaModalAjukanPerubahanData()" style="font-size:12px; font-weight:600; padding:7px 14px; gap:6px;">
+            <span class="material-symbols-outlined" style="font-size:16px;">edit</span>
+            <span>Ajukan Perubahan</span>
+          </button>
+          ${isAdminOrSuper ? `
+            <button type="button" class="btn btn-secondary" onclick="bukaModalAdminValidasiProfil()" style="font-size:12px; font-weight:600; padding:7px 14px; gap:6px; border:1px solid var(--primary); color:var(--primary);">
+              <span class="material-symbols-outlined" style="font-size:16px;">verified_user</span>
+              <span>Validasi Usulan Pegawai</span>
+            </button>
+          ` : ''}
+        </div>
       </div>
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px 36px;">
         <div>
-          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">Nama Lengkap</label>
+          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">NAMA LENGKAP</label>
           <p style="margin:0; font-size:16px; font-weight:700; color:var(--text);">${escapeHtml(nama)}</p>
         </div>
         <div>
           <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">NIP / NIK</label>
-          <p style="margin:0; font-size:16px; font-weight:700; color:var(--text);">${escapeHtml(nip)} <span class="badge-auto-fill">(auto-fill)</span></p>
+          <p style="margin:0; font-size:16px; font-weight:700; color:var(--text);">${escapeHtml(nip)} <span class="badge-auto-fill" style="font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(37,99,235,0.15); color:var(--primary); font-weight:600;">(auto-fill)</span></p>
         </div>
         <div>
-          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">Unit Kerja</label>
+          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">UNIT KERJA</label>
           <p style="margin:0; font-size:15px; font-weight:600; color:var(--text);">${escapeHtml(unit)}</p>
         </div>
         <div>
-          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">Jabatan Terakhir</label>
+          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">JABATAN TERAKHIR</label>
           <p style="margin:0; font-size:15px; font-weight:600; color:var(--text);">${escapeHtml(jabatan)}</p>
         </div>
         <div>
-          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">Pangkat / Golongan</label>
+          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">PANGKAT / GOLONGAN</label>
           <p style="margin:0; font-size:15px; font-weight:600; color:var(--text);">${escapeHtml(golongan)}</p>
         </div>
         <div>
-          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">TMT BUP (Pensiun)</label>
+          <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">TMT BUP (PENSIUN)</label>
           <p style="margin:0; font-size:15px; font-weight:600; color:var(--text);">${escapeHtml(pensiun)}</p>
         </div>
-        ${Object.keys(p).filter(k => !['nama_lengkap','nip','unit_kerja','jabatan','golongan','tmt_pensiun_bup','tgl_lhr','status_kepegawaian','status_bekerja'].includes(k)).map(k => `
+        ${Object.keys(p).filter(k => !['nama_lengkap','nip','unit_kerja','jabatan','golongan','tmt_pensiun_bup','tgl_lhr','status_kepegawaian','status_bekerja','foto_url','peran','pending_perubahan','id','created_at','updated_at'].includes(k)).map(k => `
           <div>
-            <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">${escapeHtml(labelMap[k] || k)}</label>
+            <label class="label-tech" style="color:var(--text-muted); display:block; margin-bottom:4px;">${escapeHtml(labelMap[k] || k.toUpperCase())}</label>
             <p style="margin:0; font-size:15px; font-weight:600; color:var(--text);">${escapeHtml(p[k] || '-')}</p>
           </div>
         `).join('')}
@@ -584,21 +704,338 @@ function renderProfilSayaView(profil) {
 
       <!-- Summary Stats Bar -->
       <div style="margin-top:32px; border-top:1px solid var(--border); display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; padding-top:24px;">
-        <div style="background:var(--surface-alt); padding:16px; border-radius:8px; text-align:center;">
-          <div class="label-tech" style="color:var(--text-muted); margin-bottom:4px;">Status Akun</div>
-          <div style="font-family:'Sora',sans-serif; font-size:17px; font-weight:700; color:var(--primary);">${escapeHtml(SESSION.peran || 'Normal User')}</div>
+        <div style="background:var(--surface-alt); padding:16px; border-radius:10px; text-align:center; border:1px solid var(--border);">
+          <div class="label-tech" style="color:var(--text-muted); margin-bottom:4px; font-size:11px;">STATUS AKUN</div>
+          <div style="font-family:'Sora',sans-serif; font-size:16px; font-weight:700; color:var(--primary);">${escapeHtml(roleName.toUpperCase().replace(/_/g, ' '))}</div>
         </div>
-        <div style="background:var(--surface-alt); padding:16px; border-radius:8px; text-align:center;">
-          <div class="label-tech" style="color:var(--text-muted); margin-bottom:4px;">Status Kepegawaian</div>
-          <div style="font-family:'Sora',sans-serif; font-size:17px; font-weight:700; color:var(--primary);">${escapeHtml(statPeg)}</div>
+        <div style="background:var(--surface-alt); padding:16px; border-radius:10px; text-align:center; border:1px solid var(--border);">
+          <div class="label-tech" style="color:var(--text-muted); margin-bottom:4px; font-size:11px;">STATUS KEPEGAWAIAN</div>
+          <div style="font-family:'Sora',sans-serif; font-size:16px; font-weight:700; color:var(--primary);">${escapeHtml(statPeg)}</div>
         </div>
-        <div style="background:var(--surface-alt); padding:16px; border-radius:8px; text-align:center;">
-          <div class="label-tech" style="color:var(--text-muted); margin-bottom:4px;">Status Bekerja</div>
-          <div style="font-family:'Sora',sans-serif; font-size:17px; font-weight:700; color:var(--primary);">${escapeHtml(statBek)}</div>
+        <div style="background:var(--surface-alt); padding:16px; border-radius:10px; text-align:center; border:1px solid var(--border);">
+          <div class="label-tech" style="color:var(--text-muted); margin-bottom:4px; font-size:11px;">STATUS BEKERJA</div>
+          <div style="font-family:'Sora',sans-serif; font-size:16px; font-weight:700; color:var(--primary);">${escapeHtml(statBek)}</div>
         </div>
       </div>
     </div>
   `;
+}
+
+/** ---------------- MODAL 1: GANTI FOTO VIA GOOGLE DRIVE ---------------- */
+function bukaModalGantiFoto() {
+  const modal = document.getElementById('modalGantiFotoProfil');
+  if (!modal) return;
+  const input = document.getElementById('inputLinkFotoGdrive');
+  const preview = document.getElementById('previewFotoGdriveImg');
+  const placeholder = document.getElementById('previewFotoGdrivePlaceholder');
+  
+  if (currentLoadedProfil && currentLoadedProfil.foto_url) {
+    if (input) input.value = currentLoadedProfil.foto_url;
+    if (preview) {
+      preview.src = convertGoogleDriveUrl(currentLoadedProfil.foto_url);
+      preview.style.display = 'block';
+    }
+    if (placeholder) placeholder.style.display = 'none';
+  } else {
+    if (input) input.value = '';
+    if (preview) { preview.src = ''; preview.style.display = 'none'; }
+    if (placeholder) placeholder.style.display = 'block';
+  }
+  modal.style.display = 'flex';
+}
+
+function tutupModalGantiFoto() {
+  const modal = document.getElementById('modalGantiFotoProfil');
+  if (modal) modal.style.display = 'none';
+}
+
+function previewGdrivePhoto() {
+  const input = document.getElementById('inputLinkFotoGdrive');
+  const preview = document.getElementById('previewFotoGdriveImg');
+  const placeholder = document.getElementById('previewFotoGdrivePlaceholder');
+  const rawUrl = input ? input.value.trim() : '';
+
+  if (!rawUrl) {
+    if (preview) preview.style.display = 'none';
+    if (placeholder) placeholder.style.display = 'block';
+    return;
+  }
+
+  const directUrl = convertGoogleDriveUrl(rawUrl);
+  if (preview) {
+    preview.src = directUrl;
+    preview.onload = () => {
+      preview.style.display = 'block';
+      if (placeholder) placeholder.style.display = 'none';
+    };
+    preview.onerror = () => {
+      preview.style.display = 'none';
+      if (placeholder) {
+        placeholder.textContent = 'Gagal memuat link foto. Pastikan link dapat diakses publik.';
+        placeholder.style.display = 'block';
+      }
+    };
+  }
+}
+
+function simpanFotoProfilGdrive() {
+  const input = document.getElementById('inputLinkFotoGdrive');
+  const url = input ? input.value.trim() : '';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      showToast('success', res.message || 'Foto profil berhasil disimpan.');
+      if (currentLoadedProfil) currentLoadedProfil.foto_url = res.foto_url;
+      if (SESSION.user) SESSION.user.foto_url = res.foto_url;
+      updateUserAvatarUI(res.foto_url);
+      tutupModalGantiFoto();
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal menyimpan foto: ' + (err.message || err)))
+    .updateFotoProfil(SESSION.token, url);
+}
+
+/** ---------------- MODAL 2: GANTI PASSWORD ---------------- */
+function bukaModalGantiPassword() {
+  const modal = document.getElementById('modalGantiPasswordProfil');
+  if (!modal) return;
+  const inOld = document.getElementById('inputPassLama');
+  const inNew = document.getElementById('inputPassBaru');
+  const inConf = document.getElementById('inputPassKonfirmasi');
+  if (inOld) inOld.value = '';
+  if (inNew) inNew.value = '';
+  if (inConf) inConf.value = '';
+  modal.style.display = 'flex';
+}
+
+function tutupModalGantiPassword() {
+  const modal = document.getElementById('modalGantiPasswordProfil');
+  if (modal) modal.style.display = 'none';
+}
+
+function simpanPasswordBaruProfil() {
+  const inOld = document.getElementById('inputPassLama');
+  const inNew = document.getElementById('inputPassBaru');
+  const inConf = document.getElementById('inputPassKonfirmasi');
+
+  const oldPass = inOld ? inOld.value.trim() : '';
+  const newPass = inNew ? inNew.value.trim() : '';
+  const confPass = inConf ? inConf.value.trim() : '';
+
+  if (!oldPass) { showToast('warning', 'Masukkan password saat ini.'); return; }
+  if (!newPass || newPass.length < 6) { showToast('warning', 'Password baru minimal 6 karakter.'); return; }
+  if (newPass !== confPass) { showToast('warning', 'Konfirmasi password baru tidak cocok.'); return; }
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      showToast('success', res.message);
+      tutupModalGantiPassword();
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal mengganti password: ' + (err.message || err)))
+    .gantiPasswordProfil(SESSION.token, oldPass, newPass);
+}
+
+/** ---------------- MODAL 3: AJUKAN PERUBAHAN DATA ---------------- */
+function bukaModalAjukanPerubahanData() {
+  const modal = document.getElementById('modalAjukanPerubahanData');
+  if (!modal) return;
+  
+  const p = currentLoadedProfil || {};
+  const nama = p.nama_lengkap || SESSION.nama || (SESSION.user && SESSION.user.nama) || '';
+  const nip = p.nip || SESSION.nip || (SESSION.user && SESSION.user.nip) || '';
+  const unit = p.unit_kerja || SESSION.unit_kerja || (SESSION.user && SESSION.user.unitKerja) || (SESSION.user && SESSION.user.unitEsIi) || '';
+  const jabatan = p.jabatan || (SESSION.user && SESSION.user.jabatan) || '';
+  const golongan = p.golongan || (SESSION.user && SESSION.user.golongan) || '';
+  const noHp = p.no_hp || '';
+
+  const elNama = document.getElementById('editNamaLengkap');
+  const elNip = document.getElementById('editNip');
+  const elUnit = document.getElementById('editUnitKerja');
+  const elJab = document.getElementById('editJabatan');
+  const elGol = document.getElementById('editGolongan');
+  const elHp = document.getElementById('editNoHp');
+  const elDoc = document.getElementById('editLinkDokumen');
+  const elAlasan = document.getElementById('editAlasanPerubahan');
+
+  if (elNama) elNama.value = nama;
+  if (elNip) elNip.value = nip;
+  if (elUnit) elUnit.value = unit;
+  if (elJab) elJab.value = jabatan;
+  if (elGol) elGol.value = golongan;
+  if (elHp) elHp.value = noHp;
+  if (elDoc) elDoc.value = '';
+  if (elAlasan) elAlasan.value = '';
+
+  modal.style.display = 'flex';
+}
+
+function tutupModalAjukanPerubahanData() {
+  const modal = document.getElementById('modalAjukanPerubahanData');
+  if (modal) modal.style.display = 'none';
+}
+
+function kirimPengajuanPerubahanData() {
+  const elNama = document.getElementById('editNamaLengkap');
+  const elUnit = document.getElementById('editUnitKerja');
+  const elJab = document.getElementById('editJabatan');
+  const elGol = document.getElementById('editGolongan');
+  const elHp = document.getElementById('editNoHp');
+  const elDoc = document.getElementById('editLinkDokumen');
+  const elAlasan = document.getElementById('editAlasanPerubahan');
+
+  const dataUsulan = {
+    nama_lengkap: elNama ? elNama.value.trim() : '',
+    unit_kerja: elUnit ? elUnit.value.trim() : '',
+    jabatan: elJab ? elJab.value.trim() : '',
+    golongan: elGol ? elGol.value.trim() : '',
+    no_hp: elHp ? elHp.value.trim() : ''
+  };
+  const alasan = elAlasan ? elAlasan.value.trim() : '';
+  const linkDokumen = elDoc ? elDoc.value.trim() : '';
+
+  if (!dataUsulan.nama_lengkap || !dataUsulan.unit_kerja || !dataUsulan.jabatan) {
+    showToast('warning', 'Nama lengkap, unit kerja, dan jabatan wajib diisi.');
+    return;
+  }
+  if (!alasan) {
+    showToast('warning', 'Alasan pengajuan perubahan data wajib diisi.');
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      showToast('success', res.message);
+      tutupModalAjukanPerubahanData();
+      loadProfilSaya();
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal mengirim pengajuan: ' + (err.message || err)))
+    .ajukanPerubahanDataProfil(SESSION.token, dataUsulan, alasan, linkDokumen);
+}
+
+/** ---------------- MODAL 4: ADMIN / SUPER ADMIN VALIDASI PROFIL ---------------- */
+function bukaModalAdminValidasiProfil() {
+  const modal = document.getElementById('modalAdminValidasiProfil');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  loadAdminValidasiProfilList();
+}
+
+function tutupModalAdminValidasiProfil() {
+  const modal = document.getElementById('modalAdminValidasiProfil');
+  if (modal) modal.style.display = 'none';
+}
+
+function loadAdminValidasiProfilList() {
+  const container = document.getElementById('daftarPengajuanProfilContainer');
+  if (!container) return;
+  container.innerHTML = '<div style="text-align:center; padding:32px; color:var(--text-muted);"><div class="spinner" style="margin:0 auto 12px auto;"></div>Memuat daftar pengajuan pegawai...</div>';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { container.innerHTML = `<div class="ce-dashboard-card cdc-empty">${escapeHtml(res.message)}</div>`; return; }
+      renderAdminValidasiProfilList(res.daftar || []);
+    })
+    .withFailureHandler(err => {
+      container.innerHTML = `<div class="ce-dashboard-card cdc-empty">Gagal memuat: ${escapeHtml(err.message || err)}</div>`;
+    })
+    .getDaftarPengajuanPerubahanProfil(SESSION.token);
+}
+
+function renderAdminValidasiProfilList(daftar) {
+  const container = document.getElementById('daftarPengajuanProfilContainer');
+  if (!container) return;
+
+  if (!daftar || daftar.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center; padding:40px 20px; background:var(--surface-alt); border-radius:10px; border:1px dashed var(--border);">
+        <span class="material-symbols-outlined" style="font-size:42px; color:var(--text-muted); opacity:0.6;">task_alt</span>
+        <div style="font-size:15px; font-weight:700; color:var(--text); margin-top:8px;">Semua Beres!</div>
+        <div style="font-size:13px; color:var(--text-muted); margin-top:4px;">Tidak ada usulan perubahan profil yang perlu divalidasi saat ini.</div>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = daftar.map(item => {
+    const isPending = item.status === 'PENDING';
+    const statusColor = isPending ? '#f59e0b' : (item.status === 'APPROVED' ? '#10b981' : '#ef4444');
+    const u = item.data_usulan || {};
+    const tgl = item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+
+    return `
+      <div class="mecha-border" style="padding:20px; margin-bottom:16px; background:var(--surface); border-radius:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <div>
+            <div style="font-weight:700; font-size:16px; color:var(--text);">${escapeHtml(item.nama || u.nama_lengkap || '-')}</div>
+            <div style="font-size:12.5px; color:var(--text-muted);">NIP: ${escapeHtml(item.nip || '-')} · Diajukan: ${escapeHtml(tgl)}</div>
+          </div>
+          <span style="font-size:11px; font-weight:700; padding:4px 10px; border-radius:6px; background:${statusColor}22; color:${statusColor}; border:1px solid ${statusColor}44;">
+            ${escapeHtml(item.status)}
+          </span>
+        </div>
+
+        <!-- Detail Data Usulan -->
+        <div style="background:var(--surface-alt); padding:14px; border-radius:8px; margin-bottom:12px; font-size:13px; display:grid; grid-template-columns:1fr 1fr; gap:10px 16px;">
+          <div><strong style="color:var(--text-muted);">Nama Usulan:</strong> <span style="font-weight:600; color:var(--text);">${escapeHtml(u.nama_lengkap || '-')}</span></div>
+          <div><strong style="color:var(--text-muted);">Unit Kerja:</strong> <span style="font-weight:600; color:var(--text);">${escapeHtml(u.unit_kerja || '-')}</span></div>
+          <div><strong style="color:var(--text-muted);">Jabatan:</strong> <span style="font-weight:600; color:var(--text);">${escapeHtml(u.jabatan || '-')}</span></div>
+          <div><strong style="color:var(--text-muted);">Golongan:</strong> <span style="font-weight:600; color:var(--text);">${escapeHtml(u.golongan || '-')}</span></div>
+          <div><strong style="color:var(--text-muted);">No HP / WA:</strong> <span style="font-weight:600; color:var(--text);">${escapeHtml(u.no_hp || '-')}</span></div>
+          <div>
+            <strong style="color:var(--text-muted);">Dokumen Pendukung:</strong> 
+            ${item.link_dokumen ? `<a href="${escapeHtml(item.link_dokumen)}" target="_blank" rel="noopener" style="color:var(--primary); font-weight:600; text-decoration:underline;">Lihat Google Drive ↗</a>` : '<span style="color:var(--text-muted);">-</span>'}
+          </div>
+        </div>
+
+        <div style="font-size:13px; color:var(--text); margin-bottom:14px; line-height:1.5;">
+          <strong>Alasan Perubahan:</strong> <em>"${escapeHtml(item.alasan || '-')}"</em>
+        </div>
+
+        ${isPending ? `
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-top:1px solid var(--border); padding-top:12px;">
+            <input type="text" id="catatanAdmin_${escapeHtml(item.id || item.nip)}" placeholder="Catatan verifikator (opsional)..." style="flex:1; min-width:200px; padding:6px 12px; font-size:12.5px; border-radius:6px; border:1px solid var(--border); background:var(--surface);" />
+            <div style="display:flex; gap:8px;">
+              <button type="button" class="btn btn-secondary" onclick="prosesValidasiProfilItem('${escapeHtml(item.id || '')}', 'REJECTED', '${escapeHtml(item.nip || '')}', null)" style="font-size:12px; padding:6px 14px; color:#ef4444; border-color:#ef4444;">
+                ✕ Tolak Usulan
+              </button>
+              <button type="button" class="btn btn-primary" onclick='prosesValidasiProfilItem("${escapeHtml(item.id || '')}", "APPROVED", "${escapeHtml(item.nip || '')}", ${JSON.stringify(u)})' style="font-size:12px; padding:6px 14px; background:#10b981; border-color:#10b981;">
+                ✓ Setujui & Terapkan Data
+              </button>
+            </div>
+          </div>
+        ` : `
+          <div style="font-size:12px; color:var(--text-muted); border-top:1px solid var(--border); padding-top:8px;">
+            Ditinjau oleh verifikator: <strong>${escapeHtml(item.reviewed_by || '-')}</strong> pada ${escapeHtml(item.reviewed_at ? new Date(item.reviewed_at).toLocaleDateString('id-ID') : '-')}
+            ${item.catatan_admin ? ` | Catatan: "${escapeHtml(item.catatan_admin)}"` : ''}
+          </div>
+        `}
+      </div>
+    `;
+  }).join('');
+}
+
+function prosesValidasiProfilItem(id, status, nip, dataUsulan) {
+  const catatanInput = document.getElementById('catatanAdmin_' + (id || nip));
+  const catatan = catatanInput ? catatanInput.value.trim() : '';
+
+  if (status === 'REJECTED' && !confirm('Apakah Anda yakin ingin menolak usulan perubahan data pegawai ini?')) {
+    return;
+  }
+  if (status === 'APPROVED' && !confirm('Setujui pengajuan ini dan terapkan perubahan langsung ke data utama pegawai?')) {
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res.success) { showToast('error', res.message); return; }
+      showToast('success', res.message);
+      loadAdminValidasiProfilList();
+      loadProfilSaya();
+    })
+    .withFailureHandler(err => showToast('error', 'Gagal memproses validasi: ' + (err.message || err)))
+    .prosesValidasiPerubahanProfil(SESSION.token, id, status, catatan, nip, dataUsulan);
 }
 
 /* ------------------------- MENU PERUBAHAN STATUS AKUN (Super Admin) ------------------------- */
