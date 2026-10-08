@@ -5821,9 +5821,7 @@ const methods = {
 
   async getCheckKgbList(args) {
     const [token] = extractArgs(args);
-    try {
-      verifyToken(token);
-    } catch (_) {}
+    requireRole(token, ['admin', 'super_admin']);
 
     const db = getDb();
     let { data, error } = await db.from('usulan_kp').select('*').order('tanggal_diajukan', { ascending: false });

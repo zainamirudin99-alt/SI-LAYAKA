@@ -3207,7 +3207,7 @@
         <div class="nav-item active" data-view="kenaikan-pangkat" data-title="Kenaikan Pangkat">
           📈 Kenaikan Pangkat
         </div>
-        <div class="nav-item" data-view="check-kgb" data-title="Check KGB" id="navCheckKgb">
+        <div class="nav-item" data-view="check-kgb" data-title="Check KGB" id="navCheckKgb" style="display:none;">
           💵 Check KGB
         </div>
         <div class="nav-item" data-view="pensiun" data-title="Pensiun">
@@ -3999,10 +3999,6 @@
                 </p>
               </div>
               <div style="display:flex; gap:10px;">
-                <button type="button" class="btn btn-outline" onclick="openAppGuideModal()" style="font-size:12.5px; padding:8px 14px; gap:6px;" title="Panduan & Alur KGB">
-                  <span class="material-symbols-outlined" style="font-size:18px;">menu_book</span>
-                  <span>Alur &amp; Panduan</span>
-                </button>
                 <button type="button" class="btn btn-outline" onclick="exportCheckKgbToCsv()" style="font-size:12.5px; padding:8px 14px; gap:6px;">
                   <span class="material-symbols-outlined" style="font-size:18px;">download</span>
                   <span>Export CSV</span>
@@ -7226,13 +7222,13 @@ function terapkanBatasanPeran_() {
       });
   } else {
     if (navKP) navKP.style.display = 'flex';
-    if (navKgb) navKgb.style.display = 'flex';
     if (navPensiun) navPensiun.style.display = 'flex';
     if (navKontrak) navKontrak.style.display = 'flex';
     if (['user', 'admin', 'super_admin'].includes(role) && navPmk) navPmk.style.display = 'flex';
     if (['user', 'admin', 'super_admin'].includes(role) && navBuatSk) navBuatSk.style.display = 'flex';
     if (navLainnya) navLainnya.style.display = 'flex';
     if (role === 'admin' || role === 'super_admin') {
+      if (navKgb) navKgb.style.display = 'flex';
       if (navTemplate) navTemplate.style.display = 'flex';
     }
     if (role === 'super_admin' && navPeranAkun) {
@@ -8142,6 +8138,11 @@ function parsePnsNipKgb(nipRaw) {
 }
 
 async function loadCheckKgbData(forceRefresh = false) {
+  const curRole = (SESSION && SESSION.user && SESSION.user.role) ? SESSION.user.role : '';
+  if (curRole !== 'admin' && curRole !== 'super_admin') {
+    showToast('error', 'Akses ditolak: Menu Check KGB hanya untuk Admin dan Super Admin.');
+    return;
+  }
   if (kgbIsLoading) return;
   kgbIsLoading = true;
 
@@ -8544,6 +8545,10 @@ function bindSidebarNav() {
       const view = item.getAttribute('data-view');
       if (view === 'lainnya') {
         showToast('info', 'postpone');
+        return;
+      }
+      if (view === 'check-kgb' && (!SESSION.user || (SESSION.user.role !== 'admin' && SESSION.user.role !== 'super_admin'))) {
+        showToast('error', 'Menu Check KGB hanya dapat diakses oleh Admin dan Super Admin.');
         return;
       }
       document.querySelectorAll('.nav-item[data-view]').forEach(i => i.classList.remove('active'));
@@ -27899,63 +27904,93 @@ const GUIDE_REGISTRY = {
       subMenus: {
         "tab-checkKgb": {
           title: "Daftar & Filter Check KGB",
-          roles: ["user", "admin", "super_admin"],
+          roles: ["admin", "super_admin"],
           defaultRole: "admin",
           roleGuides: {
-            user: {
-              badge: "Sebagai Pegawai / Pengusul",
+            admin: {
+              badge: "Sebagai Admin Verifikator OSDM",
               steps: [
                 {
-                  title: "1. Akses Menu Check KGB",
-                  desc: "Buka menu Check KGB pada sidebar kiri di bawah Kenaikan Pangkat untuk memeriksa dan memantau usulan kenaikan gaji berkala."
+                  title: "1. Akses & Monitoring Dashboard KGB",
+                  desc: "Buka menu Check KGB pada sidebar kiri. Periksa 5 kartu metrik ringkasan untuk memantau total usulan masuk, jumlah pegawai PNS (NIP 18 digit), perbandingan tahun pengangkatan ganjil vs genap, dan total data yang sesuai dengan filter aktif."
                 },
                 {
-                  title: "2. Cari Pegawai Berdasarkan Nama / NIP",
-                  desc: "Ketik nama lengkap atau nomor NIP 18 digit pada kotak pencarian untuk menemukan data usulan secara instan."
+                  title: "2. Penentuan Siklus 2 Tahunan & Paritas Tahun",
+                  desc: "Kenaikan Gaji Berkala (KGB) PNS diproses setiap 2 tahun sekali. Sesuaikan filter 'Tahun Pengangkatan' dengan tahun kalender berjalan: pilih 'Tahun Ganjil' pada tahun ganjil (seperti 2025, 2027) atau 'Tahun Genap' pada tahun genap (seperti 2024, 2026)."
                 },
                 {
-                  title: "3. Periksa Digit 9–14 NIP PNS",
-                  desc: "Sistem otomatis mengekstrak Digit 9–12 sebagai Tahun Pengangkatan CPNS dan Digit 13–14 sebagai Bulan Pengangkatan CPNS (format standar BKN 18 Digit)."
+                  title: "3. Penyaringan Bulan Jatuh Tempo KGB (01–12)",
+                  desc: "Pilih dropdown 'Bulan Pengangkatan' (Digit 13–14 NIP) sesuai target bulan TMT pelaksanaan KGB pegawai (01 = Januari hingga 12 = Desember) untuk mengelompokkan pegawai yang jatuh tempo pada bulan tersebut."
                 },
                 {
-                  title: "4. Saring Periode TMT, Tahun & Bulan",
-                  desc: "Gunakan filter dropdown 'Periode TMT Usulan KP', 'Tahun Pengangkatan (Ganjil/Genap)', dan 'Bulan Pengangkatan (01–12)' untuk mengelompokkan giliran KGB pegawai."
+                  title: "4. Filter Multi-Kriteria & Pencarian Cepat",
+                  desc: "Gunakan kotak pencarian Nama atau NIP untuk menemukan pegawai secara langsung. Padukan dengan filter Jenis Pegawai (Dosen/Tendik), Status Kepegawaian (PNS/PPPK), dan Periode TMT Usulan untuk menyaring daftar target."
+                },
+                {
+                  title: "5. Validasi Visual Digit 9–14 NIP PNS",
+                  desc: "Periksa tabel daftar usulan. Kolom NIP menampilkan penanda visual khusus pada Digit 9–14 (Digit 9–12: Tahun CPNS, Digit 13–14: Bulan CPNS) untuk memudahkan verifikasi keabsahan format NIP 18 digit dan perhitungan masa kerja."
+                },
+                {
+                  title: "6. Ekspor Rekapitulasi Data (Export CSV)",
+                  desc: "Klik tombol 'Export CSV' pada bagian atas tabel untuk mengunduh rekap data pegawai yang telah lolos penyaringan dalam format file spreadsheet (.csv) siap pakai untuk penyusunan SK KGB."
+                },
+                {
+                  title: "7. Pembaruan Data Real-Time (Refresh Data)",
+                  desc: "Klik tombol 'Refresh Data' sewaktu-waktu untuk memperbarui dan menyinkronkan data usulan terbaru langsung dari basis data server kepegawaian."
                 }
               ],
-              tips: "KGB PNS diproses berkala setiap 2 tahun sekali. Pengelompokan tahun pengangkatan ganjil vs genap mempermudah penentuan jadwal usulan KGB pada tahun berjalan.",
+              tips: "KGB PNS diproses berkala setiap 2 tahun sekali. Ekstraksi otomatis Digit 9–14 pada NIP 18 digit memudahkan verifikator memetakan jadwal berkala pegawai secara tepat tanpa perlu menghitung masa kerja manual.",
               flowchart: [
-                { id: 1, type: "start", icon: "💵", title: "Akses Check KGB", desc: "Membuka tabel data usulan untuk verifikasi KGB" },
-                { id: 2, type: "process", icon: "🔍", title: "Cari Nama / NIP", desc: "Gunakan pencarian nama atau NIP 18 digit" },
-                { id: 3, type: "process", icon: "🏷️", title: "Pilih Filter TMT, Paritas & Bulan", desc: "Filter periode TMT, tahun ganjil/genap, & bulan 01–12" },
-                { id: 4, type: "end", icon: "📋", title: "Daftar KGB Terfilter Tampil", desc: "Tabel menampilkan pegawai yang memenuhi kriteria KGB" }
+                { id: 1, type: "start", icon: "💵", title: "Akses Menu Check KGB", desc: "Buka menu Check KGB melalui sidebar kiri admin" },
+                { id: 2, type: "process", icon: "📊", title: "Tinjau Metrik Ringkasan", desc: "Periksa total usulan, NIP valid 18 digit, dan rasio ganjil/genap" },
+                { id: 3, type: "decision", icon: "⚖️", title: "Tentukan Siklus & Paritas Tahun", desc: "Pilih paritas tahun pengangkatan sesuai tahun kalender berjalan",
+                  branches: [
+                    { label: "Tahun Ganjil", desc: "Untuk pemrosesan KGB pada tahun kalender ganjil (2025, 2027, ...)" },
+                    { label: "Tahun Genap", desc: "Untuk pemrosesan KGB pada tahun kalender genap (2024, 2026, ...)" }
+                  ]
+                },
+                { id: 4, type: "process", icon: "📅", title: "Filter Bulan & Kriteria Tambahan", desc: "Saring bulan jatuh tempo (01–12), jenis pegawai, status, dan TMT" },
+                { id: 5, type: "process", icon: "🔍", title: "Verifikasi Visual Digit 9–14 NIP", desc: "Audit visual penanda NIP 18 digit dan kesesuaian data usulan" },
+                { id: 6, type: "process", icon: "📥", title: "Ekspor Hasil ke CSV", desc: "Unduh file rekapitulasi data usulan terverifikasi" },
+                { id: 7, type: "end", icon: "✅", title: "Selesai", desc: "Daftar pegawai siap diproses ke naskah SK KGB" }
               ]
             },
-            admin: {
-              badge: "Sebagai Admin Verifikator DOSDM",
+            super_admin: {
+              badge: "Sebagai Super Admin Kepegawaian",
               steps: [
                 {
-                  title: "1. Monitoring Usulan KGB Berkala",
-                  desc: "Admin dan Super Admin dapat memantau seluruh usulan kenaikan gaji berkala dari usulan masuk kenaikan pangkat pegawai."
+                  title: "1. Pengawasan & Supervisi Siklus KGB",
+                  desc: "Super Admin memantau kepatuhan pemrosesan KGB di seluruh fakultas, direktorat, dan unit kerja universitas melalui dashboard Check KGB."
                 },
                 {
-                  title: "2. Filter Multi-Kriteria Lengkap",
-                  desc: "Kombinasikan filter Periode TMT Usulan KP, Jenis Pegawai (Dosen/Tendik), Status Kepegawaian (PNS/PPPK), Paritas Tahun Pengangkatan (Ganjil/Genap), dan Bulan Pengangkatan (01–12)."
+                  title: "2. Audit Format NIP 18 Digit & Deteksi Anomali",
+                  desc: "Bandingkan metrik Pegawai PNS (NIP 18 Digit) dengan Total Usulan Masuk. Jika ditemukan selisih, identifikasi pegawai berformat NIP non-standar untuk sinkronisasi database induk."
                 },
                 {
-                  title: "3. Analisis Visual Digit 9–14 NIP",
-                  desc: "Kolom NIP dilengkapi penanda visual biru khusus pada Digit 9–14 untuk mempermudah audit kesesuaian tahun dan bulan pengangkatan CPNS."
+                  title: "3. Analisis Beban Anggaran & Siklus 2 Tahunan",
+                  desc: "Gunakan komparasi rasio pengangkatan tahun ganjil vs genap untuk memproyeksikan beban kerja verifikasi dan estimasi kenaikan alokasi anggaran gaji berkala universitas."
                 },
                 {
-                  title: "4. Ekspor Data ke CSV / Excel",
-                  desc: "Klik tombol 'Export CSV' di pojok kanan atas untuk mengunduh rekapitulasi data pegawai usulan KGB yang telah disaring untuk laporan resmi kepegawaian."
+                  title: "4. Filter Komprehensif Lintas Unit & Multi-Status",
+                  desc: "Kombinasikan seluruh opsi filter (Status Kepegawaian, Jenis Pegawai, Periode TMT, Paritas Tahun, dan Bulan) untuk audit kepegawaian mendalam di setiap unit kerja."
+                },
+                {
+                  title: "5. Ekspor Master Data & Rekonsiliasi Penggajian",
+                  desc: "Unduh rekapitulasi CSV master untuk rekonsiliasi berkala dengan bagian keuangan/penggajian serta arsip resmi kepegawaian universitas."
+                },
+                {
+                  title: "6. Sinkronisasi Data Real-Time",
+                  desc: "Gunakan tombol 'Refresh Data' untuk memperbarui dan memastikan integritas data usulan langsung dari database server."
                 }
               ],
-              tips: "Pastikan nomor NIP berformat 18 digit standar BKN agar sistem dapat melakukan ekstraksi otomatis tahun dan bulan pengangkatan tanpa kendala.",
+              tips: "Pastikan seluruh data NIP PNS pada database utama berformat 18 digit standar BKN agar sistem parsing Digit 9–14 mengidentifikasi tahun dan bulan pengangkatan CPNS secara otomatis.",
               flowchart: [
-                { id: 1, type: "start", icon: "🛡️", title: "Dashboard KGB Admin", desc: "Monitoring usulan masuk dan jadwal KGB" },
-                { id: 2, type: "process", icon: "📊", title: "Terapkan Filter Komprehensif", desc: "Filter periode TMT, status, tahun ganjil/genap, & bulan" },
-                { id: 3, type: "process", icon: "📥", title: "Ekspor Rekap CSV", desc: "Unduh file CSV untuk pelaporan & arsip" },
-                { id: 4, type: "end", icon: "✅", title: "Selesai", desc: "Validasi KGB tuntas" }
+                { id: 1, type: "start", icon: "⚡", title: "Supervisi Modul Check KGB", desc: "Monitoring menyeluruh usulan KGB lintas unit kerja universitas" },
+                { id: 2, type: "process", icon: "🛡️", title: "Audit Integritas Format NIP", desc: "Pemeriksaan validitas NIP 18 digit dan deteksi anomali data" },
+                { id: 3, type: "process", icon: "📊", title: "Analisis Distribusi Siklus", desc: "Evaluasi rasio beban tahun ganjil/genap untuk perencanaan" },
+                { id: 4, type: "process", icon: "🔍", title: "Penyaringan Multi-Dimensi", desc: "Filter komprehensif status, unit kerja, tahun, dan bulan" },
+                { id: 5, type: "process", icon: "🔄", title: "Sinkronisasi Data Real-Time", desc: "Penyelarasan data usulan mutakhir dari database server" },
+                { id: 6, type: "end", icon: "📑", title: "Ekspor Master Data CSV", desc: "Penerbitan rekapitulasi resmi untuk audit dan tindak lanjut SK KGB" }
               ]
             }
           }
@@ -28122,9 +28157,11 @@ function detectCurrentActiveGuideContext() {
       activeRoleKey = "user";
     }
   } else {
-    // Admin & Super Admin: gunakan role 'admin' jika ada, atau fallback ke role pertama
+    // Admin & Super Admin: sesuaikan peran aktif atau fallback
     if (activeSubConfig && activeSubConfig.roleGuides) {
-      if (activeSubConfig.roleGuides["admin"]) {
+      if (SESSION && SESSION.user && SESSION.user.role === 'super_admin' && activeSubConfig.roleGuides['super_admin']) {
+        activeRoleKey = 'super_admin';
+      } else if (activeSubConfig.roleGuides["admin"]) {
         activeRoleKey = "admin";
       } else {
         activeRoleKey = Object.keys(activeSubConfig.roleGuides)[0];

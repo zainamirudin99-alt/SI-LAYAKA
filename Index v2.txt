@@ -245,7 +245,7 @@
         <div class="nav-item active" data-view="kenaikan-pangkat" data-title="Kenaikan Pangkat">
           📈 Kenaikan Pangkat
         </div>
-        <div class="nav-item" data-view="check-kgb" data-title="Check KGB" id="navCheckKgb">
+        <div class="nav-item" data-view="check-kgb" data-title="Check KGB" id="navCheckKgb" style="display:none;">
           💵 Check KGB
         </div>
         <div class="nav-item" data-view="pensiun" data-title="Pensiun">
@@ -1037,10 +1037,6 @@
                 </p>
               </div>
               <div style="display:flex; gap:10px;">
-                <button type="button" class="btn btn-outline" onclick="openAppGuideModal()" style="font-size:12.5px; padding:8px 14px; gap:6px;" title="Panduan & Alur KGB">
-                  <span class="material-symbols-outlined" style="font-size:18px;">menu_book</span>
-                  <span>Alur &amp; Panduan</span>
-                </button>
                 <button type="button" class="btn btn-outline" onclick="exportCheckKgbToCsv()" style="font-size:12.5px; padding:8px 14px; gap:6px;">
                   <span class="material-symbols-outlined" style="font-size:18px;">download</span>
                   <span>Export CSV</span>
