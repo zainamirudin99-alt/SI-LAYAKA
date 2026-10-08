@@ -56,9 +56,71 @@
     </div>
 
     <div class="login-center-body">
-      <div class="login-card">
-        <div class="mecha-corner mecha-corner-tl"></div>
-        <div class="mecha-corner mecha-corner-br"></div>
+      <div class="login-hero-container">
+        <!-- ---------- PANEL INFORMASI SISTEM (ALUR & LANDMARK) ---------- -->
+        <div class="login-info-panel">
+          <div class="info-panel-brand">
+            <img src="logo-silayaka.png" alt="SILAYAKA Logo" class="info-brand-logo" />
+            <div class="info-brand-text">
+              <span class="info-system-name">SI-LAYAKA</span>
+              <span class="info-sub-name">Personnel Management System</span>
+            </div>
+          </div>
+
+          <h1 class="info-hero-title">Sistem Layanan Administrasi Kepegawaian</h1>
+
+          <div class="info-badges">
+            <span class="info-badge">CEPAT</span>
+            <span class="info-badge">MUDAH</span>
+            <span class="info-badge">TERUKUR</span>
+          </div>
+
+          <p class="info-hero-desc">
+            Sistem manajemen administrasi kepegawaian digital terpadu Direktorat Organisasi dan Sumber Daya Manusia (DOSDM) Universitas Diponegoro untuk efisiensi birokrasi, transparansi proses, dan akuntabilitas data kepegawaian.
+          </p>
+
+          <div class="info-features-list">
+            <div class="info-feature-item">
+              <div class="info-feature-icon">
+                <span class="material-symbols-outlined">trending_up</span>
+              </div>
+              <div class="info-feature-content">
+                <div class="info-feature-title">Kenaikan Pangkat &amp; Angka Kredit</div>
+                <div class="info-feature-subtitle">Skrining masa kerja otomatis, integrasi predikat SKP, dan penetapan angka kredit terstruktur.</div>
+              </div>
+            </div>
+
+            <div class="info-feature-item">
+              <div class="info-feature-icon">
+                <span class="material-symbols-outlined">description</span>
+              </div>
+              <div class="info-feature-content">
+                <div class="info-feature-title">Layanan Kontrak &amp; Buat SK Terstruktur</div>
+                <div class="info-feature-subtitle">Pengusulan perpanjangan, verifikasi berjenjang, hingga penerbitan SK digital tersentralisasi.</div>
+              </div>
+            </div>
+
+            <div class="info-feature-item">
+              <div class="info-feature-icon">
+                <span class="material-symbols-outlined">schedule</span>
+              </div>
+              <div class="info-feature-content">
+                <div class="info-feature-title">Pelacakan Status &amp; Layanan Pensiun</div>
+                <div class="info-feature-subtitle">Pembuatan DPCP, verifikasi usulan PMK/PG, serta pelacakan status berkas real-time.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="info-landmark-footer">
+            <span class="material-symbols-outlined" style="font-size:18px;">location_on</span>
+            <span>Art Center &amp; Civic Park — Universitas Diponegoro</span>
+          </div>
+        </div>
+
+        <!-- ---------- KARTU LOGIN (TENGAH / FOKUS) ---------- -->
+        <div class="login-card">
+          <div class="mecha-corner mecha-corner-tl"></div>
+          <div class="mecha-corner mecha-corner-br"></div>
       <!-- =================================================================
      LOGOS.HTML
      Berisi 2 logo (Universitas Diponegoro & DOSDM) di-encode base64
@@ -163,6 +225,7 @@
       </div>
     </div>
   </div>
+  </div>
 </div>
 
   <!-- ======================= APP SHELL ======================= -->
@@ -204,13 +267,6 @@
           ⋯ Menu Lainnya
         </div>
 
-        <div class="sidebar-footer">
-          <div class="user-chip">
-            <span class="u-name" id="sidebarUserName">-</span>
-            <span id="sidebarUserRole">-</span>
-          </div>
-          <button id="logoutBtn" class="btn btn-secondary" style="width:100%;">Keluar</button>
-        </div>
       </div>
 
       <!-- MAIN CONTENT -->
@@ -225,15 +281,35 @@
               <div class="breadcrumb">Sistem Layanan Administrasi Kepegawaian</div>
             </div>
           </div>
-          <div class="topbar-actions" style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
-            <button type="button" class="topbar-theme-btn" id="appThemeToggleBtn" title="Ganti Tema (Light / Godzilla Dark)" aria-label="Ganti Tema (Light / Godzilla Dark)">
-              <span id="appThemeBtnIcon" class="theme-btn-icon">🌙</span>
-              <span id="appThemeBtnLabel" class="theme-btn-label">Godzilla Dark</span>
-            </button>
-            <button type="button" class="topbar-guide-btn" id="appGuideBtn" title="Alur & Panduan Penggunaan Menu Ini" aria-label="Alur & Panduan Penggunaan Menu Ini" onclick="openAppGuideModal()">
-              <span class="guide-btn-icon">📖</span>
-              <span class="guide-btn-label">Alur & Panduan</span>
-            </button>
+          <div class="topbar-actions">
+            <div class="topbar-controls-group">
+              <button type="button" class="topbar-theme-btn" id="appThemeToggleBtn" title="Ganti Tema (Light / Godzilla Dark)" aria-label="Ganti Tema (Light / Godzilla Dark)">
+                <span id="appThemeBtnIcon" class="theme-btn-icon">🌙</span>
+                <span id="appThemeBtnLabel" class="theme-btn-label">Godzilla Dark</span>
+              </button>
+              <button type="button" class="topbar-guide-btn" id="appGuideBtn" title="Alur & Panduan Penggunaan Menu Ini" aria-label="Alur & Panduan Penggunaan Menu Ini" onclick="openAppGuideModal()">
+                <span class="guide-btn-icon">📖</span>
+                <span class="guide-btn-label">Alur & Panduan</span>
+              </button>
+            </div>
+
+            <div class="topbar-profile-divider"></div>
+
+            <div class="topbar-user-profile">
+              <div class="user-chip topbar-user-chip" title="Profil Pengguna">
+                <div class="user-avatar-circle">
+                  <span class="material-symbols-outlined">person</span>
+                </div>
+                <div class="user-meta-info">
+                  <span class="u-name" id="sidebarUserName">-</span>
+                  <span class="u-role" id="sidebarUserRole">-</span>
+                </div>
+              </div>
+              <button id="logoutBtn" class="topbar-logout-btn" title="Keluar dari Sistem" aria-label="Keluar">
+                <span class="material-symbols-outlined" style="font-size:17px;">logout</span>
+                <span>Keluar</span>
+              </button>
+            </div>
           </div>
         </div>
 

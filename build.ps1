@@ -117,5 +117,10 @@ if (Test-Path "darkmode.png") {
     Copy-Item "darkmode.png" "public/darkmode.png" -Force
 }
 
+if (Test-Path "Art Center Civic Park Panorama.png") {
+    Copy-Item "Art Center Civic Park Panorama.png" "public/art-center-civic-park.png" -Force
+    Copy-Item "Art Center Civic Park Panorama.png" "public/Art Center Civic Park Panorama.png" -Force
+}
+
 [System.IO.File]::WriteAllText("public/index.html", $output, [System.Text.Encoding]::UTF8)
 Write-Output "Successfully built public/index.html!"
