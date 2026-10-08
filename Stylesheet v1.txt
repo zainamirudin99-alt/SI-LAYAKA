@@ -2909,4 +2909,55 @@
     border-color: #00f0ff;
     box-shadow: 0 0 18px rgba(0, 240, 255, 0.35);
   }
+
+  /* =================================================================
+     CHECK KGB (KENAIKAN GAJI BERKALA) STYLING
+     ================================================================= */
+  .nip-kgb-highlight {
+    background: rgba(37, 99, 235, 0.16);
+    color: var(--primary);
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(37, 99, 235, 0.35);
+    display: inline-block;
+    letter-spacing: 0.5px;
+  }
+  body.theme-dark .nip-kgb-highlight {
+    background: rgba(0, 240, 255, 0.18);
+    color: #00f0ff;
+    border-color: rgba(0, 240, 255, 0.4);
+    box-shadow: 0 0 8px rgba(0, 240, 255, 0.2);
+  }
+
+  .badge-kgb-paritas {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  .badge-kgb-ganjil {
+    background: rgba(245, 158, 11, 0.14);
+    color: #d97706;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  }
+  body.theme-dark .badge-kgb-ganjil {
+    background: rgba(245, 158, 11, 0.22);
+    color: #fbbf24;
+    border-color: rgba(245, 158, 11, 0.45);
+  }
+  .badge-kgb-genap {
+    background: rgba(139, 92, 246, 0.14);
+    color: #7c3aed;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+  }
+  body.theme-dark .badge-kgb-genap {
+    background: rgba(139, 92, 246, 0.22);
+    color: #a78bfa;
+    border-color: rgba(139, 92, 246, 0.45);
+  }
 </style>

@@ -245,6 +245,9 @@
         <div class="nav-item active" data-view="kenaikan-pangkat" data-title="Kenaikan Pangkat">
           📈 Kenaikan Pangkat
         </div>
+        <div class="nav-item" data-view="check-kgb" data-title="Check KGB" id="navCheckKgb">
+          💵 Check KGB
+        </div>
         <div class="nav-item" data-view="pensiun" data-title="Pensiun">
           🧓 Pensiun
         </div>
@@ -1018,6 +1021,217 @@
                 <button type="button" class="btn btn-outline kp-small-btn" onclick="loadUploadSkList()">🔄 Refresh</button>
               </div>
               <div id="uploadSkList" class="ce-dashboard-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ VIEW: CHECK KGB (Kenaikan Gaji Berkala) ============ -->
+        <div class="view-panel" id="view-check-kgb" style="display:none;">
+          <div class="panel-header" style="margin-bottom: 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
+              <div>
+                <span class="ce-dashboard-badge" style="background:rgba(16, 185, 129, 0.15); color:#10b981; border:1px solid rgba(16, 185, 129, 0.3); font-weight:700; padding:4px 10px; border-radius:6px; font-size:11px; letter-spacing:0.5px;">MODUL KEPEGAWAIAN</span>
+                <h2 style="font-family:'Sora',sans-serif; font-size:24px; font-weight:700; color:var(--text); margin:6px 0 4px 0;">Check KGB (Kenaikan Gaji Berkala)</h2>
+                <p style="color:var(--text-muted); font-size:13.5px; margin:0; line-height:1.5;">
+                  Pemantauan dan penyaringan usulan Kenaikan Gaji Berkala pegawai berdasarkan Digit 9–14 NIP PNS (Tahun &amp; Bulan Pengangkatan CPNS).
+                </p>
+              </div>
+              <div style="display:flex; gap:10px;">
+                <button type="button" class="btn btn-outline" onclick="exportCheckKgbToCsv()" style="font-size:12.5px; padding:8px 14px; gap:6px;">
+                  <span class="material-symbols-outlined" style="font-size:18px;">download</span>
+                  <span>Export CSV</span>
+                </button>
+                <button type="button" class="btn btn-primary" onclick="loadCheckKgbData(true)" style="font-size:12.5px; padding:8px 14px; gap:6px;">
+                  <span class="material-symbols-outlined" style="font-size:18px;">refresh</span>
+                  <span>Refresh Data</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Summary Metric Cards -->
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px;">
+            <div class="mecha-border" style="padding:18px; background:var(--surface); border-radius:10px; display:flex; align-items:center; gap:16px;">
+              <div style="width:44px; height:44px; border-radius:10px; background:rgba(37,99,235,0.12); color:var(--primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <span class="material-symbols-outlined" style="font-size:24px;">groups</span>
+              </div>
+              <div>
+                <div class="label-tech" style="color:var(--text-muted); font-size:10.5px; margin-bottom:2px;">TOTAL USULAN MASUK</div>
+                <div style="font-family:'Sora',sans-serif; font-size:22px; font-weight:700; color:var(--text);" id="kgbTotalUsulanCount">0</div>
+              </div>
+            </div>
+
+            <div class="mecha-border" style="padding:18px; background:var(--surface); border-radius:10px; display:flex; align-items:center; gap:16px;">
+              <div style="width:44px; height:44px; border-radius:10px; background:rgba(16,185,129,0.12); color:#10b981; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <span class="material-symbols-outlined" style="font-size:24px;">badge</span>
+              </div>
+              <div>
+                <div class="label-tech" style="color:var(--text-muted); font-size:10.5px; margin-bottom:2px;">PEGAWAI PNS (NIP 18 DIGIT)</div>
+                <div style="font-family:'Sora',sans-serif; font-size:22px; font-weight:700; color:#10b981;" id="kgbPnsCount">0</div>
+              </div>
+            </div>
+
+            <div class="mecha-border" style="padding:18px; background:var(--surface); border-radius:10px; display:flex; align-items:center; gap:16px;">
+              <div style="width:44px; height:44px; border-radius:10px; background:rgba(245,158,11,0.12); color:#f59e0b; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <span class="material-symbols-outlined" style="font-size:24px;">event_repeat</span>
+              </div>
+              <div>
+                <div class="label-tech" style="color:var(--text-muted); font-size:10.5px; margin-bottom:2px;">PENGANGKATAN TAHUN GANJIL</div>
+                <div style="font-family:'Sora',sans-serif; font-size:22px; font-weight:700; color:#f59e0b;" id="kgbGanjilCount">0</div>
+              </div>
+            </div>
+
+            <div class="mecha-border" style="padding:18px; background:var(--surface); border-radius:10px; display:flex; align-items:center; gap:16px;">
+              <div style="width:44px; height:44px; border-radius:10px; background:rgba(139,92,246,0.12); color:#8b5cf6; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <span class="material-symbols-outlined" style="font-size:24px;">calendar_month</span>
+              </div>
+              <div>
+                <div class="label-tech" style="color:var(--text-muted); font-size:10.5px; margin-bottom:2px;">PENGANGKATAN TAHUN GENAP</div>
+                <div style="font-family:'Sora',sans-serif; font-size:22px; font-weight:700; color:#8b5cf6;" id="kgbGenapCount">0</div>
+              </div>
+            </div>
+
+            <div class="mecha-border" style="padding:18px; background:var(--surface); border-radius:10px; display:flex; align-items:center; gap:16px;">
+              <div style="width:44px; height:44px; border-radius:10px; background:rgba(6,182,212,0.12); color:#06b6d4; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <span class="material-symbols-outlined" style="font-size:24px;">filter_alt</span>
+              </div>
+              <div>
+                <div class="label-tech" style="color:var(--text-muted); font-size:10.5px; margin-bottom:2px;">SESUAI FILTER AKTIF</div>
+                <div style="font-family:'Sora',sans-serif; font-size:22px; font-weight:700; color:#06b6d4;" id="kgbFilteredCount">0</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Advanced Filter & Sort Bar -->
+          <div class="mecha-border" style="padding:20px; background:var(--surface); border-radius:12px; margin-bottom:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span class="material-symbols-outlined" style="color:var(--primary); font-size:20px;">tune</span>
+                <span style="font-weight:700; font-size:14px; color:var(--text);">Filter &amp; Pengurutan Data KGB</span>
+              </div>
+              <button type="button" class="btn btn-outline" onclick="resetCheckKgbFilter()" style="font-size:11.5px; padding:4px 10px; gap:4px;">
+                <span class="material-symbols-outlined" style="font-size:15px;">restart_alt</span>
+                <span>Reset Filter</span>
+              </button>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:14px; align-items:end;">
+              <!-- 1. Search Box -->
+              <div>
+                <label class="label-tech" style="color:var(--text-muted); font-size:11px; margin-bottom:5px; display:block;">Cari Nama atau NIP</label>
+                <div style="position:relative;">
+                  <span class="material-symbols-outlined" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:18px; color:var(--text-muted);">search</span>
+                  <input type="text" id="kgbSearchInput" placeholder="Ketik nama atau NIP..." style="width:100%; box-sizing:border-box; padding:9px 12px 9px 34px; font-size:13px; border-radius:8px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text);" oninput="applyCheckKgbFilters()" />
+                </div>
+              </div>
+
+              <!-- 2. Jenis Pegawai -->
+              <div>
+                <label class="label-tech" style="color:var(--text-muted); font-size:11px; margin-bottom:5px; display:block;">Jenis Pegawai</label>
+                <select id="kgbFilterJenisPegawai" style="width:100%; box-sizing:border-box; padding:9px 12px; font-size:13px; border-radius:8px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text);" onchange="applyCheckKgbFilters()">
+                  <option value="">Semua Jenis Pegawai</option>
+                  <option value="Dosen">Dosen</option>
+                  <option value="Tendik">Tendik (Tenaga Kependidikan)</option>
+                </select>
+              </div>
+
+              <!-- 3. Status Kepegawaian -->
+              <div>
+                <label class="label-tech" style="color:var(--text-muted); font-size:11px; margin-bottom:5px; display:block;">Status Kepegawaian</label>
+                <select id="kgbFilterStatusKepegawaian" style="width:100%; box-sizing:border-box; padding:9px 12px; font-size:13px; border-radius:8px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text);" onchange="applyCheckKgbFilters()">
+                  <option value="">Semua Status Kepegawaian</option>
+                  <option value="PNS">PNS (Pegawai Negeri Sipil)</option>
+                  <option value="PPPK">PPPK</option>
+                  <option value="Tetap Non-PNS">Tetap Non-PNS</option>
+                  <option value="Kontrak">Kontrak</option>
+                </select>
+              </div>
+
+              <!-- 4. Tahun Pengangkatan (Ganjil / Genap) -->
+              <div>
+                <label class="label-tech" style="color:var(--text-muted); font-size:11px; margin-bottom:5px; display:block;">Tahun Pengangkatan (Digit 9-12 NIP)</label>
+                <select id="kgbFilterTahunParitas" style="width:100%; box-sizing:border-box; padding:9px 12px; font-size:13px; border-radius:8px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text);" onchange="applyCheckKgbFilters()">
+                  <option value="">Semua Tahun Pengangkatan</option>
+                  <option value="Ganjil">Tahun Ganjil (cth. 2019, 2021, 2023)</option>
+                  <option value="Genap">Tahun Genap (cth. 2018, 2020, 2022)</option>
+                </select>
+              </div>
+
+              <!-- 5. Bulan Pengangkatan (01 - 12) -->
+              <div>
+                <label class="label-tech" style="color:var(--text-muted); font-size:11px; margin-bottom:5px; display:block;">Bulan Pengangkatan (Digit 13-14 NIP)</label>
+                <select id="kgbFilterBulan" style="width:100%; box-sizing:border-box; padding:9px 12px; font-size:13px; border-radius:8px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text);" onchange="applyCheckKgbFilters()">
+                  <option value="">Semua Bulan (01 - 12)</option>
+                  <option value="01">01 - Januari</option>
+                  <option value="02">02 - Februari</option>
+                  <option value="03">03 - Maret</option>
+                  <option value="04">04 - April</option>
+                  <option value="05">05 - Mei</option>
+                  <option value="06">06 - Juni</option>
+                  <option value="07">07 - Juli</option>
+                  <option value="08">08 - Agustus</option>
+                  <option value="09">09 - September</option>
+                  <option value="10">10 - Oktober</option>
+                  <option value="11">11 - November</option>
+                  <option value="12">12 - Desember</option>
+                </select>
+              </div>
+
+              <!-- 6. Pengurutan Data (Sort By) -->
+              <div>
+                <label class="label-tech" style="color:var(--text-muted); font-size:11px; margin-bottom:5px; display:block;">Urutkan Berdasarkan</label>
+                <select id="kgbSortBy" style="width:100%; box-sizing:border-box; padding:9px 12px; font-size:13px; border-radius:8px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text);" onchange="applyCheckKgbFilters()">
+                  <option value="nama_asc">Nama Pegawai (A → Z)</option>
+                  <option value="nama_desc">Nama Pegawai (Z → A)</option>
+                  <option value="nip_asc">NIP (Terkecil → Terbesar)</option>
+                  <option value="tahun_desc">Tahun Pengangkatan (Terbaru → Terlama)</option>
+                  <option value="tahun_asc">Tahun Pengangkatan (Terlama → Terbaru)</option>
+                  <option value="bulan_asc">Bulan Pengangkatan (01 → 12)</option>
+                  <option value="unit_asc">Unit Kerja (A → Z)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Petunjuk NIP KGB Format -->
+            <div style="margin-top:14px; padding:10px 14px; border-radius:8px; background:rgba(37,99,235,0.06); border:1px solid rgba(37,99,235,0.2); display:flex; align-items:center; gap:10px; font-size:12px; color:var(--text);">
+              <span class="material-symbols-outlined" style="font-size:18px; color:var(--primary); flex-shrink:0;">info</span>
+              <div>
+                <strong>Format NIP PNS (18 Digit):</strong> Digit 1–8 = Tgl Lahir | <span style="background:rgba(37,99,235,0.2); padding:1px 6px; border-radius:4px; font-weight:700; color:var(--primary);">Digit 9–14 = Tahun &amp; Bulan Pengangkatan CPNS (YYYYMM)</span> | Digit 15 = Jenis Kelamin | Digit 16–18 = Nomor Urut.
+              </div>
+            </div>
+          </div>
+
+          <!-- KGB Data Table Container -->
+          <div class="mecha-border" style="background:var(--surface); border-radius:12px; overflow:hidden;">
+            <div style="overflow-x:auto;">
+              <table style="width:100%; border-collapse:collapse; text-align:left; font-size:13px;" id="tableCheckKgb">
+                <thead>
+                  <tr style="background:var(--surface-alt); border-bottom:1px solid var(--border);">
+                    <th style="padding:14px 16px; font-weight:700; color:var(--text); width:48px;">No</th>
+                    <th style="padding:14px 16px; font-weight:700; color:var(--text);">Nama Pegawai &amp; Jabatan</th>
+                    <th style="padding:14px 16px; font-weight:700; color:var(--text);">NIP (Highlight Digit 9–14)</th>
+                    <th style="padding:14px 16px; font-weight:700; color:var(--text);">Status &amp; Jenis Pegawai</th>
+                    <th style="padding:14px 16px; font-weight:700; color:var(--text); text-align:center;">Tahun Pengangkatan</th>
+                    <th style="padding:14px 16px; font-weight:700; color:var(--text); text-align:center;">Bulan Pengangkatan</th>
+                    <th style="padding:14px 16px; font-weight:700; color:var(--text);">Unit Kerja</th>
+                    <th style="padding:14px 16px; font-weight:700; color:var(--text);">Status Usulan KP</th>
+                  </tr>
+                </thead>
+                <tbody id="kgbTableBody">
+                  <tr>
+                    <td colspan="8" style="padding:40px; text-align:center; color:var(--text-muted);">
+                      <div class="spinner" style="margin:0 auto 12px auto;"></div>
+                      Memuat data usulan masuk Kenaikan Pangkat untuk Check KGB...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Table Footer with Pagination / Stats -->
+            <div style="padding:12px 18px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; font-size:12.5px; color:var(--text-muted); background:var(--surface-alt);" id="kgbTableFooter">
+              <div>Menampilkan data pegawai usulan masuk</div>
+              <div id="kgbTableInfo" style="font-weight:600; color:var(--text);">0 pegawai</div>
             </div>
           </div>
         </div>

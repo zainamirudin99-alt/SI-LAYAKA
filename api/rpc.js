@@ -5819,6 +5819,29 @@ const methods = {
     return { success: true, total: list.length, statusCounts, list };
   },
 
+  async getCheckKgbList(args) {
+    const [token] = extractArgs(args);
+    try {
+      verifyToken(token);
+    } catch (_) {}
+
+    const db = getDb();
+    let { data, error } = await db.from('usulan_kp').select('*').order('tanggal_diajukan', { ascending: false });
+    if (error) {
+      console.warn('[getCheckKgbList] Query failed, fallback:', error.message);
+      const resFallback = await db.from('usulan_kp').select('*');
+      data = resFallback.data;
+      error = resFallback.error;
+    }
+
+    if (error) {
+      console.error('[getCheckKgbList] Error:', error.message);
+      return { success: false, message: 'Gagal mengambil data usulan: ' + error.message, list: [] };
+    }
+
+    return { success: true, list: data || [], total: (data || []).length };
+  },
+
   async updateUsulanMasukStatus(args) {
     const [token, payload] = extractArgs(args);
     const decoded = requireRole(token, ['admin', 'super_admin']);
