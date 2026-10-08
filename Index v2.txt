@@ -1037,6 +1037,10 @@
                 </p>
               </div>
               <div style="display:flex; gap:10px;">
+                <button type="button" class="btn btn-outline" onclick="openAppGuideModal()" style="font-size:12.5px; padding:8px 14px; gap:6px;" title="Panduan & Alur KGB">
+                  <span class="material-symbols-outlined" style="font-size:18px;">menu_book</span>
+                  <span>Alur &amp; Panduan</span>
+                </button>
                 <button type="button" class="btn btn-outline" onclick="exportCheckKgbToCsv()" style="font-size:12.5px; padding:8px 14px; gap:6px;">
                   <span class="material-symbols-outlined" style="font-size:18px;">download</span>
                   <span>Export CSV</span>
@@ -3604,6 +3608,7 @@
         </div>
       </div>
     </div>
+  </div><!-- /#appGuideModal -->
   <!-- =================================================================
        MODALS: PROFIL PENGGUNA (FOTO, PASSWORD, VALIDASI PERUBAHAN DATA)
        ================================================================= -->

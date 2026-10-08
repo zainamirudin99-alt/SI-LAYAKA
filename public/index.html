@@ -3999,6 +3999,10 @@
                 </p>
               </div>
               <div style="display:flex; gap:10px;">
+                <button type="button" class="btn btn-outline" onclick="openAppGuideModal()" style="font-size:12.5px; padding:8px 14px; gap:6px;" title="Panduan & Alur KGB">
+                  <span class="material-symbols-outlined" style="font-size:18px;">menu_book</span>
+                  <span>Alur &amp; Panduan</span>
+                </button>
                 <button type="button" class="btn btn-outline" onclick="exportCheckKgbToCsv()" style="font-size:12.5px; padding:8px 14px; gap:6px;">
                   <span class="material-symbols-outlined" style="font-size:18px;">download</span>
                   <span>Export CSV</span>
@@ -6566,6 +6570,7 @@
         </div>
       </div>
     </div>
+  </div><!-- /#appGuideModal -->
   <!-- =================================================================
        MODALS: PROFIL PENGGUNA (FOTO, PASSWORD, VALIDASI PERUBAHAN DATA)
        ================================================================= -->
@@ -7535,7 +7540,7 @@ function renderProfilSayaView(profil) {
 function bukaModalGantiFoto() {
   const modal = document.getElementById('modalGantiFotoProfil');
   if (!modal) return;
-  const input = document.getElementById('inputLinkFotoGdrive');
+  const input = document.getElementById('inputFotoGdriveUrl') || document.getElementById('inputLinkFotoGdrive');
   const preview = document.getElementById('previewFotoGdriveImg');
   const placeholder = document.getElementById('previewFotoGdrivePlaceholder');
   
@@ -7549,25 +7554,29 @@ function bukaModalGantiFoto() {
   } else {
     if (input) input.value = '';
     if (preview) { preview.src = ''; preview.style.display = 'none'; }
-    if (placeholder) placeholder.style.display = 'block';
+    if (placeholder) { placeholder.textContent = 'Belum ada preview'; placeholder.style.display = 'block'; }
   }
+  modal.classList.add('active');
   modal.style.display = 'flex';
 }
 
 function tutupModalGantiFoto() {
   const modal = document.getElementById('modalGantiFotoProfil');
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
 }
 
-function previewGdrivePhoto() {
-  const input = document.getElementById('inputLinkFotoGdrive');
+function previewGdrivePhoto(val) {
+  const input = document.getElementById('inputFotoGdriveUrl') || document.getElementById('inputLinkFotoGdrive');
+  const rawUrl = (typeof val === 'string' ? val : (input ? input.value : '')).trim();
   const preview = document.getElementById('previewFotoGdriveImg');
   const placeholder = document.getElementById('previewFotoGdrivePlaceholder');
-  const rawUrl = input ? input.value.trim() : '';
 
   if (!rawUrl) {
-    if (preview) preview.style.display = 'none';
-    if (placeholder) placeholder.style.display = 'block';
+    if (preview) { preview.src = ''; preview.style.display = 'none'; }
+    if (placeholder) { placeholder.textContent = 'Belum ada preview'; placeholder.style.display = 'block'; }
     return;
   }
 
@@ -7581,7 +7590,7 @@ function previewGdrivePhoto() {
     preview.onerror = () => {
       preview.style.display = 'none';
       if (placeholder) {
-        placeholder.textContent = 'Gagal memuat link foto. Pastikan link dapat diakses publik.';
+        placeholder.textContent = 'Gagal memuat link foto. Pastikan akses Google Drive diubah menjadi "Siapa saja yang memiliki link" (Public).';
         placeholder.style.display = 'block';
       }
     };
@@ -7589,20 +7598,58 @@ function previewGdrivePhoto() {
 }
 
 function simpanFotoProfilGdrive() {
-  const input = document.getElementById('inputLinkFotoGdrive');
-  const url = input ? input.value.trim() : '';
+  const input = document.getElementById('inputFotoGdriveUrl') || document.getElementById('inputLinkFotoGdrive');
+  const url = (input ? input.value : '').trim();
 
-  google.script.run
-    .withSuccessHandler(res => {
-      if (!res.success) { showToast('error', res.message); return; }
-      showToast('success', res.message || 'Foto profil berhasil disimpan.');
-      if (currentLoadedProfil) currentLoadedProfil.foto_url = res.foto_url;
-      if (SESSION.user) SESSION.user.foto_url = res.foto_url;
-      updateUserAvatarUI(res.foto_url);
-      tutupModalGantiFoto();
-    })
-    .withFailureHandler(err => showToast('error', 'Gagal menyimpan foto: ' + (err.message || err)))
-    .updateFotoProfil(SESSION.token, url);
+  if (url && !/^https?:\/\//i.test(url)) {
+    showToast('error', 'Masukkan tautan gambar atau link Google Drive yang valid (diawali https://)');
+    return;
+  }
+
+  const btnSimpan = document.querySelector('#modalGantiFotoProfil button[onclick="simpanFotoProfilGdrive()"]');
+  const oldText = btnSimpan ? btnSimpan.innerHTML : '';
+  if (btnSimpan) {
+    btnSimpan.disabled = true;
+    btnSimpan.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;margin-right:6px;"></span>Menyimpan...';
+  }
+
+  const onDone = (res) => {
+    if (btnSimpan) {
+      btnSimpan.disabled = false;
+      btnSimpan.innerHTML = oldText;
+    }
+    if (!res || !res.success) {
+      showToast('error', (res && res.message) || 'Gagal menyimpan foto profil.');
+      return;
+    }
+    showToast('success', res.message || 'Foto profil berhasil disimpan.');
+    if (currentLoadedProfil) currentLoadedProfil.foto_url = res.foto_url;
+    if (SESSION.user) SESSION.user.foto_url = res.foto_url;
+    updateUserAvatarUI(res.foto_url);
+    tutupModalGantiFoto();
+  };
+
+  const onErr = (err) => {
+    if (btnSimpan) {
+      btnSimpan.disabled = false;
+      btnSimpan.innerHTML = oldText;
+    }
+    showToast('error', 'Gagal menyimpan foto: ' + (err.message || err));
+  };
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(onDone)
+      .withFailureHandler(onErr)
+      .updateFotoProfil(SESSION.token, url);
+  } else if (typeof rpc === 'function') {
+    rpc('updateFotoProfil', [SESSION.token, url])
+      .then(onDone)
+      .catch(onErr);
+  } else {
+    if (btnSimpan) { btnSimpan.disabled = false; btnSimpan.innerHTML = oldText; }
+    showToast('error', 'Koneksi ke backend tidak tersedia.');
+  }
 }
 
 /** ---------------- MODAL 2: GANTI PASSWORD ---------------- */
@@ -7615,12 +7662,16 @@ function bukaModalGantiPassword() {
   if (inOld) inOld.value = '';
   if (inNew) inNew.value = '';
   if (inConf) inConf.value = '';
+  modal.classList.add('active');
   modal.style.display = 'flex';
 }
 
 function tutupModalGantiPassword() {
   const modal = document.getElementById('modalGantiPasswordProfil');
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
 }
 
 function simpanPasswordBaruProfil() {
@@ -7677,12 +7728,16 @@ function bukaModalAjukanPerubahanData() {
   if (elDoc) elDoc.value = '';
   if (elAlasan) elAlasan.value = '';
 
+  modal.classList.add('active');
   modal.style.display = 'flex';
 }
 
 function tutupModalAjukanPerubahanData() {
   const modal = document.getElementById('modalAjukanPerubahanData');
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
 }
 
 function kirimPengajuanPerubahanData() {
@@ -7728,13 +7783,17 @@ function kirimPengajuanPerubahanData() {
 function bukaModalAdminValidasiProfil() {
   const modal = document.getElementById('modalAdminValidasiProfil');
   if (!modal) return;
+  modal.classList.add('active');
   modal.style.display = 'flex';
   loadAdminValidasiProfilList();
 }
 
 function tutupModalAdminValidasiProfil() {
   const modal = document.getElementById('modalAdminValidasiProfil');
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
 }
 
 function loadAdminValidasiProfilList() {
@@ -27836,57 +27895,66 @@ const GUIDE_REGISTRY = {
     },
     "check-kgb": {
       title: "Check KGB (Kenaikan Gaji Berkala)",
+      icon: "💵",
       subMenus: {
         "tab-checkKgb": {
           title: "Daftar & Filter Check KGB",
+          roles: ["user", "admin", "super_admin"],
+          defaultRole: "admin",
           roleGuides: {
             user: {
+              badge: "Sebagai Pegawai / Pengusul",
               steps: [
                 {
-                  title: "1. Buka Menu Check KGB",
-                  desc: "Masuk ke menu Check KGB pada sidebar kiri di bawah Kenaikan Pangkat untuk memantau usulan kenaikan gaji berkala pegawai."
+                  title: "1. Akses Menu Check KGB",
+                  desc: "Buka menu Check KGB pada sidebar kiri di bawah Kenaikan Pangkat untuk memeriksa dan memantau usulan kenaikan gaji berkala."
                 },
                 {
                   title: "2. Cari Pegawai Berdasarkan Nama / NIP",
-                  desc: "Gunakan kotak pencarian untuk mencari nama atau nomor NIP pegawai secara langsung."
+                  desc: "Ketik nama lengkap atau nomor NIP 18 digit pada kotak pencarian untuk menemukan data usulan secara instan."
                 },
                 {
-                  title: "3. Periksa Digit 9–14 NIP",
-                  desc: "Sistem otomatis membaca Digit 9–12 sebagai Tahun Pengangkatan CPNS dan Digit 13–14 sebagai Bulan Pengangkatan CPNS (format PNS)."
+                  title: "3. Periksa Digit 9–14 NIP PNS",
+                  desc: "Sistem otomatis mengekstrak Digit 9–12 sebagai Tahun Pengangkatan CPNS dan Digit 13–14 sebagai Bulan Pengangkatan CPNS (format standar BKN 18 Digit)."
                 },
                 {
-                  title: "4. Saring Tahun Ganjil / Genap & Bulan",
-                  desc: "Gunakan filter dropdown Tahun Pengangkatan (Ganjil/Genap) dan Bulan Pengangkatan (01–12) untuk melihat kelompok KGB yang sesuai."
+                  title: "4. Saring Periode TMT, Tahun & Bulan",
+                  desc: "Gunakan filter dropdown 'Periode TMT Usulan KP', 'Tahun Pengangkatan (Ganjil/Genap)', dan 'Bulan Pengangkatan (01–12)' untuk mengelompokkan giliran KGB pegawai."
                 }
               ],
-              tips: "KGB untuk PNS umumnya diproses setiap 2 tahun sekali. Paritas tahun pengangkatan (Ganjil vs Genap) memudahkan pengelompokan usulan per tahun berjalan.",
+              tips: "KGB PNS diproses berkala setiap 2 tahun sekali. Pengelompokan tahun pengangkatan ganjil vs genap mempermudah penentuan jadwal usulan KGB pada tahun berjalan.",
               flowchart: [
-                { id: 1, type: "start", icon: "💵", title: "Akses Check KGB", desc: "Membuka tabel data usulan KP untuk pengecekan KGB" },
-                { id: 2, type: "process", icon: "🔍", title: "Input Filter / Pencarian", desc: "Pilih status, jenis pegawai, atau ketik nama/NIP" },
-                { id: 3, type: "process", icon: "🏷️", title: "Pilih Paritas Tahun & Bulan", desc: "Saring tahun ganjil/genap dan bulan pengangkatan 01–12" },
-                { id: 4, type: "end", icon: "📋", title: "Daftar Usulan KGB Tampil", desc: "Data terfilter siap diekspor atau diproses" }
+                { id: 1, type: "start", icon: "💵", title: "Akses Check KGB", desc: "Membuka tabel data usulan untuk verifikasi KGB" },
+                { id: 2, type: "process", icon: "🔍", title: "Cari Nama / NIP", desc: "Gunakan pencarian nama atau NIP 18 digit" },
+                { id: 3, type: "process", icon: "🏷️", title: "Pilih Filter TMT, Paritas & Bulan", desc: "Filter periode TMT, tahun ganjil/genap, & bulan 01–12" },
+                { id: 4, type: "end", icon: "📋", title: "Daftar KGB Terfilter Tampil", desc: "Tabel menampilkan pegawai yang memenuhi kriteria KGB" }
               ]
             },
             admin: {
+              badge: "Sebagai Admin Verifikator DOSDM",
               steps: [
                 {
                   title: "1. Monitoring Usulan KGB Berkala",
-                  desc: "Admin dan Super Admin dapat memantau seluruh usulan kenaikan pangkat yang masuk dan menganalisis jadwal KGB pegawai."
+                  desc: "Admin dan Super Admin dapat memantau seluruh usulan kenaikan gaji berkala dari usulan masuk kenaikan pangkat pegawai."
                 },
                 {
-                  title: "2. Filter Multi-Kriteria",
-                  desc: "Kombinasikan filter Jenis Pegawai (Dosen/Tendik), Status Kepegawaian (PNS/PPPK), Paritas Tahun Pengangkatan, dan Bulan Pengangkatan."
+                  title: "2. Filter Multi-Kriteria Lengkap",
+                  desc: "Kombinasikan filter Periode TMT Usulan KP, Jenis Pegawai (Dosen/Tendik), Status Kepegawaian (PNS/PPPK), Paritas Tahun Pengangkatan (Ganjil/Genap), dan Bulan Pengangkatan (01–12)."
                 },
                 {
-                  title: "3. Ekspor Data ke CSV / Excel",
-                  desc: "Klik tombol 'Export CSV' di pojok kanan atas untuk mengunduh rekap usulan KGB yang telah disaring."
+                  title: "3. Analisis Visual Digit 9–14 NIP",
+                  desc: "Kolom NIP dilengkapi penanda visual biru khusus pada Digit 9–14 untuk mempermudah audit kesesuaian tahun dan bulan pengangkatan CPNS."
+                },
+                {
+                  title: "4. Ekspor Data ke CSV / Excel",
+                  desc: "Klik tombol 'Export CSV' di pojok kanan atas untuk mengunduh rekapitulasi data pegawai usulan KGB yang telah disaring untuk laporan resmi kepegawaian."
                 }
               ],
-              tips: "Pastikan data NIP pegawai berformat 18 digit standar BKN agar sistem dapat mengekstrak tahun dan bulan pengangkatan secara otomatis.",
+              tips: "Pastikan nomor NIP berformat 18 digit standar BKN agar sistem dapat melakukan ekstraksi otomatis tahun dan bulan pengangkatan tanpa kendala.",
               flowchart: [
-                { id: 1, type: "start", icon: "🛡️", title: "Dashboard KGB Admin", desc: "Kelola data usulan masuk dan jadwal KGB" },
-                { id: 2, type: "process", icon: "📊", title: "Terapkan Filter Pengangkatan", desc: "Filter tahun ganjil/genap & bulan 01–12" },
-                { id: 3, type: "process", icon: "📥", title: "Ekspor Rekap", desc: "Unduh file CSV untuk laporan resmi" },
+                { id: 1, type: "start", icon: "🛡️", title: "Dashboard KGB Admin", desc: "Monitoring usulan masuk dan jadwal KGB" },
+                { id: 2, type: "process", icon: "📊", title: "Terapkan Filter Komprehensif", desc: "Filter periode TMT, status, tahun ganjil/genap, & bulan" },
+                { id: 3, type: "process", icon: "📥", title: "Ekspor Rekap CSV", desc: "Unduh file CSV untuk pelaporan & arsip" },
                 { id: 4, type: "end", icon: "✅", title: "Selesai", desc: "Validasi KGB tuntas" }
               ]
             }
@@ -27936,29 +28004,34 @@ function detectCurrentActiveGuideContext() {
   const userCategory = getAppUserRoleCategory();
   const isAdmin = (userCategory === "admin");
 
-  // 1. Deteksi Active View (prioritaskan .nav-item[data-view].active)
+  // 1. Deteksi Active View (prioritaskan view-panel yang sedang tampil di layar)
   let activeMenuKey = "kenaikan-pangkat";
-  const activeNav = document.querySelector('.nav-item[data-view].active');
-  if (activeNav) {
-    const v = activeNav.getAttribute('data-view');
-    if (GUIDE_REGISTRY[v]) {
-      activeMenuKey = v;
-    }
-  } else {
-    const views = [
-      { id: "view-kenaikan-pangkat", key: "kenaikan-pangkat" },
-      { id: "view-kontrak", key: "kontrak" },
-      { id: "view-pensiun", key: "pensiun" },
-      { id: "view-pmk", key: "pmk" },
-      { id: "view-buat-sk", key: "buat-sk" },
-      { id: "view-template", key: "template" }
-    ];
+  const views = [
+    { id: "view-check-kgb", key: "check-kgb" },
+    { id: "view-kenaikan-pangkat", key: "kenaikan-pangkat" },
+    { id: "view-kontrak", key: "kontrak" },
+    { id: "view-pensiun", key: "pensiun" },
+    { id: "view-pmk", key: "pmk" },
+    { id: "view-buat-sk", key: "buat-sk" },
+    { id: "view-template", key: "template" }
+  ];
 
-    for (const v of views) {
-      const el = document.getElementById(v.id);
-      if (el && el.style.display !== "none" && !el.classList.contains("hidden")) {
-        activeMenuKey = v.key;
-        break;
+  let detectedFromPanel = false;
+  for (const v of views) {
+    const el = document.getElementById(v.id);
+    if (el && el.style.display !== "none" && !el.classList.contains("hidden")) {
+      activeMenuKey = v.key;
+      detectedFromPanel = true;
+      break;
+    }
+  }
+
+  if (!detectedFromPanel) {
+    const activeNav = document.querySelector('.nav-item[data-view].active');
+    if (activeNav) {
+      const v = activeNav.getAttribute('data-view');
+      if (GUIDE_REGISTRY[v]) {
+        activeMenuKey = v;
       }
     }
   }
@@ -27991,6 +28064,8 @@ function detectCurrentActiveGuideContext() {
       if (target && allowedSubMenuKeys.includes(target)) {
         activeSubMenuKey = target;
       }
+    } else if (activeMenuKey === "check-kgb") {
+      activeSubMenuKey = "tab-checkKgb";
     } else if (activeMenuKey === "pensiun") {
       const activeTabBtn = document.querySelector('[data-tab-group="pensiun"] .tab-btn.active');
       const target = activeTabBtn ? activeTabBtn.getAttribute('data-tab-target') : "";
