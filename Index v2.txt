@@ -1147,6 +1147,14 @@
                 </select>
               </div>
 
+              <!-- 4. Periode TMT Usulan KP -->
+              <div>
+                <label class="label-tech" style="color:var(--text-muted); font-size:11px; margin-bottom:5px; display:block;">Periode TMT Usulan KP</label>
+                <select id="kgbFilterTmt" style="width:100%; box-sizing:border-box; padding:9px 12px; font-size:13px; border-radius:8px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text);" onchange="applyCheckKgbFilters()">
+                  <option value="">Semua Periode TMT</option>
+                </select>
+              </div>
+
               <!-- 4. Tahun Pengangkatan (Ganjil / Genap) -->
               <div>
                 <label class="label-tech" style="color:var(--text-muted); font-size:11px; margin-bottom:5px; display:block;">Tahun Pengangkatan (Digit 9-12 NIP)</label>
@@ -1177,13 +1185,15 @@
                 </select>
               </div>
 
-              <!-- 6. Pengurutan Data (Sort By) -->
+              <!-- 7. Pengurutan Data (Sort By) -->
               <div>
                 <label class="label-tech" style="color:var(--text-muted); font-size:11px; margin-bottom:5px; display:block;">Urutkan Berdasarkan</label>
                 <select id="kgbSortBy" style="width:100%; box-sizing:border-box; padding:9px 12px; font-size:13px; border-radius:8px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text);" onchange="applyCheckKgbFilters()">
                   <option value="nama_asc">Nama Pegawai (A → Z)</option>
                   <option value="nama_desc">Nama Pegawai (Z → A)</option>
                   <option value="nip_asc">NIP (Terkecil → Terbesar)</option>
+                  <option value="tmt_desc">Periode TMT Usulan (Terbaru → Terlama)</option>
+                  <option value="tmt_asc">Periode TMT Usulan (Terlama → Terbaru)</option>
                   <option value="tahun_desc">Tahun Pengangkatan (Terbaru → Terlama)</option>
                   <option value="tahun_asc">Tahun Pengangkatan (Terlama → Terbaru)</option>
                   <option value="bulan_asc">Bulan Pengangkatan (01 → 12)</option>

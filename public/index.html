@@ -4109,6 +4109,14 @@
                 </select>
               </div>
 
+              <!-- 4. Periode TMT Usulan KP -->
+              <div>
+                <label class="label-tech" style="color:var(--text-muted); font-size:11px; margin-bottom:5px; display:block;">Periode TMT Usulan KP</label>
+                <select id="kgbFilterTmt" style="width:100%; box-sizing:border-box; padding:9px 12px; font-size:13px; border-radius:8px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text);" onchange="applyCheckKgbFilters()">
+                  <option value="">Semua Periode TMT</option>
+                </select>
+              </div>
+
               <!-- 4. Tahun Pengangkatan (Ganjil / Genap) -->
               <div>
                 <label class="label-tech" style="color:var(--text-muted); font-size:11px; margin-bottom:5px; display:block;">Tahun Pengangkatan (Digit 9-12 NIP)</label>
@@ -4139,13 +4147,15 @@
                 </select>
               </div>
 
-              <!-- 6. Pengurutan Data (Sort By) -->
+              <!-- 7. Pengurutan Data (Sort By) -->
               <div>
                 <label class="label-tech" style="color:var(--text-muted); font-size:11px; margin-bottom:5px; display:block;">Urutkan Berdasarkan</label>
                 <select id="kgbSortBy" style="width:100%; box-sizing:border-box; padding:9px 12px; font-size:13px; border-radius:8px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text);" onchange="applyCheckKgbFilters()">
                   <option value="nama_asc">Nama Pegawai (A → Z)</option>
                   <option value="nama_desc">Nama Pegawai (Z → A)</option>
                   <option value="nip_asc">NIP (Terkecil → Terbesar)</option>
+                  <option value="tmt_desc">Periode TMT Usulan (Terbaru → Terlama)</option>
+                  <option value="tmt_asc">Periode TMT Usulan (Terlama → Terbaru)</option>
                   <option value="tahun_desc">Tahun Pengangkatan (Terbaru → Terlama)</option>
                   <option value="tahun_asc">Tahun Pengangkatan (Terlama → Terbaru)</option>
                   <option value="bulan_asc">Bulan Pengangkatan (01 → 12)</option>
@@ -8101,12 +8111,15 @@ async function loadCheckKgbData(forceRefresh = false) {
     if (res && res.success && Array.isArray(res.list)) {
       kgbRawList = res.list.map(item => {
         const kgb = parsePnsNipKgb(item.nip);
+        const parsedTmt = parseTmt(item.tmt);
         return {
           ...item,
-          kgbInfo: kgb
+          kgbInfo: kgb,
+          parsedTmt: parsedTmt
         };
       });
 
+      populateCheckKgbTmtOptions();
       updateCheckKgbMetrics();
       applyCheckKgbFilters();
     } else {
@@ -8160,8 +8173,43 @@ function updateCheckKgbMetrics() {
   if (elGenap) elGenap.textContent = totalGenap.toLocaleString('id-ID');
 }
 
+function populateCheckKgbTmtOptions() {
+  const tmtSelect = document.getElementById('kgbFilterTmt');
+  if (!tmtSelect) return;
+  const currentVal = tmtSelect.value || '';
+  const tmtMap = new Map();
+
+  kgbRawList.forEach(item => {
+    const rawTmt = String(item.tmt || '').trim();
+    if (rawTmt && rawTmt !== '-' && rawTmt.toLowerCase() !== 'tanpa tmt') {
+      const parsed = item.parsedTmt || parseTmt(rawTmt);
+      const label = parsed.full || parsed.month || rawTmt;
+      if (!tmtMap.has(label)) {
+        tmtMap.set(label, {
+          label: label,
+          year: parsed.year || '',
+          sortKey: (parsed.year && parsed.year !== 'Lainnya') ? parsed.year : '0000'
+        });
+      }
+    }
+  });
+
+  const sortedList = Array.from(tmtMap.values()).sort((a, b) => {
+    if (a.year !== b.year) return b.year.localeCompare(a.year);
+    return a.label.localeCompare(b.label);
+  });
+
+  let optHtml = '<option value="">Semua Periode TMT</option>';
+  sortedList.forEach(item => {
+    optHtml += `<option value="${escapeHtml(item.label)}"${item.label === currentVal ? ' selected' : ''}>TMT ${escapeHtml(item.label)}</option>`;
+  });
+
+  tmtSelect.innerHTML = optHtml;
+}
+
 function applyCheckKgbFilters() {
   const searchVal = (document.getElementById('kgbSearchInput')?.value || '').toLowerCase().trim();
+  const filterTmt = document.getElementById('kgbFilterTmt')?.value || '';
   const filterJenis = document.getElementById('kgbFilterJenisPegawai')?.value || '';
   const filterStatus = document.getElementById('kgbFilterStatusKepegawaian')?.value || '';
   const filterTahunParitas = document.getElementById('kgbFilterTahunParitas')?.value || '';
@@ -8174,6 +8222,16 @@ function applyCheckKgbFilters() {
       const nama = String(item.nama || item.nama_lengkap || '').toLowerCase();
       const nip = String(item.nip || '').toLowerCase();
       if (!nama.includes(searchVal) && !nip.includes(searchVal)) {
+        return false;
+      }
+    }
+
+    // 2. Filter Periode TMT Usulan KP
+    if (filterTmt) {
+      const rawTmt = String(item.tmt || '').trim();
+      const parsed = item.parsedTmt || parseTmt(rawTmt);
+      const itemLabel = parsed.full || parsed.month || rawTmt;
+      if (itemLabel !== filterTmt && rawTmt !== filterTmt && !rawTmt.toLowerCase().includes(filterTmt.toLowerCase())) {
         return false;
       }
     }
@@ -8226,6 +8284,18 @@ function applyCheckKgbFilters() {
       case 'nama_asc': return namaA.localeCompare(namaB);
       case 'nama_desc': return namaB.localeCompare(namaA);
       case 'nip_asc': return nipA.localeCompare(nipB);
+      case 'tmt_desc': {
+        const tmtA = a.parsedTmt?.year || '';
+        const tmtB = b.parsedTmt?.year || '';
+        if (tmtA !== tmtB) return tmtB.localeCompare(tmtA);
+        return String(b.tmt || '').localeCompare(String(a.tmt || ''));
+      }
+      case 'tmt_asc': {
+        const tmtA = a.parsedTmt?.year || '';
+        const tmtB = b.parsedTmt?.year || '';
+        if (tmtA !== tmtB) return tmtA.localeCompare(tmtB);
+        return String(a.tmt || '').localeCompare(String(b.tmt || ''));
+      }
       case 'tahun_desc': return tahunB - tahunA;
       case 'tahun_asc': return tahunA - tahunB;
       case 'bulan_asc': return bulanA - bulanB;
@@ -8347,6 +8417,7 @@ function renderCheckKgbTable(items) {
 
 function resetCheckKgbFilter() {
   const search = document.getElementById('kgbSearchInput');
+  const tmt = document.getElementById('kgbFilterTmt');
   const jenis = document.getElementById('kgbFilterJenisPegawai');
   const status = document.getElementById('kgbFilterStatusKepegawaian');
   const tahun = document.getElementById('kgbFilterTahunParitas');
@@ -8354,6 +8425,7 @@ function resetCheckKgbFilter() {
   const sort = document.getElementById('kgbSortBy');
 
   if (search) search.value = '';
+  if (tmt) tmt.value = '';
   if (jenis) jenis.value = '';
   if (status) status.value = '';
   if (tahun) tahun.value = '';
