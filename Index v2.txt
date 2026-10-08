@@ -225,10 +225,14 @@
               <div class="breadcrumb">Sistem Layanan Administrasi Kepegawaian</div>
             </div>
           </div>
-          <div class="topbar-actions" style="display:flex; align-items:center; gap:10px;">
+          <div class="topbar-actions" style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
             <button type="button" class="topbar-theme-btn" id="appThemeToggleBtn" title="Ganti Tema (Light / Godzilla Dark)" aria-label="Ganti Tema (Light / Godzilla Dark)">
               <span id="appThemeBtnIcon" class="theme-btn-icon">🌙</span>
               <span id="appThemeBtnLabel" class="theme-btn-label">Godzilla Dark</span>
+            </button>
+            <button type="button" class="topbar-guide-btn" id="appGuideBtn" title="Alur & Panduan Penggunaan Menu Ini" aria-label="Alur & Panduan Penggunaan Menu Ini" onclick="openAppGuideModal()">
+              <span class="guide-btn-icon">📖</span>
+              <span class="guide-btn-label">Alur & Panduan</span>
             </button>
           </div>
         </div>
@@ -3236,6 +3240,59 @@
         <a id="modalNotaDinasOpenBtn" href="#" target="_blank" class="btn btn-primary" style="padding:9px 20px; font-weight:700; font-size:13px; background:#16a34a; border-color:#16a34a; text-decoration:none; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(22,163,74,0.25);">
           <span>🌐 Buka Dokumen Google Docs</span>
         </a>
+      </div>
+    </div>
+  <!-- =================================================================
+       MODAL PANDUAN & ALUR PROSES (DYNAMIC MULTI-ROLE GUIDE MODAL)
+       ================================================================= -->
+  <div id="appGuideModal" class="guide-modal-overlay" onclick="handleGuideOverlayClick(event)">
+    <div class="guide-modal-card" role="dialog" aria-modal="true" aria-labelledby="guideModalTitle">
+      <!-- Modal Header -->
+      <div class="guide-modal-header">
+        <div class="guide-header-title-wrap">
+          <h3 id="guideModalTitle" class="guide-header-title">
+            <span>🗺️</span>
+            <span id="guideMenuTitleText">Alur & Panduan Penggunaan</span>
+          </h3>
+          <span id="guideUserRoleBadge" class="guide-badge-role">ROLE: ADMIN</span>
+        </div>
+        <button type="button" id="guideCloseBtn" class="guide-close-btn" onclick="closeAppGuideModal()" title="Tutup Panduan (Esc)" aria-label="Tutup Panduan">
+          ✕
+        </button>
+      </div>
+
+      <!-- Sub-menu Selector Tabs -->
+      <div id="guideSubMenuTabs" class="guide-sub-tabs">
+        <!-- Dynamic Sub-menu Tabs injected here -->
+      </div>
+
+      <!-- Control Bar: Role Switcher & View Mode (Langkah vs Diagram) -->
+      <div class="guide-controls-bar">
+        <div id="guideRoleSwitcherContainer" class="guide-role-switcher">
+          <!-- Dynamic Role Switcher pills injected here -->
+        </div>
+        <div class="guide-view-switch">
+          <button type="button" class="guide-view-switch-btn active" id="guideViewBtnSteps" onclick="switchGuideView('steps')">
+            📝 Langkah-Langkah
+          </button>
+          <button type="button" class="guide-view-switch-btn" id="guideViewBtnFlow" onclick="switchGuideView('flowchart')">
+            🗺️ Diagram Alir
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Body Content -->
+      <div class="guide-modal-body">
+        <!-- Steps View -->
+        <div id="guideStepsView">
+          <div id="guideStepsContainer"></div>
+          <div id="guideTipsContainer"></div>
+        </div>
+
+        <!-- Flowchart View -->
+        <div id="guideFlowchartView" style="display:none;">
+          <div id="guideFlowchartContainer"></div>
+        </div>
       </div>
     </div>
   </div>
