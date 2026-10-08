@@ -2045,13 +2045,13 @@
     align-items: center;
     justify-content: center;
     padding: 20px;
-    z-index: 99999;
+    z-index: 999999;
     opacity: 0;
     transition: opacity 0.25s ease;
   }
   .guide-modal-overlay.active {
-    display: flex;
-    opacity: 1;
+    display: flex !important;
+    opacity: 1 !important;
   }
 
   /* Guide Modal Card */
@@ -5701,6 +5701,8 @@
         </a>
       </div>
     </div>
+  </div>
+
   <!-- =================================================================
        MODAL PANDUAN & ALUR PROSES (DYNAMIC MULTI-ROLE GUIDE MODAL)
        ================================================================= -->
@@ -6031,6 +6033,9 @@ function bindThemeToggle() {
 
   const appBtn = document.getElementById('appThemeToggleBtn');
   if (appBtn) appBtn.addEventListener('click', toggleTheme);
+
+  const guideBtn = document.getElementById('appGuideBtn');
+  if (guideBtn) guideBtn.addEventListener('click', openAppGuideModal);
 }
 
 function updateThemeIcon(mode) {
@@ -25993,22 +25998,30 @@ window.currentGuideState = {
  * Deteksi menu dan sub-menu yang sedang aktif di layar
  */
 function detectCurrentActiveGuideContext() {
-  // 1. Deteksi Active View
+  // 1. Deteksi Active View (prioritaskan .nav-item[data-view].active)
   let activeMenuKey = "kenaikan-pangkat";
-  const views = [
-    { id: "view-kenaikan-pangkat", key: "kenaikan-pangkat" },
-    { id: "view-kontrak", key: "kontrak" },
-    { id: "view-pensiun", key: "pensiun" },
-    { id: "view-pmk", key: "pmk" },
-    { id: "view-buat-sk", key: "buat-sk" },
-    { id: "view-template", key: "template" }
-  ];
+  const activeNav = document.querySelector('.nav-item[data-view].active');
+  if (activeNav) {
+    const v = activeNav.getAttribute('data-view');
+    if (GUIDE_REGISTRY[v]) {
+      activeMenuKey = v;
+    }
+  } else {
+    const views = [
+      { id: "view-kenaikan-pangkat", key: "kenaikan-pangkat" },
+      { id: "view-kontrak", key: "kontrak" },
+      { id: "view-pensiun", key: "pensiun" },
+      { id: "view-pmk", key: "pmk" },
+      { id: "view-buat-sk", key: "buat-sk" },
+      { id: "view-template", key: "template" }
+    ];
 
-  for (const v of views) {
-    const el = document.getElementById(v.id);
-    if (el && el.style.display !== "none" && !el.classList.contains("hidden")) {
-      activeMenuKey = v.key;
-      break;
+    for (const v of views) {
+      const el = document.getElementById(v.id);
+      if (el && el.style.display !== "none" && !el.classList.contains("hidden")) {
+        activeMenuKey = v.key;
+        break;
+      }
     }
   }
 
@@ -26019,24 +26032,31 @@ function detectCurrentActiveGuideContext() {
     const subMenuKeys = Object.keys(menuConfig.subMenus);
 
     if (activeMenuKey === "kenaikan-pangkat") {
-      const activeTabBtn = document.querySelector('[data-tab-group="kp"].tabs .tab-btn.active');
+      const activeTabBtn = document.querySelector('[data-tab-group="kp"] .tab-btn.active');
       const target = activeTabBtn ? activeTabBtn.getAttribute('data-tab-target') : "";
       if (target && menuConfig.subMenus[target]) {
         activeSubMenuKey = target;
       }
     } else if (activeMenuKey === "pensiun") {
-      const activeTabBtn = document.querySelector('[data-tab-group="pensiun"].tabs .tab-btn.active');
+      const activeTabBtn = document.querySelector('[data-tab-group="pensiun"] .tab-btn.active');
       const target = activeTabBtn ? activeTabBtn.getAttribute('data-tab-target') : "";
       if (target && menuConfig.subMenus[target]) {
         activeSubMenuKey = target;
       }
     } else if (activeMenuKey === "kontrak") {
-      const kontrakTabs = ["tabBtnKontrakAdminBuat", "tabBtnKontrakAdminReview", "tabBtnKontrakAtasan", "tabBtnKontrakUserStatus"];
-      for (const tId of kontrakTabs) {
-        const btn = document.getElementById(tId);
-        if (btn && (btn.classList.contains("active") || btn.classList.contains("btn-primary"))) {
-          if (menuConfig.subMenus[tId]) activeSubMenuKey = tId;
-          break;
+      const activeKontrakBtn = document.querySelector('#kontrakAdminTabs .tab-btn.active');
+      if (activeKontrakBtn && menuConfig.subMenus[activeKontrakBtn.id]) {
+        activeSubMenuKey = activeKontrakBtn.id;
+      } else {
+        const kontrakTabs = ["tabBtnKontrakAdminBuat", "tabBtnKontrakAdminReview", "tabBtnKontrakAtasan", "tabBtnKontrakUserStatus"];
+        for (const tId of kontrakTabs) {
+          const btn = document.getElementById(tId);
+          if (btn && (btn.classList.contains("active") || btn.classList.contains("btn-primary") || btn.style.display !== "none")) {
+            if (menuConfig.subMenus[tId]) {
+              activeSubMenuKey = tId;
+              break;
+            }
+          }
         }
       }
     } else if (activeMenuKey === "buat-sk") {
@@ -26047,7 +26067,7 @@ function detectCurrentActiveGuideContext() {
       ];
       for (const t of buatSkTabs) {
         const btn = document.getElementById(t.id);
-        if (btn && btn.classList.contains("btn-primary")) {
+        if (btn && (btn.classList.contains("btn-primary") || btn.classList.contains("active"))) {
           activeSubMenuKey = t.key;
           break;
         }
@@ -26060,13 +26080,27 @@ function detectCurrentActiveGuideContext() {
     }
   }
 
-  // 3. Deteksi User Role
-  const userRole = (SESSION && SESSION.user && SESSION.user.role) ? SESSION.user.role : "user";
-  let activeRoleKey = "user";
-  if (userRole === "super_admin" || userRole === "admin") {
-    activeRoleKey = "admin";
+  // 3. Deteksi User Role & Pemetaan Role Terdekat
+  const rawRole = (SESSION && SESSION.user && SESSION.user.role) ? String(SESSION.user.role).toLowerCase() : "user";
+  let userBaseRole = "user";
+  if (rawRole === "super_admin" || rawRole === "admin") {
+    userBaseRole = "admin";
+  } else if (/supervisor|manajer|direktur|rektor|atasan/i.test(rawRole)) {
+    userBaseRole = "atasan";
   } else {
-    activeRoleKey = "user";
+    userBaseRole = "user";
+  }
+
+  const activeSubConfig = menuConfig && menuConfig.subMenus && menuConfig.subMenus[activeSubMenuKey];
+  let activeRoleKey = userBaseRole;
+  if (activeSubConfig && activeSubConfig.roleGuides) {
+    if (activeSubConfig.roleGuides[userBaseRole]) {
+      activeRoleKey = userBaseRole;
+    } else if (activeSubConfig.defaultRole && activeSubConfig.roleGuides[activeSubConfig.defaultRole]) {
+      activeRoleKey = activeSubConfig.defaultRole;
+    } else {
+      activeRoleKey = Object.keys(activeSubConfig.roleGuides)[0];
+    }
   }
 
   return { activeMenuKey, activeSubMenuKey, activeRoleKey };
@@ -26087,6 +26121,7 @@ function openAppGuideModal() {
   const modal = document.getElementById("appGuideModal");
   if (modal) {
     modal.classList.add("active");
+    modal.style.display = "flex";
     document.addEventListener("keydown", handleGuideKeyDown);
   }
 }
@@ -26098,6 +26133,7 @@ function closeAppGuideModal() {
   const modal = document.getElementById("appGuideModal");
   if (modal) {
     modal.classList.remove("active");
+    modal.style.display = "none";
     document.removeEventListener("keydown", handleGuideKeyDown);
   }
 }
@@ -26153,9 +26189,9 @@ function switchGuideSubMenu(subMenuKey) {
   // Sesuaikan role jika sub-menu yang dipilih tidak mendukung role aktif
   const menuConfig = GUIDE_REGISTRY[window.currentGuideState.activeMenuKey];
   const subMenuConfig = menuConfig && menuConfig.subMenus && menuConfig.subMenus[subMenuKey];
-  if (subMenuConfig && subMenuConfig.roles) {
-    if (!subMenuConfig.roles.includes(window.currentGuideState.activeRoleKey)) {
-      window.currentGuideState.activeRoleKey = subMenuConfig.defaultRole || subMenuConfig.roles[0];
+  if (subMenuConfig && subMenuConfig.roleGuides) {
+    if (!subMenuConfig.roleGuides[window.currentGuideState.activeRoleKey]) {
+      window.currentGuideState.activeRoleKey = subMenuConfig.defaultRole || Object.keys(subMenuConfig.roleGuides)[0];
     }
   }
 
@@ -26207,7 +26243,7 @@ function renderGuideContent() {
   // 3. Render Role Switcher
   const roleSwitcherEl = document.getElementById("guideRoleSwitcherContainer");
   if (roleSwitcherEl) {
-    const availableRoles = subMenuConfig.roles || ["user"];
+    const availableRoles = Object.keys(subMenuConfig.roleGuides || {});
     const roleLabels = {
       "user": "👤 Pegawai / Pengusul",
       "admin": "🛡️ Admin / Verifikator",
@@ -26225,7 +26261,7 @@ function renderGuideContent() {
       roleSwitcherEl.innerHTML = roleHtml;
       roleSwitcherEl.style.display = "flex";
     } else {
-      const singleRole = availableRoles[0];
+      const singleRole = availableRoles[0] || "user";
       const label = roleLabels[singleRole] || singleRole.toUpperCase();
       roleSwitcherEl.innerHTML = `<span class="guide-role-label">Panduan Khusus: <strong>${label}</strong></span>`;
       roleSwitcherEl.style.display = "flex";
@@ -26235,7 +26271,6 @@ function renderGuideContent() {
   // 4. Ambil Panduan untuk Role yang Dipilih
   let guideData = subMenuConfig.roleGuides && subMenuConfig.roleGuides[state.activeRoleKey];
   if (!guideData && subMenuConfig.roleGuides) {
-    // Fallback ke role pertama yang tersedia
     const firstRole = Object.keys(subMenuConfig.roleGuides)[0];
     guideData = subMenuConfig.roleGuides[firstRole];
   }
@@ -26321,6 +26356,16 @@ function renderGuideContent() {
     flowchartContainer.innerHTML = flowHtml;
   }
 }
+
+// Global window exposure
+window.openAppGuideModal = openAppGuideModal;
+window.closeAppGuideModal = closeAppGuideModal;
+window.handleGuideOverlayClick = handleGuideOverlayClick;
+window.handleGuideKeyDown = handleGuideKeyDown;
+window.switchGuideView = switchGuideView;
+window.switchGuideSubMenu = switchGuideSubMenu;
+window.switchGuideRole = switchGuideRole;
+window.renderGuideContent = renderGuideContent;
 
 </script>
 
