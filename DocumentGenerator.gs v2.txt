@@ -87,6 +87,21 @@ function buildDataContext_(employee, formData, subLayanan) {
     alias.ada_ijazah_baru_setelah_2023 = formData.ada_ijazah_baru_2023;
   }
 
+  if (formData.bulan_selesai_penilaian) {
+    const bulanAkhir = (typeof docGen_bulanNamaKeAngka_ === 'function')
+      ? docGen_bulanNamaKeAngka_(formData.bulan_selesai_penilaian)
+      : (typeof templateBulanKeAngka_ === 'function' ? templateBulanKeAngka_(formData.bulan_selesai_penilaian) : 0);
+    const tahun = parseInt(formData.tahun_penilaian || new Date().getFullYear(), 10) || new Date().getFullYear();
+    let hariAkhir = 31;
+    if (bulanAkhir >= 1 && bulanAkhir <= 12) {
+      hariAkhir = new Date(tahun, bulanAkhir, 0).getDate();
+    } else if (formData.hari_akhir_penilaian) {
+      hariAkhir = formData.hari_akhir_penilaian;
+    }
+    alias.hari_akhir_penilaian = String(hariAkhir);
+    alias.HARI_AKHIR_PENILAIAN = String(hariAkhir);
+  }
+
   // Pemetaan alias untuk nama pendek/panjang (GDocs)
   const map = {
     tgl_lhr: 'tanggal_lahir',
@@ -106,6 +121,10 @@ function buildDataContext_(employee, formData, subLayanan) {
   }
 
   const ctx = Object.assign({}, employee, formData, alias, derived);
+  if (ctx.hari_akhir_penilaian !== undefined && ctx.hari_akhir_penilaian !== null) {
+    ctx.HARI_AKHIR_PENILAIAN = String(ctx.hari_akhir_penilaian);
+    ctx.hari_akhir_penilaian = String(ctx.hari_akhir_penilaian);
+  }
   const rawJnsKel = ctx.jns_kel || ctx.jenis_kelamin;
   if (rawJnsKel !== undefined && rawJnsKel !== null) {
     const formattedJnsKel = formatJnsKel_(rawJnsKel);

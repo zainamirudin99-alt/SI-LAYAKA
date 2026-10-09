@@ -2665,6 +2665,15 @@ function docxBulanKeAngka(namaBulan) {
   const n = Number(namaBulan); return isNaN(n) ? 0 : n;
 }
 
+function docxHariAkhirBulan(namaBulan, tahun) {
+  const b = docxBulanKeAngka(namaBulan);
+  const t = parseInt(tahun || new Date().getFullYear(), 10) || new Date().getFullYear();
+  if (b >= 1 && b <= 12) {
+    return new Date(t, b, 0).getDate();
+  }
+  return 31;
+}
+
 function docxCallFunction(fnName, args) {
   switch (fnName) {
     case 'diff_years':    return docxDiffYears(args[0], args[1]);
@@ -2676,6 +2685,8 @@ function docxCallFunction(fnName, args) {
     case 'sum':           return docxSum(args[0], args[1]);
     case 'num':           return docxNum(args[0]);
     case 'bulan_ke_angka':return docxBulanKeAngka(args[0]);
+    case 'hari_akhir_bulan':
+    case 'hari_terakhir_bulan': return docxHariAkhirBulan(args[0], args[1]);
     default: throw new Error('Fungsi tidak dikenal: ' + fnName);
   }
 }
@@ -3867,7 +3878,7 @@ const methods = {
   async getTemplatePlaceholders(args) {
     const [token, templateId] = extractArgs(args);
     verifyToken(token);
-    const DEFAULT_PLACEHOLDERS = [
+    let DEFAULT_PLACEHOLDERS = [
       'nomor_sk', 'tgl_sk', 'nip', 'nama_lengkap', 'golongan', 'pangkat',
       'jabatan', 'unit_es_ii', 'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan',
       'masa_kerja_gol', 'gaji_pokok'
@@ -3877,7 +3888,15 @@ const methods = {
     }
     try {
       const db = getDb();
-      const { data: tmpl } = await db.from('templates').select('file_id').eq('id', templateId).maybeSingle();
+      const { data: tmpl } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
+      if (tmpl && tmpl.sub_menu === 'AK Konversi Tahunan') {
+        DEFAULT_PLACEHOLDERS = [
+          'nip', 'nama_lengkap', 'jabatan', 'golongan', 'pangkat',
+          'nomor_surat_pak_konversi', 'bulan_awal_penilaian', 'tahun_penilaian',
+          'bulan_selesai_penilaian', 'hari_akhir_penilaian', 'predikat_skp',
+          'tanggal_surat_pak_konversi', 'ak_konversi_tahunan'
+        ];
+      }
       if (!tmpl || !tmpl.file_id) return { success: true, placeholders: DEFAULT_PLACEHOLDERS, loop_columns: {} };
 
       const buf = await downloadTemplateBuffer(tmpl.file_id);
@@ -7716,6 +7735,8 @@ const methods = {
     return {
       tagSpreadsheet: kolomAktif.map(k => ({ label: k, tag: `{{${k}}}` })),
       tagTurunan: [
+        { label: 'Hari Akhir Penilaian (Opsi A)', tag: '{{hari_akhir_penilaian}}', ket: 'Tanggal terakhir sesuai bulan_selesai_penilaian (28-31)' },
+        { label: 'AK Konversi Tahunan', tag: '{{ak_konversi_tahunan}}', ket: 'Khusus dokumen Opsi A' },
         { label: 'Total AK Baru',       tag: '{{total_ak_baru}}',       ket: 'Dihitung otomatis dari SKP' },
         { label: 'Rekomendasi',          tag: '{{rekomendasi}}',          ket: 'Hasil rekomendasi kenaikan' },
         { label: 'Masa Kerja (Tahun)',   tag: '{{masa_kerja_tahun}}',    ket: 'Dari TMT pengangkatan s/d sekarang' },
@@ -7725,6 +7746,7 @@ const methods = {
         { label: 'Golongan Berikutnya',  tag: '{{golongan_berikutnya}}', ket: 'Golongan setelah naik pangkat' }
       ],
       referensiFormula: [
+        { label: 'Hari Akhir Penilaian',   contoh: '{{ hari_akhir_penilaian }}' },
         { label: 'Matematika',            contoh: '{{ a + b * c }}' },
         { label: 'Terbilang',             contoh: '{{ nominal | terbilang }}' },
         { label: 'Rupiah',                contoh: '{{ nominal | rupiah }}' },
@@ -7735,7 +7757,8 @@ const methods = {
         { label: 'Variabel turunan ("set")', contoh: '{{ set total = a + b }}{{ total }}' },
         { label: 'Jumlah Kolom Loop (sum)', contoh: "{{ sum(penilaian, 'ak_konversi_didapat') }}" },
         { label: 'Ubah ke Angka (num)',    contoh: '{{ num(nilai_string) }}' },
-        { label: 'Nama Bulan -> Angka',    contoh: '{{ bulan_ke_angka(bulan_selesai_penilaian) }}' }
+        { label: 'Nama Bulan -> Angka',    contoh: '{{ bulan_ke_angka(bulan_selesai_penilaian) }}' },
+        { label: 'Hari Terakhir Bulan',    contoh: '{{ hari_akhir_bulan(bulan_selesai_penilaian, tahun_penilaian) }}' }
       ],
       catatan: firstRow
         ? `${kolomAktif.length} kolom tersedia dari database.`
@@ -7957,18 +7980,26 @@ const methods = {
     const { data: tmpl, error } = await db.from('templates').select('*').eq('id', templateId).maybeSingle();
     if (error) throw error;
 
-    const defaultFields = [
+    let defaultFields = [
       'nip', 'nama_lengkap', 'unit_es_ii', 'jabatan', 'golongan', 'pangkat',
       'tmp_lhr', 'tgl_lhr', 'tmt_pengangkatan', 'tmt_pensiun_bup', 'status_kepegawaian',
       'nomor_sk', 'foto'
     ];
+    if (tmpl && tmpl.sub_menu === 'AK Konversi Tahunan') {
+      defaultFields = [
+        'nip', 'nama_lengkap', 'jabatan', 'golongan', 'pangkat',
+        'nomor_surat_pak_konversi', 'bulan_awal_penilaian', 'tahun_penilaian',
+        'bulan_selesai_penilaian', 'hari_akhir_penilaian', 'predikat_skp',
+        'tanggal_surat_pak_konversi', 'ak_konversi_tahunan'
+      ];
+    }
 
     if (!tmpl) return { success: true, placeholders: defaultFields };
 
     const keys = new Set();
     const IGNORE_KEYS = new Set([
       'set', 'diff_years', 'diff_months', 'diff_days', 'terbilang', 'rupiah', 'tanggal',
-      'sum', 'num', 'bulan_ke_angka', 'today', 'tanggal_sk', 'tanggal_buat', 'tgl_buat', 'tgl_generate',
+      'sum', 'num', 'bulan_ke_angka', 'hari_akhir_bulan', 'hari_terakhir_bulan', 'today', 'tanggal_sk', 'tanggal_buat', 'tgl_buat', 'tgl_generate',
       'if', 'else', 'true', 'false', 'null', 'and', 'or', 'not'
     ]);
 
@@ -8193,7 +8224,7 @@ const methods = {
 
         const KNOWN_FUNCTIONS = [
           'diff_years', 'diff_months', 'diff_days', 'terbilang', 'rupiah', 'tanggal',
-          'sum', 'num', 'bulan_ke_angka'
+          'sum', 'num', 'bulan_ke_angka', 'hari_akhir_bulan', 'hari_terakhir_bulan'
         ];
 
         const SMART_QUOTES_RE = /[\u201C\u201D\u2018\u2019]/;
@@ -11854,6 +11885,10 @@ const methods = {
               if (entry.formData && entry.formData[val] !== undefined && alias[key] === undefined) alias[key] = entry.formData[val];
             }
             entry.dataContext = Object.assign({}, employee, entry.formData, alias, derived);
+            if (entry.dataContext.hari_akhir_penilaian !== undefined && entry.dataContext.hari_akhir_penilaian !== null) {
+              entry.dataContext.HARI_AKHIR_PENILAIAN = String(entry.dataContext.hari_akhir_penilaian);
+              entry.dataContext.hari_akhir_penilaian = String(entry.dataContext.hari_akhir_penilaian);
+            }
             const rawJnsKel = entry.dataContext.jns_kel || entry.dataContext.jenis_kelamin || (employee && (employee.jns_kel || employee.jenis_kelamin));
             if (rawJnsKel !== undefined && rawJnsKel !== null) {
               const formattedJnsKel = rpcFormatJnsKel(rawJnsKel);
@@ -11994,6 +12029,10 @@ const methods = {
               if (entry.formData && entry.formData[val] !== undefined && alias[key] === undefined) alias[key] = entry.formData[val];
             }
             entry.dataContext = Object.assign({}, employee, entry.formData, alias, derived);
+            if (entry.dataContext.hari_akhir_penilaian !== undefined && entry.dataContext.hari_akhir_penilaian !== null) {
+              entry.dataContext.HARI_AKHIR_PENILAIAN = String(entry.dataContext.hari_akhir_penilaian);
+              entry.dataContext.hari_akhir_penilaian = String(entry.dataContext.hari_akhir_penilaian);
+            }
             const rawJnsKel = entry.dataContext.jns_kel || entry.dataContext.jenis_kelamin || (employee && (employee.jns_kel || employee.jenis_kelamin));
             if (rawJnsKel !== undefined && rawJnsKel !== null) {
               const formattedJnsKel = rpcFormatJnsKel(rawJnsKel);
@@ -13547,8 +13586,19 @@ function rpcBuildDerivedFields(employee, formData, subLayanan) {
     const pred = formData.predikat_skp === 'Baik' ? 1 : 1.5;
     const jumlahBulan = (Number(bulanAkhir) - Number(bulanAwal) + 1) / 12;
     const ak = jumlahBulan * koefisien * pred;
+
+    const tahun = parseInt(formData.tahun_penilaian || new Date().getFullYear(), 10) || new Date().getFullYear();
+    let hariAkhir = 31;
+    if (bulanAkhir >= 1 && bulanAkhir <= 12) {
+      hariAkhir = new Date(tahun, bulanAkhir, 0).getDate();
+    } else if (formData.hari_akhir_penilaian) {
+      hariAkhir = formData.hari_akhir_penilaian;
+    }
+
     return {
-      ak_konversi_tahunan: docxCeil2Decimal(ak)
+      ak_konversi_tahunan: docxCeil2Decimal(ak),
+      hari_akhir_penilaian: String(hariAkhir),
+      HARI_AKHIR_PENILAIAN: String(hariAkhir)
     };
   }
 
@@ -13568,10 +13618,17 @@ function rpcBuildDerivedFields(employee, formData, subLayanan) {
       const jumlahBulan = (Number(bulanAkhir) - Number(bulanAwal) + 1) / 12;
       const ak = jumlahBulan * koefisien * pred;
       const roundedAk = docxCeil2Decimal(ak);
+      const tahunRow = parseInt(row.tahun_penilaian || new Date().getFullYear(), 10) || new Date().getFullYear();
+      let hariAkhirRow = 31;
+      if (bulanAkhir >= 1 && bulanAkhir <= 12) {
+        hariAkhirRow = new Date(tahunRow, bulanAkhir, 0).getDate();
+      }
       return {
         tahun_penilaian: row.tahun_penilaian,
         bulan_awal_penilaian: row.bulan_awal_penilaian,
         bulan_selesai_penilaian: row.bulan_selesai_penilaian,
+        hari_akhir_penilaian: String(hariAkhirRow),
+        HARI_AKHIR_PENILAIAN: String(hariAkhirRow),
         predikat_skp: row.predikat_skp,
         ak_konversi_tahun: roundedAk,
         ak_konversi_didapat: roundedAk

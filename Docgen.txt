@@ -227,8 +227,18 @@ function docGen_buildDerivedFields_(employee, formData, subLayanan) {
     const bulanAkhir = docGen_bulanNamaKeAngka_(formData.bulan_selesai_penilaian);
     const akKonversiTahunan = docGen_hitungAkKonversiTahunan(formData.predikat_skp, jabatan, bulanAwal, bulanAkhir);
 
+    const tahun = parseInt(formData.tahun_penilaian || new Date().getFullYear(), 10) || new Date().getFullYear();
+    let hariAkhir = 31;
+    if (bulanAkhir >= 1 && bulanAkhir <= 12) {
+      hariAkhir = new Date(tahun, bulanAkhir, 0).getDate();
+    } else if (formData.hari_akhir_penilaian) {
+      hariAkhir = formData.hari_akhir_penilaian;
+    }
+
     return {
-      ak_konversi_tahunan: docGen_bulatkan_(akKonversiTahunan)
+      ak_konversi_tahunan: docGen_bulatkan_(akKonversiTahunan),
+      hari_akhir_penilaian: String(hariAkhir),
+      HARI_AKHIR_PENILAIAN: String(hariAkhir)
     };
   }
 
@@ -255,10 +265,17 @@ function docGen_buildDerivedFields_(employee, formData, subLayanan) {
     const penilaianUntukTemplate = (formData.data_massal || []).map(row => {
       const bulanAwal = docGen_bulanNamaKeAngka_(row.bulan_awal_penilaian);
       const bulanAkhir = docGen_bulanNamaKeAngka_(row.bulan_selesai_penilaian);
+      const tahunRow = parseInt(row.tahun_penilaian || new Date().getFullYear(), 10) || new Date().getFullYear();
+      let hariAkhirRow = 31;
+      if (bulanAkhir >= 1 && bulanAkhir <= 12) {
+        hariAkhirRow = new Date(tahunRow, bulanAkhir, 0).getDate();
+      }
       return {
         tahun_penilaian: row.tahun_penilaian,
         bulan_awal_penilaian: row.bulan_awal_penilaian,
         bulan_selesai_penilaian: row.bulan_selesai_penilaian,
+        hari_akhir_penilaian: String(hariAkhirRow),
+        HARI_AKHIR_PENILAIAN: String(hariAkhirRow),
         predikat_skp: row.predikat_skp,
         ak_konversi_tahun: docGen_bulatkan_(
           docGen_hitungAkKonversiTahunan(row.predikat_skp, jabatan, bulanAwal, bulanAkhir)

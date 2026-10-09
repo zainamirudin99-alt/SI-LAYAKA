@@ -121,6 +121,7 @@ function getGlosariumTag(sessionToken) {
     .map(h => ({ label: String(h).trim(), tag: '{{' + normalizeHeaderKey_(h) + '}}' }));
 
   const tagTurunan = [
+    { label: 'Hari Akhir Penilaian (Opsi A)', tag: '{{hari_akhir_penilaian}}', ket: 'Tanggal terakhir sesuai bulan_selesai_penilaian (28-31)' },
     { label: 'AK Konversi Tahunan', tag: '{{ak_konversi_tahunan}}', ket: 'Khusus dokumen Opsi A' },
     { label: 'Baris Penilaian per Tahun', tag: '{{#penilaian}} {{tahun_penilaian}} {{predikat_skp}} {{ak_konversi_tahun}} {{/penilaian}}', ket: 'Khusus dokumen Opsi B — bentuk {#..}/{/..} (kurung tunggal) juga tetap didukung' },
     { label: 'AK Integrasi Didapat', tag: '{{ak_integrasi_didapat}}', ket: 'Khusus dokumen Opsi B' },
@@ -191,6 +192,7 @@ function getGlosariumTag(sessionToken) {
       { label: 'Masa Kerja (Thn)', contoh: '{{ diff_years(tmt, today) }}' },
       { label: 'Masa Kerja (Bln)', contoh: '{{ diff_months(tmt, sk) }}' },
       { label: 'Nama Bulan -> Angka', contoh: '{{ bulan_ke_angka(bulan_selesai_penilaian) }}' },
+      { label: 'Hari Terakhir Bulan', contoh: '{{ hari_akhir_bulan(bulan_selesai_penilaian, tahun_penilaian) }}' },
       { label: 'Dropdown (Pilihan)', contoh: '{{ tag[Opsi1, Opsi2] }}' },
       { label: 'Loop Baris Tabel', contoh: '{{#nama_loop}} ... {{/nama_loop}}', ket: 'Boleh di tabel bersarang (nested table), lihat "Data Pasangan/Anak" di atas' },
       { label: 'Logika (ternary)', contoh: "{{ a > b ? 'X' : 'Y' }}" },

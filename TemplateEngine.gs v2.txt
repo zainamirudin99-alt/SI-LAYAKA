@@ -586,7 +586,17 @@ function evaluateAndFormat_(rawExpr, dataContext) {
   // auto-format tanggal jika key diawali tgl_ / tmt_, dan TIDAK ada filter.
   const isBareIdentifier = /^[A-Za-z_][A-Za-z0-9_]*$/.test(mainExpr);
   if (isBareIdentifier && filters.length === 0) {
-    const raw = dataContext[mainExpr];
+    let raw = dataContext[mainExpr];
+    if (raw === undefined && mainExpr) {
+      raw = dataContext[mainExpr.toLowerCase()] !== undefined ? dataContext[mainExpr.toLowerCase()] : dataContext[mainExpr.toUpperCase()];
+    }
+    if (raw === undefined && (mainExpr.toLowerCase() === 'hari_akhir_penilaian' || mainExpr.toLowerCase() === 'hari_terakhir_penilaian')) {
+      const bulan = dataContext.bulan_selesai_penilaian || dataContext.BULAN_SELESAI_PENILAIAN;
+      const tahun = dataContext.tahun_penilaian || dataContext.TAHUN_PENILAIAN;
+      if (bulan) {
+        raw = String(templateHariAkhirBulan_(bulan, tahun));
+      }
+    }
     const isFamilyDateField = ['tgl_lahir_pasangan', 'tgl_kawin', 'tgl_cerai', 'tg_lahir_anak', 'tgl_lahir_anak'].indexOf(mainExpr.toLowerCase()) !== -1;
     if (isFamilyDateField) return (typeof pensiunGen_formatTanggalSlash_ === 'function') ? pensiunGen_formatTanggalSlash_(raw) : (raw || '-');
     const isDateField = CONFIG.DATE_TAG_PREFIXES.some(p => mainExpr.indexOf(p) === 0);
@@ -602,7 +612,17 @@ function evaluateAndFormat_(rawExpr, dataContext) {
   const dropdownMatch = mainExpr.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*\[[^\]]*\]$/);
   if (dropdownMatch && filters.length === 0) {
     const key = dropdownMatch[1];
-    const raw = dataContext[key];
+    let raw = dataContext[key];
+    if (raw === undefined && key) {
+      raw = dataContext[key.toLowerCase()] !== undefined ? dataContext[key.toLowerCase()] : dataContext[key.toUpperCase()];
+    }
+    if (raw === undefined && (key.toLowerCase() === 'hari_akhir_penilaian' || key.toLowerCase() === 'hari_terakhir_penilaian')) {
+      const bulan = dataContext.bulan_selesai_penilaian || dataContext.BULAN_SELESAI_PENILAIAN;
+      const tahun = dataContext.tahun_penilaian || dataContext.TAHUN_PENILAIAN;
+      if (bulan) {
+        raw = String(templateHariAkhirBulan_(bulan, tahun));
+      }
+    }
     const isFamilyDateField = ['tgl_lahir_pasangan', 'tgl_kawin', 'tgl_cerai', 'tg_lahir_anak', 'tgl_lahir_anak'].indexOf(key.toLowerCase()) !== -1;
     if (isFamilyDateField) return (typeof pensiunGen_formatTanggalSlash_ === 'function') ? pensiunGen_formatTanggalSlash_(raw) : (raw || '-');
     const isDateField = CONFIG.DATE_TAG_PREFIXES.some(p => key.indexOf(p) === 0);
@@ -822,7 +842,17 @@ function evaluateExpression_(expr, dataContext) {
 
 function resolveIdentifier_(name, dataContext) {
   if (name === 'today') return new Date();
-  const val = dataContext[name];
+  let val = dataContext[name];
+  if (val === undefined && name) {
+    val = dataContext[name.toLowerCase()] !== undefined ? dataContext[name.toLowerCase()] : dataContext[name.toUpperCase()];
+  }
+  if (val === undefined && (name.toLowerCase() === 'hari_akhir_penilaian' || name.toLowerCase() === 'hari_terakhir_penilaian')) {
+    const bulan = dataContext.bulan_selesai_penilaian || dataContext.BULAN_SELESAI_PENILAIAN;
+    const tahun = dataContext.tahun_penilaian || dataContext.TAHUN_PENILAIAN;
+    if (bulan) {
+      val = String(templateHariAkhirBulan_(bulan, tahun));
+    }
+  }
   // Jika field tanggal dipakai dalam ekspresi (mis. argumen fungsi diff_*),
   // kembalikan sebagai Date object mentah agar bisa dihitung, BUKAN string.
   const isDateField = CONFIG.DATE_TAG_PREFIXES.some(p => name.indexOf(p) === 0);
@@ -855,6 +885,16 @@ function templateBulanKeAngka_(namaBulan) {
   return isNaN(n) ? 0 : n;
 }
 
+/** Menghitung tanggal terakhir dalam suatu bulan (28/29/30/31). */
+function templateHariAkhirBulan_(namaBulan, tahun) {
+  const b = templateBulanKeAngka_(namaBulan);
+  const t = parseInt(tahun || new Date().getFullYear(), 10) || new Date().getFullYear();
+  if (b >= 1 && b <= 12) {
+    return new Date(t, b, 0).getDate();
+  }
+  return 31;
+}
+
 function callFunction_(fnName, args) {
   switch (fnName) {
     case 'diff_years': return diffYears_(args[0], args[1]);
@@ -866,6 +906,8 @@ function callFunction_(fnName, args) {
     case 'sum': return templateSum_(args[0], args[1]);
     case 'num': return templateNum_(args[0]);
     case 'bulan_ke_angka': return templateBulanKeAngka_(args[0]);
+    case 'hari_akhir_bulan':
+    case 'hari_terakhir_bulan': return templateHariAkhirBulan_(args[0], args[1]);
     default: throw new Error('Fungsi tidak dikenal: ' + fnName);
   }
 }

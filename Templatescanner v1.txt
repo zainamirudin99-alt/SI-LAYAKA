@@ -38,7 +38,7 @@
 
 const KNOWN_FUNCTIONS_ = [
   'diff_years', 'diff_months', 'diff_days', 'terbilang', 'rupiah', 'tanggal',
-  'sum', 'num', 'bulan_ke_angka'
+  'sum', 'num', 'bulan_ke_angka', 'hari_akhir_bulan', 'hari_terakhir_bulan'
 ];
 
 /**

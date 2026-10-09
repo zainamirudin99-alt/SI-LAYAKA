@@ -2563,6 +2563,9 @@ function addOptAEntry() {
       <div class="stack-field">
         <label>Bulan Selesai Penilaian</label>
         <select class="field-input" data-field="bulanSelesai"></select>
+        <div class="helper-text" data-field="hariAkhirWrap" style="margin-top:3px; font-size:11.5px; color:var(--text-muted);">
+          Tanggal akhir penilaian: <strong data-field="hariAkhirBadge" style="color:var(--primary); font-weight:700;">-</strong> (placeholder <code>{{hari_akhir_penilaian}}</code>)
+        </div>
       </div>
       <div class="stack-field">
         <label>Predikat SKP</label>
@@ -2607,6 +2610,29 @@ function addOptAEntry() {
   card.querySelector('[data-field="jabatan"]').addEventListener('change', () => updateTmtJabatanVisibility(card));
   card.querySelector('[data-field="golongan"]').addEventListener('change', () => updateTmtGolonganVisibility(card));
 
+  const updateHariAkhirOptA = () => {
+    const bln = fv(card, 'bulanSelesai');
+    const thn = fv(card, 'tahunPenilaian');
+    const badge = card.querySelector('[data-field="hariAkhirBadge"]');
+    if (!badge) return;
+    if (!bln) {
+      badge.textContent = '-';
+      return;
+    }
+    const idx = FORM_OPTIONS.bulan.findIndex(b => b.label.toLowerCase() === String(bln).trim().toLowerCase());
+    const mNum = idx !== -1 ? idx + 1 : Number(bln);
+    if (mNum >= 1 && mNum <= 12) {
+      const y = parseInt(thn || new Date().getFullYear(), 10) || new Date().getFullYear();
+      const lastDay = new Date(y, mNum, 0).getDate();
+      badge.textContent = `${lastDay} (${bln} ${y})`;
+    } else {
+      badge.textContent = '-';
+    }
+  };
+
+  card.querySelector('[data-field="bulanSelesai"]').addEventListener('change', updateHariAkhirOptA);
+  card.querySelector('[data-field="tahunPenilaian"]').addEventListener('input', updateHariAkhirOptA);
+
   setupAutocompleteEl(
     card.querySelector('[data-field="subjectInput"]'),
     card.querySelector('[data-field="subjectList"]'),
@@ -2623,11 +2649,24 @@ function addOptAEntry() {
 }
 
 function buildFormDataOptA_Card(card) {
+  const blnSelesai = fv(card, 'bulanSelesai');
+  const thnPenilaian = fv(card, 'tahunPenilaian');
+  let hariAkhirOptA = '';
+  if (blnSelesai) {
+    const idx = FORM_OPTIONS.bulan.findIndex(b => b.label.toLowerCase() === String(blnSelesai).trim().toLowerCase());
+    const mNum = idx !== -1 ? idx + 1 : Number(blnSelesai);
+    if (mNum >= 1 && mNum <= 12) {
+      const y = parseInt(thnPenilaian || new Date().getFullYear(), 10) || new Date().getFullYear();
+      hariAkhirOptA = String(new Date(y, mNum, 0).getDate());
+    }
+  }
+
   const data = {
     nomor_surat_pak_konversi: fv(card, 'nomorSurat'),
     bulan_awal_penilaian: fv(card, 'bulanAwal'),
-    tahun_penilaian: fv(card, 'tahunPenilaian'),
-    bulan_selesai_penilaian: fv(card, 'bulanSelesai'),
+    tahun_penilaian: thnPenilaian,
+    bulan_selesai_penilaian: blnSelesai,
+    hari_akhir_penilaian: hariAkhirOptA,
     predikat_skp: fv(card, 'predikat'),
     tanggal_surat_pak_konversi: fv(card, 'tanggalSurat'),
     jabatan: fv(card, 'jabatan'),
@@ -2785,6 +2824,7 @@ function copyOptAEntry() {
   
   updateTmtJabatanVisibility(newCard);
   updateTmtGolonganVisibility(newCard);
+  newCard.querySelector('[data-field="bulanSelesai"]').dispatchEvent(new Event('change'));
 }
 
 function copyOptBEntry() {
@@ -20536,7 +20576,7 @@ const GUIDE_REGISTRY = {
               },
               {
                 title: "2. Masukkan Periode & Predikat Kinerja",
-                desc: "Tentukan Tahun Penilaian serta tanggal periode. Pilih predikat SKP (Sangat Baik: 150%, Baik: 100%, Butuh Perbaikan: 75%, Kurang: 50%, Sangat Kurang: 25%)."
+                desc: "Tentukan Tahun Penilaian serta tanggal periode. Tanggal akhir penilaian otomatis sinkron ke placeholder {{hari_akhir_penilaian}} sesuai bulan selesai. Pilih predikat SKP (Sangat Baik: 150%, Baik: 100%, Butuh Perbaikan: 75%, Kurang: 50%, Sangat Kurang: 25%)."
               },
               {
                 title: "3. Hitung AK Otomatis",
