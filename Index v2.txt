@@ -665,12 +665,108 @@
                           <th>TMT</th>
                           <th>Status Saat Ini</th>
                           <th>Ubah Status</th>
-                          <th style="width:60px; text-align:center;">Aksi</th>
+                          <th style="width:80px; text-align:center;">Aksi</th>
                         </tr>
                       </thead>
                       <tbody id="umModalTbody"></tbody>
                     </table>
                   </div>
+                </div>
+              </div>
+              <!-- POP-UP MODAL EDIT USULAN MASUK -->
+              <div id="modalEditUsulanMasuk" class="um-import-card" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; z-index:100002; background:rgba(0,0,0,0.65); backdrop-filter:blur(5px); padding:20px; overflow-y:auto;">
+                <div style="max-width:680px; margin:40px auto; background:var(--surface); border-radius:16px; border:2px solid var(--primary); padding:24px; box-shadow:0 12px 48px rgba(0,0,0,0.35);">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; padding-bottom:12px; border-bottom:1px solid var(--border);">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                      <div style="width:36px; height:36px; border-radius:8px; background:rgba(37,99,235,0.12); color:var(--primary); display:flex; align-items:center; justify-content:center; font-size:18px;">
+                        ✏️
+                      </div>
+                      <div>
+                        <h3 style="margin:0; font-size:17px; font-weight:700; color:var(--text);">Edit Data Usulan Kenaikan Pangkat</h3>
+                        <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Perbarui rincian usulan pegawai yang telah masuk.</div>
+                      </div>
+                    </div>
+                    <button type="button" class="btn btn-outline kp-small-btn" onclick="closeEditUsulanModal()">✕ Tutup</button>
+                  </div>
+
+                  <form id="formEditUsulanMasuk" onsubmit="event.preventDefault(); saveEditUsulanModal();">
+                    <input type="hidden" id="editUmId" />
+                    <input type="hidden" id="editUmOriginalNip" />
+
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:14px; margin-bottom:14px;">
+                      <div>
+                        <label class="label-tech" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:block;">Nama Lengkap Pegawai *</label>
+                        <input type="text" id="editUmNama" class="field-input" placeholder="Nama Lengkap beserta Gelar" required style="width:100%; box-sizing:border-box;" />
+                      </div>
+                      <div>
+                        <label class="label-tech" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:block;">NIP Pegawai</label>
+                        <input type="text" id="editUmNip" class="field-input" placeholder="18 digit NIP" style="width:100%; box-sizing:border-box;" />
+                      </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:14px; margin-bottom:14px;">
+                      <div>
+                        <label class="label-tech" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:block;">Fakultas / Unit Kerja</label>
+                        <input type="text" id="editUmUnit" class="field-input" placeholder="Unit Kerja / Fakultas" style="width:100%; box-sizing:border-box;" />
+                      </div>
+                      <div>
+                        <label class="label-tech" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:block;">Jabatan Fungsional / Pelaksana</label>
+                        <input type="text" id="editUmJabatan" class="field-input" placeholder="Jabatan" style="width:100%; box-sizing:border-box;" />
+                      </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:14px; margin-bottom:14px;">
+                      <div>
+                        <label class="label-tech" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:block;">Jenis Pegawai</label>
+                        <select id="editUmJenisPegawai" class="field-input" style="width:100%; box-sizing:border-box;">
+                          <option value="Tendik">Tendik (Tenaga Kependidikan)</option>
+                          <option value="Dosen">Dosen</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label class="label-tech" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:block;">Status Kepegawaian</label>
+                        <select id="editUmStatusKepegawaian" class="field-input" style="width:100%; box-sizing:border-box;">
+                          <option value="PNS">PNS (Pegawai Negeri Sipil)</option>
+                          <option value="PPPK">PPPK</option>
+                          <option value="Tetap Non-PNS">Tetap Non-PNS</option>
+                          <option value="Kontrak">Kontrak</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:14px; margin-bottom:14px;">
+                      <div>
+                        <label class="label-tech" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:block;">Golongan Lama</label>
+                        <input type="text" id="editUmGolLama" class="field-input" placeholder="cth: III/b" style="width:100%; box-sizing:border-box;" />
+                      </div>
+                      <div>
+                        <label class="label-tech" style="font-size:11.5px; color:var(--text-bottom); margin-bottom:5px; display:block;">Golongan Baru (Proyeksi)</label>
+                        <input type="text" id="editUmGolBaru" class="field-input" placeholder="cth: III/c" style="width:100%; box-sizing:border-box;" />
+                      </div>
+                      <div>
+                        <label class="label-tech" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:block;">Periode TMT Usulan</label>
+                        <input type="text" id="editUmTmt" class="field-input" placeholder="cth: November 2026" style="width:100%; box-sizing:border-box;" />
+                      </div>
+                    </div>
+
+                    <div style="margin-bottom:20px;">
+                      <label class="label-tech" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:block;">Status Usulan</label>
+                      <select id="editUmStatus" class="field-input" style="width:100%; box-sizing:border-box;">
+                        <option value="Diterima DOSDM">Diterima DOSDM</option>
+                        <option value="Diajukan SIASN">Diajukan SIASN</option>
+                        <option value="TTD Pertek">TTD Pertek</option>
+                        <option value="SK Berhasil">SK Berhasil</option>
+                        <option value="Perbaikan">Perbaikan</option>
+                        <option value="Belum Eligible">Belum Eligible</option>
+                        <option value="Pensiun">Pensiun</option>
+                      </select>
+                    </div>
+
+                    <div style="display:flex; justify-content:flex-end; gap:10px; padding-top:12px; border-top:1px solid var(--border);">
+                      <button type="button" class="btn btn-outline" onclick="closeEditUsulanModal()" style="padding:9px 18px; font-size:13px;">Batal</button>
+                      <button type="submit" class="btn btn-primary" style="padding:9px 20px; font-size:13px; font-weight:700;">💾 Simpan Perubahan</button>
+                    </div>
+                  </form>
                 </div>
               </div>
 
@@ -1185,7 +1281,86 @@
                 </select>
               </div>
 
-              <!-- 7. Pengurutan Data (Sort By) -->
+              <!-- 6. Dropdown Masa Kerja Tahun (1 - 50) -->
+              <div>
+                <label class="label-tech" style="color:var(--text-muted); font-size:11px; margin-bottom:5px; display:block;">Masa Kerja (Tahun: 1 - 50)</label>
+                <select id="kgbFilterMasaKerjaTahun" style="width:100%; box-sizing:border-box; padding:9px 12px; font-size:13px; border-radius:8px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text);" onchange="applyCheckKgbFilters()">
+<option value="">Semua Masa Kerja Tahun</option>
+                  <option value="1">1 Tahun</option>
+                  <option value="2">2 Tahun</option>
+                  <option value="3">3 Tahun</option>
+                  <option value="4">4 Tahun</option>
+                  <option value="5">5 Tahun</option>
+                  <option value="6">6 Tahun</option>
+                  <option value="7">7 Tahun</option>
+                  <option value="8">8 Tahun</option>
+                  <option value="9">9 Tahun</option>
+                  <option value="10">10 Tahun</option>
+                  <option value="11">11 Tahun</option>
+                  <option value="12">12 Tahun</option>
+                  <option value="13">13 Tahun</option>
+                  <option value="14">14 Tahun</option>
+                  <option value="15">15 Tahun</option>
+                  <option value="16">16 Tahun</option>
+                  <option value="17">17 Tahun</option>
+                  <option value="18">18 Tahun</option>
+                  <option value="19">19 Tahun</option>
+                  <option value="20">20 Tahun</option>
+                  <option value="21">21 Tahun</option>
+                  <option value="22">22 Tahun</option>
+                  <option value="23">23 Tahun</option>
+                  <option value="24">24 Tahun</option>
+                  <option value="25">25 Tahun</option>
+                  <option value="26">26 Tahun</option>
+                  <option value="27">27 Tahun</option>
+                  <option value="28">28 Tahun</option>
+                  <option value="29">29 Tahun</option>
+                  <option value="30">30 Tahun</option>
+                  <option value="31">31 Tahun</option>
+                  <option value="32">32 Tahun</option>
+                  <option value="33">33 Tahun</option>
+                  <option value="34">34 Tahun</option>
+                  <option value="35">35 Tahun</option>
+                  <option value="36">36 Tahun</option>
+                  <option value="37">37 Tahun</option>
+                  <option value="38">38 Tahun</option>
+                  <option value="39">39 Tahun</option>
+                  <option value="40">40 Tahun</option>
+                  <option value="41">41 Tahun</option>
+                  <option value="42">42 Tahun</option>
+                  <option value="43">43 Tahun</option>
+                  <option value="44">44 Tahun</option>
+                  <option value="45">45 Tahun</option>
+                  <option value="46">46 Tahun</option>
+                  <option value="47">47 Tahun</option>
+                  <option value="48">48 Tahun</option>
+                  <option value="49">49 Tahun</option>
+                  <option value="50">50 Tahun</option>
+                </select>
+              </div>
+
+              <!-- 7. Dropdown Masa Kerja Bulan (01 - 12) -->
+              <div>
+                <label class="label-tech" style="color:var(--text-muted); font-size:11px; margin-bottom:5px; display:block;">Masa Kerja (Bulan: 01 - 12)</label>
+                <select id="kgbFilterMasaKerjaBulan" style="width:100%; box-sizing:border-box; padding:9px 12px; font-size:13px; border-radius:8px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text);" onchange="applyCheckKgbFilters()">
+<option value="">Semua Masa Kerja Bulan</option>
+                  <option value="00">00 Bulan (0)</option>
+                  <option value="01">01 Bulan</option>
+                  <option value="02">02 Bulan</option>
+                  <option value="03">03 Bulan</option>
+                  <option value="04">04 Bulan</option>
+                  <option value="05">05 Bulan</option>
+                  <option value="06">06 Bulan</option>
+                  <option value="07">07 Bulan</option>
+                  <option value="08">08 Bulan</option>
+                  <option value="09">09 Bulan</option>
+                  <option value="10">10 Bulan</option>
+                  <option value="11">11 Bulan</option>
+                  <option value="12">12 Bulan</option>
+                </select>
+              </div>
+
+              <!-- 8. Pengurutan Data (Sort By) -->
               <div>
                 <label class="label-tech" style="color:var(--text-muted); font-size:11px; margin-bottom:5px; display:block;">Urutkan Berdasarkan</label>
                 <select id="kgbSortBy" style="width:100%; box-sizing:border-box; padding:9px 12px; font-size:13px; border-radius:8px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text);" onchange="applyCheckKgbFilters()">
@@ -1197,6 +1372,8 @@
                   <option value="tahun_desc">Tahun Pengangkatan (Terbaru → Terlama)</option>
                   <option value="tahun_asc">Tahun Pengangkatan (Terlama → Terbaru)</option>
                   <option value="bulan_asc">Bulan Pengangkatan (01 → 12)</option>
+                  <option value="mk_desc">Masa Kerja (Terlama → Terkini)</option>
+                  <option value="mk_asc">Masa Kerja (Terkini → Terlama)</option>
                   <option value="unit_asc">Unit Kerja (A → Z)</option>
                 </select>
               </div>
@@ -1223,13 +1400,14 @@
                     <th style="padding:14px 16px; font-weight:700; color:var(--text);">Status &amp; Jenis Pegawai</th>
                     <th style="padding:14px 16px; font-weight:700; color:var(--text); text-align:center;">Tahun Pengangkatan</th>
                     <th style="padding:14px 16px; font-weight:700; color:var(--text); text-align:center;">Bulan Pengangkatan</th>
+                    <th style="padding:14px 16px; font-weight:700; color:var(--text); text-align:center;">Masa Kerja (CPNS)</th>
                     <th style="padding:14px 16px; font-weight:700; color:var(--text);">Unit Kerja</th>
                     <th style="padding:14px 16px; font-weight:700; color:var(--text);">Status Usulan KP</th>
                   </tr>
                 </thead>
                 <tbody id="kgbTableBody">
                   <tr>
-                    <td colspan="8" style="padding:40px; text-align:center; color:var(--text-muted);">
+                    <td colspan="9" style="padding:40px; text-align:center; color:var(--text-muted);">
                       <div class="spinner" style="margin:0 auto 12px auto;"></div>
                       Memuat data usulan masuk Kenaikan Pangkat untuk Check KGB...
                     </td>

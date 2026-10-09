@@ -3627,12 +3627,108 @@
                           <th>TMT</th>
                           <th>Status Saat Ini</th>
                           <th>Ubah Status</th>
-                          <th style="width:60px; text-align:center;">Aksi</th>
+                          <th style="width:80px; text-align:center;">Aksi</th>
                         </tr>
                       </thead>
                       <tbody id="umModalTbody"></tbody>
                     </table>
                   </div>
+                </div>
+              </div>
+              <!-- POP-UP MODAL EDIT USULAN MASUK -->
+              <div id="modalEditUsulanMasuk" class="um-import-card" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; z-index:100002; background:rgba(0,0,0,0.65); backdrop-filter:blur(5px); padding:20px; overflow-y:auto;">
+                <div style="max-width:680px; margin:40px auto; background:var(--surface); border-radius:16px; border:2px solid var(--primary); padding:24px; box-shadow:0 12px 48px rgba(0,0,0,0.35);">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; padding-bottom:12px; border-bottom:1px solid var(--border);">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                      <div style="width:36px; height:36px; border-radius:8px; background:rgba(37,99,235,0.12); color:var(--primary); display:flex; align-items:center; justify-content:center; font-size:18px;">
+                        ✏️
+                      </div>
+                      <div>
+                        <h3 style="margin:0; font-size:17px; font-weight:700; color:var(--text);">Edit Data Usulan Kenaikan Pangkat</h3>
+                        <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Perbarui rincian usulan pegawai yang telah masuk.</div>
+                      </div>
+                    </div>
+                    <button type="button" class="btn btn-outline kp-small-btn" onclick="closeEditUsulanModal()">✕ Tutup</button>
+                  </div>
+
+                  <form id="formEditUsulanMasuk" onsubmit="event.preventDefault(); saveEditUsulanModal();">
+                    <input type="hidden" id="editUmId" />
+                    <input type="hidden" id="editUmOriginalNip" />
+
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:14px; margin-bottom:14px;">
+                      <div>
+                        <label class="label-tech" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:block;">Nama Lengkap Pegawai *</label>
+                        <input type="text" id="editUmNama" class="field-input" placeholder="Nama Lengkap beserta Gelar" required style="width:100%; box-sizing:border-box;" />
+                      </div>
+                      <div>
+                        <label class="label-tech" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:block;">NIP Pegawai</label>
+                        <input type="text" id="editUmNip" class="field-input" placeholder="18 digit NIP" style="width:100%; box-sizing:border-box;" />
+                      </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:14px; margin-bottom:14px;">
+                      <div>
+                        <label class="label-tech" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:block;">Fakultas / Unit Kerja</label>
+                        <input type="text" id="editUmUnit" class="field-input" placeholder="Unit Kerja / Fakultas" style="width:100%; box-sizing:border-box;" />
+                      </div>
+                      <div>
+                        <label class="label-tech" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:block;">Jabatan Fungsional / Pelaksana</label>
+                        <input type="text" id="editUmJabatan" class="field-input" placeholder="Jabatan" style="width:100%; box-sizing:border-box;" />
+                      </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:14px; margin-bottom:14px;">
+                      <div>
+                        <label class="label-tech" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:block;">Jenis Pegawai</label>
+                        <select id="editUmJenisPegawai" class="field-input" style="width:100%; box-sizing:border-box;">
+                          <option value="Tendik">Tendik (Tenaga Kependidikan)</option>
+                          <option value="Dosen">Dosen</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label class="label-tech" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:block;">Status Kepegawaian</label>
+                        <select id="editUmStatusKepegawaian" class="field-input" style="width:100%; box-sizing:border-box;">
+                          <option value="PNS">PNS (Pegawai Negeri Sipil)</option>
+                          <option value="PPPK">PPPK</option>
+                          <option value="Tetap Non-PNS">Tetap Non-PNS</option>
+                          <option value="Kontrak">Kontrak</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:14px; margin-bottom:14px;">
+                      <div>
+                        <label class="label-tech" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:block;">Golongan Lama</label>
+                        <input type="text" id="editUmGolLama" class="field-input" placeholder="cth: III/b" style="width:100%; box-sizing:border-box;" />
+                      </div>
+                      <div>
+                        <label class="label-tech" style="font-size:11.5px; color:var(--text-bottom); margin-bottom:5px; display:block;">Golongan Baru (Proyeksi)</label>
+                        <input type="text" id="editUmGolBaru" class="field-input" placeholder="cth: III/c" style="width:100%; box-sizing:border-box;" />
+                      </div>
+                      <div>
+                        <label class="label-tech" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:block;">Periode TMT Usulan</label>
+                        <input type="text" id="editUmTmt" class="field-input" placeholder="cth: November 2026" style="width:100%; box-sizing:border-box;" />
+                      </div>
+                    </div>
+
+                    <div style="margin-bottom:20px;">
+                      <label class="label-tech" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:block;">Status Usulan</label>
+                      <select id="editUmStatus" class="field-input" style="width:100%; box-sizing:border-box;">
+                        <option value="Diterima DOSDM">Diterima DOSDM</option>
+                        <option value="Diajukan SIASN">Diajukan SIASN</option>
+                        <option value="TTD Pertek">TTD Pertek</option>
+                        <option value="SK Berhasil">SK Berhasil</option>
+                        <option value="Perbaikan">Perbaikan</option>
+                        <option value="Belum Eligible">Belum Eligible</option>
+                        <option value="Pensiun">Pensiun</option>
+                      </select>
+                    </div>
+
+                    <div style="display:flex; justify-content:flex-end; gap:10px; padding-top:12px; border-top:1px solid var(--border);">
+                      <button type="button" class="btn btn-outline" onclick="closeEditUsulanModal()" style="padding:9px 18px; font-size:13px;">Batal</button>
+                      <button type="submit" class="btn btn-primary" style="padding:9px 20px; font-size:13px; font-weight:700;">💾 Simpan Perubahan</button>
+                    </div>
+                  </form>
                 </div>
               </div>
 
@@ -4147,7 +4243,86 @@
                 </select>
               </div>
 
-              <!-- 7. Pengurutan Data (Sort By) -->
+              <!-- 6. Dropdown Masa Kerja Tahun (1 - 50) -->
+              <div>
+                <label class="label-tech" style="color:var(--text-muted); font-size:11px; margin-bottom:5px; display:block;">Masa Kerja (Tahun: 1 - 50)</label>
+                <select id="kgbFilterMasaKerjaTahun" style="width:100%; box-sizing:border-box; padding:9px 12px; font-size:13px; border-radius:8px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text);" onchange="applyCheckKgbFilters()">
+<option value="">Semua Masa Kerja Tahun</option>
+                  <option value="1">1 Tahun</option>
+                  <option value="2">2 Tahun</option>
+                  <option value="3">3 Tahun</option>
+                  <option value="4">4 Tahun</option>
+                  <option value="5">5 Tahun</option>
+                  <option value="6">6 Tahun</option>
+                  <option value="7">7 Tahun</option>
+                  <option value="8">8 Tahun</option>
+                  <option value="9">9 Tahun</option>
+                  <option value="10">10 Tahun</option>
+                  <option value="11">11 Tahun</option>
+                  <option value="12">12 Tahun</option>
+                  <option value="13">13 Tahun</option>
+                  <option value="14">14 Tahun</option>
+                  <option value="15">15 Tahun</option>
+                  <option value="16">16 Tahun</option>
+                  <option value="17">17 Tahun</option>
+                  <option value="18">18 Tahun</option>
+                  <option value="19">19 Tahun</option>
+                  <option value="20">20 Tahun</option>
+                  <option value="21">21 Tahun</option>
+                  <option value="22">22 Tahun</option>
+                  <option value="23">23 Tahun</option>
+                  <option value="24">24 Tahun</option>
+                  <option value="25">25 Tahun</option>
+                  <option value="26">26 Tahun</option>
+                  <option value="27">27 Tahun</option>
+                  <option value="28">28 Tahun</option>
+                  <option value="29">29 Tahun</option>
+                  <option value="30">30 Tahun</option>
+                  <option value="31">31 Tahun</option>
+                  <option value="32">32 Tahun</option>
+                  <option value="33">33 Tahun</option>
+                  <option value="34">34 Tahun</option>
+                  <option value="35">35 Tahun</option>
+                  <option value="36">36 Tahun</option>
+                  <option value="37">37 Tahun</option>
+                  <option value="38">38 Tahun</option>
+                  <option value="39">39 Tahun</option>
+                  <option value="40">40 Tahun</option>
+                  <option value="41">41 Tahun</option>
+                  <option value="42">42 Tahun</option>
+                  <option value="43">43 Tahun</option>
+                  <option value="44">44 Tahun</option>
+                  <option value="45">45 Tahun</option>
+                  <option value="46">46 Tahun</option>
+                  <option value="47">47 Tahun</option>
+                  <option value="48">48 Tahun</option>
+                  <option value="49">49 Tahun</option>
+                  <option value="50">50 Tahun</option>
+                </select>
+              </div>
+
+              <!-- 7. Dropdown Masa Kerja Bulan (01 - 12) -->
+              <div>
+                <label class="label-tech" style="color:var(--text-muted); font-size:11px; margin-bottom:5px; display:block;">Masa Kerja (Bulan: 01 - 12)</label>
+                <select id="kgbFilterMasaKerjaBulan" style="width:100%; box-sizing:border-box; padding:9px 12px; font-size:13px; border-radius:8px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text);" onchange="applyCheckKgbFilters()">
+<option value="">Semua Masa Kerja Bulan</option>
+                  <option value="00">00 Bulan (0)</option>
+                  <option value="01">01 Bulan</option>
+                  <option value="02">02 Bulan</option>
+                  <option value="03">03 Bulan</option>
+                  <option value="04">04 Bulan</option>
+                  <option value="05">05 Bulan</option>
+                  <option value="06">06 Bulan</option>
+                  <option value="07">07 Bulan</option>
+                  <option value="08">08 Bulan</option>
+                  <option value="09">09 Bulan</option>
+                  <option value="10">10 Bulan</option>
+                  <option value="11">11 Bulan</option>
+                  <option value="12">12 Bulan</option>
+                </select>
+              </div>
+
+              <!-- 8. Pengurutan Data (Sort By) -->
               <div>
                 <label class="label-tech" style="color:var(--text-muted); font-size:11px; margin-bottom:5px; display:block;">Urutkan Berdasarkan</label>
                 <select id="kgbSortBy" style="width:100%; box-sizing:border-box; padding:9px 12px; font-size:13px; border-radius:8px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text);" onchange="applyCheckKgbFilters()">
@@ -4159,6 +4334,8 @@
                   <option value="tahun_desc">Tahun Pengangkatan (Terbaru → Terlama)</option>
                   <option value="tahun_asc">Tahun Pengangkatan (Terlama → Terbaru)</option>
                   <option value="bulan_asc">Bulan Pengangkatan (01 → 12)</option>
+                  <option value="mk_desc">Masa Kerja (Terlama → Terkini)</option>
+                  <option value="mk_asc">Masa Kerja (Terkini → Terlama)</option>
                   <option value="unit_asc">Unit Kerja (A → Z)</option>
                 </select>
               </div>
@@ -4185,13 +4362,14 @@
                     <th style="padding:14px 16px; font-weight:700; color:var(--text);">Status &amp; Jenis Pegawai</th>
                     <th style="padding:14px 16px; font-weight:700; color:var(--text); text-align:center;">Tahun Pengangkatan</th>
                     <th style="padding:14px 16px; font-weight:700; color:var(--text); text-align:center;">Bulan Pengangkatan</th>
+                    <th style="padding:14px 16px; font-weight:700; color:var(--text); text-align:center;">Masa Kerja (CPNS)</th>
                     <th style="padding:14px 16px; font-weight:700; color:var(--text);">Unit Kerja</th>
                     <th style="padding:14px 16px; font-weight:700; color:var(--text);">Status Usulan KP</th>
                   </tr>
                 </thead>
                 <tbody id="kgbTableBody">
                   <tr>
-                    <td colspan="8" style="padding:40px; text-align:center; color:var(--text-muted);">
+                    <td colspan="9" style="padding:40px; text-align:center; color:var(--text-muted);">
                       <div class="spinner" style="margin:0 auto 12px auto;"></div>
                       Memuat data usulan masuk Kenaikan Pangkat untuk Check KGB...
                     </td>
@@ -8107,6 +8285,20 @@ function parsePnsNipKgb(nipRaw) {
       9: 'September', 10: 'Oktober', 11: 'November', 12: 'Desember'
     };
 
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
+    let totalBulan = 0;
+    let mkTahun = 0;
+    let mkBulan = 0;
+    if (!isNaN(tahunAngkat) && !isNaN(bulanAngkatNum) && bulanAngkatNum >= 1 && bulanAngkatNum <= 12) {
+      totalBulan = (currentYear - tahunAngkat) * 12 + (currentMonth - bulanAngkatNum);
+      if (totalBulan < 0) totalBulan = 0;
+      mkTahun = Math.floor(totalBulan / 12);
+      mkBulan = totalBulan % 12;
+    }
+
     return {
       isValidPns: true,
       cleanNip: nip,
@@ -8118,7 +8310,12 @@ function parsePnsNipKgb(nipRaw) {
       bulanAngkatNum: isNaN(bulanAngkatNum) ? 0 : bulanAngkatNum,
       namaBulan: namaBulanMap[bulanAngkatNum] || bulanAngkatStr,
       paritasTahun: isGanjil ? 'Ganjil' : 'Genap',
-      tmtCpnsKode: nip.substring(8, 14)
+      tmtCpnsKode: nip.substring(8, 14),
+      masaKerjaTahun: mkTahun,
+      masaKerjaBulan: mkBulan,
+      masaKerjaBulanStr: String(mkBulan).padStart(2, '0'),
+      masaKerjaTotalBulan: totalBulan,
+      masaKerjaText: `${mkTahun} Tahun ${mkBulan} Bulan`
     };
   }
 
@@ -8133,7 +8330,12 @@ function parsePnsNipKgb(nipRaw) {
     bulanAngkatNum: 0,
     namaBulan: '-',
     paritasTahun: '-',
-    tmtCpnsKode: '-'
+    tmtCpnsKode: '-',
+    masaKerjaTahun: 0,
+    masaKerjaBulan: 0,
+    masaKerjaBulanStr: '00',
+    masaKerjaTotalBulan: 0,
+    masaKerjaText: '-'
   };
 }
 
@@ -8150,7 +8352,7 @@ async function loadCheckKgbData(forceRefresh = false) {
   if (tbody && (forceRefresh || kgbRawList.length === 0)) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="8" style="padding:40px; text-align:center; color:var(--text-muted);">
+        <td colspan="9" style="padding:40px; text-align:center; color:var(--text-muted);">
           <div class="spinner" style="margin:0 auto 12px auto;"></div>
           Memuat data usulan masuk Kenaikan Pangkat untuk Check KGB...
         </td>
@@ -8186,7 +8388,7 @@ async function loadCheckKgbData(forceRefresh = false) {
       if (tbody) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="8" style="padding:32px; text-align:center; color:#ef4444;">
+            <td colspan="9" style="padding:32px; text-align:center; color:#ef4444;">
               Gagal memuat data: ${escapeHtml(res?.message || 'Tidak ada data usulan')}
             </td>
           </tr>
@@ -8198,7 +8400,7 @@ async function loadCheckKgbData(forceRefresh = false) {
     if (tbody) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="8" style="padding:32px; text-align:center; color:#ef4444;">
+          <td colspan="9" style="padding:32px; text-align:center; color:#ef4444;">
             Terjadi kesalahan saat memuat data: ${escapeHtml(err.message || err)}
           </td>
         </tr>
@@ -8274,6 +8476,8 @@ function applyCheckKgbFilters() {
   const filterStatus = document.getElementById('kgbFilterStatusKepegawaian')?.value || '';
   const filterTahunParitas = document.getElementById('kgbFilterTahunParitas')?.value || '';
   const filterBulan = document.getElementById('kgbFilterBulan')?.value || '';
+  const filterMkTahun = document.getElementById('kgbFilterMasaKerjaTahun')?.value || '';
+  const filterMkBulan = document.getElementById('kgbFilterMasaKerjaBulan')?.value || '';
   const sortBy = document.getElementById('kgbSortBy')?.value || 'nama_asc';
 
   kgbFilteredList = kgbRawList.filter(item => {
@@ -8324,6 +8528,20 @@ function applyCheckKgbFilters() {
       if (item.kgbInfo.bulanAngkatStr !== filterBulan) return false;
     }
 
+    // 6. Filter Masa Kerja Tahun (1 - 50)
+    if (filterMkTahun) {
+      if (!item.kgbInfo || !item.kgbInfo.isValidPns) return false;
+      if (item.kgbInfo.masaKerjaTahun !== parseInt(filterMkTahun, 10)) return false;
+    }
+
+    // 7. Filter Masa Kerja Bulan (01 - 12)
+    if (filterMkBulan) {
+      if (!item.kgbInfo || !item.kgbInfo.isValidPns) return false;
+      const targetBulan = parseInt(filterMkBulan, 10);
+      const itemBulan = item.kgbInfo.masaKerjaBulan;
+      if (itemBulan !== targetBulan && !(targetBulan === 12 && itemBulan === 0)) return false;
+    }
+
     return true;
   });
 
@@ -8359,6 +8577,16 @@ function applyCheckKgbFilters() {
       case 'tahun_desc': return tahunB - tahunA;
       case 'tahun_asc': return tahunA - tahunB;
       case 'bulan_asc': return bulanA - bulanB;
+      case 'mk_desc': {
+        const totalA = a.kgbInfo?.masaKerjaTotalBulan || 0;
+        const totalB = b.kgbInfo?.masaKerjaTotalBulan || 0;
+        return totalB - totalA;
+      }
+      case 'mk_asc': {
+        const totalA = a.kgbInfo?.masaKerjaTotalBulan || 0;
+        const totalB = b.kgbInfo?.masaKerjaTotalBulan || 0;
+        return totalA - totalB;
+      }
       case 'unit_asc': return unitA.localeCompare(unitB);
       default: return 0;
     }
@@ -8380,7 +8608,7 @@ function renderCheckKgbTable(items) {
   if (items.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="8" style="padding:48px 20px; text-align:center;">
+        <td colspan="9" style="padding:48px 20px; text-align:center;">
           <div style="width:54px; height:54px; border-radius:50%; background:var(--surface-alt); border:1px dashed var(--border); display:flex; align-items:center; justify-content:center; margin:0 auto 12px auto; color:var(--text-muted);">
             <span class="material-symbols-outlined" style="font-size:28px;">filter_list_off</span>
           </div>
@@ -8461,6 +8689,14 @@ function renderCheckKgbTable(items) {
         <td style="padding:12px 16px; text-align:center; white-space:nowrap;">
           ${bulanBadge}
         </td>
+        <td style="padding:12px 16px; text-align:center; white-space:nowrap;">
+          ${kgb.isValidPns ? `
+            <span class="badge-kgb-paritas" style="background:rgba(99,102,241,0.12); color:#4f46e5; border:1px solid rgba(99,102,241,0.25); font-weight:700; padding:3px 8px; border-radius:4px; font-size:12px; display:inline-flex; align-items:center; gap:4px;" title="Masa Kerja dihitung dari CPNS ${kgb.tahunAngkat}-${kgb.bulanAngkatStr}">
+              <span class="material-symbols-outlined" style="font-size:14px;">work_history</span>
+              <span>${kgb.masaKerjaTahun} Thn ${kgb.masaKerjaBulan} Bln</span>
+            </span>
+          ` : '<span style="color:var(--text-muted);">-</span>'}
+        </td>
         <td style="padding:12px 16px; font-size:12.5px; color:var(--text);">
           ${escapeHtml(unit)}
         </td>
@@ -8482,6 +8718,8 @@ function resetCheckKgbFilter() {
   const status = document.getElementById('kgbFilterStatusKepegawaian');
   const tahun = document.getElementById('kgbFilterTahunParitas');
   const bulan = document.getElementById('kgbFilterBulan');
+  const mkTahun = document.getElementById('kgbFilterMasaKerjaTahun');
+  const mkBulan = document.getElementById('kgbFilterMasaKerjaBulan');
   const sort = document.getElementById('kgbSortBy');
 
   if (search) search.value = '';
@@ -8490,6 +8728,8 @@ function resetCheckKgbFilter() {
   if (status) status.value = '';
   if (tahun) tahun.value = '';
   if (bulan) bulan.value = '';
+  if (mkTahun) mkTahun.value = '';
+  if (mkBulan) mkBulan.value = '';
   if (sort) sort.value = 'nama_asc';
 
   applyCheckKgbFilters();
@@ -8501,7 +8741,7 @@ function exportCheckKgbToCsv() {
     return;
   }
 
-  const headers = ['No', 'Nama Pegawai', 'Jabatan', 'NIP', 'Status Kepegawaian', 'Jenis Pegawai', 'Tahun Pengangkatan', 'Paritas Tahun', 'Bulan Pengangkatan', 'Nama Bulan', 'Unit Kerja', 'Status Usulan KP', 'TMT Usulan'];
+  const headers = ['No', 'Nama Pegawai', 'Jabatan', 'NIP', 'Status Kepegawaian', 'Jenis Pegawai', 'Tahun Pengangkatan', 'Paritas Tahun', 'Bulan Pengangkatan', 'Nama Bulan', 'Masa Kerja Tahun', 'Masa Kerja Bulan', 'Masa Kerja Total', 'Unit Kerja', 'Status Usulan KP', 'TMT Usulan'];
   
   const rows = kgbFilteredList.map((item, idx) => {
     const kgb = item.kgbInfo || parsePnsNipKgb(item.nip);
@@ -12342,7 +12582,7 @@ function renderStatusDetailModalContent() {
   if (countEl) countEl.textContent = filtered.length;
 
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:18px;">Tidak ada pegawai dengan status "${targetStatus}" ${q ? 'yang cocok dengan pencarian' : ''}.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:18px;">Tidak ada pegawai dengan status "${targetStatus}" ${q ? 'yang cocok dengan pencarian' : ''}.</td></tr>`;
     return;
   }
 
@@ -12363,8 +12603,13 @@ function renderStatusDetailModalContent() {
       <tr>
         <td>${idx + 1}</td>
         <td>
-          <strong style="font-size:14px;">${escapeHtml(u.nama)}</strong>
-          ${u.nama_pengaju ? `<div style="font-size:11.5px; color:var(--text-muted);">Diajukan oleh: ${escapeHtml(u.nama_pengaju)}</div>` : ''}
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+            <strong style="font-size:14px;">${escapeHtml(u.nama)}</strong>
+            <button type="button" class="btn btn-outline kp-small-btn" onclick="openEditUsulanModal('${escapeHtml(u.id)}')" style="color:var(--primary, #2563eb); border-color:var(--primary, #2563eb); padding:2px 7px; font-size:11.5px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:3px;" title="Edit Usulan ${escapeHtml(u.nama || '')}">
+              <span>✏️</span> <span>Edit</span>
+            </button>
+          </div>
+          ${u.nama_pengaju ? `<div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">Diajukan oleh: ${escapeHtml(u.nama_pengaju)}</div>` : ''}
         </td>
         <td>
           <div>${u.nip ? `NIP ${escapeHtml(u.nip)}` : '<span style="color:var(--text-muted); font-style:italic;">-</span>'}</div>
@@ -12381,7 +12626,7 @@ function renderStatusDetailModalContent() {
         <td><strong>${escapeHtml(u.tmt || '-')}</strong></td>
         <td><span class="badge-status ${badgeClass}">${escapeHtml(currentStatus)}</span></td>
         <td>
-          <select class="status-select" onchange="updateStatusFromModal('${u.id}', this.value)">
+          <select class="status-select" onchange="updateStatusFromModal('${escapeHtml(u.id)}', this.value)">
             <option value="Diterima DOSDM" ${(currentStatus === 'Diterima DOSDM' || currentStatus === 'Diterima DSDM') ? 'selected' : ''}>Diterima DOSDM</option>
             <option value="Diajukan SIASN" ${currentStatus === 'Diajukan SIASN' || currentStatus === 'Diajukan ke SIASN' ? 'selected' : ''}>Diajukan SIASN</option>
             <option value="TTD Pertek" ${currentStatus === 'TTD Pertek' ? 'selected' : ''}>TTD Pertek</option>
@@ -12391,8 +12636,9 @@ function renderStatusDetailModalContent() {
             <option value="Pensiun" ${currentStatus === 'Pensiun' ? 'selected' : ''}>Pensiun</option>
           </select>
         </td>
-        <td style="text-align:center;">
-          <button type="button" class="btn btn-outline kp-small-btn" onclick="deleteUsulanMasukInline('${u.id}', '${escapeHtml(u.nama || '')}')" style="color:var(--danger, #dc2626); border-color:var(--danger, #dc2626); padding:3px 8px; font-size:13px; cursor:pointer;" title="Hapus Usulan ${escapeHtml(u.nama || '')}">🗑️</button>
+        <td style="text-align:center; white-space:nowrap;">
+          <button type="button" class="btn btn-outline kp-small-btn" onclick="openEditUsulanModal('${escapeHtml(u.id)}')" style="color:var(--primary, #2563eb); border-color:var(--primary, #2563eb); padding:3px 8px; font-size:13px; cursor:pointer; margin-right:4px;" title="Edit Usulan ${escapeHtml(u.nama || '')}">✏️</button>
+          <button type="button" class="btn btn-outline kp-small-btn" onclick="deleteUsulanMasukInline('${escapeHtml(u.id)}')" style="color:var(--danger, #dc2626); border-color:var(--danger, #dc2626); padding:3px 8px; font-size:13px; cursor:pointer;" title="Hapus Usulan ${escapeHtml(u.nama || '')}">🗑️</button>
         </td>
       </tr>
     `;
@@ -12779,8 +13025,13 @@ function buildUsulanTableHtml(items) {
       <tr>
         <td>${idx + 1}</td>
         <td>
-          <strong style="font-size:14px;">${escapeHtml(u.nama)}</strong>
-          ${u.nama_pengaju ? `<div style="font-size:11.5px; color:var(--text-muted);">Diajukan oleh: ${escapeHtml(u.nama_pengaju)}</div>` : ''}
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+            <strong style="font-size:14px;">${escapeHtml(u.nama)}</strong>
+            <button type="button" class="btn btn-outline kp-small-btn" onclick="openEditUsulanModal('${escapeHtml(u.id)}')" style="color:var(--primary, #2563eb); border-color:var(--primary, #2563eb); padding:2px 7px; font-size:11.5px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:3px;" title="Edit Usulan ${escapeHtml(u.nama || '')}">
+              <span>✏️</span> <span>Edit</span>
+            </button>
+          </div>
+          ${u.nama_pengaju ? `<div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">Diajukan oleh: ${escapeHtml(u.nama_pengaju)}</div>` : ''}
         </td>
         <td>
           <div>${u.nip ? `NIP ${escapeHtml(u.nip)}` : '<span style="color:var(--text-muted); font-style:italic;">-</span>'}</div>
@@ -12805,7 +13056,7 @@ function buildUsulanTableHtml(items) {
           <span class="badge-status ${badgeClass}">${escapeHtml(currentStatus)}</span>
         </td>
         <td>
-          <select class="status-select" onchange="updateUsulanStatusInline('${u.id}', this.value)">
+          <select class="status-select" onchange="updateUsulanStatusInline('${escapeHtml(u.id)}', this.value)">
             <option value="Diterima DOSDM" ${(currentStatus === 'Diterima DOSDM' || currentStatus === 'Diterima DSDM') ? 'selected' : ''}>Diterima DOSDM</option>
             <option value="Diajukan SIASN" ${currentStatus === 'Diajukan SIASN' || currentStatus === 'Diajukan ke SIASN' ? 'selected' : ''}>Diajukan SIASN</option>
             <option value="TTD Pertek" ${currentStatus === 'TTD Pertek' ? 'selected' : ''}>TTD Pertek</option>
@@ -12815,8 +13066,9 @@ function buildUsulanTableHtml(items) {
             <option value="Pensiun" ${currentStatus === 'Pensiun' ? 'selected' : ''}>Pensiun</option>
           </select>
         </td>
-        <td style="text-align:center;">
-          <button type="button" class="btn btn-outline kp-small-btn" onclick="deleteUsulanMasukInline('${u.id}')" style="color:var(--danger); border-color:var(--danger); padding:3px 8px;" title="Hapus Usulan">🗑️</button>
+        <td style="text-align:center; white-space:nowrap;">
+          <button type="button" class="btn btn-outline kp-small-btn" onclick="openEditUsulanModal('${escapeHtml(u.id)}')" style="color:var(--primary, #2563eb); border-color:var(--primary, #2563eb); padding:3px 8px; font-size:13px; cursor:pointer; margin-right:4px;" title="Edit Usulan ${escapeHtml(u.nama || '')}">✏️</button>
+          <button type="button" class="btn btn-outline kp-small-btn" onclick="deleteUsulanMasukInline('${escapeHtml(u.id)}')" style="color:var(--danger); border-color:var(--danger); padding:3px 8px; font-size:13px; cursor:pointer;" title="Hapus Usulan ${escapeHtml(u.nama || '')}">🗑️</button>
         </td>
       </tr>
     `;
@@ -13260,17 +13512,22 @@ async function updateUsulanStatusInline(id, newStatus) {
   }
 }
 
-async function deleteUsulanMasukInline(id, nama) {
+async function deleteUsulanMasukInline(id, fallbackNama) {
+  const item = (window.umGlobalList || []).find(x => String(x.id) === String(id)) ||
+               (window.umMasterRawList || []).find(x => String(x.id) === String(id));
+  const nama = item ? item.nama : (fallbackNama || '');
+  const nip = item ? item.nip : '';
   const confirmMsg = nama ? `Apakah Anda yakin ingin menghapus usulan untuk "${nama}"?` : 'Apakah Anda yakin ingin menghapus usulan ini?';
   if (!confirm(confirmMsg)) return;
 
   showToast('info', 'Menghapus usulan...');
+  const payload = { id, nip, nama };
   try {
-    const res = await rpc('deleteUsulanMasukSingle', [SESSION.token, id]);
+    const res = await rpc('deleteUsulanMasukSingle', [SESSION.token, payload]);
     if (res && res.success) {
       showToast('success', 'Usulan berhasil dihapus.');
-      window.umGlobalList = (window.umGlobalList || []).filter(x => String(x.id) !== String(id));
-      window.umMasterRawList = (window.umMasterRawList || []).filter(x => String(x.id) !== String(id));
+      window.umGlobalList = (window.umGlobalList || []).filter(x => String(x.id) !== String(id) && (!nip || String(x.nip) !== String(nip)));
+      window.umMasterRawList = (window.umMasterRawList || []).filter(x => String(x.id) !== String(id) && (!nip || String(x.nip) !== String(nip)));
       if (document.getElementById('umStatusDetailModal')?.style?.display === 'block') {
         renderStatusDetailModalContent();
       }
@@ -13287,18 +13544,121 @@ async function deleteUsulanMasukInline(id, nama) {
             return;
           }
           showToast('success', 'Usulan berhasil dihapus.');
-          window.umGlobalList = (window.umGlobalList || []).filter(x => String(x.id) !== String(id));
-          window.umMasterRawList = (window.umMasterRawList || []).filter(x => String(x.id) !== String(id));
+          window.umGlobalList = (window.umGlobalList || []).filter(x => String(x.id) !== String(id) && (!nip || String(x.nip) !== String(nip)));
+          window.umMasterRawList = (window.umMasterRawList || []).filter(x => String(x.id) !== String(id) && (!nip || String(x.nip) !== String(nip)));
           if (document.getElementById('umStatusDetailModal')?.style?.display === 'block') {
             renderStatusDetailModalContent();
           }
           loadUsulanMasukTmtDashboard(true);
         })
         .withFailureHandler(e => showToast('error', 'Gagal menghapus usulan: ' + (e.message || e)))
-        .deleteUsulanMasukSingle(SESSION.token, id);
+        .deleteUsulanMasukSingle(SESSION.token, payload);
     } else {
       showToast('error', 'Gagal menghapus usulan: ' + (err.message || err));
     }
+  }
+}
+
+function openEditUsulanModal(id) {
+  const item = (window.umGlobalList || []).find(x => String(x.id) === String(id)) ||
+               (window.umMasterRawList || []).find(x => String(x.id) === String(id));
+  if (!item) {
+    showToast('error', 'Data usulan tidak ditemukan.');
+    return;
+  }
+
+  const setVal = (elemId, val) => {
+    const el = document.getElementById(elemId);
+    if (el) el.value = val !== undefined && val !== null ? val : '';
+  };
+
+  setVal('editUmId', item.id || '');
+  setVal('editUmOriginalNip', item.nip || '');
+  setVal('editUmNama', item.nama || item.nama_lengkap || '');
+  setVal('editUmNip', item.nip || '');
+  setVal('editUmUnit', item.unit || item.unit_kerja || '');
+  setVal('editUmJabatan', item.jabatan || '');
+  setVal('editUmJenisPegawai', item.jenis_pegawai || item.jenisPegawai || 'Tendik');
+  setVal('editUmStatusKepegawaian', item.status_kepegawaian || item.statusKepegawaian || 'PNS');
+  setVal('editUmGolLama', item.golongan_lama || item.golLama || '');
+  setVal('editUmGolBaru', item.golongan_baru || item.golBaru || '');
+  setVal('editUmTmt', item.tmt || '');
+  setVal('editUmStatus', item.status || 'Diterima DOSDM');
+
+  const modal = document.getElementById('modalEditUsulanMasuk');
+  if (modal) {
+    modal.style.display = 'block';
+  }
+}
+
+function closeEditUsulanModal() {
+  const modal = document.getElementById('modalEditUsulanMasuk');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+async function saveEditUsulanModal() {
+  const id = document.getElementById('editUmId')?.value || '';
+  const originalNip = document.getElementById('editUmOriginalNip')?.value || '';
+  const nama = document.getElementById('editUmNama')?.value.trim() || '';
+  const nip = document.getElementById('editUmNip')?.value.trim() || '';
+  const unit = document.getElementById('editUmUnit')?.value.trim() || '';
+  const jabatan = document.getElementById('editUmJabatan')?.value.trim() || '';
+  const jenis_pegawai = document.getElementById('editUmJenisPegawai')?.value || 'Tendik';
+  const status_kepegawaian = document.getElementById('editUmStatusKepegawaian')?.value || 'PNS';
+  const golongan_lama = document.getElementById('editUmGolLama')?.value.trim() || '';
+  const golongan_baru = document.getElementById('editUmGolBaru')?.value.trim() || '';
+  const tmt = document.getElementById('editUmTmt')?.value.trim() || '';
+  const status = document.getElementById('editUmStatus')?.value || 'Diterima DOSDM';
+
+  if (!nama) {
+    showToast('warning', 'Nama pegawai tidak boleh kosong.');
+    return;
+  }
+
+  showToast('info', 'Menyimpan perubahan data usulan...');
+  const payload = {
+    id, originalNip, nama, nip, unit, jabatan,
+    jenis_pegawai, status_kepegawaian, golongan_lama, golongan_baru, tmt, status
+  };
+
+  try {
+    const res = await rpc('updateUsulanMasukSingle', [SESSION.token, payload]);
+    if (!res || !res.success) {
+      showToast('error', res?.message || 'Gagal menyimpan perubahan.');
+      return;
+    }
+
+    showToast('success', 'Data usulan berhasil diperbarui.');
+
+    // Update data di cache memori
+    const updateMemItem = (item) => {
+      if (item && ((id && String(item.id) === String(id)) || (originalNip && String(item.nip) === String(originalNip)))) {
+        item.nama = nama;
+        item.nip = nip;
+        item.unit = unit;
+        item.jabatan = jabatan;
+        item.jenis_pegawai = jenis_pegawai;
+        item.status_kepegawaian = status_kepegawaian;
+        item.golongan_lama = golongan_lama;
+        item.golongan_baru = golongan_baru;
+        item.tmt = tmt;
+        item.status = status;
+      }
+    };
+
+    (window.umGlobalList || []).forEach(updateMemItem);
+    (window.umMasterRawList || []).forEach(updateMemItem);
+
+    closeEditUsulanModal();
+
+    if (document.getElementById('umStatusDetailModal')?.style?.display === 'block') {
+      renderStatusDetailModalContent();
+    }
+    loadUsulanMasukTmtDashboard(true);
+  } catch (err) {
+    showToast('error', 'Gagal menyimpan perubahan: ' + (err.message || err));
   }
 }
 
@@ -27897,102 +28257,103 @@ const GUIDE_REGISTRY = {
           }
         }
       }
-    },
-    "check-kgb": {
-      title: "Check KGB (Kenaikan Gaji Berkala)",
-      icon: "💵",
-      subMenus: {
-        "tab-checkKgb": {
-          title: "Daftar & Filter Check KGB",
-          roles: ["admin", "super_admin"],
-          defaultRole: "admin",
-          roleGuides: {
-            admin: {
-              badge: "Sebagai Admin Verifikator OSDM",
-              steps: [
-                {
-                  title: "1. Akses & Monitoring Dashboard KGB",
-                  desc: "Buka menu Check KGB pada sidebar kiri. Periksa 5 kartu metrik ringkasan untuk memantau total usulan masuk, jumlah pegawai PNS (NIP 18 digit), perbandingan tahun pengangkatan ganjil vs genap, dan total data yang sesuai dengan filter aktif."
-                },
-                {
-                  title: "2. Penentuan Siklus 2 Tahunan & Paritas Tahun",
-                  desc: "Kenaikan Gaji Berkala (KGB) PNS diproses setiap 2 tahun sekali. Sesuaikan filter 'Tahun Pengangkatan' dengan tahun kalender berjalan: pilih 'Tahun Ganjil' pada tahun ganjil (seperti 2025, 2027) atau 'Tahun Genap' pada tahun genap (seperti 2024, 2026)."
-                },
-                {
-                  title: "3. Penyaringan Bulan Jatuh Tempo KGB (01–12)",
-                  desc: "Pilih dropdown 'Bulan Pengangkatan' (Digit 13–14 NIP) sesuai target bulan TMT pelaksanaan KGB pegawai (01 = Januari hingga 12 = Desember) untuk mengelompokkan pegawai yang jatuh tempo pada bulan tersebut."
-                },
-                {
-                  title: "4. Filter Multi-Kriteria & Pencarian Cepat",
-                  desc: "Gunakan kotak pencarian Nama atau NIP untuk menemukan pegawai secara langsung. Padukan dengan filter Jenis Pegawai (Dosen/Tendik), Status Kepegawaian (PNS/PPPK), dan Periode TMT Usulan untuk menyaring daftar target."
-                },
-                {
-                  title: "5. Validasi Visual Digit 9–14 NIP PNS",
-                  desc: "Periksa tabel daftar usulan. Kolom NIP menampilkan penanda visual khusus pada Digit 9–14 (Digit 9–12: Tahun CPNS, Digit 13–14: Bulan CPNS) untuk memudahkan verifikasi keabsahan format NIP 18 digit dan perhitungan masa kerja."
-                },
-                {
-                  title: "6. Ekspor Rekapitulasi Data (Export CSV)",
-                  desc: "Klik tombol 'Export CSV' pada bagian atas tabel untuk mengunduh rekap data pegawai yang telah lolos penyaringan dalam format file spreadsheet (.csv) siap pakai untuk penyusunan SK KGB."
-                },
-                {
-                  title: "7. Pembaruan Data Real-Time (Refresh Data)",
-                  desc: "Klik tombol 'Refresh Data' sewaktu-waktu untuk memperbarui dan menyinkronkan data usulan terbaru langsung dari basis data server kepegawaian."
-                }
-              ],
-              tips: "KGB PNS diproses berkala setiap 2 tahun sekali. Ekstraksi otomatis Digit 9–14 pada NIP 18 digit memudahkan verifikator memetakan jadwal berkala pegawai secara tepat tanpa perlu menghitung masa kerja manual.",
-              flowchart: [
-                { id: 1, type: "start", icon: "💵", title: "Akses Menu Check KGB", desc: "Buka menu Check KGB melalui sidebar kiri admin" },
-                { id: 2, type: "process", icon: "📊", title: "Tinjau Metrik Ringkasan", desc: "Periksa total usulan, NIP valid 18 digit, dan rasio ganjil/genap" },
-                { id: 3, type: "decision", icon: "⚖️", title: "Tentukan Siklus & Paritas Tahun", desc: "Pilih paritas tahun pengangkatan sesuai tahun kalender berjalan",
-                  branches: [
-                    { label: "Tahun Ganjil", desc: "Untuk pemrosesan KGB pada tahun kalender ganjil (2025, 2027, ...)" },
-                    { label: "Tahun Genap", desc: "Untuk pemrosesan KGB pada tahun kalender genap (2024, 2026, ...)" }
-                  ]
-                },
-                { id: 4, type: "process", icon: "📅", title: "Filter Bulan & Kriteria Tambahan", desc: "Saring bulan jatuh tempo (01–12), jenis pegawai, status, dan TMT" },
-                { id: 5, type: "process", icon: "🔍", title: "Verifikasi Visual Digit 9–14 NIP", desc: "Audit visual penanda NIP 18 digit dan kesesuaian data usulan" },
-                { id: 6, type: "process", icon: "📥", title: "Ekspor Hasil ke CSV", desc: "Unduh file rekapitulasi data usulan terverifikasi" },
-                { id: 7, type: "end", icon: "✅", title: "Selesai", desc: "Daftar pegawai siap diproses ke naskah SK KGB" }
-              ]
-            },
-            super_admin: {
-              badge: "Sebagai Super Admin Kepegawaian",
-              steps: [
-                {
-                  title: "1. Pengawasan & Supervisi Siklus KGB",
-                  desc: "Super Admin memantau kepatuhan pemrosesan KGB di seluruh fakultas, direktorat, dan unit kerja universitas melalui dashboard Check KGB."
-                },
-                {
-                  title: "2. Audit Format NIP 18 Digit & Deteksi Anomali",
-                  desc: "Bandingkan metrik Pegawai PNS (NIP 18 Digit) dengan Total Usulan Masuk. Jika ditemukan selisih, identifikasi pegawai berformat NIP non-standar untuk sinkronisasi database induk."
-                },
-                {
-                  title: "3. Analisis Beban Anggaran & Siklus 2 Tahunan",
-                  desc: "Gunakan komparasi rasio pengangkatan tahun ganjil vs genap untuk memproyeksikan beban kerja verifikasi dan estimasi kenaikan alokasi anggaran gaji berkala universitas."
-                },
-                {
-                  title: "4. Filter Komprehensif Lintas Unit & Multi-Status",
-                  desc: "Kombinasikan seluruh opsi filter (Status Kepegawaian, Jenis Pegawai, Periode TMT, Paritas Tahun, dan Bulan) untuk audit kepegawaian mendalam di setiap unit kerja."
-                },
-                {
-                  title: "5. Ekspor Master Data & Rekonsiliasi Penggajian",
-                  desc: "Unduh rekapitulasi CSV master untuk rekonsiliasi berkala dengan bagian keuangan/penggajian serta arsip resmi kepegawaian universitas."
-                },
-                {
-                  title: "6. Sinkronisasi Data Real-Time",
-                  desc: "Gunakan tombol 'Refresh Data' untuk memperbarui dan memastikan integritas data usulan langsung dari database server."
-                }
-              ],
-              tips: "Pastikan seluruh data NIP PNS pada database utama berformat 18 digit standar BKN agar sistem parsing Digit 9–14 mengidentifikasi tahun dan bulan pengangkatan CPNS secara otomatis.",
-              flowchart: [
-                { id: 1, type: "start", icon: "⚡", title: "Supervisi Modul Check KGB", desc: "Monitoring menyeluruh usulan KGB lintas unit kerja universitas" },
-                { id: 2, type: "process", icon: "🛡️", title: "Audit Integritas Format NIP", desc: "Pemeriksaan validitas NIP 18 digit dan deteksi anomali data" },
-                { id: 3, type: "process", icon: "📊", title: "Analisis Distribusi Siklus", desc: "Evaluasi rasio beban tahun ganjil/genap untuk perencanaan" },
-                { id: 4, type: "process", icon: "🔍", title: "Penyaringan Multi-Dimensi", desc: "Filter komprehensif status, unit kerja, tahun, dan bulan" },
-                { id: 5, type: "process", icon: "🔄", title: "Sinkronisasi Data Real-Time", desc: "Penyelarasan data usulan mutakhir dari database server" },
-                { id: 6, type: "end", icon: "📑", title: "Ekspor Master Data CSV", desc: "Penerbitan rekapitulasi resmi untuk audit dan tindak lanjut SK KGB" }
-              ]
-            }
+    }
+  },
+
+  "check-kgb": {
+    title: "Check KGB (Kenaikan Gaji Berkala)",
+    icon: "💵",
+    subMenus: {
+      "tab-checkKgb": {
+        title: "Daftar & Filter Check KGB",
+        roles: ["admin", "super_admin"],
+        defaultRole: "admin",
+        roleGuides: {
+          admin: {
+            badge: "Sebagai Admin Verifikator OSDM",
+            steps: [
+              {
+                title: "1. Akses & Monitoring Dashboard KGB",
+                desc: "Buka menu Check KGB pada sidebar kiri. Periksa 5 kartu metrik ringkasan untuk memantau total usulan masuk, jumlah pegawai PNS (NIP 18 digit), perbandingan tahun pengangkatan ganjil vs genap, dan total data yang sesuai dengan filter aktif."
+              },
+              {
+                title: "2. Penentuan Siklus 2 Tahunan & Paritas Tahun",
+                desc: "Kenaikan Gaji Berkala (KGB) PNS diproses setiap 2 tahun sekali. Sesuaikan filter 'Tahun Pengangkatan' dengan tahun kalender berjalan: pilih 'Tahun Ganjil' pada tahun ganjil (seperti 2025, 2027) atau 'Tahun Genap' pada tahun genap (seperti 2024, 2026)."
+              },
+              {
+                title: "3. Penyaringan Bulan Jatuh Tempo KGB (01–12)",
+                desc: "Pilih dropdown 'Bulan Pengangkatan' (Digit 13–14 NIP) sesuai target bulan TMT pelaksanaan KGB pegawai (01 = Januari hingga 12 = Desember) untuk mengelompokkan pegawai yang jatuh tempo pada bulan tersebut."
+              },
+              {
+                title: "4. Filter Multi-Kriteria & Pencarian Cepat",
+                desc: "Gunakan kotak pencarian Nama atau NIP untuk menemukan pegawai secara langsung. Padukan dengan filter Jenis Pegawai (Dosen/Tendik), Status Kepegawaian (PNS/PPPK), dan Periode TMT Usulan untuk menyaring daftar target."
+              },
+              {
+                title: "5. Validasi Visual Digit 9–14 NIP PNS",
+                desc: "Periksa tabel daftar usulan. Kolom NIP menampilkan penanda visual khusus pada Digit 9–14 (Digit 9–12: Tahun CPNS, Digit 13–14: Bulan CPNS) untuk memudahkan verifikasi keabsahan format NIP 18 digit dan perhitungan masa kerja."
+              },
+              {
+                title: "6. Ekspor Rekapitulasi Data (Export CSV)",
+                desc: "Klik tombol 'Export CSV' pada bagian atas tabel untuk mengunduh rekap data pegawai yang telah lolos penyaringan dalam format file spreadsheet (.csv) siap pakai untuk penyusunan SK KGB."
+              },
+              {
+                title: "7. Pembaruan Data Real-Time (Refresh Data)",
+                desc: "Klik tombol 'Refresh Data' sewaktu-waktu untuk memperbarui dan menyinkronkan data usulan terbaru langsung dari basis data server kepegawaian."
+              }
+            ],
+            tips: "KGB PNS diproses berkala setiap 2 tahun sekali. Ekstraksi otomatis Digit 9–14 pada NIP 18 digit memudahkan verifikator memetakan jadwal berkala pegawai secara tepat tanpa perlu menghitung masa kerja manual.",
+            flowchart: [
+              { id: 1, type: "start", icon: "💵", title: "Akses Menu Check KGB", desc: "Buka menu Check KGB melalui sidebar kiri admin" },
+              { id: 2, type: "process", icon: "📊", title: "Tinjau Metrik Ringkasan", desc: "Periksa total usulan, NIP valid 18 digit, dan rasio ganjil/genap" },
+              { id: 3, type: "decision", icon: "⚖️", title: "Tentukan Siklus & Paritas Tahun", desc: "Pilih paritas tahun pengangkatan sesuai tahun kalender berjalan",
+                branches: [
+                  { label: "Tahun Ganjil", desc: "Untuk pemrosesan KGB pada tahun kalender ganjil (2025, 2027, ...)" },
+                  { label: "Tahun Genap", desc: "Untuk pemrosesan KGB pada tahun kalender genap (2024, 2026, ...)" }
+                ]
+              },
+              { id: 4, type: "process", icon: "📅", title: "Filter Bulan & Kriteria Tambahan", desc: "Saring bulan jatuh tempo (01–12), jenis pegawai, status, dan TMT" },
+              { id: 5, type: "process", icon: "🔍", title: "Verifikasi Visual Digit 9–14 NIP", desc: "Audit visual penanda NIP 18 digit dan kesesuaian data usulan" },
+              { id: 6, type: "process", icon: "📥", title: "Ekspor Hasil ke CSV", desc: "Unduh file rekapitulasi data usulan terverifikasi" },
+              { id: 7, type: "end", icon: "✅", title: "Selesai", desc: "Daftar pegawai siap diproses ke naskah SK KGB" }
+            ]
+          },
+          super_admin: {
+            badge: "Sebagai Super Admin Kepegawaian",
+            steps: [
+              {
+                title: "1. Pengawasan & Supervisi Siklus KGB",
+                desc: "Super Admin memantau kepatuhan pemrosesan KGB di seluruh fakultas, direktorat, dan unit kerja universitas melalui dashboard Check KGB."
+              },
+              {
+                title: "2. Audit Format NIP 18 Digit & Deteksi Anomali",
+                desc: "Bandingkan metrik Pegawai PNS (NIP 18 Digit) dengan Total Usulan Masuk. Jika ditemukan selisih, identifikasi pegawai berformat NIP non-standar untuk sinkronisasi database induk."
+              },
+              {
+                title: "3. Analisis Beban Anggaran & Siklus 2 Tahunan",
+                desc: "Gunakan komparasi rasio pengangkatan tahun ganjil vs genap untuk memproyeksikan beban kerja verifikasi dan estimasi kenaikan alokasi anggaran gaji berkala universitas."
+              },
+              {
+                title: "4. Filter Komprehensif Lintas Unit & Multi-Status",
+                desc: "Kombinasikan seluruh opsi filter (Status Kepegawaian, Jenis Pegawai, Periode TMT, Paritas Tahun, dan Bulan) untuk audit kepegawaian mendalam di setiap unit kerja."
+              },
+              {
+                title: "5. Ekspor Master Data & Rekonsiliasi Penggajian",
+                desc: "Unduh rekapitulasi CSV master untuk rekonsiliasi berkala dengan bagian keuangan/penggajian serta arsip resmi kepegawaian universitas."
+              },
+              {
+                title: "6. Sinkronisasi Data Real-Time",
+                desc: "Gunakan tombol 'Refresh Data' untuk memperbarui dan memastikan integritas data usulan langsung dari database server."
+              }
+            ],
+            tips: "Pastikan seluruh data NIP PNS pada database utama berformat 18 digit standar BKN agar sistem parsing Digit 9–14 mengidentifikasi tahun dan bulan pengangkatan CPNS secara otomatis.",
+            flowchart: [
+              { id: 1, type: "start", icon: "⚡", title: "Supervisi Modul Check KGB", desc: "Monitoring menyeluruh usulan KGB lintas unit kerja universitas" },
+              { id: 2, type: "process", icon: "🛡️", title: "Audit Integritas Format NIP", desc: "Pemeriksaan validitas NIP 18 digit dan deteksi anomali data" },
+              { id: 3, type: "process", icon: "📊", title: "Analisis Distribusi Siklus", desc: "Evaluasi rasio beban tahun ganjil/genap untuk perencanaan" },
+              { id: 4, type: "process", icon: "🔍", title: "Penyaringan Multi-Dimensi", desc: "Filter komprehensif status, unit kerja, tahun, dan bulan" },
+              { id: 5, type: "process", icon: "🔄", title: "Sinkronisasi Data Real-Time", desc: "Penyelarasan data usulan mutakhir dari database server" },
+              { id: 6, type: "end", icon: "📑", title: "Ekspor Master Data CSV", desc: "Penerbitan rekapitulasi resmi untuk audit dan tindak lanjut SK KGB" }
+            ]
           }
         }
       }

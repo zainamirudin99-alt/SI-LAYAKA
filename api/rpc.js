@@ -6127,13 +6127,172 @@ const methods = {
   },
 
   async deleteUsulanMasukSingle(args) {
-    const [token, id] = extractArgs(args);
+    const [token, payload] = extractArgs(args);
     requireRole(token, ['admin', 'super_admin']);
-    if (!id) return { success: false, message: 'ID usulan tidak valid.' };
+    if (!payload) return { success: false, message: 'Data usulan tidak valid.' };
+
+    const id = (typeof payload === 'object' && payload !== null) ? payload.id : payload;
+    const nip = (typeof payload === 'object' && payload !== null) ? payload.nip : null;
+    const nama = (typeof payload === 'object' && payload !== null) ? payload.nama : null;
+
     const db = getDb();
-    const { error } = await db.from('usulan_kp').delete().eq('id', id);
-    if (error) return { success: false, message: 'Gagal menghapus usulan: ' + error.message };
+    let deleted = false;
+    let lastError = null;
+
+    // 1. Coba hapus dengan ID jika format UUID valid
+    const isUuid = id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id).trim());
+    if (isUuid) {
+      try {
+        const res = await db.from('usulan_kp').delete().eq('id', String(id).trim()).select();
+        if (!res.error && res.data && res.data.length > 0) {
+          deleted = true;
+        } else if (res.error) {
+          lastError = res.error;
+        }
+      } catch (e) {
+        lastError = e;
+      }
+    }
+
+    // 2. Fallback jika belum terhapus: hapus berdasarkan NIP (dan nama jika ada)
+    if (!deleted && nip) {
+      try {
+        let q = db.from('usulan_kp').delete().eq('nip', String(nip).trim());
+        if (nama) {
+          q = q.eq('nama', String(nama).trim());
+        }
+        const res = await q.select();
+        if (!res.error && res.data && res.data.length > 0) {
+          deleted = true;
+        } else if (res.error) {
+          lastError = res.error;
+        }
+      } catch (e) {
+        lastError = e;
+      }
+    }
+
+    // 3. Fallback jika belum terhapus: coba hapus dengan id langsung (untuk integer/string ID)
+    if (!deleted && id) {
+      try {
+        const res = await db.from('usulan_kp').delete().eq('id', id).select();
+        if (!res.error) {
+          deleted = true;
+        } else if (res.error) {
+          lastError = res.error;
+        }
+      } catch (e) {
+        lastError = e;
+      }
+    }
+
+    // 4. Fallback jika belum terhapus tapi nama disediakan
+    if (!deleted && nama && !nip) {
+      try {
+        const res = await db.from('usulan_kp').delete().eq('nama', String(nama).trim()).select();
+        if (!res.error && res.data && res.data.length > 0) {
+          deleted = true;
+        }
+      } catch (_) {}
+    }
+
+    if (!deleted && lastError) {
+      return { success: false, message: 'Gagal menghapus usulan: ' + (lastError.message || lastError) };
+    }
     return { success: true, message: 'Usulan berhasil dihapus.' };
+  },
+
+  async updateUsulanMasukSingle(args) {
+    const [token, payload] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    if (!payload) return { success: false, message: 'Data perubahan usulan tidak valid.' };
+
+    const {
+      id, originalNip, nama, nip, unit, jabatan,
+      jenis_pegawai, status_kepegawaian, golongan_lama, golongan_baru, tmt, status
+    } = payload;
+
+    if (!id && !originalNip && !nip) {
+      return { success: false, message: 'ID atau NIP usulan wajib disertakan.' };
+    }
+
+    const db = getDb();
+    const updateObj = { diproses_oleh_nip: decoded.nip || '' };
+    if (nama !== undefined) updateObj.nama = String(nama).trim();
+    if (nip !== undefined) updateObj.nip = String(nip).trim();
+    if (unit !== undefined) updateObj.unit = String(unit).trim();
+    if (jabatan !== undefined) updateObj.jabatan = String(jabatan).trim();
+    if (jenis_pegawai !== undefined) updateObj.jenis_pegawai = String(jenis_pegawai).trim();
+    if (status_kepegawaian !== undefined) updateObj.status_kepegawaian = String(status_kepegawaian).trim();
+    if (golongan_lama !== undefined) updateObj.golongan_lama = String(golongan_lama).trim();
+    if (golongan_baru !== undefined) updateObj.golongan_baru = String(golongan_baru).trim();
+    if (tmt !== undefined) updateObj.tmt = String(tmt).trim();
+    if (status !== undefined) updateObj.status = String(status).trim();
+
+    let updated = false;
+    let lastError = null;
+
+    // 1. Coba update via UUID jika id valid
+    const isUuid = id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id).trim());
+    if (isUuid) {
+      try {
+        const res = await db.from('usulan_kp').update(updateObj).eq('id', String(id).trim()).select();
+        if (!res.error && res.data && res.data.length > 0) {
+          updated = true;
+        } else if (res.error) {
+          lastError = res.error;
+        }
+      } catch (e) {
+        lastError = e;
+      }
+    }
+
+    // 2. Coba update via originalNip jika ada
+    if (!updated && originalNip) {
+      try {
+        const res = await db.from('usulan_kp').update(updateObj).eq('nip', String(originalNip).trim()).select();
+        if (!res.error && res.data && res.data.length > 0) {
+          updated = true;
+        } else if (res.error) {
+          lastError = res.error;
+        }
+      } catch (e) {
+        lastError = e;
+      }
+    }
+
+    // 3. Coba update via nip
+    if (!updated && nip) {
+      try {
+        const res = await db.from('usulan_kp').update(updateObj).eq('nip', String(nip).trim()).select();
+        if (!res.error && res.data && res.data.length > 0) {
+          updated = true;
+        } else if (res.error) {
+          lastError = res.error;
+        }
+      } catch (e) {
+        lastError = e;
+      }
+    }
+
+    // 4. Fallback update via id langsung
+    if (!updated && id) {
+      try {
+        const res = await db.from('usulan_kp').update(updateObj).eq('id', id).select();
+        if (!res.error) {
+          updated = true;
+        } else if (res.error) {
+          lastError = res.error;
+        }
+      } catch (e) {
+        lastError = e;
+      }
+    }
+
+    if (!updated && lastError) {
+      return { success: false, message: 'Gagal menyimpan perubahan usulan: ' + (lastError.message || lastError) };
+    }
+    return { success: true, message: 'Data usulan berhasil diperbarui.' };
   },
 
   async deleteAllUsulanMasuk(args) {
