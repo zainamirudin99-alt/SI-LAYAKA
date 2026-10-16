@@ -22801,22 +22801,21 @@ function renderDashboardUtamaStats(data) {
   const valEligibleKp = document.getElementById('dashValEligibleKp');
   const valDosenEligible = document.getElementById('dashValDosenEligible');
   const valTendikEligible = document.getElementById('dashValTendikEligible');
+  const badgeEligible = document.getElementById('dashEligibleKpBadge');
   if (valEligibleKp) valEligibleKp.textContent = Number(data.eligibleKpStats?.total || 0).toLocaleString('id-ID');
   if (valDosenEligible) valDosenEligible.textContent = Number(data.eligibleKpStats?.dosen || 0).toLocaleString('id-ID');
   if (valTendikEligible) valTendikEligible.textContent = Number(data.eligibleKpStats?.tendik || 0).toLocaleString('id-ID');
-
-  // 3. Pegawai Akan Pensiun
-  const valPensiun = document.getElementById('dashValPensiun');
-  const labelPensiun = document.getElementById('dashPensiunUnitLabel');
-  if (valPensiun) valPensiun.textContent = Number(data.pensiunStats?.total || 0).toLocaleString('id-ID');
-  if (labelPensiun) {
-    if (role === 'user') {
-      labelPensiun.textContent = `Unit: ${data.unit || 'Unit Anda'}`;
-    } else {
-      const uCount = data.pensiunStats?.unitList?.length || 0;
-      labelPensiun.textContent = `${uCount} Unit Kerja Terpantau (BUP \u2264 2 Th)`;
-    }
+  if (badgeEligible) {
+    badgeEligible.textContent = data.eligibleKpStats?.targetTmt ? `Periode TMT: ${data.eligibleKpStats.targetTmt}` : 'Kriteria Menu KP';
   }
+
+  // 3. Pegawai Akan Pensiun (Pilihan Rentang: < 1 Th, <= 2 Th, <= 3 Th, <= 4 Th, <= 5 Th)
+  let currentPensiunHorizon = 2;
+  const selectHorizon = document.getElementById('dashPensiunRangeSelect');
+  if (selectHorizon) {
+    currentPensiunHorizon = parseInt(selectHorizon.value, 10) || 2;
+  }
+  updatePensiunCardDisplay(data, currentPensiunHorizon);
 
   // 4. Semua Kegiatan Sistem
   const valKegiatan = document.getElementById('dashValKegiatan');
@@ -22833,10 +22832,48 @@ function renderDashboardUtamaStats(data) {
   }
 
   // Render Bar Chart
-  renderDashboardUtamaBarChart(data);
+  renderDashboardUtamaBarChart(data, currentPensiunHorizon);
 }
 
-function renderDashboardUtamaBarChart(data) {
+function updatePensiunCardDisplay(data, horizon) {
+  const h = parseInt(horizon, 10) || 2;
+  const hData = (data.pensiunStats?.horizons && data.pensiunStats.horizons[h]) || {
+    total: data.pensiunStats?.total || 0,
+    label: '\u2264 2 Tahun',
+    badge: 'BUP \u2264 2 Th',
+    unitCount: data.pensiunStats?.unitList?.length || 0
+  };
+
+  const valPensiun = document.getElementById('dashValPensiun');
+  if (valPensiun) valPensiun.textContent = Number(hData.total || 0).toLocaleString('id-ID');
+
+  const badgePensiun = document.getElementById('dashPensiunBadge');
+  if (badgePensiun) badgePensiun.textContent = hData.badge;
+
+  const hintPensiun = document.getElementById('dashPensiunHorizonHint');
+  if (hintPensiun) hintPensiun.textContent = `Rentang: ${hData.label}`;
+
+  const labelPensiun = document.getElementById('dashPensiunUnitLabel');
+  if (labelPensiun) {
+    const role = data.role || (SESSION.user && SESSION.user.role) || 'user';
+    if (role === 'user') {
+      labelPensiun.textContent = `Unit: ${data.unit || 'Unit Anda'}`;
+    } else {
+      labelPensiun.textContent = `${hData.unitCount || 0} Unit Kerja Terpantau`;
+    }
+  }
+}
+
+function onDashboardPensiunHorizonChange(horizonVal) {
+  const horizon = parseInt(horizonVal, 10) || 2;
+  if (_dashboardUtamaDataCache) {
+    updatePensiunCardDisplay(_dashboardUtamaDataCache, horizon);
+    renderDashboardUtamaBarChart(_dashboardUtamaDataCache, horizon);
+  }
+}
+window.onDashboardPensiunHorizonChange = onDashboardPensiunHorizonChange;
+
+function renderDashboardUtamaBarChart(data, selectedPensiunHorizon = 2) {
   const canvas = document.getElementById('dashboardUtamaBarChart');
   if (!canvas) return;
 
@@ -22850,6 +22887,14 @@ function renderDashboardUtamaBarChart(data) {
   const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
 
   const role = data.role || (SESSION.user && SESSION.user.role) || 'user';
+  const h = parseInt(selectedPensiunHorizon, 10) || 2;
+  const hData = (data.pensiunStats?.horizons && data.pensiunStats.horizons[h]) || {
+    total: data.pensiunStats?.total || 0,
+    label: '\u2264 2 Th'
+  };
+  const pensiunLabel = `Akan Pensiun (${hData.label})`;
+  const pensiunVal = hData.total || 0;
+
   let chartLabels = [];
   let chartValues = [];
   let bgColors = [];
@@ -22859,13 +22904,13 @@ function renderDashboardUtamaBarChart(data) {
     chartLabels = [
       'Usulan KP Masuk',
       'Perlu KP (Eligible)',
-      'Akan Pensiun (\u2264 2 Th)',
+      pensiunLabel,
       'Semua Kegiatan Sistem'
     ];
     chartValues = [
       data.usulanKpStats?.total || 0,
       data.eligibleKpStats?.total || 0,
-      data.pensiunStats?.total || 0,
+      pensiunVal,
       data.kegiatanStats?.total || 0
     ];
     bgColors = [
@@ -22879,12 +22924,12 @@ function renderDashboardUtamaBarChart(data) {
     // Role User
     chartLabels = [
       'Perlu KP Unit (Eligible)',
-      'Akan Pensiun Unit (\u2264 2 Th)',
+      pensiunLabel,
       'Semua Kegiatan Sistem'
     ];
     chartValues = [
       data.eligibleKpStats?.total || 0,
-      data.pensiunStats?.total || 0,
+      pensiunVal,
       data.kegiatanStats?.total || 0
     ];
     bgColors = [
@@ -22971,6 +23016,8 @@ function renderDashboardUtamaBarChart(data) {
 window.loadDashboardUtamaData = loadDashboardUtamaData;
 window.renderDashboardUtamaStats = renderDashboardUtamaStats;
 window.renderDashboardUtamaBarChart = renderDashboardUtamaBarChart;
+window.updatePensiunCardDisplay = updatePensiunCardDisplay;
+window.onDashboardPensiunHorizonChange = onDashboardPensiunHorizonChange;
 window.getAppUserRoleCategory = getAppUserRoleCategory;
 window.openAppGuideModal = openAppGuideModal;
 window.closeAppGuideModal = closeAppGuideModal;

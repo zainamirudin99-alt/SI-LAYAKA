@@ -5675,6 +5675,7 @@ const methods = {
       pensiun: 0
     };
 
+    const latestUsulanTmtMap = {};
     try {
       let query = db.from('usulan_kp').select('*');
       if (callerUnit) {
@@ -5693,30 +5694,41 @@ const methods = {
         else if (s.includes('belum eligible') || s.includes('tidak eligible')) usulanKpStats.belum_eligible++;
         else if (s.includes('pensiun')) usulanKpStats.pensiun++;
         else usulanKpStats.diterima_dosdm++;
+
+        const nipT = String(r.nip || '').trim();
+        const tmtVal = r.tmt || r.tmt_terbaru || r.tanggal_diajukan || r.created_at;
+        if (nipT && tmtVal) {
+          if (!latestUsulanTmtMap[nipT] || new Date(tmtVal) > new Date(latestUsulanTmtMap[nipT])) {
+            latestUsulanTmtMap[nipT] = tmtVal;
+          }
+        }
       });
     } catch (e) {
       console.warn('[getDashboardUtamaStats] usulan_kp notice:', e.message);
     }
 
-    // 2. Pegawai yang Harus Diperhatikan Karena Kenaikan Pangkat
+    // Target TMT periode KP berikutnya (kriteria sama persis dengan menu Kenaikan Pangkat)
+    const targetKp = hitungTargetTmtPromosi(new Date());
+    const targetTmtStr = `1 ${BULAN_ID[targetKp.targetMonth - 1]} ${targetKp.targetYear}`;
+
+    // 2. Pegawai yang Harus Diperhatikan Karena Kenaikan Pangkat (Eligible KP)
     let eligibleKpStats = {
       total: 0,
       dosen: 0,
-      tendik: 0
+      tendik: 0,
+      targetTmt: targetTmtStr
     };
 
-    // 3. Pegawai yang Akan Pensiun
-    let pensiunStats = {
-      total: 0,
-      unitList: []
-    };
+    // 3. Pegawai yang Akan Pensiun dengan pilihan rentang: < 1 Th, <= 2 Th, <= 3 Th, <= 4 Th, <= 5 Th
+    const pensiunCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    const pensiunPerUnitByHorizon = { 1: {}, 2: {}, 3: {}, 4: {}, 5: {} };
 
     try {
       let pageE = 0;
       let emps = [];
       while (true) {
         let qEmp = db.from('data_utama')
-          .select('nip,nama_lengkap,nama,jabatan,golongan,tmt_gol,status_bekerja,unit_es_ii,tmt_pensiun_bup,status_kepegawaian,jenis_peg')
+          .select('nip,nama_lengkap,nama,jabatan,golongan,tmt_gol,status_bekerja,pendidikan,unit_es_ii,tmt_pensiun_bup,status_kepegawaian,jenis_peg')
           .range(pageE * 1000, (pageE + 1) * 1000 - 1);
         if (callerUnit) {
           qEmp = qEmp.eq('unit_es_ii', callerUnit);
@@ -5729,38 +5741,95 @@ const methods = {
       }
 
       const now = new Date();
-      const ambangHariPensiun = 730; // 2 tahun ke depan
-      const pensiunPerUnit = {};
 
       emps.forEach(emp => {
+        // Pensiun Horizon Calculation: 1 th (365 hr), 2 th (730 hr), 3 th (1095 hr), 4 th (1460 hr), 5 th (1826 hr)
         if (emp.tmt_pensiun_bup) {
           const sisaHari = diffDays(now, emp.tmt_pensiun_bup);
-          if (sisaHari >= 0 && sisaHari <= ambangHariPensiun) {
-            pensiunStats.total++;
+          if (sisaHari >= 0) {
             const u = String(emp.unit_es_ii || '(Tanpa Unit)').trim();
-            pensiunPerUnit[u] = (pensiunPerUnit[u] || 0) + 1;
+            if (sisaHari <= 365) {
+              pensiunCounts[1]++;
+              pensiunPerUnitByHorizon[1][u] = (pensiunPerUnitByHorizon[1][u] || 0) + 1;
+            }
+            if (sisaHari <= 730) {
+              pensiunCounts[2]++;
+              pensiunPerUnitByHorizon[2][u] = (pensiunPerUnitByHorizon[2][u] || 0) + 1;
+            }
+            if (sisaHari <= 1095) {
+              pensiunCounts[3]++;
+              pensiunPerUnitByHorizon[3][u] = (pensiunPerUnitByHorizon[3][u] || 0) + 1;
+            }
+            if (sisaHari <= 1460) {
+              pensiunCounts[4]++;
+              pensiunPerUnitByHorizon[4][u] = (pensiunPerUnitByHorizon[4][u] || 0) + 1;
+            }
+            if (sisaHari <= 1826) {
+              pensiunCounts[5]++;
+              pensiunPerUnitByHorizon[5][u] = (pensiunPerUnitByHorizon[5][u] || 0) + 1;
+            }
           }
         }
 
-        if (emp.tmt_gol) {
-          const tmtDate = new Date(emp.tmt_gol);
-          if (!isNaN(tmtDate.getTime())) {
-            const diffYears = (now.getFullYear() - tmtDate.getFullYear()) + (now.getMonth() - tmtDate.getMonth()) / 12;
-            if (diffYears >= 3.5) {
-              eligibleKpStats.total++;
-              const isDosen = /dosen/i.test(emp.jabatan || emp.jenis_peg || '');
-              if (isDosen) eligibleKpStats.dosen++;
-              else eligibleKpStats.tendik++;
+        // Kenaikan Pangkat Eligible Check: Menggunakan kriteria yang SAMA PERSIS dengan Menu Kenaikan Pangkat (cekEligiblePromosi)
+        const sb = klasifikasiStatusBekerja(emp.status_bekerja);
+        if (sb.eligibleSamaSekali) {
+          const hasil = cekEligiblePromosi(emp, targetKp.targetDate, latestUsulanTmtMap);
+          if (hasil.eligible) {
+            eligibleKpStats.total++;
+            if (hasil.kategori === 'dosen') {
+              eligibleKpStats.dosen++;
+            } else {
+              eligibleKpStats.tendik++;
             }
           }
         }
       });
 
-      pensiunStats.unitList = Object.keys(pensiunPerUnit).map(u => ({ unit: u, jumlah: pensiunPerUnit[u] })).sort((a,b) => b.jumlah - a.jumlah);
-
     } catch (empErr) {
       console.warn('[getDashboardUtamaStats] data_utama notice:', empErr.message);
     }
+
+    // Build Pensiun Stats Structure
+    const pensiunHorizons = {
+      1: {
+        label: '< 1 Tahun',
+        badge: 'BUP < 1 Th',
+        total: pensiunCounts[1],
+        unitCount: Object.keys(pensiunPerUnitByHorizon[1]).length
+      },
+      2: {
+        label: '\u2264 2 Tahun',
+        badge: 'BUP \u2264 2 Th',
+        total: pensiunCounts[2],
+        unitCount: Object.keys(pensiunPerUnitByHorizon[2]).length
+      },
+      3: {
+        label: '\u2264 3 Tahun',
+        badge: 'BUP \u2264 3 Th',
+        total: pensiunCounts[3],
+        unitCount: Object.keys(pensiunPerUnitByHorizon[3]).length
+      },
+      4: {
+        label: '\u2264 4 Tahun',
+        badge: 'BUP \u2264 4 Th',
+        total: pensiunCounts[4],
+        unitCount: Object.keys(pensiunPerUnitByHorizon[4]).length
+      },
+      5: {
+        label: '\u2264 5 Tahun',
+        badge: 'BUP \u2264 5 Th',
+        total: pensiunCounts[5],
+        unitCount: Object.keys(pensiunPerUnitByHorizon[5]).length
+      }
+    };
+
+    const pensiunStats = {
+      total: pensiunCounts[2],
+      selectedHorizon: 2,
+      horizons: pensiunHorizons,
+      unitList: Object.keys(pensiunPerUnitByHorizon[2]).map(u => ({ unit: u, jumlah: pensiunPerUnitByHorizon[2][u] })).sort((a,b) => b.jumlah - a.jumlah)
+    };
 
     // 4. Semua Kegiatan Sistem
     let totalKegiatan = 0;
