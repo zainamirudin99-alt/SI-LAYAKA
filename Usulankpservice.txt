@@ -290,3 +290,137 @@ function updateUsulanMasukStatus(sessionToken, payload) {
   }
   return { success: false, message: 'Data tidak ditemukan.' };
 }
+
+/**
+ * Ekspor usulan masuk ke Google Docs baru di Google Drive
+ */
+function exportUsulanMasukToGoogleDocs_GAS(sessionToken, payload) {
+  requireRole_(sessionToken, ['admin', 'super_admin']);
+  try {
+    const items = payload.items || [];
+    const filterInfo = payload.filterInfo || 'Semua Usulan';
+    const docName = 'Daftar Usulan Masuk Kenaikan Pangkat - ' + Utilities.formatDate(new Date(), 'GMT+7', 'yyyyMMdd_HHmmss');
+    const doc = DocumentApp.create(docName);
+    const body = doc.getBody();
+
+    body.setMarginTop(36).setMarginBottom(36).setMarginLeft(36).setMarginRight(36);
+
+    const title = body.appendParagraph('DAFTAR USULAN MASUK KENAIKAN PANGKAT');
+    title.setHeading(DocumentApp.ParagraphHeading.HEADING_1);
+    title.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+
+    const sub = body.appendParagraph('Sistem Layanan Administrasi Kepegawaian (SI-LAYAKA)\nFilter: ' + filterInfo + ' | Diekspor: ' + Utilities.formatDate(new Date(), 'GMT+7', 'dd MMMM yyyy HH:mm'));
+    sub.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    body.appendParagraph('');
+
+    const tableData = [
+      ['No', 'Nama Pegawai', 'NIP / Unit / Jabatan', 'Proyeksi Pangkat/Golongan', 'TMT', 'Status Saat Ini']
+    ];
+
+    items.forEach((u, idx) => {
+      const golLama = u.golongan_lama || u.golLama || '-';
+      const golBaru = u.golongan_baru || u.golBaru || '-';
+      const proyeksi = golLama + ' -> ' + golBaru;
+      const nipText = u.nip ? 'NIP ' + u.nip : '-';
+      const unitText = u.unit || '-';
+      const jabText = u.jabatan ? '\n' + u.jabatan : '';
+      const nipUnitJab = nipText + '\n' + unitText + jabText;
+      const namaText = (u.nama || '-') + (u.nama_pengaju ? '\n(Diajukan oleh: ' + u.nama_pengaju + ')' : '');
+
+      tableData.push([
+        String(idx + 1),
+        namaText,
+        nipUnitJab,
+        proyeksi,
+        u.tmt || '-',
+        u.status || 'Diterima DOSDM'
+      ]);
+    });
+
+    const table = body.appendTable(tableData);
+    table.setBorderWidth(1).setBorderColor('#cbd5e1');
+    const headerRow = table.getRow(0);
+    for (let c = 0; c < 6; c++) {
+      headerRow.getCell(c).setBackgroundColor('#2563eb');
+      const p = headerRow.getCell(c).getChild(0).asParagraph();
+      p.setForegroundColor('#ffffff').setBold(true);
+    }
+
+    doc.saveAndClose();
+
+    const file = DriveApp.getFileById(doc.getId());
+    if (CONFIG.FOLDER_KP_OUTPUT) {
+      try {
+        const folder = DriveApp.getFolderById(CONFIG.FOLDER_KP_OUTPUT);
+        folder.addFile(file);
+      } catch (_) {}
+    }
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    return { success: true, url: doc.getUrl(), name: docName };
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
+}
+
+/**
+ * Ekspor usulan masuk ke Google Spreadsheet baru di Google Drive
+ */
+function exportUsulanMasukToGoogleSpreadsheet_GAS(sessionToken, payload) {
+  requireRole_(sessionToken, ['admin', 'super_admin']);
+  try {
+    const items = payload.items || [];
+    const filterInfo = payload.filterInfo || 'Semua Usulan';
+    const ssName = 'Daftar Usulan Masuk Kenaikan Pangkat - ' + Utilities.formatDate(new Date(), 'GMT+7', 'yyyyMMdd_HHmmss');
+    const ss = SpreadsheetApp.create(ssName);
+    const sheet = ss.getActiveSheet();
+    sheet.setName('Usulan Masuk KP');
+
+    sheet.getRange(1, 1).setValue('DAFTAR USULAN MASUK KENAIKAN PANGKAT').setFontWeight('bold').setFontSize(14);
+    sheet.getRange(2, 1).setValue('Sistem Layanan Administrasi Kepegawaian (SI-LAYAKA)');
+    sheet.getRange(3, 1).setValue('Filter: ' + filterInfo + ' | Diekspor: ' + Utilities.formatDate(new Date(), 'GMT+7', 'dd MMMM yyyy HH:mm'));
+
+    const headers = ['No', 'Nama Pegawai', 'NIP / Unit / Jabatan', 'Proyeksi Pangkat/Golongan', 'TMT', 'Status Saat Ini'];
+    const rows = [headers];
+
+    items.forEach((u, idx) => {
+      const golLama = u.golongan_lama || u.golLama || '-';
+      const golBaru = u.golongan_baru || u.golBaru || '-';
+      const proyeksi = golLama + ' -> ' + golBaru;
+      const nipText = u.nip ? 'NIP ' + u.nip : '-';
+      const unitText = u.unit || '-';
+      const jabText = u.jabatan ? ' | ' + u.jabatan : '';
+      const nipUnitJab = nipText + ' | ' + unitText + jabText;
+      const namaText = (u.nama || '-') + (u.nama_pengaju ? ' (Oleh: ' + u.nama_pengaju + ')' : '');
+
+      rows.push([
+        idx + 1,
+        namaText,
+        nipUnitJab,
+        proyeksi,
+        u.tmt || '-',
+        u.status || 'Diterima DOSDM'
+      ]);
+    });
+
+    const range = sheet.getRange(5, 1, rows.length, 6);
+    range.setValues(rows);
+    const headerRange = sheet.getRange(5, 1, 1, 6);
+    headerRange.setBackground('#2563eb').setFontColor('#ffffff').setFontWeight('bold');
+
+    sheet.autoResizeColumns(1, 6);
+
+    const file = DriveApp.getFileById(ss.getId());
+    if (CONFIG.FOLDER_KP_OUTPUT) {
+      try {
+        const folder = DriveApp.getFolderById(CONFIG.FOLDER_KP_OUTPUT);
+        folder.addFile(file);
+      } catch (_) {}
+    }
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    return { success: true, url: ss.getUrl(), name: ssName };
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
+}

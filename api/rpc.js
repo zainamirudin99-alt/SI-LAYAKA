@@ -5838,6 +5838,60 @@ const methods = {
     return { success: true, total: list.length, statusCounts, list };
   },
 
+  async exportUsulanMasukToGoogleDocs(args) {
+    const [token, payload] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (!gasUrl) {
+      return { success: false, fallback: true, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi.' };
+    }
+    const gasCtrl = new AbortController();
+    const gasTimer = setTimeout(() => gasCtrl.abort(), 25000);
+    try {
+      const response = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'exportUsulanMasukToGoogleDocs_GAS',
+          params: [token, payload]
+        }),
+        signal: gasCtrl.signal
+      });
+      clearTimeout(gasTimer);
+      return await parseGasResponse(response, 'exportUsulanMasukToGoogleDocs-GAS');
+    } catch (gasErr) {
+      clearTimeout(gasTimer);
+      return { success: false, fallback: true, message: 'Google Apps Script tidak merespons: ' + gasErr.message };
+    }
+  },
+
+  async exportUsulanMasukToGoogleSpreadsheet(args) {
+    const [token, payload] = extractArgs(args);
+    requireRole(token, ['admin', 'super_admin']);
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (!gasUrl) {
+      return { success: false, fallback: true, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi.' };
+    }
+    const gasCtrl = new AbortController();
+    const gasTimer = setTimeout(() => gasCtrl.abort(), 25000);
+    try {
+      const response = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'exportUsulanMasukToGoogleSpreadsheet_GAS',
+          params: [token, payload]
+        }),
+        signal: gasCtrl.signal
+      });
+      clearTimeout(gasTimer);
+      return await parseGasResponse(response, 'exportUsulanMasukToGoogleSpreadsheet-GAS');
+    } catch (gasErr) {
+      clearTimeout(gasTimer);
+      return { success: false, fallback: true, message: 'Google Apps Script tidak merespons: ' + gasErr.message };
+    }
+  },
+
   async getCheckKgbList(args) {
     const [token] = extractArgs(args);
     requireRole(token, ['admin', 'super_admin']);

@@ -2960,4 +2960,104 @@
     color: #a78bfa;
     border-color: rgba(139, 92, 246, 0.45);
   }
+
+  /* ============================================================== */
+  /* MODAL EKSPOR DATA USULAN MASUK & PILIHAN FORMAT                */
+  /* ============================================================== */
+  .um-ekspor-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    transition: border-color 0.2s ease;
+  }
+  .um-ekspor-section:hover {
+    border-color: rgba(37, 99, 235, 0.4);
+  }
+  body.theme-dark .um-ekspor-section:hover {
+    border-color: rgba(0, 240, 255, 0.4);
+  }
+
+  .um-ekspor-check-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-main);
+    transition: all 0.2s ease;
+    user-select: none;
+  }
+  .um-ekspor-check-item:hover {
+    background: rgba(37, 99, 235, 0.08);
+    border-color: var(--primary);
+  }
+  body.theme-dark .um-ekspor-check-item:hover {
+    background: rgba(0, 240, 255, 0.12);
+    border-color: #00f0ff;
+  }
+  .um-ekspor-check-item input[type="checkbox"] {
+    cursor: pointer;
+    width: 15px;
+    height: 15px;
+    accent-color: var(--primary);
+  }
+
+  .um-format-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 14px 10px;
+    border-radius: 12px;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    user-select: none;
+  }
+  .um-format-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    border-color: rgba(37, 99, 235, 0.5);
+  }
+  .um-format-card.active {
+    border-color: var(--primary);
+    background: rgba(37, 99, 235, 0.06);
+    box-shadow: 0 0 0 1px var(--primary), 0 4px 16px rgba(37, 99, 235, 0.15);
+  }
+  body.theme-dark .um-format-card:hover {
+    border-color: rgba(0, 240, 255, 0.5);
+    box-shadow: 0 4px 14px rgba(0, 240, 255, 0.12);
+  }
+  body.theme-dark .um-format-card.active {
+    border-color: #00f0ff;
+    background: rgba(0, 240, 255, 0.08);
+    box-shadow: 0 0 14px rgba(0, 240, 255, 0.3);
+  }
+  .um-format-icon {
+    font-size: 26px;
+    margin-bottom: 6px;
+    line-height: 1;
+  }
+  .um-format-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 2px;
+  }
+  body.theme-dark .um-format-card.active .um-format-title {
+    color: #00f0ff;
+  }
+  .um-format-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
 </style>

@@ -5567,6 +5567,577 @@ async function renderUsulanPieChart(dsdm, siasn, pertek, sk, perbaikan, belumEli
   });
 }
 
+/* ---------- MODAL & ENGINE EKSPOR DATA USULAN MASUK ---------- */
+function openEksporUsulanMasukModal() {
+  const modal = document.getElementById('umEksporModal');
+  if (!modal) return;
+
+  // 1. Isi daftar checkbox tahun secara dinamis dari data
+  const yearContainer = document.getElementById('umEksporYearContainer');
+  if (yearContainer) {
+    const yearsSet = new Set();
+    const masterList = (window.umMasterRawList && window.umMasterRawList.length) ? window.umMasterRawList : (window.umGlobalList || []);
+    masterList.forEach(item => {
+      const parsed = parseTmt(item.tmt);
+      if (parsed && parsed.year && parsed.year !== 'Tanpa TMT' && parsed.year !== 'Lainnya') {
+        yearsSet.add(parsed.year);
+      }
+    });
+
+    if (yearsSet.size === 0) {
+      const currentYear = new Date().getFullYear();
+      [currentYear - 2, currentYear - 1, currentYear, currentYear + 1, currentYear + 2].forEach(y => yearsSet.add(String(y)));
+    }
+
+    const sortedYears = Array.from(yearsSet).sort((a, b) => b.localeCompare(a));
+    yearContainer.innerHTML = sortedYears.map(yr => `
+      <label class="um-ekspor-check-item">
+        <input type="checkbox" name="umEksporYear" value="${escapeHtml(yr)}" checked onchange="updateEksporPreviewCount()" />
+        <span>Tahun ${escapeHtml(yr)}</span>
+      </label>
+    `).join('');
+  }
+
+  // 2. Pre-set filter sesuai dashboard yang aktif jika ada
+  const curYearSelect = document.getElementById('umYearFilterSelect');
+  if (curYearSelect && curYearSelect.value !== 'ALL') {
+    const yearBoxes = document.querySelectorAll('input[name="umEksporYear"]');
+    yearBoxes.forEach(cb => { cb.checked = (cb.value === curYearSelect.value); });
+  }
+
+  const curJenisSelect = document.getElementById('umJenisFilterSelect');
+  const eksporJenisSelect = document.getElementById('umEksporJenisSelect');
+  if (curJenisSelect && eksporJenisSelect && curJenisSelect.value !== 'ALL') {
+    eksporJenisSelect.value = curJenisSelect.value;
+  }
+
+  const curStatusKepSelect = document.getElementById('umStatusKepFilterSelect');
+  const eksporStatusKepSelect = document.getElementById('umEksporStatusKepSelect');
+  if (curStatusKepSelect && eksporStatusKepSelect && curStatusKepSelect.value !== 'ALL') {
+    eksporStatusKepSelect.value = curStatusKepSelect.value;
+  }
+
+  updateEksporFormatUI();
+  updateEksporPreviewCount();
+  modal.style.display = 'block';
+}
+
+function closeEksporUsulanMasukModal() {
+  const modal = document.getElementById('umEksporModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function toggleAllEksporCheckboxes(containerId, isChecked) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+  checkboxes.forEach(cb => { cb.checked = isChecked; });
+  updateEksporPreviewCount();
+}
+
+function updateEksporFormatUI() {
+  const radios = document.querySelectorAll('input[name="umEksporFormat"]');
+  let selectedVal = 'word';
+  radios.forEach(r => {
+    const card = document.getElementById(`umFormatCard_${r.value}`);
+    if (r.checked) {
+      selectedVal = r.value;
+      if (card) card.classList.add('active');
+    } else {
+      if (card) card.classList.remove('active');
+    }
+  });
+
+  const btnText = document.getElementById('btnSubmitEksporText');
+  if (btnText) {
+    if (selectedVal === 'word') btnText.textContent = 'Unduh File Word (.docx)';
+    else if (selectedVal === 'gdocs') btnText.textContent = 'Buka Google Docs';
+    else if (selectedVal === 'excel') btnText.textContent = 'Unduh File Excel (.xlsx)';
+    else if (selectedVal === 'spreadsheet') btnText.textContent = 'Buka Google Spreadsheet';
+    else btnText.textContent = 'Ekspor Sekarang';
+  }
+}
+
+function getFilteredEksporUsulanData() {
+  const masterList = (window.umMasterRawList && window.umMasterRawList.length) ? window.umMasterRawList : (window.umGlobalList || []);
+  if (!masterList || !masterList.length) return [];
+
+  const statusBoxes = document.querySelectorAll('input[name="umEksporStatus"]:checked');
+  const selectedStatuses = Array.from(statusBoxes).map(cb => cb.value.trim());
+
+  const yearBoxes = document.querySelectorAll('input[name="umEksporYear"]:checked');
+  const selectedYears = Array.from(yearBoxes).map(cb => cb.value.trim());
+
+  const jenisSelect = document.getElementById('umEksporJenisSelect');
+  const selectedJenis = jenisSelect ? jenisSelect.value : 'ALL';
+
+  const statusKepSelect = document.getElementById('umEksporStatusKepSelect');
+  const selectedStatusKep = statusKepSelect ? statusKepSelect.value : 'ALL';
+
+  const monthBoxes = document.querySelectorAll('input[name="umEksporMonth"]:checked');
+  const selectedMonths = Array.from(monthBoxes).map(cb => cb.value.trim().toLowerCase());
+
+  return masterList.filter(item => {
+    // 1. Status filter
+    if (selectedStatuses.length > 0) {
+      const st = String(item.status || 'Diterima DOSDM').trim();
+      let matchStatus = false;
+      for (const s of selectedStatuses) {
+        if ((s === 'Diterima DOSDM' || s === 'Diterima DSDM') && (st === 'Diterima DOSDM' || st === 'Diterima DSDM')) matchStatus = true;
+        else if (s === 'Diajukan SIASN' && (st === 'Diajukan SIASN' || st === 'Diajukan ke SIASN')) matchStatus = true;
+        else if (s === 'Belum Eligible' && (st === 'Belum Eligible' || st === 'Tidak Eligible')) matchStatus = true;
+        else if (s.toLowerCase() === st.toLowerCase()) matchStatus = true;
+      }
+      if (!matchStatus) return false;
+    } else {
+      return false;
+    }
+
+    // 2. Year filter
+    const parsed = parseTmt(item.tmt);
+    const yr = String(parsed.year || '');
+    if (selectedYears.length > 0) {
+      if (!selectedYears.includes(yr)) return false;
+    } else {
+      return false;
+    }
+
+    // 3. Month filter
+    if (selectedMonths.length > 0) {
+      const tmtLower = String(item.tmt || '').toLowerCase();
+      const hasMonth = selectedMonths.some(m => tmtLower.includes(m));
+      if (!hasMonth && !tmtLower.includes('tanpa')) return false;
+    } else {
+      return false;
+    }
+
+    // 4. Jenis Pegawai filter
+    if (selectedJenis !== 'ALL') {
+      const j = String(item.jenis_pegawai || item.jenisPegawai || 'Tendik').trim().toLowerCase();
+      if (j !== selectedJenis.toLowerCase()) return false;
+    }
+
+    // 5. Status Kepegawaian filter
+    if (selectedStatusKep !== 'ALL') {
+      const sk = String(item.status_kepegawaian || item.statusKepegawaian || 'PNS').trim().toLowerCase();
+      if (sk !== selectedStatusKep.toLowerCase()) return false;
+    }
+
+    return true;
+  });
+}
+
+function updateEksporPreviewCount() {
+  const filtered = getFilteredEksporUsulanData();
+  const countEl = document.getElementById('umEksporPreviewCount');
+  if (countEl) countEl.textContent = filtered.length;
+
+  const btn = document.getElementById('btnSubmitEksporUsulan');
+  if (btn) {
+    btn.disabled = filtered.length === 0;
+    btn.style.opacity = filtered.length === 0 ? '0.6' : '1';
+    btn.style.cursor = filtered.length === 0 ? 'not-allowed' : 'pointer';
+  }
+}
+
+async function executeEksporUsulanMasuk() {
+  const filteredList = getFilteredEksporUsulanData();
+  if (!filteredList.length) {
+    showToast('warning', 'Tidak ada data usulan yang cocok dengan kriteria filter yang dipilih.');
+    return;
+  }
+
+  const formatRadio = document.querySelector('input[name="umEksporFormat"]:checked');
+  const format = formatRadio ? formatRadio.value : 'word';
+
+  const statusBoxes = Array.from(document.querySelectorAll('input[name="umEksporStatus"]:checked')).map(cb => cb.value);
+  const yearBoxes = Array.from(document.querySelectorAll('input[name="umEksporYear"]:checked')).map(cb => cb.value);
+  const jenisSelect = document.getElementById('umEksporJenisSelect');
+  const jenisStr = (jenisSelect && jenisSelect.value !== 'ALL') ? jenisSelect.value : 'Semua Jenis';
+  const filterSummary = `Status: ${statusBoxes.length === 7 ? 'Semua' : statusBoxes.join(', ')} | Tahun: ${yearBoxes.join(', ')} | ${jenisStr}`;
+
+  const btn = document.getElementById('btnSubmitEksporUsulan');
+  const origBtnText = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span>⏳</span> <span>Memproses...</span>';
+  }
+
+  try {
+    if (format === 'word') {
+      await generateEksporWord(filteredList, filterSummary);
+    } else if (format === 'excel') {
+      generateEksporExcel(filteredList, filterSummary);
+    } else if (format === 'gdocs') {
+      await generateEksporGdocs(filteredList, filterSummary);
+    } else if (format === 'spreadsheet') {
+      await generateEksporSpreadsheet(filteredList, filterSummary);
+    }
+  } catch (err) {
+    console.error('[executeEksporUsulanMasuk] error:', err);
+    showToast('error', 'Gagal memproses ekspor: ' + (err?.message || err));
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origBtnText;
+    }
+  }
+}
+
+function escapeXmlForDocx(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+async function generateEksporWord(filteredList, filterInfo) {
+  showToast('info', 'Menyiapkan dokumen Word (.docx)...');
+  const dateStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+  const esc = escapeXmlForDocx;
+
+  let tableRowsXml = `
+    <w:tr>
+      <w:trPr><w:tblHeader/></w:trPr>
+      <w:tc>
+        <w:tcPr><w:tcW w:w="800" w:type="dxa"/><w:shd w:fill="2563EB"/><w:vAlign w:val="center"/></w:tcPr>
+        <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="20"/><w:color w:val="FFFFFF"/></w:rPr><w:t>No</w:t></w:r></w:p>
+      </w:tc>
+      <w:tc>
+        <w:tcPr><w:tcW w:w="3600" w:type="dxa"/><w:shd w:fill="2563EB"/><w:vAlign w:val="center"/></w:tcPr>
+        <w:p><w:pPr><w:jc w:val="left"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="20"/><w:color w:val="FFFFFF"/></w:rPr><w:t>Nama Pegawai</w:t></w:r></w:p>
+      </w:tc>
+      <w:tc>
+        <w:tcPr><w:tcW w:w="4200" w:type="dxa"/><w:shd w:fill="2563EB"/><w:vAlign w:val="center"/></w:tcPr>
+        <w:p><w:pPr><w:jc w:val="left"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="20"/><w:color w:val="FFFFFF"/></w:rPr><w:t>NIP / Unit / Jabatan</w:t></w:r></w:p>
+      </w:tc>
+      <w:tc>
+        <w:tcPr><w:tcW w:w="2600" w:type="dxa"/><w:shd w:fill="2563EB"/><w:vAlign w:val="center"/></w:tcPr>
+        <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="20"/><w:color w:val="FFFFFF"/></w:rPr><w:t>Proyeksi Pangkat/Golongan</w:t></w:r></w:p>
+      </w:tc>
+      <w:tc>
+        <w:tcPr><w:tcW w:w="2200" w:type="dxa"/><w:shd w:fill="2563EB"/><w:vAlign w:val="center"/></w:tcPr>
+        <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="20"/><w:color w:val="FFFFFF"/></w:rPr><w:t>TMT</w:t></w:r></w:p>
+      </w:tc>
+      <w:tc>
+        <w:tcPr><w:tcW w:w="2400" w:type="dxa"/><w:shd w:fill="2563EB"/><w:vAlign w:val="center"/></w:tcPr>
+        <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="20"/><w:color w:val="FFFFFF"/></w:rPr><w:t>Status Saat Ini</w:t></w:r></w:p>
+      </w:tc>
+    </w:tr>
+  `;
+
+  filteredList.forEach((u, idx) => {
+    const golLama = u.golongan_lama || u.golLama || '-';
+    const golBaru = u.golongan_baru || u.golBaru || (u.golongan_lama ? hitungProyeksiGolonganBaru(u.golongan_lama) : '-');
+    const proyeksiText = `${golLama} ➔ ${golBaru}`;
+    const nipText = u.nip ? `NIP ${u.nip}` : '-';
+    const unitText = u.unit || '-';
+    const jabText = u.jabatan ? `${u.jabatan}` : '';
+    const pengajuText = u.nama_pengaju ? `Diajukan oleh: ${u.nama_pengaju}` : '';
+    const currentStatus = String(u.status || 'Diterima DOSDM').trim();
+    const rowBg = idx % 2 === 1 ? 'F8FAFC' : 'FFFFFF';
+
+    tableRowsXml += `
+      <w:tr>
+        <w:tc>
+          <w:tcPr><w:shd w:fill="${rowBg}"/><w:vAlign w:val="center"/></w:tcPr>
+          <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="19"/><w:color w:val="334155"/></w:rPr><w:t>${idx + 1}</w:t></w:r></w:p>
+        </w:tc>
+        <w:tc>
+          <w:tcPr><w:shd w:fill="${rowBg}"/><w:vAlign w:val="center"/></w:tcPr>
+          <w:p><w:pPr><w:jc w:val="left"/><w:spacing w:after="${pengajuText ? '40' : '0'}"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="20"/><w:color w:val="0F172A"/></w:rPr><w:t>${esc(u.nama || '-')}</w:t></w:r></w:p>
+          ${pengajuText ? `<w:p><w:pPr><w:jc w:val="left"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:i/><w:sz w:val="16"/><w:color w:val="64748B"/></w:rPr><w:t>${esc(pengajuText)}</w:t></w:r></w:p>` : ''}
+        </w:tc>
+        <w:tc>
+          <w:tcPr><w:shd w:fill="${rowBg}"/><w:vAlign w:val="center"/></w:tcPr>
+          <w:p><w:pPr><w:jc w:val="left"/><w:spacing w:after="30"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="18"/><w:color w:val="1E293B"/></w:rPr><w:t>${esc(nipText)}</w:t></w:r></w:p>
+          <w:p><w:pPr><w:jc w:val="left"/><w:spacing w:after="${jabText ? '30' : '0'}"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="18"/><w:color w:val="475569"/></w:rPr><w:t>${esc(unitText)}</w:t></w:r></w:p>
+          ${jabText ? `<w:p><w:pPr><w:jc w:val="left"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:i/><w:sz w:val="17"/><w:color w:val="64748B"/></w:rPr><w:t>${esc(jabText)}</w:t></w:r></w:p>` : ''}
+        </w:tc>
+        <w:tc>
+          <w:tcPr><w:shd w:fill="${rowBg}"/><w:vAlign w:val="center"/></w:tcPr>
+          <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="20"/><w:color w:val="059669"/></w:rPr><w:t>${esc(proyeksiText)}</w:t></w:r></w:p>
+        </w:tc>
+        <w:tc>
+          <w:tcPr><w:shd w:fill="${rowBg}"/><w:vAlign w:val="center"/></w:tcPr>
+          <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="19"/><w:color w:val="0F172A"/></w:rPr><w:t>${esc(u.tmt || '-')}</w:t></w:r></w:p>
+        </w:tc>
+        <w:tc>
+          <w:tcPr><w:shd w:fill="${rowBg}"/><w:vAlign w:val="center"/></w:tcPr>
+          <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="19"/><w:color w:val="2563EB"/></w:rPr><w:t>${esc(currentStatus)}</w:t></w:r></w:p>
+        </w:tc>
+      </w:tr>
+    `;
+  });
+
+  const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p>
+      <w:pPr><w:jc w:val="center"/><w:spacing w:after="100"/></w:pPr>
+      <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="32"/><w:color w:val="1E293B"/></w:rPr><w:t>DAFTAR USULAN MASUK KENAIKAN PANGKAT</w:t></w:r>
+    </w:p>
+    <w:p>
+      <w:pPr><w:jc w:val="center"/><w:spacing w:after="80"/></w:pPr>
+      <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="22"/><w:color w:val="2563EB"/></w:rPr><w:t>SISTEM LAYANAN ADMINISTRASI KEPEGAWAIAN (SI-LAYAKA)</w:t></w:r>
+    </w:p>
+    <w:p>
+      <w:pPr><w:jc w:val="center"/><w:spacing w:after="260"/></w:pPr>
+      <w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:i/><w:sz w:val="18"/><w:color w:val="64748B"/></w:rPr><w:t>${esc(filterInfo)} | Tanggal Ekspor: ${esc(dateStr)} | Total: ${filteredList.length} Pegawai</w:t></w:r>
+    </w:p>
+    <w:tbl>
+      <w:tblPr>
+        <w:tblW w:w="0" w:type="auto"/>
+        <w:jc w:val="center"/>
+        <w:tblBorders>
+          <w:top w:val="single" w:sz="6" w:space="0" w:color="CBD5E1"/>
+          <w:left w:val="single" w:sz="6" w:space="0" w:color="CBD5E1"/>
+          <w:bottom w:val="single" w:sz="6" w:space="0" w:color="CBD5E1"/>
+          <w:right w:val="single" w:sz="6" w:space="0" w:color="CBD5E1"/>
+          <w:insideH w:val="single" w:sz="4" w:space="0" w:color="E2E8F0"/>
+          <w:insideV w:val="single" w:sz="4" w:space="0" w:color="E2E8F0"/>
+        </w:tblBorders>
+        <w:tblCellMar>
+          <w:top w:w="120" w:type="dxa"/>
+          <w:left w:w="140" w:type="dxa"/>
+          <w:bottom w:w="120" w:type="dxa"/>
+          <w:right w:w="140" w:type="dxa"/>
+        </w:tblCellMar>
+      </w:tblPr>
+      ${tableRowsXml}
+    </w:tbl>
+    <w:sectPr>
+      <w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>
+      <w:pgMar w:top="1000" w:right="1000" w:bottom="1000" w:left="1000"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`;
+
+  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
+
+  const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+  const docRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+</Relationships>`;
+
+  if (typeof JSZip !== 'undefined') {
+    const zip = new JSZip();
+    zip.file('[Content_Types].xml', contentTypesXml);
+    zip.file('_rels/.rels', relsXml);
+    const wordFolder = zip.folder('word');
+    wordFolder.file('document.xml', docXml);
+    wordFolder.file('_rels/document.xml.rels', docRelsXml);
+
+    const blob = await zip.generateAsync({
+      type: 'blob',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    });
+    const fileName = `Daftar_Usulan_Masuk_KP_${Date.now()}.docx`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+    showToast('success', `File Word berhasil diunduh: ${fileName}`);
+  } else {
+    const htmlDoc = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head><meta charset='utf-8'><title>Daftar Usulan Masuk</title>
+      <style>
+        body { font-family: Calibri, Arial, sans-serif; }
+        table { border-collapse: collapse; width: 100%; }
+        th { background: #2563eb; color: #ffffff; border: 1px solid #cbd5e1; padding: 8px; font-size: 11pt; }
+        td { border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 10pt; }
+        tr:nth-child(even) td { background-color: #f8fafc; }
+      </style>
+      </head>
+      <body>
+        <h2 style="text-align:center; color:#1e293b; margin-bottom:4px;">DAFTAR USULAN MASUK KENAIKAN PANGKAT</h2>
+        <h4 style="text-align:center; color:#2563eb; margin-top:0; margin-bottom:8px;">SISTEM LAYANAN ADMINISTRASI KEPEGAWAIAN (SI-LAYAKA)</h4>
+        <p style="text-align:center; color:#64748b; font-size:9pt; margin-bottom:16px;">${filterInfo} | Tanggal Ekspor: ${dateStr}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>No</th><th>Nama Pegawai</th><th>NIP / Unit / Jabatan</th><th>Proyeksi Pangkat/Golongan</th><th>TMT</th><th>Status Saat Ini</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filteredList.map((u, i) => {
+              const golLama = u.golongan_lama || u.golLama || '-';
+              const golBaru = u.golongan_baru || u.golBaru || (u.golongan_lama ? hitungProyeksiGolonganBaru(u.golongan_lama) : '-');
+              return `<tr>
+                <td style="text-align:center;">${i + 1}</td>
+                <td><strong>${escapeHtml(u.nama || '-')}</strong>${u.nama_pengaju ? `<br><small style="color:#64748b;">Diajukan oleh: ${escapeHtml(u.nama_pengaju)}</small>` : ''}</td>
+                <td>${u.nip ? `NIP ${escapeHtml(u.nip)}` : '-'}<br>${escapeHtml(u.unit || '-')}${u.jabatan ? `<br><small style="color:#64748b;">${escapeHtml(u.jabatan)}</small>` : ''}</td>
+                <td style="text-align:center; color:#059669; font-weight:bold;">${escapeHtml(golLama)} ➔ ${escapeHtml(golBaru)}</td>
+                <td style="text-align:center;"><strong>${escapeHtml(u.tmt || '-')}</strong></td>
+                <td style="text-align:center; font-weight:bold; color:#2563eb;">${escapeHtml(u.status || 'Diterima DOSDM')}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </body></html>
+    `;
+    const blob = new Blob(['\ufeff', htmlDoc], { type: 'application/msword' });
+    const fileName = `Daftar_Usulan_Masuk_KP_${Date.now()}.doc`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+    showToast('success', `File Word berhasil diunduh: ${fileName}`);
+  }
+}
+
+function generateEksporExcel(filteredList, filterInfo) {
+  if (typeof XLSX === 'undefined') {
+    showToast('error', 'Modul XLSX belum dimuat. Periksa koneksi internet.');
+    return;
+  }
+  showToast('info', 'Menyiapkan file Excel (.xlsx)...');
+  const dateStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+  const dataRows = [
+    ['DAFTAR USULAN MASUK KENAIKAN PANGKAT'],
+    ['SISTEM LAYANAN ADMINISTRASI KEPEGAWAIAN (SI-LAYAKA)'],
+    [`Filter: ${filterInfo} | Tanggal Ekspor: ${dateStr} | Total: ${filteredList.length} Pegawai`],
+    [],
+    ['No', 'Nama Pegawai', 'NIP / Unit / Jabatan', 'Proyeksi Pangkat/Golongan', 'TMT', 'Status Saat Ini']
+  ];
+
+  filteredList.forEach((u, idx) => {
+    const golLama = u.golongan_lama || u.golLama || '-';
+    const golBaru = u.golongan_baru || u.golBaru || (u.golongan_lama ? hitungProyeksiGolonganBaru(u.golongan_lama) : '-');
+    const proyeksi = `${golLama} ➔ ${golBaru}`;
+    const nipText = u.nip ? `NIP ${u.nip}` : '-';
+    const unitText = u.unit || '-';
+    const jabText = u.jabatan ? ` (${u.jabatan})` : '';
+    const nipUnitJab = `${nipText} | ${unitText}${jabText}`;
+    const namaText = (u.nama || '-') + (u.nama_pengaju ? ` (Diajukan oleh: ${u.nama_pengaju})` : '');
+
+    dataRows.push([
+      idx + 1,
+      namaText,
+      nipUnitJab,
+      proyeksi,
+      u.tmt || '-',
+      u.status || 'Diterima DOSDM'
+    ]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(dataRows);
+  ws['!cols'] = [
+    { wch: 6 },
+    { wch: 38 },
+    { wch: 45 },
+    { wch: 25 },
+    { wch: 18 },
+    { wch: 20 }
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Usulan Masuk KP');
+  const fileName = `Daftar_Usulan_Masuk_KP_${Date.now()}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+  showToast('success', `File Excel berhasil diunduh: ${fileName}`);
+}
+
+async function generateEksporGdocs(filteredList, filterInfo) {
+  showToast('info', 'Menghubungkan ke Google Drive untuk membuat Google Docs...');
+  let opened = false;
+
+  const tryOpenGas = async () => {
+    try {
+      const res = await rpc('exportUsulanMasukToGoogleDocs', [SESSION.token, { items: filteredList, filterInfo }]);
+      if (res && res.success && res.url) {
+        window.open(res.url, '_blank');
+        showToast('success', 'Dokumen Google Docs berhasil dibuat dan dibuka di tab baru!');
+        return true;
+      }
+    } catch (_) {}
+
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      return new Promise((resolve) => {
+        google.script.run
+          .withSuccessHandler(gasRes => {
+            if (gasRes && gasRes.success && gasRes.url) {
+              window.open(gasRes.url, '_blank');
+              showToast('success', 'Dokumen Google Docs berhasil dibuat dan dibuka di tab baru!');
+              resolve(true);
+            } else {
+              resolve(false);
+            }
+          })
+          .withFailureHandler(() => resolve(false))
+          .exportUsulanMasukToGoogleDocs_GAS(SESSION.token, { items: filteredList, filterInfo });
+      });
+    }
+    return false;
+  };
+
+  opened = await tryOpenGas();
+
+  if (!opened) {
+    showToast('warning', 'Google Drive tidak terhubung langsung. Mengunduh file Word (.docx) cadangan yang dapat langsung dibuka di Google Docs...');
+    await generateEksporWord(filteredList, filterInfo);
+  }
+}
+
+async function generateEksporSpreadsheet(filteredList, filterInfo) {
+  showToast('info', 'Menghubungkan ke Google Drive untuk membuat Google Spreadsheet...');
+  let opened = false;
+
+  const tryOpenGas = async () => {
+    try {
+      const res = await rpc('exportUsulanMasukToGoogleSpreadsheet', [SESSION.token, { items: filteredList, filterInfo }]);
+      if (res && res.success && res.url) {
+        window.open(res.url, '_blank');
+        showToast('success', 'Google Spreadsheet berhasil dibuat dan dibuka di tab baru!');
+        return true;
+      }
+    } catch (_) {}
+
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      return new Promise((resolve) => {
+        google.script.run
+          .withSuccessHandler(gasRes => {
+            if (gasRes && gasRes.success && gasRes.url) {
+              window.open(gasRes.url, '_blank');
+              showToast('success', 'Google Spreadsheet berhasil dibuat dan dibuka di tab baru!');
+              resolve(true);
+            } else {
+              resolve(false);
+            }
+          })
+          .withFailureHandler(() => resolve(false))
+          .exportUsulanMasukToGoogleSpreadsheet_GAS(SESSION.token, { items: filteredList, filterInfo });
+      });
+    }
+    return false;
+  };
+
+  opened = await tryOpenGas();
+
+  if (!opened) {
+    showToast('warning', 'Google Drive tidak terhubung langsung. Mengunduh file Excel (.xlsx) cadangan yang dapat langsung dibuka di Google Spreadsheet...');
+    generateEksporExcel(filteredList, filterInfo);
+  }
+}
+
 /* ---------- POP-UP MODAL STATUS DETAIL & DIRECT UPDATE LOGIC ---------- */
 window.umGlobalList = [];
 window.umCurrentModalStatus = 'ALL';

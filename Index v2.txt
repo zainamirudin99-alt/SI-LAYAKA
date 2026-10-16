@@ -589,6 +589,7 @@
 
                     <button type="button" class="btn btn-outline kp-small-btn" onclick="loadUsulanMasukTmtDashboard()">🔄 Refresh</button>
                     <button type="button" class="btn btn-outline kp-small-btn" style="color:var(--danger); border-color:var(--danger);" onclick="deleteAllUsulanMasukBulk()" title="Hapus seluruh data usulan dari database">🗑️ Hapus Data</button>
+                    <button type="button" class="btn btn-primary kp-small-btn" onclick="openEksporUsulanMasukModal()" style="display:inline-flex; align-items:center; gap:5px; font-weight:700;" title="Ekspor data usulan masuk ke Word, Gdocs, Excel, atau Spreadsheet">📥 Ekspor Data</button>
                   </div>
                 </div>
                 
@@ -673,6 +674,188 @@
                   </div>
                 </div>
               </div>
+
+              <!-- POP-UP MODAL EKSPOR DATA USULAN MASUK -->
+              <div id="umEksporModal" class="um-import-card" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; z-index:100003; background:rgba(0,0,0,0.65); backdrop-filter:blur(5px); padding:20px; overflow-y:auto;">
+                <div style="max-width:760px; margin:30px auto; background:var(--surface); border-radius:16px; border:2px solid var(--primary); padding:24px; box-shadow:0 12px 48px rgba(0,0,0,0.35);">
+                  <!-- Header -->
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; padding-bottom:12px; border-bottom:1px solid var(--border);">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                      <div style="width:40px; height:40px; border-radius:10px; background:rgba(37,99,235,0.12); color:var(--primary); display:flex; align-items:center; justify-content:center; font-size:20px;">
+                        📥
+                      </div>
+                      <div>
+                        <h3 style="margin:0; font-size:18px; font-weight:700; color:var(--primary);">Ekspor Data Usulan Masuk</h3>
+                        <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Filter data usulan kenaikan pangkat lalu unduh ke Word, Gdocs, Excel, atau Spreadsheet.</div>
+                      </div>
+                    </div>
+                    <button type="button" class="btn btn-outline kp-small-btn" onclick="closeEksporUsulanMasukModal()">✕ Tutup</button>
+                  </div>
+
+                  <!-- Form Filter Ekspor -->
+                  <div style="display:flex; flex-direction:column; gap:16px;">
+                    <!-- Filter 1: Status Usulan -->
+                    <div class="um-ekspor-section">
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <label class="kp-label" style="font-weight:700; font-size:13px; color:var(--text-main); margin:0;">
+                          1. Status Usulan:
+                        </label>
+                        <div style="display:flex; gap:6px;">
+                          <button type="button" class="btn btn-outline kp-small-btn" style="padding:2px 8px; font-size:11px;" onclick="toggleAllEksporCheckboxes('umEksporStatusGroup', true)">Pilih Semua</button>
+                          <button type="button" class="btn btn-outline kp-small-btn" style="padding:2px 8px; font-size:11px;" onclick="toggleAllEksporCheckboxes('umEksporStatusGroup', false)">Hapus Semua</button>
+                        </div>
+                      </div>
+                      <div id="umEksporStatusGroup" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:8px;">
+                        <label class="um-ekspor-check-item">
+                          <input type="checkbox" name="umEksporStatus" value="Diterima DOSDM" checked onchange="updateEksporPreviewCount()" />
+                          <span class="badge-status dsdm" style="padding:2px 8px; font-size:11px;">Diterima DOSDM</span>
+                        </label>
+                        <label class="um-ekspor-check-item">
+                          <input type="checkbox" name="umEksporStatus" value="Diajukan SIASN" checked onchange="updateEksporPreviewCount()" />
+                          <span class="badge-status siasn" style="padding:2px 8px; font-size:11px;">Diajukan SIASN</span>
+                        </label>
+                        <label class="um-ekspor-check-item">
+                          <input type="checkbox" name="umEksporStatus" value="TTD Pertek" checked onchange="updateEksporPreviewCount()" />
+                          <span class="badge-status pertek" style="padding:2px 8px; font-size:11px;">TTD Pertek</span>
+                        </label>
+                        <label class="um-ekspor-check-item">
+                          <input type="checkbox" name="umEksporStatus" value="SK Berhasil" checked onchange="updateEksporPreviewCount()" />
+                          <span class="badge-status sk" style="padding:2px 8px; font-size:11px;">SK Berhasil</span>
+                        </label>
+                        <label class="um-ekspor-check-item">
+                          <input type="checkbox" name="umEksporStatus" value="Perbaikan" checked onchange="updateEksporPreviewCount()" />
+                          <span class="badge-status perbaikan" style="padding:2px 8px; font-size:11px;">Perbaikan</span>
+                        </label>
+                        <label class="um-ekspor-check-item">
+                          <input type="checkbox" name="umEksporStatus" value="Belum Eligible" checked onchange="updateEksporPreviewCount()" />
+                          <span class="badge-status belumbisa" style="padding:2px 8px; font-size:11px;">Belum Eligible</span>
+                        </label>
+                        <label class="um-ekspor-check-item">
+                          <input type="checkbox" name="umEksporStatus" value="Pensiun" checked onchange="updateEksporPreviewCount()" />
+                          <span class="badge-status pensiun" style="padding:2px 8px; font-size:11px;">Pensiun</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <!-- Filter 2: Multi-Tahun -->
+                    <div class="um-ekspor-section">
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <label class="kp-label" style="font-weight:700; font-size:13px; color:var(--text-main); margin:0;">
+                          2. Tahun (Multi-Tahun):
+                        </label>
+                        <div style="display:flex; gap:6px;">
+                          <button type="button" class="btn btn-outline kp-small-btn" style="padding:2px 8px; font-size:11px;" onclick="toggleAllEksporCheckboxes('umEksporYearContainer', true)">Pilih Semua</button>
+                          <button type="button" class="btn btn-outline kp-small-btn" style="padding:2px 8px; font-size:11px;" onclick="toggleAllEksporCheckboxes('umEksporYearContainer', false)">Hapus Semua</button>
+                        </div>
+                      </div>
+                      <div id="umEksporYearContainer" style="display:flex; flex-wrap:wrap; gap:8px;">
+                        <!-- Checkboxes tahun diisi dinamis dari data -->
+                      </div>
+                    </div>
+
+                    <!-- Filter 3: Jenis Pegawai & Status Kepegawaian -->
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px;">
+                      <div>
+                        <label class="kp-label" for="umEksporJenisSelect" style="font-weight:700; font-size:13px; color:var(--text-main); margin-bottom:6px; display:block;">
+                          3. Jenis Pegawai:
+                        </label>
+                        <select id="umEksporJenisSelect" class="field-input" onchange="updateEksporPreviewCount()" style="width:100%; box-sizing:border-box; font-weight:600;">
+                          <option value="ALL" selected>Semua Jenis (Dosen & Tendik)</option>
+                          <option value="Dosen">Hanya Dosen</option>
+                          <option value="Tendik">Hanya Tendik</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label class="kp-label" for="umEksporStatusKepSelect" style="font-weight:700; font-size:13px; color:var(--text-main); margin-bottom:6px; display:block;">
+                          Status Kepegawaian (Opsional):
+                        </label>
+                        <select id="umEksporStatusKepSelect" class="field-input" onchange="updateEksporPreviewCount()" style="width:100%; box-sizing:border-box; font-weight:600;">
+                          <option value="ALL" selected>Semua Status Kepegawaian</option>
+                          <option value="PNS">PNS</option>
+                          <option value="PPPK">PPPK</option>
+                          <option value="Tetap Non-PNS">Tetap Non-PNS</option>
+                          <option value="Kontrak">Kontrak</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <!-- Filter 4: TMT Bulan (Multi-Bulan) -->
+                    <div class="um-ekspor-section">
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <label class="kp-label" style="font-weight:700; font-size:13px; color:var(--text-main); margin:0;">
+                          4. Bulan TMT (Multi-Bulan):
+                        </label>
+                        <div style="display:flex; gap:6px;">
+                          <button type="button" class="btn btn-outline kp-small-btn" style="padding:2px 8px; font-size:11px;" onclick="toggleAllEksporCheckboxes('umEksporMonthGroup', true)">Pilih Semua</button>
+                          <button type="button" class="btn btn-outline kp-small-btn" style="padding:2px 8px; font-size:11px;" onclick="toggleAllEksporCheckboxes('umEksporMonthGroup', false)">Hapus Semua</button>
+                        </div>
+                      </div>
+                      <div id="umEksporMonthGroup" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(105px, 1fr)); gap:6px;">
+                        <label class="um-ekspor-check-item"><input type="checkbox" name="umEksporMonth" value="Januari" checked onchange="updateEksporPreviewCount()" /> <span>Januari</span></label>
+                        <label class="um-ekspor-check-item"><input type="checkbox" name="umEksporMonth" value="Februari" checked onchange="updateEksporPreviewCount()" /> <span>Februari</span></label>
+                        <label class="um-ekspor-check-item"><input type="checkbox" name="umEksporMonth" value="Maret" checked onchange="updateEksporPreviewCount()" /> <span>Maret</span></label>
+                        <label class="um-ekspor-check-item"><input type="checkbox" name="umEksporMonth" value="April" checked onchange="updateEksporPreviewCount()" /> <span>April</span></label>
+                        <label class="um-ekspor-check-item"><input type="checkbox" name="umEksporMonth" value="Mei" checked onchange="updateEksporPreviewCount()" /> <span>Mei</span></label>
+                        <label class="um-ekspor-check-item"><input type="checkbox" name="umEksporMonth" value="Juni" checked onchange="updateEksporPreviewCount()" /> <span>Juni</span></label>
+                        <label class="um-ekspor-check-item"><input type="checkbox" name="umEksporMonth" value="Juli" checked onchange="updateEksporPreviewCount()" /> <span>Juli</span></label>
+                        <label class="um-ekspor-check-item"><input type="checkbox" name="umEksporMonth" value="Agustus" checked onchange="updateEksporPreviewCount()" /> <span>Agustus</span></label>
+                        <label class="um-ekspor-check-item"><input type="checkbox" name="umEksporMonth" value="September" checked onchange="updateEksporPreviewCount()" /> <span>September</span></label>
+                        <label class="um-ekspor-check-item"><input type="checkbox" name="umEksporMonth" value="Oktober" checked onchange="updateEksporPreviewCount()" /> <span>Oktober</span></label>
+                        <label class="um-ekspor-check-item"><input type="checkbox" name="umEksporMonth" value="November" checked onchange="updateEksporPreviewCount()" /> <span>November</span></label>
+                        <label class="um-ekspor-check-item"><input type="checkbox" name="umEksporMonth" value="Desember" checked onchange="updateEksporPreviewCount()" /> <span>Desember</span></label>
+                      </div>
+                    </div>
+
+                    <!-- Pilihan Format Ekspor -->
+                    <div class="um-ekspor-section" style="background:var(--surface-alt); border-radius:12px; padding:14px; border:1px solid var(--border);">
+                      <label class="kp-label" style="font-weight:700; font-size:13px; color:var(--text-main); margin-bottom:10px; display:block;">
+                        5. Pilihan Format Ekspor:
+                      </label>
+                      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px;">
+                        <label class="um-format-card active" id="umFormatCard_word">
+                          <input type="radio" name="umEksporFormat" value="word" checked onchange="updateEksporFormatUI()" style="display:none;" />
+                          <div class="um-format-icon">📄</div>
+                          <div class="um-format-title">Word (.docx)</div>
+                          <div class="um-format-desc">Tabel dokumen Word</div>
+                        </label>
+                        <label class="um-format-card" id="umFormatCard_gdocs">
+                          <input type="radio" name="umEksporFormat" value="gdocs" onchange="updateEksporFormatUI()" style="display:none;" />
+                          <div class="um-format-icon">🌐</div>
+                          <div class="um-format-title">Google Docs</div>
+                          <div class="um-format-desc">Buka di Google Docs</div>
+                        </label>
+                        <label class="um-format-card" id="umFormatCard_excel">
+                          <input type="radio" name="umEksporFormat" value="excel" onchange="updateEksporFormatUI()" style="display:none;" />
+                          <div class="um-format-icon">📊</div>
+                          <div class="um-format-title">Excel (.xlsx)</div>
+                          <div class="um-format-desc">Spreadsheet XLSX</div>
+                        </label>
+                        <label class="um-format-card" id="umFormatCard_spreadsheet">
+                          <input type="radio" name="umEksporFormat" value="spreadsheet" onchange="updateEksporFormatUI()" style="display:none;" />
+                          <div class="um-format-icon">📈</div>
+                          <div class="um-format-title">Spreadsheet</div>
+                          <div class="um-format-desc">Google Spreadsheet</div>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Footer Summary & Action -->
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; padding-top:14px; border-top:1px solid var(--border); flex-wrap:wrap; gap:12px;">
+                    <div style="font-size:13.5px; color:var(--text-main);">
+                      📊 Data terpilih: <strong id="umEksporPreviewCount" style="color:var(--primary); font-size:16px;">0</strong> usulan pegawai.
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <button type="button" class="btn btn-outline kp-small-btn" onclick="closeEksporUsulanMasukModal()">Batal</button>
+                      <button type="button" id="btnSubmitEksporUsulan" class="btn btn-primary kp-small-btn" onclick="executeEksporUsulanMasuk()" style="font-weight:700; min-width:140px; display:inline-flex; align-items:center; justify-content:center; gap:6px;">
+                        <span>🚀</span> <span id="btnSubmitEksporText">Ekspor Sekarang</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- POP-UP MODAL EDIT USULAN MASUK -->
               <div id="modalEditUsulanMasuk" class="um-import-card" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; z-index:100002; background:rgba(0,0,0,0.65); backdrop-filter:blur(5px); padding:20px; overflow-y:auto;">
                 <div style="max-width:680px; margin:40px auto; background:var(--surface); border-radius:16px; border:2px solid var(--primary); padding:24px; box-shadow:0 12px 48px rgba(0,0,0,0.35);">
