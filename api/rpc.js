@@ -10092,6 +10092,130 @@ const methods = {
     }
   },
 
+  async exportUsulanMasukToGoogleDocs(args) {
+    const [token, payload] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    const items = payload?.items || [];
+    const filterInfo = payload?.filterInfo || 'Semua Usulan';
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    let gdocsUrl = '';
+    let downloadUrl = '';
+
+    if (gasUrl) {
+      try {
+        const shortId = uuidv4();
+        const ctrl = new AbortController();
+        const timeoutId = setTimeout(() => ctrl.abort(), 25000);
+        const gasResp = await fetch(gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            method: 'exportUsulanMasukToGoogleDocs_GAS',
+            params: [shortId, { items, filterInfo }],
+            remoteSession: { id: shortId, data: { nip: decoded.nip, nama: decoded.nama, role: 'admin' } }
+          }),
+          signal: ctrl.signal
+        });
+        clearTimeout(timeoutId);
+        const gasJson = await parseGasResponse(gasResp, 'exportUsulanMasukToGoogleDocs_GAS');
+        if (gasJson && gasJson.success) {
+          gdocsUrl = gasJson.url || gasJson.viewUrl || '';
+        }
+      } catch (err) {
+        console.warn('[exportUsulanMasukToGoogleDocs] GAS notice:', err.message);
+      }
+    }
+
+    if (!gdocsUrl && payload?.fileBase64) {
+      try {
+        const fileName = `Daftar_Usulan_Masuk_KP_${Date.now()}.docx`;
+        const pubUrl = await uploadLampiran(payload.fileBase64, fileName, 'export-kp');
+        if (pubUrl) {
+          downloadUrl = pubUrl;
+          gdocsUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(pubUrl)}`;
+        }
+      } catch (upErr) {
+        console.warn('[exportUsulanMasukToGoogleDocs] upload notice:', upErr.message);
+      }
+    }
+
+    if (!gdocsUrl) {
+      gdocsUrl = 'https://docs.google.com/document/create';
+    }
+
+    return {
+      success: true,
+      url: gdocsUrl,
+      viewUrl: gdocsUrl,
+      downloadUrl: downloadUrl || null,
+      total: items.length,
+      filterInfo,
+      message: 'Tautan Google Docs berhasil disiapkan.'
+    };
+  },
+
+  async exportUsulanMasukToGoogleSpreadsheet(args) {
+    const [token, payload] = extractArgs(args);
+    const decoded = requireRole(token, ['admin', 'super_admin']);
+    const items = payload?.items || [];
+    const filterInfo = payload?.filterInfo || 'Semua Usulan';
+    const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+    let sheetUrl = '';
+    let downloadUrl = '';
+
+    if (gasUrl) {
+      try {
+        const shortId = uuidv4();
+        const ctrl = new AbortController();
+        const timeoutId = setTimeout(() => ctrl.abort(), 25000);
+        const gasResp = await fetch(gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            method: 'exportUsulanMasukToGoogleSpreadsheet_GAS',
+            params: [shortId, { items, filterInfo }],
+            remoteSession: { id: shortId, data: { nip: decoded.nip, nama: decoded.nama, role: 'admin' } }
+          }),
+          signal: ctrl.signal
+        });
+        clearTimeout(timeoutId);
+        const gasJson = await parseGasResponse(gasResp, 'exportUsulanMasukToGoogleSpreadsheet_GAS');
+        if (gasJson && gasJson.success) {
+          sheetUrl = gasJson.url || gasJson.viewUrl || '';
+        }
+      } catch (err) {
+        console.warn('[exportUsulanMasukToGoogleSpreadsheet] GAS notice:', err.message);
+      }
+    }
+
+    if (!sheetUrl && payload?.fileBase64) {
+      try {
+        const fileName = `Daftar_Usulan_Masuk_KP_${Date.now()}.xlsx`;
+        const pubUrl = await uploadLampiran(payload.fileBase64, fileName, 'export-kp');
+        if (pubUrl) {
+          downloadUrl = pubUrl;
+          sheetUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(pubUrl)}`;
+        }
+      } catch (upErr) {
+        console.warn('[exportUsulanMasukToGoogleSpreadsheet] upload notice:', upErr.message);
+      }
+    }
+
+    if (!sheetUrl) {
+      sheetUrl = 'https://docs.google.com/spreadsheets/create';
+    }
+
+    return {
+      success: true,
+      url: sheetUrl,
+      viewUrl: sheetUrl,
+      downloadUrl: downloadUrl || null,
+      total: items.length,
+      filterInfo,
+      message: 'Tautan Google Spreadsheet berhasil disiapkan.'
+    };
+  },
+
   async adminSetKunciPenilaianAtasan(args) {
     const [token, usulanId, kunciDibuka] = extractArgs(args);
     const decoded = requireRole(token, ['admin', 'super_admin']);

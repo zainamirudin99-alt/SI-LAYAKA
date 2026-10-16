@@ -3060,4 +3060,36 @@
     font-size: 11px;
     color: var(--text-muted);
   }
+
+  /* MODAL HASIL TAUTAN EKSPOR GDOCS & SPREADSHEET */
+  .um-ekspor-result-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100005;
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(6px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow-y: auto;
+  }
+  .um-ekspor-result-card {
+    max-width: 540px;
+    width: 100%;
+    margin: auto;
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
+    padding: 24px;
+    animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  body.theme-dark .um-ekspor-result-card {
+    box-shadow: 0 0 24px rgba(0, 240, 255, 0.18);
+    border-color: rgba(0, 240, 255, 0.3);
+  }
 </style>

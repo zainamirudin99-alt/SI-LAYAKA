@@ -856,6 +856,67 @@
                 </div>
               </div>
 
+              <!-- POP-UP MODAL HASIL LINK EKSPOR (GDOCS & SPREADSHEET) -->
+              <div id="umEksporLinkResultModal" class="um-ekspor-result-overlay">
+                <div class="um-ekspor-result-card" role="dialog" aria-modal="true" aria-labelledby="umEksporResultTitle">
+                  <!-- Header Modal -->
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                      <div id="umEksporResultIconWrap" style="width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:24px; background:rgba(37,99,235,0.12); color:#2563eb;">
+                        🌐
+                      </div>
+                      <div>
+                        <div id="umEksporResultBadge" style="display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; padding:2px 8px; border-radius:20px; margin-bottom:3px; background:rgba(37,99,235,0.12); color:#2563eb;">
+                          Google Docs
+                        </div>
+                        <h3 id="umEksporResultTitle" style="margin:0; font-size:17px; font-weight:700; color:var(--text-main);">
+                          Tautan Dokumen Berhasil Dibuat
+                        </h3>
+                      </div>
+                    </div>
+                    <button type="button" class="btn btn-outline kp-small-btn" onclick="closeEksporLinkResultModal()" style="padding:4px 10px; font-size:12px;">✕</button>
+                  </div>
+
+                  <!-- Ringkasan Ekspor Card -->
+                  <div style="background:var(--surface-alt); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:16px;">
+                    <div style="font-size:12.5px; color:var(--text-main); margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+                      <span>👥</span> <span>Total: <strong id="umEksporResultCount" style="color:var(--primary);">0</strong> Pegawai diekspor</span>
+                    </div>
+                    <div id="umEksporResultFilter" style="font-size:11.5px; color:var(--text-muted); line-height:1.4;">
+                      Filter: Semua Usulan
+                    </div>
+                  </div>
+
+                  <!-- Input Link Tautan & Tombol Salin -->
+                  <div style="margin-bottom:18px;">
+                    <label for="umEksporResultLinkInput" style="display:block; font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:6px;">
+                      Tautan File:
+                    </label>
+                    <div style="display:flex; gap:8px;">
+                      <input type="text" id="umEksporResultLinkInput" class="field-input" readonly onclick="this.select()" style="font-size:12px; font-family:monospace; background:var(--surface-alt); width:100%; border-radius:8px;" />
+                      <button type="button" class="btn btn-outline" onclick="salinLinkEksporResult()" style="white-space:nowrap; padding:6px 14px; font-size:12.5px; font-weight:600; display:inline-flex; align-items:center; gap:5px;">
+                        <span>📋</span> <span>Salin</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Tombol Aksi Buka di Tab Baru & Cadangan -->
+                  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-top:1px solid var(--border); padding-top:16px;">
+                    <button type="button" id="btnUnduhManualEkspor" class="btn btn-outline kp-small-btn" style="font-size:11.5px; display:none;" onclick="triggerUnduhManualEkspor()">
+                      <span>⬇</span> <span>Unduh Cadangan</span>
+                    </button>
+                    <div style="display:flex; gap:8px; margin-left:auto;">
+                      <button type="button" class="btn btn-secondary kp-small-btn" onclick="closeEksporLinkResultModal()">
+                        Tutup
+                      </button>
+                      <a id="btnBukaLinkEkspor" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary kp-small-btn" style="display:inline-flex; align-items:center; gap:6px; font-weight:700; text-decoration:none;">
+                        <span>🌐</span> <span id="btnBukaLinkEksporText">Buka Dokumen ↗</span>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- POP-UP MODAL EDIT USULAN MASUK -->
               <div id="modalEditUsulanMasuk" class="um-import-card" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; z-index:100002; background:rgba(0,0,0,0.65); backdrop-filter:blur(5px); padding:20px; overflow-y:auto;">
                 <div style="max-width:680px; margin:40px auto; background:var(--surface); border-radius:16px; border:2px solid var(--primary); padding:24px; box-shadow:0 12px 48px rgba(0,0,0,0.35);">

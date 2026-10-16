@@ -3087,6 +3087,38 @@
     font-size: 11px;
     color: var(--text-muted);
   }
+
+  /* MODAL HASIL TAUTAN EKSPOR GDOCS & SPREADSHEET */
+  .um-ekspor-result-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100005;
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(6px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow-y: auto;
+  }
+  .um-ekspor-result-card {
+    max-width: 540px;
+    width: 100%;
+    margin: auto;
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
+    padding: 24px;
+    animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  body.theme-dark .um-ekspor-result-card {
+    box-shadow: 0 0 24px rgba(0, 240, 255, 0.18);
+    border-color: rgba(0, 240, 255, 0.3);
+  }
 </style>
   <!-- Libraries for Word template previewing & Excel/Spreadsheet parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -3913,6 +3945,67 @@
                       <button type="button" id="btnSubmitEksporUsulan" class="btn btn-primary kp-small-btn" onclick="executeEksporUsulanMasuk()" style="font-weight:700; min-width:140px; display:inline-flex; align-items:center; justify-content:center; gap:6px;">
                         <span>🚀</span> <span id="btnSubmitEksporText">Ekspor Sekarang</span>
                       </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- POP-UP MODAL HASIL LINK EKSPOR (GDOCS & SPREADSHEET) -->
+              <div id="umEksporLinkResultModal" class="um-ekspor-result-overlay">
+                <div class="um-ekspor-result-card" role="dialog" aria-modal="true" aria-labelledby="umEksporResultTitle">
+                  <!-- Header Modal -->
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                      <div id="umEksporResultIconWrap" style="width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:24px; background:rgba(37,99,235,0.12); color:#2563eb;">
+                        🌐
+                      </div>
+                      <div>
+                        <div id="umEksporResultBadge" style="display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; padding:2px 8px; border-radius:20px; margin-bottom:3px; background:rgba(37,99,235,0.12); color:#2563eb;">
+                          Google Docs
+                        </div>
+                        <h3 id="umEksporResultTitle" style="margin:0; font-size:17px; font-weight:700; color:var(--text-main);">
+                          Tautan Dokumen Berhasil Dibuat
+                        </h3>
+                      </div>
+                    </div>
+                    <button type="button" class="btn btn-outline kp-small-btn" onclick="closeEksporLinkResultModal()" style="padding:4px 10px; font-size:12px;">✕</button>
+                  </div>
+
+                  <!-- Ringkasan Ekspor Card -->
+                  <div style="background:var(--surface-alt); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:16px;">
+                    <div style="font-size:12.5px; color:var(--text-main); margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+                      <span>👥</span> <span>Total: <strong id="umEksporResultCount" style="color:var(--primary);">0</strong> Pegawai diekspor</span>
+                    </div>
+                    <div id="umEksporResultFilter" style="font-size:11.5px; color:var(--text-muted); line-height:1.4;">
+                      Filter: Semua Usulan
+                    </div>
+                  </div>
+
+                  <!-- Input Link Tautan & Tombol Salin -->
+                  <div style="margin-bottom:18px;">
+                    <label for="umEksporResultLinkInput" style="display:block; font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:6px;">
+                      Tautan File:
+                    </label>
+                    <div style="display:flex; gap:8px;">
+                      <input type="text" id="umEksporResultLinkInput" class="field-input" readonly onclick="this.select()" style="font-size:12px; font-family:monospace; background:var(--surface-alt); width:100%; border-radius:8px;" />
+                      <button type="button" class="btn btn-outline" onclick="salinLinkEksporResult()" style="white-space:nowrap; padding:6px 14px; font-size:12.5px; font-weight:600; display:inline-flex; align-items:center; gap:5px;">
+                        <span>📋</span> <span>Salin</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Tombol Aksi Buka di Tab Baru & Cadangan -->
+                  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-top:1px solid var(--border); padding-top:16px;">
+                    <button type="button" id="btnUnduhManualEkspor" class="btn btn-outline kp-small-btn" style="font-size:11.5px; display:none;" onclick="triggerUnduhManualEkspor()">
+                      <span>⬇</span> <span>Unduh Cadangan</span>
+                    </button>
+                    <div style="display:flex; gap:8px; margin-left:auto;">
+                      <button type="button" class="btn btn-secondary kp-small-btn" onclick="closeEksporLinkResultModal()">
+                        Tutup
+                      </button>
+                      <a id="btnBukaLinkEkspor" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary kp-small-btn" style="display:inline-flex; align-items:center; gap:6px; font-weight:700; text-decoration:none;">
+                        <span>🌐</span> <span id="btnBukaLinkEksporText">Buka Dokumen ↗</span>
+                      </a>
                     </div>
                   </div>
                 </div>
@@ -12921,9 +13014,9 @@ function updateEksporFormatUI() {
   const btnText = document.getElementById('btnSubmitEksporText');
   if (btnText) {
     if (selectedVal === 'word') btnText.textContent = 'Unduh File Word (.docx)';
-    else if (selectedVal === 'gdocs') btnText.textContent = 'Buka Google Docs';
+    else if (selectedVal === 'gdocs') btnText.textContent = 'Dapatkan Link Google Docs';
     else if (selectedVal === 'excel') btnText.textContent = 'Unduh File Excel (.xlsx)';
-    else if (selectedVal === 'spreadsheet') btnText.textContent = 'Buka Google Spreadsheet';
+    else if (selectedVal === 'spreadsheet') btnText.textContent = 'Dapatkan Link Google Spreadsheet';
     else btnText.textContent = 'Ekspor Sekarang';
   }
 }
@@ -13063,8 +13156,7 @@ function escapeXmlForDocx(str) {
     .replace(/'/g, '&apos;');
 }
 
-async function generateEksporWord(filteredList, filterInfo) {
-  showToast('info', 'Menyiapkan dokumen Word (.docx)...');
+async function buildEksporWordBlob(filteredList, filterInfo) {
   const dateStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
   const esc = escapeXmlForDocx;
 
@@ -13214,14 +13306,7 @@ async function generateEksporWord(filteredList, filterInfo) {
       mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     });
     const fileName = `Daftar_Usulan_Masuk_KP_${Date.now()}.docx`;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-    showToast('success', `File Word berhasil diunduh: ${fileName}`);
+    return { blob, fileName };
   } else {
     const htmlDoc = `
       <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -13263,23 +13348,27 @@ async function generateEksporWord(filteredList, filterInfo) {
     `;
     const blob = new Blob(['\ufeff', htmlDoc], { type: 'application/msword' });
     const fileName = `Daftar_Usulan_Masuk_KP_${Date.now()}.doc`;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-    showToast('success', `File Word berhasil diunduh: ${fileName}`);
+    return { blob, fileName };
   }
 }
 
-function generateEksporExcel(filteredList, filterInfo) {
+async function generateEksporWord(filteredList, filterInfo) {
+  showToast('info', 'Menyiapkan dokumen Word (.docx)...');
+  const { blob, fileName } = await buildEksporWordBlob(filteredList, filterInfo);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+  showToast('success', `File Word berhasil diunduh: ${fileName}`);
+}
+
+function buildEksporExcelBlob(filteredList, filterInfo) {
   if (typeof XLSX === 'undefined') {
-    showToast('error', 'Modul XLSX belum dimuat. Periksa koneksi internet.');
-    return;
+    return { blob: null, fileName: '' };
   }
-  showToast('info', 'Menyiapkan file Excel (.xlsx)...');
   const dateStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
   const dataRows = [
     ['DAFTAR USULAN MASUK KENAIKAN PANGKAT'],
@@ -13321,91 +13410,250 @@ function generateEksporExcel(filteredList, filterInfo) {
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Usulan Masuk KP');
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const fileName = `Daftar_Usulan_Masuk_KP_${Date.now()}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  return { blob, fileName, wb };
+}
+
+function generateEksporExcel(filteredList, filterInfo) {
+  if (typeof XLSX === 'undefined') {
+    showToast('error', 'Modul XLSX belum dimuat. Periksa koneksi internet.');
+    return;
+  }
+  showToast('info', 'Menyiapkan file Excel (.xlsx)...');
+  const { blob, fileName } = buildEksporExcelBlob(filteredList, filterInfo);
+  if (!blob) {
+    showToast('error', 'Gagal memproses file Excel.');
+    return;
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
   showToast('success', `File Excel berhasil diunduh: ${fileName}`);
 }
 
-async function generateEksporGdocs(filteredList, filterInfo) {
-  showToast('info', 'Menghubungkan ke Google Drive untuk membuat Google Docs...');
-  let opened = false;
+function blobToBase64DataUrl(blob) {
+  return new Promise((resolve) => {
+    if (!blob) { resolve(''); return; }
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result || '');
+    reader.onerror = () => resolve('');
+    reader.readAsDataURL(blob);
+  });
+}
 
-  const tryOpenGas = async () => {
-    try {
-      const res = await rpc('exportUsulanMasukToGoogleDocs', [SESSION.token, { items: filteredList, filterInfo }]);
-      if (res && res.success && res.url) {
-        window.open(res.url, '_blank');
-        showToast('success', 'Dokumen Google Docs berhasil dibuat dan dibuka di tab baru!');
-        return true;
-      }
-    } catch (_) {}
+/* ---------- MODAL HASIL LINK EKSPOR (GDOCS & SPREADSHEET) CONTROLLER ---------- */
+window.eksporLastResultBlob = null;
+window.eksporLastResultFileName = '';
 
-    if (typeof google !== 'undefined' && google.script && google.script.run) {
-      return new Promise((resolve) => {
-        google.script.run
-          .withSuccessHandler(gasRes => {
-            if (gasRes && gasRes.success && gasRes.url) {
-              window.open(gasRes.url, '_blank');
-              showToast('success', 'Dokumen Google Docs berhasil dibuat dan dibuka di tab baru!');
-              resolve(true);
-            } else {
-              resolve(false);
-            }
-          })
-          .withFailureHandler(() => resolve(false))
-          .exportUsulanMasukToGoogleDocs_GAS(SESSION.token, { items: filteredList, filterInfo });
-      });
+function showEksporLinkResultModal(type, linkUrl, count, filterInfo, fallbackBlob, fallbackFileName) {
+  closeEksporUsulanMasukModal();
+
+  window.eksporLastResultBlob = fallbackBlob || null;
+  window.eksporLastResultFileName = fallbackFileName || '';
+
+  const modal = document.getElementById('umEksporLinkResultModal');
+  if (!modal) return;
+
+  const iconWrap = document.getElementById('umEksporResultIconWrap');
+  const badge = document.getElementById('umEksporResultBadge');
+  const title = document.getElementById('umEksporResultTitle');
+  const countEl = document.getElementById('umEksporResultCount');
+  const filterEl = document.getElementById('umEksporResultFilter');
+  const linkInput = document.getElementById('umEksporResultLinkInput');
+  const openBtn = document.getElementById('btnBukaLinkEkspor');
+  const openBtnText = document.getElementById('btnBukaLinkEksporText');
+  const unduhBtn = document.getElementById('btnUnduhManualEkspor');
+
+  if (countEl) countEl.textContent = count || 0;
+  if (filterEl) filterEl.textContent = filterInfo || 'Semua Usulan';
+  if (linkInput) linkInput.value = linkUrl || '#';
+
+  if (type === 'gdocs') {
+    if (badge) {
+      badge.textContent = 'Google Docs';
+      badge.style.background = 'rgba(37,99,235,0.12)';
+      badge.style.color = '#2563eb';
     }
-    return false;
-  };
-
-  opened = await tryOpenGas();
-
-  if (!opened) {
-    showToast('warning', 'Google Drive tidak terhubung langsung. Mengunduh file Word (.docx) cadangan yang dapat langsung dibuka di Google Docs...');
-    await generateEksporWord(filteredList, filterInfo);
+    if (iconWrap) {
+      iconWrap.innerHTML = '📄';
+      iconWrap.style.background = 'rgba(37,99,235,0.12)';
+      iconWrap.style.color = '#2563eb';
+    }
+    if (title) title.textContent = 'Tautan Dokumen Google Docs Siap';
+    if (openBtn) {
+      openBtn.href = linkUrl || '#';
+      openBtn.style.background = '#2563eb';
+      openBtn.style.borderColor = '#2563eb';
+    }
+    if (openBtnText) openBtnText.textContent = 'Buka di Google Docs ↗';
+    if (unduhBtn) {
+      unduhBtn.innerHTML = '<span>⬇</span> <span>Unduh Cadangan (.docx)</span>';
+      unduhBtn.style.display = fallbackBlob ? 'inline-flex' : 'none';
+    }
+  } else {
+    if (badge) {
+      badge.textContent = 'Google Spreadsheet';
+      badge.style.background = 'rgba(22,163,74,0.12)';
+      badge.style.color = '#16a34a';
+    }
+    if (iconWrap) {
+      iconWrap.innerHTML = '📊';
+      iconWrap.style.background = 'rgba(22,163,74,0.12)';
+      iconWrap.style.color = '#16a34a';
+    }
+    if (title) title.textContent = 'Tautan Google Spreadsheet Siap';
+    if (openBtn) {
+      openBtn.href = linkUrl || '#';
+      openBtn.style.background = '#16a34a';
+      openBtn.style.borderColor = '#16a34a';
+    }
+    if (openBtnText) openBtnText.textContent = 'Buka di Google Spreadsheet ↗';
+    if (unduhBtn) {
+      unduhBtn.innerHTML = '<span>⬇</span> <span>Unduh Cadangan (.xlsx)</span>';
+      unduhBtn.style.display = fallbackBlob ? 'inline-flex' : 'none';
+    }
   }
+
+  modal.style.display = 'flex';
+}
+
+function closeEksporLinkResultModal() {
+  const modal = document.getElementById('umEksporLinkResultModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function salinLinkEksporResult() {
+  const linkInput = document.getElementById('umEksporResultLinkInput');
+  if (!linkInput || !linkInput.value) {
+    showToast('warning', 'Tidak ada tautan untuk disalin.');
+    return;
+  }
+  navigator.clipboard.writeText(linkInput.value)
+    .then(() => showToast('success', 'Tautan berhasil disalin ke clipboard!'))
+    .catch(() => {
+      linkInput.select();
+      document.execCommand('copy');
+      showToast('success', 'Tautan berhasil disalin!');
+    });
+}
+
+function triggerUnduhManualEkspor() {
+  if (!window.eksporLastResultBlob) {
+    showToast('warning', 'Berkas unduhan cadangan tidak tersedia.');
+    return;
+  }
+  const url = URL.createObjectURL(window.eksporLastResultBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = window.eksporLastResultFileName || 'Data_Usulan_Masuk_KP';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+  showToast('success', 'Berkas cadangan berhasil diunduh.');
+}
+
+async function generateEksporGdocs(filteredList, filterInfo) {
+  showToast('info', 'Menyiapkan tautan Google Docs...');
+  let linkUrl = '';
+  let docxBlob = null;
+  let docxFileName = '';
+
+  try {
+    const resBlob = await buildEksporWordBlob(filteredList, filterInfo);
+    docxBlob = resBlob.blob;
+    docxFileName = resBlob.fileName;
+  } catch (bErr) {
+    console.warn('[generateEksporGdocs] buildBlob error:', bErr);
+  }
+
+  const fileBase64 = docxBlob ? await blobToBase64DataUrl(docxBlob) : '';
+
+  // 1. Coba RPC backend
+  try {
+    const res = await rpc('exportUsulanMasukToGoogleDocs', [SESSION.token, { items: filteredList, filterInfo, fileBase64 }]);
+    if (res && res.success && res.url) {
+      linkUrl = res.url;
+    }
+  } catch (rErr) {
+    console.warn('[generateEksporGdocs] RPC notice:', rErr);
+  }
+
+  // 2. Jika dalam konteks GAS iframe
+  if (!linkUrl && typeof google !== 'undefined' && google.script && google.script.run) {
+    linkUrl = await new Promise((resolve) => {
+      google.script.run
+        .withSuccessHandler(gasRes => {
+          if (gasRes && gasRes.success && gasRes.url) resolve(gasRes.url);
+          else resolve('');
+        })
+        .withFailureHandler(() => resolve(''))
+        .exportUsulanMasukToGoogleDocs_GAS(SESSION.token, { items: filteredList, filterInfo });
+    });
+  }
+
+  // 3. Fallback jika belum dapat link langsung
+  if (!linkUrl) {
+    linkUrl = 'https://docs.google.com/document/create';
+  }
+
+  // TAMPILKAN MODAL HASIL TAUTAN (JANGAN AUTO-DOWNLOAD WORD!)
+  showEksporLinkResultModal('gdocs', linkUrl, filteredList.length, filterInfo, docxBlob, docxFileName);
+  showToast('success', 'Tautan Google Docs berhasil disiapkan!');
 }
 
 async function generateEksporSpreadsheet(filteredList, filterInfo) {
-  showToast('info', 'Menghubungkan ke Google Drive untuk membuat Google Spreadsheet...');
-  let opened = false;
+  showToast('info', 'Menyiapkan tautan Google Spreadsheet...');
+  let linkUrl = '';
+  let xlsxBlob = null;
+  let xlsxFileName = '';
 
-  const tryOpenGas = async () => {
-    try {
-      const res = await rpc('exportUsulanMasukToGoogleSpreadsheet', [SESSION.token, { items: filteredList, filterInfo }]);
-      if (res && res.success && res.url) {
-        window.open(res.url, '_blank');
-        showToast('success', 'Google Spreadsheet berhasil dibuat dan dibuka di tab baru!');
-        return true;
-      }
-    } catch (_) {}
-
-    if (typeof google !== 'undefined' && google.script && google.script.run) {
-      return new Promise((resolve) => {
-        google.script.run
-          .withSuccessHandler(gasRes => {
-            if (gasRes && gasRes.success && gasRes.url) {
-              window.open(gasRes.url, '_blank');
-              showToast('success', 'Google Spreadsheet berhasil dibuat dan dibuka di tab baru!');
-              resolve(true);
-            } else {
-              resolve(false);
-            }
-          })
-          .withFailureHandler(() => resolve(false))
-          .exportUsulanMasukToGoogleSpreadsheet_GAS(SESSION.token, { items: filteredList, filterInfo });
-      });
-    }
-    return false;
-  };
-
-  opened = await tryOpenGas();
-
-  if (!opened) {
-    showToast('warning', 'Google Drive tidak terhubung langsung. Mengunduh file Excel (.xlsx) cadangan yang dapat langsung dibuka di Google Spreadsheet...');
-    generateEksporExcel(filteredList, filterInfo);
+  try {
+    const resBlob = buildEksporExcelBlob(filteredList, filterInfo);
+    xlsxBlob = resBlob.blob;
+    xlsxFileName = resBlob.fileName;
+  } catch (bErr) {
+    console.warn('[generateEksporSpreadsheet] buildBlob error:', bErr);
   }
+
+  const fileBase64 = xlsxBlob ? await blobToBase64DataUrl(xlsxBlob) : '';
+
+  // 1. Coba RPC backend
+  try {
+    const res = await rpc('exportUsulanMasukToGoogleSpreadsheet', [SESSION.token, { items: filteredList, filterInfo, fileBase64 }]);
+    if (res && res.success && res.url) {
+      linkUrl = res.url;
+    }
+  } catch (rErr) {
+    console.warn('[generateEksporSpreadsheet] RPC notice:', rErr);
+  }
+
+  // 2. Jika dalam konteks GAS iframe
+  if (!linkUrl && typeof google !== 'undefined' && google.script && google.script.run) {
+    linkUrl = await new Promise((resolve) => {
+      google.script.run
+        .withSuccessHandler(gasRes => {
+          if (gasRes && gasRes.success && gasRes.url) resolve(gasRes.url);
+          else resolve('');
+        })
+        .withFailureHandler(() => resolve(''))
+        .exportUsulanMasukToGoogleSpreadsheet_GAS(SESSION.token, { items: filteredList, filterInfo });
+    });
+  }
+
+  // 3. Fallback jika belum dapat link langsung
+  if (!linkUrl) {
+    linkUrl = 'https://docs.google.com/spreadsheets/create';
+  }
+
+  // TAMPILKAN MODAL HASIL TAUTAN (JANGAN AUTO-DOWNLOAD EXCEL!)
+  showEksporLinkResultModal('spreadsheet', linkUrl, filteredList.length, filterInfo, xlsxBlob, xlsxFileName);
+  showToast('success', 'Tautan Google Spreadsheet berhasil disiapkan!');
 }
 
 /* ---------- POP-UP MODAL STATUS DETAIL & DIRECT UPDATE LOGIC ---------- */
