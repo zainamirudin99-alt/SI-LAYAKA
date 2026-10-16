@@ -239,10 +239,13 @@
           <span>SISTEM LAYANAN<br>ADMINISTRASI KEPEGAWAIAN</span>
         </div>
 
-        <div class="nav-item" data-view="profil-saya" data-title="Profil Saya" style="display:none;">
+        <div class="nav-item" data-view="profil-saya" data-title="Profil Saya" id="navProfilSaya">
           🙍 Profil Saya
         </div>
-        <div class="nav-item active" data-view="kenaikan-pangkat" data-title="Kenaikan Pangkat">
+        <div class="nav-item" data-view="dashboard-utama" data-title="Dashboard" id="navDashboardUtama" style="display:none;">
+          📊 Dashboard
+        </div>
+        <div class="nav-item active" data-view="kenaikan-pangkat" data-title="Kenaikan Pangkat" id="navKenaikanPangkat">
           📈 Kenaikan Pangkat
         </div>
         <div class="nav-item" data-view="check-kgb" data-title="Check KGB" id="navCheckKgb" style="display:none;">
@@ -301,7 +304,7 @@
             <div class="topbar-user-profile">
               <div class="user-chip topbar-user-chip" id="topbarUserChipBtn" onclick="navigateToProfilSaya()" title="Klik untuk membuka Profil Saya" style="cursor:pointer;">
                 <div class="user-avatar-circle">
-                  <img id="topbarUserAvatarImg" src="" alt="Foto" style="display:none; width:100%; height:100%; border-radius:50%; object-fit:cover;" />
+                  <img id="topbarUserAvatarImg" src="" alt="Foto" referrerpolicy="no-referrer" style="display:none; width:100%; height:100%; border-radius:50%; object-fit:cover;" />
                   <span id="topbarUserAvatarIcon" class="material-symbols-outlined">person</span>
                 </div>
                 <div class="user-meta-info">
@@ -313,6 +316,121 @@
                 <span class="material-symbols-outlined" style="font-size:17px;">logout</span>
                 <span>Keluar</span>
               </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ VIEW: DASHBOARD UTAMA ============ -->
+        <div class="view-panel" id="view-dashboard-utama" style="display:none;">
+          <div class="dashboard-utama-container">
+            <!-- Header Hero -->
+            <div class="dash-hero-header">
+              <div>
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+                  <span style="font-size:26px;">📊</span>
+                  <h2 style="font-size:22px; font-weight:800; color:var(--text); margin:0;">Dashboard Kepegawaian</h2>
+                  <span id="dashUnitBadge" class="cdli-badge" style="background:var(--primary-soft); color:var(--primary); font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:20px;">Memuat...</span>
+                </div>
+                <div style="font-size:13px; color:var(--text-muted);">
+                  Pantau statistik usulan kenaikan pangkat, pegawai eligible KP, proyeksi pensiun, dan aktivitas operasional SI-LAYAKA.
+                </div>
+              </div>
+              <div style="display:flex; gap:10px; align-items:center;">
+                <button type="button" class="btn btn-outline" onclick="loadDashboardUtamaData(true)" style="padding:8px 14px; font-size:12.5px; border-radius:10px; font-weight:600; gap:6px;">
+                  <span class="material-symbols-outlined" style="font-size:18px;">refresh</span>
+                  <span>Refresh Data</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 4 KPI Cards Grid -->
+            <div class="dash-kpi-grid">
+              <!-- KPI 1: Usulan Pangkat yang Masuk (Khusus Admin / Super Admin) -->
+              <div class="dash-kpi-card" id="dashCardUsulanKp">
+                <div>
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div class="dash-kpi-icon" style="background:rgba(37, 99, 235, 0.12); color:#2563eb;">
+                      <span class="material-symbols-outlined">trending_up</span>
+                    </div>
+                    <span class="cdli-badge" style="background:rgba(37, 99, 235, 0.15); color:#2563eb; font-size:10.5px; font-weight:700;">Admin/Superadmin</span>
+                  </div>
+                  <div class="dash-kpi-title">Usulan Pangkat Masuk</div>
+                  <div class="dash-kpi-val" id="dashValUsulanKp" style="color:#2563eb;">-</div>
+                  <div class="dash-kpi-sub" id="dashSubUsulanKp">Total berkas usulan kenaikan pangkat yang tercatat.</div>
+                </div>
+                <div id="dashBreakdownUsulanKp" style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--border); display:flex; flex-wrap:wrap; gap:6px; font-size:11px;">
+                  <!-- Status pills -->
+                </div>
+              </div>
+
+              <!-- KPI 2: Pegawai Diperhatikan Karena Kenaikan Pangkat (Eligible) -->
+              <div class="dash-kpi-card" id="dashCardEligibleKp">
+                <div>
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div class="dash-kpi-icon" style="background:rgba(16, 185, 129, 0.12); color:#10b981;">
+                      <span class="material-symbols-outlined">verified</span>
+                    </div>
+                    <span class="cdli-badge" style="background:rgba(16, 185, 129, 0.15); color:#10b981; font-size:10.5px; font-weight:700;">Masa Kerja &ge; 3.5 Th</span>
+                  </div>
+                  <div class="dash-kpi-title">Pegawai Perlu Diperhatikan (KP)</div>
+                  <div class="dash-kpi-val" id="dashValEligibleKp" style="color:#10b981;">-</div>
+                  <div class="dash-kpi-sub" id="dashSubEligibleKp">Pegawai dengan masa kerja kepangkatan memenuhi syarat usulan.</div>
+                </div>
+                <div id="dashBreakdownEligibleKp" style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--border); display:flex; justify-content:space-between; font-size:11.5px; color:var(--text-muted);">
+                  <span>Dosen: <strong id="dashValDosenEligible" style="color:var(--text);">-</strong></span>
+                  <span>Tendik: <strong id="dashValTendikEligible" style="color:var(--text);">-</strong></span>
+                </div>
+              </div>
+
+              <!-- KPI 3: Pegawai Akan Pensiun -->
+              <div class="dash-kpi-card" id="dashCardPensiun">
+                <div>
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div class="dash-kpi-icon" style="background:rgba(245, 158, 11, 0.12); color:#f59e0b;">
+                      <span class="material-symbols-outlined">elderly</span>
+                    </div>
+                    <span class="cdli-badge" style="background:rgba(245, 158, 11, 0.15); color:#f59e0b; font-size:10.5px; font-weight:700;">&le; 2 Tahun BUP</span>
+                  </div>
+                  <div class="dash-kpi-title">Pegawai Akan Pensiun</div>
+                  <div class="dash-kpi-val" id="dashValPensiun" style="color:#f59e0b;">-</div>
+                  <div class="dash-kpi-sub" id="dashSubPensiun">Pegawai mendekati Batas Usia Pensiun (BUP).</div>
+                </div>
+                <div id="dashBreakdownPensiun" style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--border); font-size:11.5px; color:var(--text-muted);">
+                  <span id="dashPensiunUnitLabel">Sesuai unit kerja Anda</span>
+                </div>
+              </div>
+
+              <!-- KPI 4: Semua Kegiatan Sistem -->
+              <div class="dash-kpi-card" id="dashCardKegiatan">
+                <div>
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div class="dash-kpi-icon" style="background:rgba(139, 92, 246, 0.12); color:#8b5cf6;">
+                      <span class="material-symbols-outlined">hub</span>
+                    </div>
+                    <span class="cdli-badge" style="background:rgba(139, 92, 246, 0.15); color:#8b5cf6; font-size:10.5px; font-weight:700;">Aktivitas Agregat</span>
+                  </div>
+                  <div class="dash-kpi-title">Semua Kegiatan Sistem</div>
+                  <div class="dash-kpi-val" id="dashValKegiatan" style="color:#8b5cf6;">-</div>
+                  <div class="dash-kpi-sub" id="dashSubKegiatan">Total aktivitas transaksi & administrasi kepegawaian.</div>
+                </div>
+                <div id="dashBreakdownKegiatan" style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--border); display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); flex-wrap:wrap; gap:4px;">
+                  <!-- Usulan, Kontrak, Profil, Template -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Bar Chart Section -->
+            <div class="dash-chart-card">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px;">
+                <div>
+                  <h3 style="font-size:16px; font-weight:800; color:var(--text); margin:0;">📊 Diagram Batang Metrik Kepegawaian</h3>
+                  <div style="font-size:12.5px; color:var(--text-muted); margin-top:2px;">Visualisasi perbandingan volume data dan kegiatan kepegawaian terkini</div>
+                </div>
+                <div id="dashChartLegendBadges" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+              </div>
+              <div style="position:relative; width:100%; height:340px;">
+                <canvas id="dashboardUtamaBarChart"></canvas>
+              </div>
             </div>
           </div>
         </div>
@@ -2560,7 +2678,7 @@
               <!-- Photo Verified Card -->
               <div class="mecha-border profile-glass-card" style="padding:20px; background:var(--surface); text-align:center;">
                 <div style="position:relative; width:100%; aspect-ratio:1/1; background:var(--surface-alt); border-radius:10px; overflow:hidden; display:flex; align-items:center; justify-content:center; margin-bottom:14px; border:1px solid var(--border);">
-                  <img id="prof_side_avatar_img" src="" alt="Foto Profil" style="display:none; width:100%; height:100%; object-fit:cover;" />
+                  <img id="prof_side_avatar_img" src="" alt="Foto Profil" referrerpolicy="no-referrer" style="display:none; width:100%; height:100%; object-fit:cover;" />
                   <svg id="prof_side_avatar_svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                   <div class="label-tech" style="position:absolute; bottom:10px; right:10px; background:var(--primary); color:#fff; padding:4px 8px; border-radius:4px; font-size:10px; font-weight:700; letter-spacing:0.5px;">PHOTO VERIFIED</div>
                 </div>
@@ -4056,7 +4174,7 @@
         <div style="text-align:center; margin-bottom:20px;">
           <div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:8px;">PREVIEW FOTO</div>
           <div style="width:130px; height:130px; border-radius:50%; margin:0 auto; overflow:hidden; border:2px dashed var(--border); display:flex; align-items:center; justify-content:center; background:var(--surface-alt); position:relative;">
-            <img id="previewFotoGdriveImg" src="" alt="Preview" style="display:none; width:100%; height:100%; object-fit:cover;" />
+            <img id="previewFotoGdriveImg" src="" alt="Preview" referrerpolicy="no-referrer" style="display:none; width:100%; height:100%; object-fit:cover;" />
             <span id="previewFotoGdrivePlaceholder" style="font-size:12px; color:var(--text-muted);">Belum ada preview</span>
           </div>
         </div>

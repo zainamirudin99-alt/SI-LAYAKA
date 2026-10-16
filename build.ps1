@@ -127,5 +127,10 @@ if (Test-Path "Universitas Diponegoro Multi Dome Aerial Panorama.png") {
     Copy-Item "Universitas Diponegoro Multi Dome Aerial Panorama.png" "public/Universitas Diponegoro Multi Dome Aerial Panorama.png" -Force
 }
 
+if (Test-Path "Monumen Equestrian Universitas Diponegoro semarak langit biru.png") {
+    Copy-Item "Monumen Equestrian Universitas Diponegoro semarak langit biru.png" "public/monumen-equestrian-undip.png" -Force
+    Copy-Item "Monumen Equestrian Universitas Diponegoro semarak langit biru.png" "public/Monumen Equestrian Universitas Diponegoro semarak langit biru.png" -Force
+}
+
 [System.IO.File]::WriteAllText("public/index.html", $output, [System.Text.Encoding]::UTF8)
 Write-Output "Successfully built public/index.html!"

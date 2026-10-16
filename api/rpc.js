@@ -168,6 +168,9 @@ async function parseGasResponse(response, contextName = 'GAS') {
 // Global in-memory cache for akses_kontrak_mandiri
 const MEMORY_AKSES_KONTRAK_MANDIRI = {};
 
+// Global in-memory cache for user avatar foto_url
+const MEMORY_AVATAR_CACHE = {};
+
 // Global in-memory cache for system settings
 const MEMORY_SYSTEM_SETTINGS = {};
 
@@ -3184,6 +3187,10 @@ const methods = {
           }
         } catch (_) {}
 
+        if (!fotoUrl) {
+          fotoUrl = MEMORY_AVATAR_CACHE[emp.nip] || emp.foto_url || null;
+        }
+
         const validDefault = extractPassword(emp.nip, emp.status_kepegawaian);
         const inputPass = String(password).trim();
         const isPasswordValid = customPass ? (inputPass === String(customPass).trim()) : (validDefault && inputPass === validDefault);
@@ -3266,7 +3273,14 @@ const methods = {
       const db=getDb();
       const { role, sub_role } = await getUserRole(decoded.nip);
       const callerUnit = await getCallerUnit(decoded, db);
-      return {valid:true,user:{nip:decoded.nip,nama:decoded.nama,jabatan:decoded.jabatan||'',status_kepegawaian:decoded.status_kepegawaian||'',unitEsIi:callerUnit||'',role,sub_role}};
+      let fotoUrl = MEMORY_AVATAR_CACHE[decoded.nip] || null;
+      if (!fotoUrl) {
+        try {
+          const { data: ur } = await db.from('user_roles').select('foto_url').eq('nip', decoded.nip).maybeSingle();
+          if (ur && ur.foto_url) fotoUrl = ur.foto_url;
+        } catch (_) {}
+      }
+      return {valid:true,user:{nip:decoded.nip,nama:decoded.nama,jabatan:decoded.jabatan||'',status_kepegawaian:decoded.status_kepegawaian||'',unitEsIi:callerUnit||'',role,sub_role,foto_url:fotoUrl}};
     } catch(e) { return {valid:false,message:e.message}; }
   },
 
@@ -3424,6 +3438,10 @@ const methods = {
       }
     } catch (_) {}
 
+    if (!profil.foto_url) {
+      profil.foto_url = MEMORY_AVATAR_CACHE[decoded.nip] || data.foto_url || null;
+    }
+
     // Ambil pengajuan perubahan profil jika ada yang berstatus PENDING
     try {
       const { data: permohonan } = await db.from('perubahan_data_profil').select('*').eq('nip', decoded.nip).eq('status', 'PENDING').order('created_at', { ascending: false }).limit(1).maybeSingle();
@@ -3440,11 +3458,35 @@ const methods = {
     const decoded = verifyToken(token);
     const db = getDb();
     const cleanUrl = String(fotoUrl || '').trim();
+    const cleanNip = String(decoded.nip || '').trim();
+
+    // 1. Simpan di user_roles (update jika ada, insert jika belum)
     try {
-      await db.from('user_roles').upsert({ nip: decoded.nip, foto_url: cleanUrl, tanggal_diubah: new Date().toISOString() }, { onConflict: 'nip' });
+      const { data: existing } = await db.from('user_roles').select('id,nip').eq('nip', cleanNip).maybeSingle();
+      if (existing) {
+        await db.from('user_roles').update({ foto_url: cleanUrl, tanggal_diubah: new Date().toISOString() }).eq('nip', cleanNip);
+      } else {
+        await db.from('user_roles').insert({
+          nip: cleanNip,
+          role: decoded.role || decoded.peran || 'normal',
+          foto_url: cleanUrl,
+          tanggal_diubah: new Date().toISOString()
+        });
+      }
     } catch (err) {
-      console.warn('[updateFotoProfil] warning:', err.message);
+      console.warn('[updateFotoProfil] user_roles warning:', err.message);
     }
+
+    // 2. Simpan juga di data_utama jika kolom foto_url ada
+    try {
+      await db.from('data_utama').update({ foto_url: cleanUrl }).eq('nip', cleanNip);
+    } catch (_) {}
+
+    // 3. Simpan di cache runtime memory
+    if (cleanNip) {
+      MEMORY_AVATAR_CACHE[cleanNip] = cleanUrl;
+    }
+
     return { success: true, message: 'Foto profil berhasil diperbarui.', foto_url: cleanUrl };
   },
 
@@ -5607,6 +5649,159 @@ const methods = {
       .map(e=>({nip:e.nip,nama:e.nama_lengkap||e.nama,jabatan:e.jabatan,tmtPensiunBup:formatTanggalIndonesia(e.tmt_pensiun_bup),sisaHari:diffDays(new Date(),e.tmt_pensiun_bup)}))
       .sort((a,b)=>a.sisaHari-b.sisaHari);
     return {success:true,daftar};
+  },
+
+  // ---- DASHBOARD UTAMA ----
+
+  async getDashboardUtamaStats(args) {
+    const [token] = extractArgs(args);
+    const decoded = verifyToken(token);
+    if (decoded.role === 'normal') {
+      return { success: false, message: 'Akses terbatas untuk peran Anda.' };
+    }
+    const db = getDb();
+    const role = decoded.role || 'user';
+    const callerUnit = role === 'user' ? await getCallerUnit(decoded, db) : null;
+
+    // 1. Usulan KP Stats
+    let usulanKpStats = {
+      total: 0,
+      diterima_dosdm: 0,
+      diajukan_siasn: 0,
+      ttd_pertek: 0,
+      sk_berhasil: 0,
+      perbaikan: 0,
+      belum_eligible: 0,
+      pensiun: 0
+    };
+
+    try {
+      let query = db.from('usulan_kp').select('*');
+      if (callerUnit) {
+        query = query.or(`unit.eq."${callerUnit}",diajukan_oleh_nip.eq."${decoded.nip}"`);
+      }
+      const { data: uData } = await query;
+      const rows = uData || [];
+      usulanKpStats.total = rows.length;
+      rows.forEach(r => {
+        const s = String(r.status || 'Diterima DOSDM').toLowerCase().trim();
+        if (s.includes('diterima dosdm') || s.includes('diterima dsdm')) usulanKpStats.diterima_dosdm++;
+        else if (s.includes('siasn')) usulanKpStats.diajukan_siasn++;
+        else if (s.includes('pertek')) usulanKpStats.ttd_pertek++;
+        else if (s.includes('sk berhasil') || s.includes('selesai')) usulanKpStats.sk_berhasil++;
+        else if (s.includes('perbaikan')) usulanKpStats.perbaikan++;
+        else if (s.includes('belum eligible') || s.includes('tidak eligible')) usulanKpStats.belum_eligible++;
+        else if (s.includes('pensiun')) usulanKpStats.pensiun++;
+        else usulanKpStats.diterima_dosdm++;
+      });
+    } catch (e) {
+      console.warn('[getDashboardUtamaStats] usulan_kp notice:', e.message);
+    }
+
+    // 2. Pegawai yang Harus Diperhatikan Karena Kenaikan Pangkat
+    let eligibleKpStats = {
+      total: 0,
+      dosen: 0,
+      tendik: 0
+    };
+
+    // 3. Pegawai yang Akan Pensiun
+    let pensiunStats = {
+      total: 0,
+      unitList: []
+    };
+
+    try {
+      let pageE = 0;
+      let emps = [];
+      while (true) {
+        let qEmp = db.from('data_utama')
+          .select('nip,nama_lengkap,nama,jabatan,golongan,tmt_gol,status_bekerja,unit_es_ii,tmt_pensiun_bup,status_kepegawaian,jenis_peg')
+          .range(pageE * 1000, (pageE + 1) * 1000 - 1);
+        if (callerUnit) {
+          qEmp = qEmp.eq('unit_es_ii', callerUnit);
+        }
+        const { data, error } = await qEmp;
+        if (error || !data || !data.length) break;
+        emps.push(...data);
+        if (data.length < 1000) break;
+        pageE++;
+      }
+
+      const now = new Date();
+      const ambangHariPensiun = 730; // 2 tahun ke depan
+      const pensiunPerUnit = {};
+
+      emps.forEach(emp => {
+        if (emp.tmt_pensiun_bup) {
+          const sisaHari = diffDays(now, emp.tmt_pensiun_bup);
+          if (sisaHari >= 0 && sisaHari <= ambangHariPensiun) {
+            pensiunStats.total++;
+            const u = String(emp.unit_es_ii || '(Tanpa Unit)').trim();
+            pensiunPerUnit[u] = (pensiunPerUnit[u] || 0) + 1;
+          }
+        }
+
+        if (emp.tmt_gol) {
+          const tmtDate = new Date(emp.tmt_gol);
+          if (!isNaN(tmtDate.getTime())) {
+            const diffYears = (now.getFullYear() - tmtDate.getFullYear()) + (now.getMonth() - tmtDate.getMonth()) / 12;
+            if (diffYears >= 3.5) {
+              eligibleKpStats.total++;
+              const isDosen = /dosen/i.test(emp.jabatan || emp.jenis_peg || '');
+              if (isDosen) eligibleKpStats.dosen++;
+              else eligibleKpStats.tendik++;
+            }
+          }
+        }
+      });
+
+      pensiunStats.unitList = Object.keys(pensiunPerUnit).map(u => ({ unit: u, jumlah: pensiunPerUnit[u] })).sort((a,b) => b.jumlah - a.jumlah);
+
+    } catch (empErr) {
+      console.warn('[getDashboardUtamaStats] data_utama notice:', empErr.message);
+    }
+
+    // 4. Semua Kegiatan Sistem
+    let totalKegiatan = 0;
+    let kegiatanBreakdown = {
+      usulan_kp: usulanKpStats.total,
+      usulan_kontrak: 0,
+      perubahan_profil: 0,
+      templates: 0
+    };
+
+    try {
+      let qKontrak = db.from('usulan_kontrak').select('id', { count: 'exact', head: true });
+      if (callerUnit) qKontrak = qKontrak.eq('unit_kerja', callerUnit);
+      const { count: cKontrak } = await qKontrak;
+      kegiatanBreakdown.usulan_kontrak = cKontrak || 0;
+    } catch (_) {}
+
+    try {
+      const { count: cProfil } = await db.from('perubahan_data_profil').select('id', { count: 'exact', head: true });
+      kegiatanBreakdown.perubahan_profil = cProfil || 0;
+    } catch (_) {}
+
+    try {
+      const { count: cTmpl } = await db.from('templates').select('id', { count: 'exact', head: true });
+      kegiatanBreakdown.templates = cTmpl || 0;
+    } catch (_) {}
+
+    totalKegiatan = kegiatanBreakdown.usulan_kp + kegiatanBreakdown.usulan_kontrak + kegiatanBreakdown.perubahan_profil + kegiatanBreakdown.templates + eligibleKpStats.total;
+
+    return {
+      success: true,
+      role,
+      unit: callerUnit || 'Universitas Diponegoro (Semua Unit)',
+      usulanKpStats,
+      eligibleKpStats,
+      pensiunStats,
+      kegiatanStats: {
+        total: totalKegiatan,
+        breakdown: kegiatanBreakdown
+      }
+    };
   },
 
   // ---- USULAN KP ----

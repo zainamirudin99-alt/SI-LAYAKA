@@ -3119,6 +3119,124 @@
     box-shadow: 0 0 24px rgba(0, 240, 255, 0.18);
     border-color: rgba(0, 240, 255, 0.3);
   }
+
+  /* ============================================================== */
+  /* DASHBOARD UTAMA (EKSEKUTIF & KEGIATAN SISTEM)                   */
+  /* ============================================================== */
+  .dashboard-utama-container {
+    position: relative;
+    border-radius: 20px;
+    padding: 24px;
+    background-image: linear-gradient(rgba(248, 250, 252, 0.88), rgba(241, 245, 249, 0.92)), url('monumen-equestrian-undip.png');
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-attachment: local;
+    min-height: calc(100vh - 120px);
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+  }
+  body.theme-dark .dashboard-utama-container {
+    background-image: linear-gradient(rgba(15, 23, 42, 0.88), rgba(15, 23, 42, 0.94)), url('monumen-equestrian-undip.png');
+    border-color: rgba(0, 240, 255, 0.2);
+    box-shadow: 0 4px 28px rgba(0, 0, 0, 0.45);
+  }
+
+  .dash-hero-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dash-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 18px;
+    margin-bottom: 24px;
+  }
+
+  .dash-kpi-card {
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 16px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    padding: 20px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .dash-kpi-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(37, 99, 235, 0.12);
+    border-color: var(--primary);
+  }
+  body.theme-dark .dash-kpi-card {
+    background: rgba(30, 41, 59, 0.85);
+    border-color: rgba(51, 65, 85, 0.8);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+  body.theme-dark .dash-kpi-card:hover {
+    box-shadow: 0 12px 30px rgba(0, 240, 255, 0.18);
+    border-color: #00f0ff;
+  }
+
+  .dash-kpi-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 12px;
+  }
+
+  .dash-kpi-val {
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1.1;
+    margin: 6px 0 4px 0;
+    letter-spacing: -0.5px;
+  }
+
+  .dash-kpi-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text-main);
+  }
+
+  .dash-kpi-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  .dash-chart-card {
+    background: rgba(255, 255, 255, 0.90);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 18px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    padding: 22px;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+    margin-bottom: 24px;
+  }
+  body.theme-dark .dash-chart-card {
+    background: rgba(30, 41, 59, 0.88);
+    border-color: rgba(51, 65, 85, 0.8);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.38);
+  }
 </style>
   <!-- Libraries for Word template previewing & Excel/Spreadsheet parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -3333,10 +3451,13 @@
           <span>SISTEM LAYANAN<br>ADMINISTRASI KEPEGAWAIAN</span>
         </div>
 
-        <div class="nav-item" data-view="profil-saya" data-title="Profil Saya" style="display:none;">
+        <div class="nav-item" data-view="profil-saya" data-title="Profil Saya" id="navProfilSaya">
           🙍 Profil Saya
         </div>
-        <div class="nav-item active" data-view="kenaikan-pangkat" data-title="Kenaikan Pangkat">
+        <div class="nav-item" data-view="dashboard-utama" data-title="Dashboard" id="navDashboardUtama" style="display:none;">
+          📊 Dashboard
+        </div>
+        <div class="nav-item active" data-view="kenaikan-pangkat" data-title="Kenaikan Pangkat" id="navKenaikanPangkat">
           📈 Kenaikan Pangkat
         </div>
         <div class="nav-item" data-view="check-kgb" data-title="Check KGB" id="navCheckKgb" style="display:none;">
@@ -3395,7 +3516,7 @@
             <div class="topbar-user-profile">
               <div class="user-chip topbar-user-chip" id="topbarUserChipBtn" onclick="navigateToProfilSaya()" title="Klik untuk membuka Profil Saya" style="cursor:pointer;">
                 <div class="user-avatar-circle">
-                  <img id="topbarUserAvatarImg" src="" alt="Foto" style="display:none; width:100%; height:100%; border-radius:50%; object-fit:cover;" />
+                  <img id="topbarUserAvatarImg" src="" alt="Foto" referrerpolicy="no-referrer" style="display:none; width:100%; height:100%; border-radius:50%; object-fit:cover;" />
                   <span id="topbarUserAvatarIcon" class="material-symbols-outlined">person</span>
                 </div>
                 <div class="user-meta-info">
@@ -3407,6 +3528,121 @@
                 <span class="material-symbols-outlined" style="font-size:17px;">logout</span>
                 <span>Keluar</span>
               </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ VIEW: DASHBOARD UTAMA ============ -->
+        <div class="view-panel" id="view-dashboard-utama" style="display:none;">
+          <div class="dashboard-utama-container">
+            <!-- Header Hero -->
+            <div class="dash-hero-header">
+              <div>
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+                  <span style="font-size:26px;">📊</span>
+                  <h2 style="font-size:22px; font-weight:800; color:var(--text); margin:0;">Dashboard Kepegawaian</h2>
+                  <span id="dashUnitBadge" class="cdli-badge" style="background:var(--primary-soft); color:var(--primary); font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:20px;">Memuat...</span>
+                </div>
+                <div style="font-size:13px; color:var(--text-muted);">
+                  Pantau statistik usulan kenaikan pangkat, pegawai eligible KP, proyeksi pensiun, dan aktivitas operasional SI-LAYAKA.
+                </div>
+              </div>
+              <div style="display:flex; gap:10px; align-items:center;">
+                <button type="button" class="btn btn-outline" onclick="loadDashboardUtamaData(true)" style="padding:8px 14px; font-size:12.5px; border-radius:10px; font-weight:600; gap:6px;">
+                  <span class="material-symbols-outlined" style="font-size:18px;">refresh</span>
+                  <span>Refresh Data</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 4 KPI Cards Grid -->
+            <div class="dash-kpi-grid">
+              <!-- KPI 1: Usulan Pangkat yang Masuk (Khusus Admin / Super Admin) -->
+              <div class="dash-kpi-card" id="dashCardUsulanKp">
+                <div>
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div class="dash-kpi-icon" style="background:rgba(37, 99, 235, 0.12); color:#2563eb;">
+                      <span class="material-symbols-outlined">trending_up</span>
+                    </div>
+                    <span class="cdli-badge" style="background:rgba(37, 99, 235, 0.15); color:#2563eb; font-size:10.5px; font-weight:700;">Admin/Superadmin</span>
+                  </div>
+                  <div class="dash-kpi-title">Usulan Pangkat Masuk</div>
+                  <div class="dash-kpi-val" id="dashValUsulanKp" style="color:#2563eb;">-</div>
+                  <div class="dash-kpi-sub" id="dashSubUsulanKp">Total berkas usulan kenaikan pangkat yang tercatat.</div>
+                </div>
+                <div id="dashBreakdownUsulanKp" style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--border); display:flex; flex-wrap:wrap; gap:6px; font-size:11px;">
+                  <!-- Status pills -->
+                </div>
+              </div>
+
+              <!-- KPI 2: Pegawai Diperhatikan Karena Kenaikan Pangkat (Eligible) -->
+              <div class="dash-kpi-card" id="dashCardEligibleKp">
+                <div>
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div class="dash-kpi-icon" style="background:rgba(16, 185, 129, 0.12); color:#10b981;">
+                      <span class="material-symbols-outlined">verified</span>
+                    </div>
+                    <span class="cdli-badge" style="background:rgba(16, 185, 129, 0.15); color:#10b981; font-size:10.5px; font-weight:700;">Masa Kerja &ge; 3.5 Th</span>
+                  </div>
+                  <div class="dash-kpi-title">Pegawai Perlu Diperhatikan (KP)</div>
+                  <div class="dash-kpi-val" id="dashValEligibleKp" style="color:#10b981;">-</div>
+                  <div class="dash-kpi-sub" id="dashSubEligibleKp">Pegawai dengan masa kerja kepangkatan memenuhi syarat usulan.</div>
+                </div>
+                <div id="dashBreakdownEligibleKp" style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--border); display:flex; justify-content:space-between; font-size:11.5px; color:var(--text-muted);">
+                  <span>Dosen: <strong id="dashValDosenEligible" style="color:var(--text);">-</strong></span>
+                  <span>Tendik: <strong id="dashValTendikEligible" style="color:var(--text);">-</strong></span>
+                </div>
+              </div>
+
+              <!-- KPI 3: Pegawai Akan Pensiun -->
+              <div class="dash-kpi-card" id="dashCardPensiun">
+                <div>
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div class="dash-kpi-icon" style="background:rgba(245, 158, 11, 0.12); color:#f59e0b;">
+                      <span class="material-symbols-outlined">elderly</span>
+                    </div>
+                    <span class="cdli-badge" style="background:rgba(245, 158, 11, 0.15); color:#f59e0b; font-size:10.5px; font-weight:700;">&le; 2 Tahun BUP</span>
+                  </div>
+                  <div class="dash-kpi-title">Pegawai Akan Pensiun</div>
+                  <div class="dash-kpi-val" id="dashValPensiun" style="color:#f59e0b;">-</div>
+                  <div class="dash-kpi-sub" id="dashSubPensiun">Pegawai mendekati Batas Usia Pensiun (BUP).</div>
+                </div>
+                <div id="dashBreakdownPensiun" style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--border); font-size:11.5px; color:var(--text-muted);">
+                  <span id="dashPensiunUnitLabel">Sesuai unit kerja Anda</span>
+                </div>
+              </div>
+
+              <!-- KPI 4: Semua Kegiatan Sistem -->
+              <div class="dash-kpi-card" id="dashCardKegiatan">
+                <div>
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div class="dash-kpi-icon" style="background:rgba(139, 92, 246, 0.12); color:#8b5cf6;">
+                      <span class="material-symbols-outlined">hub</span>
+                    </div>
+                    <span class="cdli-badge" style="background:rgba(139, 92, 246, 0.15); color:#8b5cf6; font-size:10.5px; font-weight:700;">Aktivitas Agregat</span>
+                  </div>
+                  <div class="dash-kpi-title">Semua Kegiatan Sistem</div>
+                  <div class="dash-kpi-val" id="dashValKegiatan" style="color:#8b5cf6;">-</div>
+                  <div class="dash-kpi-sub" id="dashSubKegiatan">Total aktivitas transaksi & administrasi kepegawaian.</div>
+                </div>
+                <div id="dashBreakdownKegiatan" style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--border); display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); flex-wrap:wrap; gap:4px;">
+                  <!-- Usulan, Kontrak, Profil, Template -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Bar Chart Section -->
+            <div class="dash-chart-card">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px;">
+                <div>
+                  <h3 style="font-size:16px; font-weight:800; color:var(--text); margin:0;">📊 Diagram Batang Metrik Kepegawaian</h3>
+                  <div style="font-size:12.5px; color:var(--text-muted); margin-top:2px;">Visualisasi perbandingan volume data dan kegiatan kepegawaian terkini</div>
+                </div>
+                <div id="dashChartLegendBadges" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+              </div>
+              <div style="position:relative; width:100%; height:340px;">
+                <canvas id="dashboardUtamaBarChart"></canvas>
+              </div>
             </div>
           </div>
         </div>
@@ -5654,7 +5890,7 @@
               <!-- Photo Verified Card -->
               <div class="mecha-border profile-glass-card" style="padding:20px; background:var(--surface); text-align:center;">
                 <div style="position:relative; width:100%; aspect-ratio:1/1; background:var(--surface-alt); border-radius:10px; overflow:hidden; display:flex; align-items:center; justify-content:center; margin-bottom:14px; border:1px solid var(--border);">
-                  <img id="prof_side_avatar_img" src="" alt="Foto Profil" style="display:none; width:100%; height:100%; object-fit:cover;" />
+                  <img id="prof_side_avatar_img" src="" alt="Foto Profil" referrerpolicy="no-referrer" style="display:none; width:100%; height:100%; object-fit:cover;" />
                   <svg id="prof_side_avatar_svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                   <div class="label-tech" style="position:absolute; bottom:10px; right:10px; background:var(--primary); color:#fff; padding:4px 8px; border-radius:4px; font-size:10px; font-weight:700; letter-spacing:0.5px;">PHOTO VERIFIED</div>
                 </div>
@@ -7150,7 +7386,7 @@
         <div style="text-align:center; margin-bottom:20px;">
           <div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:8px;">PREVIEW FOTO</div>
           <div style="width:130px; height:130px; border-radius:50%; margin:0 auto; overflow:hidden; border:2px dashed var(--border); display:flex; align-items:center; justify-content:center; background:var(--surface-alt); position:relative;">
-            <img id="previewFotoGdriveImg" src="" alt="Preview" style="display:none; width:100%; height:100%; object-fit:cover;" />
+            <img id="previewFotoGdriveImg" src="" alt="Preview" referrerpolicy="no-referrer" style="display:none; width:100%; height:100%; object-fit:cover;" />
             <span id="previewFotoGdrivePlaceholder" style="font-size:12px; color:var(--text-muted);">Belum ada preview</span>
           </div>
         </div>
@@ -7600,6 +7836,12 @@ function restoreSessionIfAny() {
       if (res.valid) {
         SESSION.token = token;
         SESSION.user = res.user;
+        if (SESSION.user && !SESSION.user.foto_url && SESSION.user.nip) {
+          const cached = localStorage.getItem('layaka_avatar_' + SESSION.user.nip);
+          if (cached) SESSION.user.foto_url = cached;
+        } else if (SESSION.user && SESSION.user.foto_url && SESSION.user.nip) {
+          localStorage.setItem('layaka_avatar_' + SESSION.user.nip, SESSION.user.foto_url);
+        }
         showApp();
       } else {
         sessionStorage.removeItem('sikp_token');
@@ -7627,6 +7869,12 @@ function bindLoginForm() {
         if (res.success) {
           SESSION.token = res.token;
           SESSION.user = res.user;
+          if (SESSION.user && !SESSION.user.foto_url && SESSION.user.nip) {
+            const cached = localStorage.getItem('layaka_avatar_' + SESSION.user.nip);
+            if (cached) SESSION.user.foto_url = cached;
+          } else if (SESSION.user && SESSION.user.foto_url && SESSION.user.nip) {
+            localStorage.setItem('layaka_avatar_' + SESSION.user.nip, SESSION.user.foto_url);
+          }
           sessionStorage.setItem('sikp_token', res.token);
           showApp();
         } else {
@@ -7709,6 +7957,10 @@ function showApp() {
   const roleLabel = SESSION.user.role ? (SESSION.user.role.toUpperCase().replace(/_/g, ' ')) : '';
   const unitLabel = SESSION.user.unitEsIi ? ` · ${SESSION.user.unitEsIi}` : '';
   document.getElementById('sidebarUserRole').textContent = (SESSION.user.jabatan || SESSION.user.status_kepegawaian || roleLabel) + unitLabel;
+  if (SESSION.user && !SESSION.user.foto_url && SESSION.user.nip) {
+    const cachedAvatar = localStorage.getItem('layaka_avatar_' + SESSION.user.nip);
+    if (cachedAvatar) SESSION.user.foto_url = cachedAvatar;
+  }
   if (SESSION.user && SESSION.user.foto_url) { updateUserAvatarUI(SESSION.user.foto_url); }
   terapkanBatasanPeran_();
   if (SESSION.user.role !== 'normal') {
@@ -7738,8 +7990,9 @@ function showApp() {
 function terapkanBatasanPeran_() {
   const role = SESSION.user.role || 'normal';
 
-  const navProfil = document.querySelector('.nav-item[data-view="profil-saya"]');
-  const navKP = document.querySelector('.nav-item[data-view="kenaikan-pangkat"]');
+  const navProfil = document.querySelector('.nav-item[data-view="profil-saya"]') || document.getElementById('navProfilSaya');
+  const navDashboard = document.querySelector('.nav-item[data-view="dashboard-utama"]') || document.getElementById('navDashboardUtama');
+  const navKP = document.querySelector('.nav-item[data-view="kenaikan-pangkat"]') || document.getElementById('navKenaikanPangkat');
   const navKgb = document.querySelector('.nav-item[data-view="check-kgb"]');
   const navPensiun = document.querySelector('.nav-item[data-view="pensiun"]');
   const navKontrak = document.querySelector('.nav-item[data-view="kontrak"]');
@@ -7750,13 +8003,16 @@ function terapkanBatasanPeran_() {
   const navLainnya = document.querySelector('.nav-item[data-view="lainnya"]');
 
   // Sembunyikan semua dulu (deny-by-default), baru tampilkan sesuai peran.
-  [navProfil, navKP, navKgb, navPensiun, navKontrak, navPmk, navBuatSk, navTemplate, navPeranAkun, navLainnya].forEach(el => { if (el) el.style.display = 'none'; });
+  [navProfil, navDashboard, navKP, navKgb, navPensiun, navKontrak, navPmk, navBuatSk, navTemplate, navPeranAkun, navLainnya].forEach(el => { if (el) el.style.display = 'none'; });
+
+  // Menu Profil Saya sekarang ditampilkan di urutan paling atas untuk SEMUA peran
+  if (navProfil) navProfil.style.display = 'flex';
 
   let viewAktif = 'kenaikan-pangkat';
   let judulAktif = 'Kenaikan Pangkat';
 
   if (role === 'normal') {
-    if (navProfil) navProfil.style.display = 'flex';
+    if (navDashboard) navDashboard.style.display = 'none';
     viewAktif = 'profil-saya';
     judulAktif = 'Profil Saya';
     
@@ -7775,6 +8031,10 @@ function terapkanBatasanPeran_() {
         console.warn('getMenuAksesKontrak error:', err);
       });
   } else {
+    // Menu Dashboard di bawah menu Profil Saya hanya untuk role admin, super_admin, dan user
+    if (navDashboard && ['admin', 'super_admin', 'user'].includes(role)) {
+      navDashboard.style.display = 'flex';
+    }
     if (navKP) navKP.style.display = 'flex';
     if (navPensiun) navPensiun.style.display = 'flex';
     if (navKontrak) navKontrak.style.display = 'flex';
@@ -7858,6 +8118,7 @@ function terapkanBatasanPeran_() {
   document.getElementById('topbarTitle').textContent = judulAktif;
 
   if (viewAktif === 'profil-saya') loadProfilSaya();
+  if (viewAktif === 'dashboard-utama') loadDashboardUtamaData();
   if (viewAktif === 'buat-sk') onEnterBuatSkView();
 }
 
@@ -7942,18 +8203,41 @@ function loadProfilSaya() {
     restrictedBanner.style.display = (userRole === 'normal') ? 'flex' : 'none';
   }
 
-  google.script.run
-    .withSuccessHandler(res => {
-      if (!res.success) { showToast('error', res.message); return; }
-      currentLoadedProfil = res.profil || {};
-      renderProfilSayaView(currentLoadedProfil);
-      if (currentLoadedProfil.foto_url) {
-        if (SESSION.user) SESSION.user.foto_url = currentLoadedProfil.foto_url;
-        updateUserAvatarUI(currentLoadedProfil.foto_url);
-      }
-    })
-    .withFailureHandler(err => showToast('error', 'Gagal memuat profil: ' + (err.message || err)))
-    .getProfilSaya(SESSION.token);
+  const onProfileSuccess = (res) => {
+    if (!res || !res.success) { showToast('error', (res && res.message) || 'Gagal memuat profil.'); return; }
+    currentLoadedProfil = res.profil || {};
+    renderProfilSayaView(currentLoadedProfil);
+    const nip = (currentLoadedProfil.nip || (SESSION.user && SESSION.user.nip) || '').trim();
+    let photoToUse = currentLoadedProfil.foto_url || (SESSION.user && SESSION.user.foto_url) || (nip ? localStorage.getItem('layaka_avatar_' + nip) : null);
+    if (photoToUse) {
+      currentLoadedProfil.foto_url = photoToUse;
+      if (SESSION.user) SESSION.user.foto_url = photoToUse;
+      if (nip) localStorage.setItem('layaka_avatar_' + nip, photoToUse);
+      updateUserAvatarUI(photoToUse);
+    }
+  };
+
+  const onProfileError = (err) => showToast('error', 'Gagal memuat profil: ' + (err.message || err));
+
+  if (typeof rpc === 'function') {
+    rpc('getProfilSaya', [SESSION.token])
+      .then(onProfileSuccess)
+      .catch(err => {
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run
+            .withSuccessHandler(onProfileSuccess)
+            .withFailureHandler(onProfileError)
+            .getProfilSaya(SESSION.token);
+        } else {
+          onProfileError(err);
+        }
+      });
+  } else if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(onProfileSuccess)
+      .withFailureHandler(onProfileError)
+      .getProfilSaya(SESSION.token);
+  }
 }
 
 function renderProfilSayaView(profil) {
@@ -8173,9 +8457,12 @@ function simpanFotoProfilGdrive() {
       return;
     }
     showToast('success', res.message || 'Foto profil berhasil disimpan.');
-    if (currentLoadedProfil) currentLoadedProfil.foto_url = res.foto_url;
-    if (SESSION.user) SESSION.user.foto_url = res.foto_url;
-    updateUserAvatarUI(res.foto_url);
+    const finalUrl = res.foto_url || url;
+    if (currentLoadedProfil) currentLoadedProfil.foto_url = finalUrl;
+    if (SESSION.user) SESSION.user.foto_url = finalUrl;
+    const nip = (SESSION.user && SESSION.user.nip) || (currentLoadedProfil && currentLoadedProfil.nip) || '';
+    if (nip) localStorage.setItem('layaka_avatar_' + nip, finalUrl);
+    updateUserAvatarUI(finalUrl);
     tutupModalGantiFoto();
   };
 
@@ -8187,15 +8474,24 @@ function simpanFotoProfilGdrive() {
     showToast('error', 'Gagal menyimpan foto: ' + (err.message || err));
   };
 
-  if (typeof google !== 'undefined' && google.script && google.script.run) {
+  if (typeof rpc === 'function') {
+    rpc('updateFotoProfil', [SESSION.token, url])
+      .then(onDone)
+      .catch(err => {
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run
+            .withSuccessHandler(onDone)
+            .withFailureHandler(onErr)
+            .updateFotoProfil(SESSION.token, url);
+        } else {
+          onErr(err);
+        }
+      });
+  } else if (typeof google !== 'undefined' && google.script && google.script.run) {
     google.script.run
       .withSuccessHandler(onDone)
       .withFailureHandler(onErr)
       .updateFotoProfil(SESSION.token, url);
-  } else if (typeof rpc === 'function') {
-    rpc('updateFotoProfil', [SESSION.token, url])
-      .then(onDone)
-      .catch(onErr);
   } else {
     if (btnSimpan) { btnSimpan.disabled = false; btnSimpan.innerHTML = oldText; }
     showToast('error', 'Koneksi ke backend tidak tersedia.');
@@ -9163,6 +9459,10 @@ function bindSidebarNav() {
         showToast('info', 'postpone');
         return;
       }
+      if (view === 'dashboard-utama' && SESSION.user && SESSION.user.role === 'normal') {
+        showToast('error', 'Menu Dashboard hanya dapat diakses oleh Admin, Super Admin, dan User.');
+        return;
+      }
       if (view === 'check-kgb' && (!SESSION.user || (SESSION.user.role !== 'admin' && SESSION.user.role !== 'super_admin'))) {
         showToast('error', 'Menu Check KGB hanya dapat diakses oleh Admin dan Super Admin.');
         return;
@@ -9172,6 +9472,8 @@ function bindSidebarNav() {
       document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
       document.getElementById('view-' + view).style.display = 'block';
       document.getElementById('topbarTitle').textContent = item.getAttribute('data-title');
+      if (view === 'profil-saya') loadProfilSaya();
+      if (view === 'dashboard-utama') loadDashboardUtamaData();
       if (view === 'template') { loadGlosariumTag(); loadTemplateLayananOptions(); loadTemplateList(); }
       if (view === 'check-kgb') loadCheckKgbData();
       if (view === 'pensiun') loadPensiunDashboardOnce();
@@ -29978,7 +30280,267 @@ function renderGuideContent() {
   }
 }
 
+/* =================================================================
+   DASHBOARD UTAMA
+   Statistik Usulan KP, Pegawai Eligible KP, Pensiun, Kegiatan Sistem,
+   serta Visualisasi Bar Chart (Diagram Batang).
+   Akses: Admin, Super Admin, User (terbatas unit kerja).
+   ================================================================= */
+let _dashboardUtamaDataCache = null;
+let _dashboardUtamaBarChartInstance = null;
+
+async function loadDashboardUtamaData(forceRefresh = false) {
+  const role = (SESSION.user && SESSION.user.role) || 'normal';
+  if (role === 'normal') {
+    showToast('error', 'Menu Dashboard tidak tersedia untuk peran akun Anda.');
+    return;
+  }
+
+  const unitBadge = document.getElementById('dashUnitBadge');
+  if (unitBadge) {
+    unitBadge.textContent = 'Memuat...';
+    unitBadge.style.opacity = '0.7';
+  }
+
+  if (!forceRefresh && _dashboardUtamaDataCache) {
+    renderDashboardUtamaStats(_dashboardUtamaDataCache);
+    return;
+  }
+
+  try {
+    let res = null;
+    if (typeof rpc === 'function') {
+      res = await rpc('getDashboardUtamaStats', [SESSION.token]);
+    } else if (typeof google !== 'undefined' && google.script && google.script.run) {
+      res = await new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)
+          .getDashboardUtamaStats(SESSION.token);
+      });
+    }
+
+    if (!res || !res.success) {
+      showToast('error', (res && res.message) || 'Gagal memuat statistik dashboard.');
+      return;
+    }
+
+    _dashboardUtamaDataCache = res;
+    renderDashboardUtamaStats(res);
+    if (forceRefresh) {
+      showToast('success', 'Data dashboard berhasil disegarkan.');
+    }
+  } catch (err) {
+    console.error('[loadDashboardUtamaData] error:', err);
+    showToast('error', 'Gagal memuat data dashboard: ' + (err.message || err));
+  }
+}
+
+function renderDashboardUtamaStats(data) {
+  const role = data.role || (SESSION.user && SESSION.user.role) || 'user';
+  const unitBadge = document.getElementById('dashUnitBadge');
+  if (unitBadge) {
+    unitBadge.textContent = data.unit || 'Universitas Diponegoro';
+    unitBadge.style.opacity = '1';
+  }
+
+  // 1. Usulan KP Masuk (Khusus Admin / Super Admin)
+  const cardUsulanKp = document.getElementById('dashCardUsulanKp');
+  const valUsulanKp = document.getElementById('dashValUsulanKp');
+  const breakdownUsulanKp = document.getElementById('dashBreakdownUsulanKp');
+  if (cardUsulanKp) {
+    if (role === 'admin' || role === 'super_admin') {
+      cardUsulanKp.style.display = 'flex';
+      if (valUsulanKp) valUsulanKp.textContent = Number(data.usulanKpStats?.total || 0).toLocaleString('id-ID');
+      if (breakdownUsulanKp) {
+        const s = data.usulanKpStats || {};
+        breakdownUsulanKp.innerHTML = `
+          <span style="background:rgba(59,130,246,0.12); color:#2563eb; padding:3px 8px; border-radius:6px;">DOSDM: <strong>${s.diterima_dosdm || 0}</strong></span>
+          <span style="background:rgba(245,158,11,0.12); color:#d97706; padding:3px 8px; border-radius:6px;">SIASN: <strong>${s.diajukan_siasn || 0}</strong></span>
+          <span style="background:rgba(139,92,246,0.12); color:#7c3aed; padding:3px 8px; border-radius:6px;">Pertek: <strong>${s.ttd_pertek || 0}</strong></span>
+          <span style="background:rgba(16,185,129,0.12); color:#059669; padding:3px 8px; border-radius:6px;">SK Berhasil: <strong>${s.sk_berhasil || 0}</strong></span>
+          <span style="background:rgba(239,68,68,0.12); color:#dc2626; padding:3px 8px; border-radius:6px;">Perbaikan: <strong>${s.perbaikan || 0}</strong></span>
+        `;
+      }
+    } else {
+      cardUsulanKp.style.display = 'none';
+    }
+  }
+
+  // 2. Pegawai Harus Diperhatikan (Eligible KP)
+  const valEligibleKp = document.getElementById('dashValEligibleKp');
+  const valDosenEligible = document.getElementById('dashValDosenEligible');
+  const valTendikEligible = document.getElementById('dashValTendikEligible');
+  if (valEligibleKp) valEligibleKp.textContent = Number(data.eligibleKpStats?.total || 0).toLocaleString('id-ID');
+  if (valDosenEligible) valDosenEligible.textContent = Number(data.eligibleKpStats?.dosen || 0).toLocaleString('id-ID');
+  if (valTendikEligible) valTendikEligible.textContent = Number(data.eligibleKpStats?.tendik || 0).toLocaleString('id-ID');
+
+  // 3. Pegawai Akan Pensiun
+  const valPensiun = document.getElementById('dashValPensiun');
+  const labelPensiun = document.getElementById('dashPensiunUnitLabel');
+  if (valPensiun) valPensiun.textContent = Number(data.pensiunStats?.total || 0).toLocaleString('id-ID');
+  if (labelPensiun) {
+    if (role === 'user') {
+      labelPensiun.textContent = `Unit: ${data.unit || 'Unit Anda'}`;
+    } else {
+      const uCount = data.pensiunStats?.unitList?.length || 0;
+      labelPensiun.textContent = `${uCount} Unit Kerja Terpantau (BUP \u2264 2 Th)`;
+    }
+  }
+
+  // 4. Semua Kegiatan Sistem
+  const valKegiatan = document.getElementById('dashValKegiatan');
+  const breakdownKegiatan = document.getElementById('dashBreakdownKegiatan');
+  if (valKegiatan) valKegiatan.textContent = Number(data.kegiatanStats?.total || 0).toLocaleString('id-ID');
+  if (breakdownKegiatan) {
+    const b = data.kegiatanStats?.breakdown || {};
+    breakdownKegiatan.innerHTML = `
+      <span>Usulan KP: <strong>${b.usulan_kp || 0}</strong></span>
+      <span>Kontrak: <strong>${b.usulan_kontrak || 0}</strong></span>
+      <span>Perubahan: <strong>${b.perubahan_profil || 0}</strong></span>
+      <span>Template: <strong>${b.templates || 0}</strong></span>
+    `;
+  }
+
+  // Render Bar Chart
+  renderDashboardUtamaBarChart(data);
+}
+
+function renderDashboardUtamaBarChart(data) {
+  const canvas = document.getElementById('dashboardUtamaBarChart');
+  if (!canvas) return;
+
+  if (_dashboardUtamaBarChartInstance) {
+    _dashboardUtamaBarChartInstance.destroy();
+    _dashboardUtamaBarChartInstance = null;
+  }
+
+  const isDark = document.body.classList.contains('theme-dark');
+  const textColor = isDark ? '#e2e8f0' : '#1e293b';
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+
+  const role = data.role || (SESSION.user && SESSION.user.role) || 'user';
+  let chartLabels = [];
+  let chartValues = [];
+  let bgColors = [];
+  let borderColors = [];
+
+  if (role === 'admin' || role === 'super_admin') {
+    chartLabels = [
+      'Usulan KP Masuk',
+      'Perlu KP (Eligible)',
+      'Akan Pensiun (\u2264 2 Th)',
+      'Semua Kegiatan Sistem'
+    ];
+    chartValues = [
+      data.usulanKpStats?.total || 0,
+      data.eligibleKpStats?.total || 0,
+      data.pensiunStats?.total || 0,
+      data.kegiatanStats?.total || 0
+    ];
+    bgColors = [
+      'rgba(37, 99, 235, 0.78)',
+      'rgba(16, 185, 129, 0.78)',
+      'rgba(245, 158, 11, 0.78)',
+      'rgba(139, 92, 246, 0.78)'
+    ];
+    borderColors = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6'];
+  } else {
+    // Role User
+    chartLabels = [
+      'Perlu KP Unit (Eligible)',
+      'Akan Pensiun Unit (\u2264 2 Th)',
+      'Semua Kegiatan Sistem'
+    ];
+    chartValues = [
+      data.eligibleKpStats?.total || 0,
+      data.pensiunStats?.total || 0,
+      data.kegiatanStats?.total || 0
+    ];
+    bgColors = [
+      'rgba(16, 185, 129, 0.78)',
+      'rgba(245, 158, 11, 0.78)',
+      'rgba(139, 92, 246, 0.78)'
+    ];
+    borderColors = ['#10b981', '#f59e0b', '#8b5cf6'];
+  }
+
+  // Update chart legend badges
+  const legendBox = document.getElementById('dashChartLegendBadges');
+  if (legendBox) {
+    legendBox.innerHTML = chartLabels.map((lbl, idx) => `
+      <span style="display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:var(--text-muted); background:var(--surface-alt); padding:3px 8px; border-radius:6px; border:1px solid var(--border);">
+        <span style="display:inline-block; width:9px; height:9px; border-radius:2px; background:${borderColors[idx]};"></span>
+        ${lbl}
+      </span>
+    `).join('');
+  }
+
+  const ctx = canvas.getContext('2d');
+  _dashboardUtamaBarChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: chartLabels,
+      datasets: [{
+        label: 'Jumlah',
+        data: chartValues,
+        backgroundColor: bgColors,
+        borderColor: borderColors,
+        borderWidth: 1.5,
+        borderRadius: 8,
+        borderSkipped: false,
+        maxBarThickness: 56
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+          titleColor: isDark ? '#fff' : '#0f172a',
+          bodyColor: isDark ? '#cbd5e1' : '#334155',
+          borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)',
+          borderWidth: 1,
+          padding: 12,
+          boxPadding: 6,
+          usePointStyle: true,
+          callbacks: {
+            label: function(context) {
+              return ' ' + context.dataset.label + ': ' + Number(context.parsed.y || 0).toLocaleString('id-ID');
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            color: textColor,
+            font: { family: "'Plus Jakarta Sans', system-ui, sans-serif", size: 12, weight: '600' }
+          }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: gridColor },
+          ticks: {
+            color: textColor,
+            font: { family: "'Plus Jakarta Sans', system-ui, sans-serif", size: 11 },
+            precision: 0
+          }
+        }
+      }
+    }
+  });
+}
+
 // Global window exposure
+window.loadDashboardUtamaData = loadDashboardUtamaData;
+window.renderDashboardUtamaStats = renderDashboardUtamaStats;
+window.renderDashboardUtamaBarChart = renderDashboardUtamaBarChart;
 window.getAppUserRoleCategory = getAppUserRoleCategory;
 window.openAppGuideModal = openAppGuideModal;
 window.closeAppGuideModal = closeAppGuideModal;

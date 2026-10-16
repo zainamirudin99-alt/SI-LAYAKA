@@ -237,6 +237,12 @@ function restoreSessionIfAny() {
       if (res.valid) {
         SESSION.token = token;
         SESSION.user = res.user;
+        if (SESSION.user && !SESSION.user.foto_url && SESSION.user.nip) {
+          const cached = localStorage.getItem('layaka_avatar_' + SESSION.user.nip);
+          if (cached) SESSION.user.foto_url = cached;
+        } else if (SESSION.user && SESSION.user.foto_url && SESSION.user.nip) {
+          localStorage.setItem('layaka_avatar_' + SESSION.user.nip, SESSION.user.foto_url);
+        }
         showApp();
       } else {
         sessionStorage.removeItem('sikp_token');
@@ -264,6 +270,12 @@ function bindLoginForm() {
         if (res.success) {
           SESSION.token = res.token;
           SESSION.user = res.user;
+          if (SESSION.user && !SESSION.user.foto_url && SESSION.user.nip) {
+            const cached = localStorage.getItem('layaka_avatar_' + SESSION.user.nip);
+            if (cached) SESSION.user.foto_url = cached;
+          } else if (SESSION.user && SESSION.user.foto_url && SESSION.user.nip) {
+            localStorage.setItem('layaka_avatar_' + SESSION.user.nip, SESSION.user.foto_url);
+          }
           sessionStorage.setItem('sikp_token', res.token);
           showApp();
         } else {
@@ -346,6 +358,10 @@ function showApp() {
   const roleLabel = SESSION.user.role ? (SESSION.user.role.toUpperCase().replace(/_/g, ' ')) : '';
   const unitLabel = SESSION.user.unitEsIi ? ` · ${SESSION.user.unitEsIi}` : '';
   document.getElementById('sidebarUserRole').textContent = (SESSION.user.jabatan || SESSION.user.status_kepegawaian || roleLabel) + unitLabel;
+  if (SESSION.user && !SESSION.user.foto_url && SESSION.user.nip) {
+    const cachedAvatar = localStorage.getItem('layaka_avatar_' + SESSION.user.nip);
+    if (cachedAvatar) SESSION.user.foto_url = cachedAvatar;
+  }
   if (SESSION.user && SESSION.user.foto_url) { updateUserAvatarUI(SESSION.user.foto_url); }
   terapkanBatasanPeran_();
   if (SESSION.user.role !== 'normal') {
@@ -375,8 +391,9 @@ function showApp() {
 function terapkanBatasanPeran_() {
   const role = SESSION.user.role || 'normal';
 
-  const navProfil = document.querySelector('.nav-item[data-view="profil-saya"]');
-  const navKP = document.querySelector('.nav-item[data-view="kenaikan-pangkat"]');
+  const navProfil = document.querySelector('.nav-item[data-view="profil-saya"]') || document.getElementById('navProfilSaya');
+  const navDashboard = document.querySelector('.nav-item[data-view="dashboard-utama"]') || document.getElementById('navDashboardUtama');
+  const navKP = document.querySelector('.nav-item[data-view="kenaikan-pangkat"]') || document.getElementById('navKenaikanPangkat');
   const navKgb = document.querySelector('.nav-item[data-view="check-kgb"]');
   const navPensiun = document.querySelector('.nav-item[data-view="pensiun"]');
   const navKontrak = document.querySelector('.nav-item[data-view="kontrak"]');
@@ -387,13 +404,16 @@ function terapkanBatasanPeran_() {
   const navLainnya = document.querySelector('.nav-item[data-view="lainnya"]');
 
   // Sembunyikan semua dulu (deny-by-default), baru tampilkan sesuai peran.
-  [navProfil, navKP, navKgb, navPensiun, navKontrak, navPmk, navBuatSk, navTemplate, navPeranAkun, navLainnya].forEach(el => { if (el) el.style.display = 'none'; });
+  [navProfil, navDashboard, navKP, navKgb, navPensiun, navKontrak, navPmk, navBuatSk, navTemplate, navPeranAkun, navLainnya].forEach(el => { if (el) el.style.display = 'none'; });
+
+  // Menu Profil Saya sekarang ditampilkan di urutan paling atas untuk SEMUA peran
+  if (navProfil) navProfil.style.display = 'flex';
 
   let viewAktif = 'kenaikan-pangkat';
   let judulAktif = 'Kenaikan Pangkat';
 
   if (role === 'normal') {
-    if (navProfil) navProfil.style.display = 'flex';
+    if (navDashboard) navDashboard.style.display = 'none';
     viewAktif = 'profil-saya';
     judulAktif = 'Profil Saya';
     
@@ -412,6 +432,10 @@ function terapkanBatasanPeran_() {
         console.warn('getMenuAksesKontrak error:', err);
       });
   } else {
+    // Menu Dashboard di bawah menu Profil Saya hanya untuk role admin, super_admin, dan user
+    if (navDashboard && ['admin', 'super_admin', 'user'].includes(role)) {
+      navDashboard.style.display = 'flex';
+    }
     if (navKP) navKP.style.display = 'flex';
     if (navPensiun) navPensiun.style.display = 'flex';
     if (navKontrak) navKontrak.style.display = 'flex';
@@ -495,6 +519,7 @@ function terapkanBatasanPeran_() {
   document.getElementById('topbarTitle').textContent = judulAktif;
 
   if (viewAktif === 'profil-saya') loadProfilSaya();
+  if (viewAktif === 'dashboard-utama') loadDashboardUtamaData();
   if (viewAktif === 'buat-sk') onEnterBuatSkView();
 }
 
@@ -579,18 +604,41 @@ function loadProfilSaya() {
     restrictedBanner.style.display = (userRole === 'normal') ? 'flex' : 'none';
   }
 
-  google.script.run
-    .withSuccessHandler(res => {
-      if (!res.success) { showToast('error', res.message); return; }
-      currentLoadedProfil = res.profil || {};
-      renderProfilSayaView(currentLoadedProfil);
-      if (currentLoadedProfil.foto_url) {
-        if (SESSION.user) SESSION.user.foto_url = currentLoadedProfil.foto_url;
-        updateUserAvatarUI(currentLoadedProfil.foto_url);
-      }
-    })
-    .withFailureHandler(err => showToast('error', 'Gagal memuat profil: ' + (err.message || err)))
-    .getProfilSaya(SESSION.token);
+  const onProfileSuccess = (res) => {
+    if (!res || !res.success) { showToast('error', (res && res.message) || 'Gagal memuat profil.'); return; }
+    currentLoadedProfil = res.profil || {};
+    renderProfilSayaView(currentLoadedProfil);
+    const nip = (currentLoadedProfil.nip || (SESSION.user && SESSION.user.nip) || '').trim();
+    let photoToUse = currentLoadedProfil.foto_url || (SESSION.user && SESSION.user.foto_url) || (nip ? localStorage.getItem('layaka_avatar_' + nip) : null);
+    if (photoToUse) {
+      currentLoadedProfil.foto_url = photoToUse;
+      if (SESSION.user) SESSION.user.foto_url = photoToUse;
+      if (nip) localStorage.setItem('layaka_avatar_' + nip, photoToUse);
+      updateUserAvatarUI(photoToUse);
+    }
+  };
+
+  const onProfileError = (err) => showToast('error', 'Gagal memuat profil: ' + (err.message || err));
+
+  if (typeof rpc === 'function') {
+    rpc('getProfilSaya', [SESSION.token])
+      .then(onProfileSuccess)
+      .catch(err => {
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run
+            .withSuccessHandler(onProfileSuccess)
+            .withFailureHandler(onProfileError)
+            .getProfilSaya(SESSION.token);
+        } else {
+          onProfileError(err);
+        }
+      });
+  } else if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(onProfileSuccess)
+      .withFailureHandler(onProfileError)
+      .getProfilSaya(SESSION.token);
+  }
 }
 
 function renderProfilSayaView(profil) {
@@ -810,9 +858,12 @@ function simpanFotoProfilGdrive() {
       return;
     }
     showToast('success', res.message || 'Foto profil berhasil disimpan.');
-    if (currentLoadedProfil) currentLoadedProfil.foto_url = res.foto_url;
-    if (SESSION.user) SESSION.user.foto_url = res.foto_url;
-    updateUserAvatarUI(res.foto_url);
+    const finalUrl = res.foto_url || url;
+    if (currentLoadedProfil) currentLoadedProfil.foto_url = finalUrl;
+    if (SESSION.user) SESSION.user.foto_url = finalUrl;
+    const nip = (SESSION.user && SESSION.user.nip) || (currentLoadedProfil && currentLoadedProfil.nip) || '';
+    if (nip) localStorage.setItem('layaka_avatar_' + nip, finalUrl);
+    updateUserAvatarUI(finalUrl);
     tutupModalGantiFoto();
   };
 
@@ -824,15 +875,24 @@ function simpanFotoProfilGdrive() {
     showToast('error', 'Gagal menyimpan foto: ' + (err.message || err));
   };
 
-  if (typeof google !== 'undefined' && google.script && google.script.run) {
+  if (typeof rpc === 'function') {
+    rpc('updateFotoProfil', [SESSION.token, url])
+      .then(onDone)
+      .catch(err => {
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run
+            .withSuccessHandler(onDone)
+            .withFailureHandler(onErr)
+            .updateFotoProfil(SESSION.token, url);
+        } else {
+          onErr(err);
+        }
+      });
+  } else if (typeof google !== 'undefined' && google.script && google.script.run) {
     google.script.run
       .withSuccessHandler(onDone)
       .withFailureHandler(onErr)
       .updateFotoProfil(SESSION.token, url);
-  } else if (typeof rpc === 'function') {
-    rpc('updateFotoProfil', [SESSION.token, url])
-      .then(onDone)
-      .catch(onErr);
   } else {
     if (btnSimpan) { btnSimpan.disabled = false; btnSimpan.innerHTML = oldText; }
     showToast('error', 'Koneksi ke backend tidak tersedia.');
@@ -1800,6 +1860,10 @@ function bindSidebarNav() {
         showToast('info', 'postpone');
         return;
       }
+      if (view === 'dashboard-utama' && SESSION.user && SESSION.user.role === 'normal') {
+        showToast('error', 'Menu Dashboard hanya dapat diakses oleh Admin, Super Admin, dan User.');
+        return;
+      }
       if (view === 'check-kgb' && (!SESSION.user || (SESSION.user.role !== 'admin' && SESSION.user.role !== 'super_admin'))) {
         showToast('error', 'Menu Check KGB hanya dapat diakses oleh Admin dan Super Admin.');
         return;
@@ -1809,6 +1873,8 @@ function bindSidebarNav() {
       document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
       document.getElementById('view-' + view).style.display = 'block';
       document.getElementById('topbarTitle').textContent = item.getAttribute('data-title');
+      if (view === 'profil-saya') loadProfilSaya();
+      if (view === 'dashboard-utama') loadDashboardUtamaData();
       if (view === 'template') { loadGlosariumTag(); loadTemplateLayananOptions(); loadTemplateList(); }
       if (view === 'check-kgb') loadCheckKgbData();
       if (view === 'pensiun') loadPensiunDashboardOnce();
@@ -22615,7 +22681,267 @@ function renderGuideContent() {
   }
 }
 
+/* =================================================================
+   DASHBOARD UTAMA
+   Statistik Usulan KP, Pegawai Eligible KP, Pensiun, Kegiatan Sistem,
+   serta Visualisasi Bar Chart (Diagram Batang).
+   Akses: Admin, Super Admin, User (terbatas unit kerja).
+   ================================================================= */
+let _dashboardUtamaDataCache = null;
+let _dashboardUtamaBarChartInstance = null;
+
+async function loadDashboardUtamaData(forceRefresh = false) {
+  const role = (SESSION.user && SESSION.user.role) || 'normal';
+  if (role === 'normal') {
+    showToast('error', 'Menu Dashboard tidak tersedia untuk peran akun Anda.');
+    return;
+  }
+
+  const unitBadge = document.getElementById('dashUnitBadge');
+  if (unitBadge) {
+    unitBadge.textContent = 'Memuat...';
+    unitBadge.style.opacity = '0.7';
+  }
+
+  if (!forceRefresh && _dashboardUtamaDataCache) {
+    renderDashboardUtamaStats(_dashboardUtamaDataCache);
+    return;
+  }
+
+  try {
+    let res = null;
+    if (typeof rpc === 'function') {
+      res = await rpc('getDashboardUtamaStats', [SESSION.token]);
+    } else if (typeof google !== 'undefined' && google.script && google.script.run) {
+      res = await new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)
+          .getDashboardUtamaStats(SESSION.token);
+      });
+    }
+
+    if (!res || !res.success) {
+      showToast('error', (res && res.message) || 'Gagal memuat statistik dashboard.');
+      return;
+    }
+
+    _dashboardUtamaDataCache = res;
+    renderDashboardUtamaStats(res);
+    if (forceRefresh) {
+      showToast('success', 'Data dashboard berhasil disegarkan.');
+    }
+  } catch (err) {
+    console.error('[loadDashboardUtamaData] error:', err);
+    showToast('error', 'Gagal memuat data dashboard: ' + (err.message || err));
+  }
+}
+
+function renderDashboardUtamaStats(data) {
+  const role = data.role || (SESSION.user && SESSION.user.role) || 'user';
+  const unitBadge = document.getElementById('dashUnitBadge');
+  if (unitBadge) {
+    unitBadge.textContent = data.unit || 'Universitas Diponegoro';
+    unitBadge.style.opacity = '1';
+  }
+
+  // 1. Usulan KP Masuk (Khusus Admin / Super Admin)
+  const cardUsulanKp = document.getElementById('dashCardUsulanKp');
+  const valUsulanKp = document.getElementById('dashValUsulanKp');
+  const breakdownUsulanKp = document.getElementById('dashBreakdownUsulanKp');
+  if (cardUsulanKp) {
+    if (role === 'admin' || role === 'super_admin') {
+      cardUsulanKp.style.display = 'flex';
+      if (valUsulanKp) valUsulanKp.textContent = Number(data.usulanKpStats?.total || 0).toLocaleString('id-ID');
+      if (breakdownUsulanKp) {
+        const s = data.usulanKpStats || {};
+        breakdownUsulanKp.innerHTML = `
+          <span style="background:rgba(59,130,246,0.12); color:#2563eb; padding:3px 8px; border-radius:6px;">DOSDM: <strong>${s.diterima_dosdm || 0}</strong></span>
+          <span style="background:rgba(245,158,11,0.12); color:#d97706; padding:3px 8px; border-radius:6px;">SIASN: <strong>${s.diajukan_siasn || 0}</strong></span>
+          <span style="background:rgba(139,92,246,0.12); color:#7c3aed; padding:3px 8px; border-radius:6px;">Pertek: <strong>${s.ttd_pertek || 0}</strong></span>
+          <span style="background:rgba(16,185,129,0.12); color:#059669; padding:3px 8px; border-radius:6px;">SK Berhasil: <strong>${s.sk_berhasil || 0}</strong></span>
+          <span style="background:rgba(239,68,68,0.12); color:#dc2626; padding:3px 8px; border-radius:6px;">Perbaikan: <strong>${s.perbaikan || 0}</strong></span>
+        `;
+      }
+    } else {
+      cardUsulanKp.style.display = 'none';
+    }
+  }
+
+  // 2. Pegawai Harus Diperhatikan (Eligible KP)
+  const valEligibleKp = document.getElementById('dashValEligibleKp');
+  const valDosenEligible = document.getElementById('dashValDosenEligible');
+  const valTendikEligible = document.getElementById('dashValTendikEligible');
+  if (valEligibleKp) valEligibleKp.textContent = Number(data.eligibleKpStats?.total || 0).toLocaleString('id-ID');
+  if (valDosenEligible) valDosenEligible.textContent = Number(data.eligibleKpStats?.dosen || 0).toLocaleString('id-ID');
+  if (valTendikEligible) valTendikEligible.textContent = Number(data.eligibleKpStats?.tendik || 0).toLocaleString('id-ID');
+
+  // 3. Pegawai Akan Pensiun
+  const valPensiun = document.getElementById('dashValPensiun');
+  const labelPensiun = document.getElementById('dashPensiunUnitLabel');
+  if (valPensiun) valPensiun.textContent = Number(data.pensiunStats?.total || 0).toLocaleString('id-ID');
+  if (labelPensiun) {
+    if (role === 'user') {
+      labelPensiun.textContent = `Unit: ${data.unit || 'Unit Anda'}`;
+    } else {
+      const uCount = data.pensiunStats?.unitList?.length || 0;
+      labelPensiun.textContent = `${uCount} Unit Kerja Terpantau (BUP \u2264 2 Th)`;
+    }
+  }
+
+  // 4. Semua Kegiatan Sistem
+  const valKegiatan = document.getElementById('dashValKegiatan');
+  const breakdownKegiatan = document.getElementById('dashBreakdownKegiatan');
+  if (valKegiatan) valKegiatan.textContent = Number(data.kegiatanStats?.total || 0).toLocaleString('id-ID');
+  if (breakdownKegiatan) {
+    const b = data.kegiatanStats?.breakdown || {};
+    breakdownKegiatan.innerHTML = `
+      <span>Usulan KP: <strong>${b.usulan_kp || 0}</strong></span>
+      <span>Kontrak: <strong>${b.usulan_kontrak || 0}</strong></span>
+      <span>Perubahan: <strong>${b.perubahan_profil || 0}</strong></span>
+      <span>Template: <strong>${b.templates || 0}</strong></span>
+    `;
+  }
+
+  // Render Bar Chart
+  renderDashboardUtamaBarChart(data);
+}
+
+function renderDashboardUtamaBarChart(data) {
+  const canvas = document.getElementById('dashboardUtamaBarChart');
+  if (!canvas) return;
+
+  if (_dashboardUtamaBarChartInstance) {
+    _dashboardUtamaBarChartInstance.destroy();
+    _dashboardUtamaBarChartInstance = null;
+  }
+
+  const isDark = document.body.classList.contains('theme-dark');
+  const textColor = isDark ? '#e2e8f0' : '#1e293b';
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+
+  const role = data.role || (SESSION.user && SESSION.user.role) || 'user';
+  let chartLabels = [];
+  let chartValues = [];
+  let bgColors = [];
+  let borderColors = [];
+
+  if (role === 'admin' || role === 'super_admin') {
+    chartLabels = [
+      'Usulan KP Masuk',
+      'Perlu KP (Eligible)',
+      'Akan Pensiun (\u2264 2 Th)',
+      'Semua Kegiatan Sistem'
+    ];
+    chartValues = [
+      data.usulanKpStats?.total || 0,
+      data.eligibleKpStats?.total || 0,
+      data.pensiunStats?.total || 0,
+      data.kegiatanStats?.total || 0
+    ];
+    bgColors = [
+      'rgba(37, 99, 235, 0.78)',
+      'rgba(16, 185, 129, 0.78)',
+      'rgba(245, 158, 11, 0.78)',
+      'rgba(139, 92, 246, 0.78)'
+    ];
+    borderColors = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6'];
+  } else {
+    // Role User
+    chartLabels = [
+      'Perlu KP Unit (Eligible)',
+      'Akan Pensiun Unit (\u2264 2 Th)',
+      'Semua Kegiatan Sistem'
+    ];
+    chartValues = [
+      data.eligibleKpStats?.total || 0,
+      data.pensiunStats?.total || 0,
+      data.kegiatanStats?.total || 0
+    ];
+    bgColors = [
+      'rgba(16, 185, 129, 0.78)',
+      'rgba(245, 158, 11, 0.78)',
+      'rgba(139, 92, 246, 0.78)'
+    ];
+    borderColors = ['#10b981', '#f59e0b', '#8b5cf6'];
+  }
+
+  // Update chart legend badges
+  const legendBox = document.getElementById('dashChartLegendBadges');
+  if (legendBox) {
+    legendBox.innerHTML = chartLabels.map((lbl, idx) => `
+      <span style="display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:var(--text-muted); background:var(--surface-alt); padding:3px 8px; border-radius:6px; border:1px solid var(--border);">
+        <span style="display:inline-block; width:9px; height:9px; border-radius:2px; background:${borderColors[idx]};"></span>
+        ${lbl}
+      </span>
+    `).join('');
+  }
+
+  const ctx = canvas.getContext('2d');
+  _dashboardUtamaBarChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: chartLabels,
+      datasets: [{
+        label: 'Jumlah',
+        data: chartValues,
+        backgroundColor: bgColors,
+        borderColor: borderColors,
+        borderWidth: 1.5,
+        borderRadius: 8,
+        borderSkipped: false,
+        maxBarThickness: 56
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+          titleColor: isDark ? '#fff' : '#0f172a',
+          bodyColor: isDark ? '#cbd5e1' : '#334155',
+          borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)',
+          borderWidth: 1,
+          padding: 12,
+          boxPadding: 6,
+          usePointStyle: true,
+          callbacks: {
+            label: function(context) {
+              return ' ' + context.dataset.label + ': ' + Number(context.parsed.y || 0).toLocaleString('id-ID');
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            color: textColor,
+            font: { family: "'Plus Jakarta Sans', system-ui, sans-serif", size: 12, weight: '600' }
+          }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: gridColor },
+          ticks: {
+            color: textColor,
+            font: { family: "'Plus Jakarta Sans', system-ui, sans-serif", size: 11 },
+            precision: 0
+          }
+        }
+      }
+    }
+  });
+}
+
 // Global window exposure
+window.loadDashboardUtamaData = loadDashboardUtamaData;
+window.renderDashboardUtamaStats = renderDashboardUtamaStats;
+window.renderDashboardUtamaBarChart = renderDashboardUtamaBarChart;
 window.getAppUserRoleCategory = getAppUserRoleCategory;
 window.openAppGuideModal = openAppGuideModal;
 window.closeAppGuideModal = closeAppGuideModal;
