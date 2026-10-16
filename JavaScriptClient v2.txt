@@ -409,13 +409,12 @@ function terapkanBatasanPeran_() {
   // Menu Profil Saya sekarang ditampilkan di urutan paling atas untuk SEMUA peran
   if (navProfil) navProfil.style.display = 'flex';
 
-  let viewAktif = 'kenaikan-pangkat';
-  let judulAktif = 'Kenaikan Pangkat';
+  // Halaman awal default setelah login untuk SEMUA peran adalah Profil Saya
+  let viewAktif = 'profil-saya';
+  let judulAktif = 'Profil Saya';
 
   if (role === 'normal') {
     if (navDashboard) navDashboard.style.display = 'none';
-    viewAktif = 'profil-saya';
-    judulAktif = 'Profil Saya';
     
     rpc('getMenuAksesKontrak', [SESSION.token])
       .then(res => {
@@ -1849,12 +1848,42 @@ function exportCheckKgbToCsv() {
 }
 
 
-/* ------------------------- SIDEBAR NAV ------------------------- */
+/* ------------------------- SIDEBAR DRAWER TOGGLE & NAV ------------------------- */
+function toggleSidebarMenu(forceState) {
+  const sb = document.querySelector('.sidebar');
+  const backdrop = document.getElementById('sidebarBackdrop');
+  if (!sb) return;
+
+  let shouldOpen;
+  if (typeof forceState === 'boolean') {
+    shouldOpen = forceState;
+  } else {
+    shouldOpen = !sb.classList.contains('mobile-open') && !sb.classList.contains('sidebar-open');
+  }
+
+  if (shouldOpen) {
+    sb.classList.add('mobile-open', 'sidebar-open');
+    if (backdrop) backdrop.classList.add('active');
+    document.body.classList.add('sidebar-drawer-active');
+  } else {
+    sb.classList.remove('mobile-open', 'sidebar-open');
+    if (backdrop) backdrop.classList.remove('active');
+    document.body.classList.remove('sidebar-drawer-active');
+  }
+}
+window.toggleSidebarMenu = toggleSidebarMenu;
+
+// Tutup drawer sidebar saat menekan tombol Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    toggleSidebarMenu(false);
+  }
+});
+
 function bindSidebarNav() {
   document.querySelectorAll('.nav-item[data-view]').forEach(item => {
     item.addEventListener('click', () => {
-      const sb = document.querySelector('.sidebar');
-      if (sb) sb.classList.remove('mobile-open');
+      toggleSidebarMenu(false);
       const view = item.getAttribute('data-view');
       if (view === 'lainnya') {
         showToast('info', 'postpone');

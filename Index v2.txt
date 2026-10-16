@@ -234,18 +234,23 @@
 
       <!-- SIDEBAR -->
       <div class="sidebar">
-        <div class="sidebar-brand">
-          <img id="sidebarBrandLogo" src="logo-silayaka.png" alt="SILAYAKA Logo" class="sidebar-brand-logo" />
-          <span>SISTEM LAYANAN<br>ADMINISTRASI KEPEGAWAIAN</span>
+        <div class="sidebar-brand" style="display:flex; align-items:center; justify-content:space-between; width:100%; box-sizing:border-box;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <img id="sidebarBrandLogo" src="logo-silayaka.png" alt="SILAYAKA Logo" class="sidebar-brand-logo" />
+            <span>SISTEM LAYANAN<br>ADMINISTRASI KEPEGAWAIAN</span>
+          </div>
+          <button type="button" class="sidebar-close-btn" onclick="toggleSidebarMenu(false)" aria-label="Tutup Menu" title="Tutup Menu" style="background:transparent; border:none; color:inherit; font-size:18px; cursor:pointer; padding:4px 8px; border-radius:6px; opacity:0.8; transition:all 0.2s;">
+            ✕
+          </button>
         </div>
 
-        <div class="nav-item" data-view="profil-saya" data-title="Profil Saya" id="navProfilSaya">
+        <div class="nav-item active" data-view="profil-saya" data-title="Profil Saya" id="navProfilSaya">
           🙍 Profil Saya
         </div>
         <div class="nav-item" data-view="dashboard-utama" data-title="Dashboard" id="navDashboardUtama" style="display:none;">
           📊 Dashboard
         </div>
-        <div class="nav-item active" data-view="kenaikan-pangkat" data-title="Kenaikan Pangkat" id="navKenaikanPangkat">
+        <div class="nav-item" data-view="kenaikan-pangkat" data-title="Kenaikan Pangkat" id="navKenaikanPangkat">
           📈 Kenaikan Pangkat
         </div>
         <div class="nav-item" data-view="check-kgb" data-title="Check KGB" id="navCheckKgb" style="display:none;">
@@ -275,15 +280,18 @@
 
       </div>
 
+      <!-- SIDEBAR BACKDROP OVERLAY -->
+      <div id="sidebarBackdrop" class="sidebar-backdrop" onclick="toggleSidebarMenu(false)"></div>
+
       <!-- MAIN CONTENT -->
       <div class="main-content">
         <div class="topbar">
           <div style="display:flex; align-items:center; gap:12px;">
-            <button type="button" class="mobile-only btn btn-secondary" onclick="const sb=document.querySelector('.sidebar'); if(sb) sb.classList.toggle('mobile-open');" style="padding:6px 12px; font-size:16px; border-radius:6px; font-weight:bold;" aria-label="Buka Menu Navigasi">
+            <button type="button" class="btn btn-secondary sidebar-toggle-btn" id="sidebarToggleBtn" onclick="toggleSidebarMenu()" aria-label="Buka Menu Navigasi" title="Buka Menu Navigasi (Garis Tiga)">
               ☰
             </button>
             <div>
-              <h2 id="topbarTitle">Kenaikan Pangkat</h2>
+              <h2 id="topbarTitle">Profil Saya</h2>
               <div class="breadcrumb">Sistem Layanan Administrasi Kepegawaian</div>
             </div>
           </div>
@@ -436,7 +444,7 @@
         </div>
 
         <!-- ============ VIEW: KENAIKAN PANGKAT ============ -->
-        <div class="view-panel" id="view-kenaikan-pangkat">
+        <div class="view-panel" id="view-kenaikan-pangkat" style="display:none;">
           <div class="card kp-panel">
             <div class="tabs" data-tab-group="kp">
               <button class="tab-btn active" data-tab-target="tab-checkEligible">0. Check Eligible</button>
@@ -2649,7 +2657,7 @@
       </div>
 
         <!-- ============ VIEW: PROFIL SAYA (peran 'normal' & semua peran) ============ -->
-        <div class="view-panel profile-view-wrapper" id="view-profil-saya" style="display:none;">
+        <div class="view-panel profile-view-wrapper" id="view-profil-saya">
           <!-- Restricted Access Banner (khusus normal user) -->
           <div class="mecha-border profile-glass-card" id="profileRestrictedBanner" style="margin-bottom:24px; padding:20px; background:var(--surface-alt); display:flex; align-items:flex-start; gap:16px;">
             <div style="padding:10px; background:var(--primary-soft); border-radius:8px; color:var(--primary); flex-shrink:0;">
