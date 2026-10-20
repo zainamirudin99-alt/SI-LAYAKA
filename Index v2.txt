@@ -250,34 +250,166 @@
         <div class="nav-item" data-view="dashboard-utama" data-title="Dashboard" id="navDashboardUtama" style="display:none;">
           📊 Dashboard
         </div>
-        <div class="nav-item" data-view="kenaikan-pangkat" data-title="Kenaikan Pangkat" id="navKenaikanPangkat">
-          📈 Kenaikan Pangkat
+
+        <!-- KENAIKAN PANGKAT -->
+        <div class="nav-group" id="navGroupKp">
+          <div class="nav-item nav-parent" data-view="kenaikan-pangkat" data-title="Kenaikan Pangkat" id="navKenaikanPangkat">
+            <span class="nav-parent-label">📈 Kenaikan Pangkat</span>
+            <span class="nav-chevron">▾</span>
+          </div>
+          <div class="nav-submenu" id="navSubmenuKp" style="display:none;">
+            <div class="nav-subitem active" data-parent-view="kenaikan-pangkat" data-tab-group="kp" data-tab-target="tab-checkEligible" id="navSubCheckEligible">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">0. Check Eligible</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kenaikan-pangkat" data-tab-group="kp" data-tab-target="tab-optA" id="navSubOptA" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">Opsi A: AK Konversi Tahunan</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kenaikan-pangkat" data-tab-group="kp" data-tab-target="tab-optB" id="navSubOptB" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">Opsi B: AK Konversi Kumulatif</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kenaikan-pangkat" data-tab-group="kp" data-tab-target="tab-statusUsulan" id="navSubStatusUsulan" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">Status Usulan Saya</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kenaikan-pangkat" data-tab-group="kp" data-tab-target="tab-usulanMasuk" id="navSubUsulanMasuk" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📨 Usulan Masuk</span>
+              <span id="navSubUsulanMasukBadge" class="cdli-badge" style="display:none; font-size:10px; padding:1px 5px; margin-left:auto;"></span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kenaikan-pangkat" data-tab-group="kp" data-tab-target="tab-siapSk" id="navSubSiapSk" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📝 Siap Buat SK</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kenaikan-pangkat" data-tab-group="kp" data-tab-target="tab-approvalSk" id="navSubApprovalSk" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">🔑 Approval SK</span>
+              <span id="navSubApprovalSkBadge" class="cdli-badge" style="display:none; background:#ef4444; color:#fff; font-size:10px; padding:1px 5px; margin-left:auto;"></span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kenaikan-pangkat" data-tab-group="kp" data-tab-target="tab-uploadSk" id="navSubUploadSk" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📤 Upload Final SK</span>
+            </div>
+          </div>
         </div>
+
         <div class="nav-item" data-view="check-kgb" data-title="Check KGB" id="navCheckKgb" style="display:none;">
           💵 Check KGB
         </div>
-        <div class="nav-item" data-view="pensiun" data-title="Pensiun">
-          🧓 Pensiun
+
+        <!-- PENSIUN -->
+        <div class="nav-group" id="navGroupPensiun">
+          <div class="nav-item nav-parent" data-view="pensiun" data-title="Pensiun" id="navPensiun">
+            <span class="nav-parent-label">🧓 Pensiun</span>
+            <span class="nav-chevron">▾</span>
+          </div>
+          <div class="nav-submenu" id="navSubmenuPensiun" style="display:none;">
+            <div class="nav-subitem active" data-parent-view="pensiun" data-tab-group="pensiun" data-tab-target="tab-dpcp" id="navSubDpcp">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">DPCP</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="pensiun" data-tab-group="pensiun" data-tab-target="tab-statusUsulanPensiun" id="navSubStatusUsulanPensiun" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">Status Usulan Saya</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="pensiun" data-tab-group="pensiun" data-tab-target="tab-usulanMasukPensiun" id="navSubUsulanMasukPensiun" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📨 Usulan Masuk</span>
+              <span id="navSubUsulanMasukPensiunBadge" class="cdli-badge" style="display:none; font-size:10px; padding:1px 5px; margin-left:auto;"></span>
+            </div>
+            <div class="nav-subitem" data-parent-view="pensiun" data-tab-group="pensiun" data-tab-target="tab-skPensiunNonAsn" id="navSubSkPensiunNonAsn" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📜 Buat SK Pensiun Non-ASN</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="pensiun" data-tab-group="pensiun" data-tab-target="tab-uploadSkPensiun" id="navSubUploadSkPensiun" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📤 Upload Final SK Pensiun</span>
+            </div>
+          </div>
         </div>
-        <div class="nav-item" data-view="kontrak" data-title="Kontrak" style="display:none;">
-          📄 Kontrak
+
+        <!-- KONTRAK -->
+        <div class="nav-group" id="navGroupKontrak" style="display:none;">
+          <div class="nav-item nav-parent" data-view="kontrak" data-title="Kontrak" id="navKontrak">
+            <span class="nav-parent-label">📄 Kontrak</span>
+            <span class="nav-chevron">▾</span>
+          </div>
+          <div class="nav-submenu" id="navSubmenuKontrak" style="display:none;">
+            <div class="nav-subitem" data-parent-view="kontrak" data-kontrak-action="buat" id="navSubKontrakBuat" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">Buat Kontrak (Admin)</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kontrak" data-kontrak-action="review" id="navSubKontrakReview" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">Review Usulan Unit</span>
+              <span id="navSubKontrakReviewBadge" class="cdli-badge" style="display:none; background:#ff4444; color:#fff; font-size:10px; padding:1px 5px; margin-left:auto;">0</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kontrak" data-kontrak-action="atasan" id="navSubKontrakAtasan" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">👔 Review Bawahan</span>
+              <span id="navSubKontrakAtasanBadge" class="cdli-badge" style="display:none; background:#3b82f6; color:#fff; font-size:10px; padding:1px 5px; margin-left:auto;">0</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kontrak" data-kontrak-action="user-status" id="navSubKontrakUserStatus" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">Usulan Kontrak Saya</span>
+            </div>
+          </div>
         </div>
+
         <div class="nav-item" data-view="pmk" data-title="Usul PMK &amp; PG" id="navPmk" style="display:none;">
           📑 Usul PMK &amp; PG
         </div>
-        <div class="nav-item" data-view="buat-sk" data-title="Buat SK dan Surat" id="navBuatSk" style="display:none;">
-          📋 Buat SK dan Surat
+
+        <!-- BUAT SK DAN SURAT -->
+        <div class="nav-group" id="navGroupBuatSk" style="display:none;">
+          <div class="nav-item nav-parent" data-view="buat-sk" data-title="Buat SK dan Surat" id="navBuatSk">
+            <span class="nav-parent-label">📋 Buat SK dan Surat</span>
+            <span class="nav-chevron">▾</span>
+          </div>
+          <div class="nav-submenu" id="navSubmenuBuatSk" style="display:none;">
+            <div class="nav-subitem active" data-parent-view="buat-sk" data-buatsk-tab="usul-sk" id="navSubBuatSkUsul">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📤 Usul SK</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="buat-sk" data-buatsk-tab="usulan-masuk" id="navSubBuatSkUsulanMasuk" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📥 Usulan Masuk</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="buat-sk" data-buatsk-tab="buat-sk" id="navSubBuatSkBuat" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">⚡ Buat SK dan Surat</span>
+            </div>
+          </div>
         </div>
-        <div class="nav-item" data-view="template" data-title="Manajemen Template">
+
+        <div class="nav-item" data-view="template" data-title="Manajemen Template" id="navTemplate">
           🧩 Template
         </div>
-        <div class="nav-item" data-view="peran-akun" data-title="Perubahan Status Akun" style="display:none;">
+        <div class="nav-item" data-view="peran-akun" data-title="Perubahan Status Akun" id="navPeranAkun" style="display:none;">
           🛡️ Perubahan Status Akun
         </div>
-        <div class="nav-item" data-view="jas" data-title="JAS" id="navJas" style="display:none;">
-          📁 JAS
+
+        <!-- JAS -->
+        <div class="nav-group" id="navGroupJas" style="display:none;">
+          <div class="nav-item nav-parent" data-view="jas" data-title="JAS" id="navJas">
+            <span class="nav-parent-label">📁 JAS</span>
+            <span class="nav-chevron">▾</span>
+          </div>
+          <div class="nav-submenu" id="navSubmenuJas" style="display:none;">
+            <div class="nav-subitem active" data-parent-view="jas" data-jas-tab="rename" id="navSubJasRename">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📝 1. Ubah Nama Berkas</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="jas" data-jas-tab="download" id="navSubJasDownload">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📥 2. Unduh Berkas</span>
+            </div>
+          </div>
         </div>
-        <div class="nav-item" data-view="lainnya" data-title="Menu Lainnya">
+
+        <div class="nav-item" data-view="lainnya" data-title="Menu Lainnya" id="navLainnya">
           ⋯ Menu Lainnya
         </div>
 
@@ -3222,7 +3354,7 @@
               </div>
             </div>
             <!-- TAB NAVIGATION -->
-            <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
+            <div id="buatSkTabsBar" class="buat-sk-tabs-bar" style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
               <button class="btn btn-outline" id="tabBuatSkUsulSk" onclick="buatSkSwitchTab('usul-sk')" style="font-size:13px;padding:0 20px;font-weight:600;min-width:180px;height:42px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;">📤 Usul SK</button>
               <button class="btn btn-outline" id="tabBuatSkUsulanMasuk" onclick="buatSkSwitchTab('usulan-masuk')" style="font-size:13px;padding:0 20px;font-weight:600;display:none;min-width:180px;height:42px;align-items:center;justify-content:center;box-sizing:border-box;">📥 Usulan Masuk</button>
               <button class="btn btn-primary" id="tabBuatSkBuatSk" onclick="buatSkSwitchTab('buat-sk')" style="font-size:13px;padding:0 20px;font-weight:600;display:none;min-width:180px;height:42px;align-items:center;justify-content:center;box-sizing:border-box;">⚡ Buat SK dan Surat</button>

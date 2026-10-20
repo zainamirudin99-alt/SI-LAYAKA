@@ -1001,6 +1001,112 @@
     box-shadow: 0 0 14px var(--primary-soft);
   }
 
+  /* ---------- Sidebar Sub-Menu & Accordion ---------- */
+  .nav-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 4px;
+  }
+  .nav-item.nav-parent {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    user-select: none;
+    position: relative;
+  }
+  .nav-parent-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .nav-chevron {
+    font-size: 11px;
+    color: inherit;
+    opacity: 0.75;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-left: auto;
+  }
+  .nav-parent.expanded .nav-chevron {
+    transform: rotate(180deg);
+    opacity: 1;
+  }
+  .nav-submenu {
+    display: none;
+    flex-direction: column;
+    padding-left: 20px;
+    margin: 2px 0 8px 0;
+    gap: 3px;
+  }
+  .nav-submenu.open {
+    display: flex !important;
+  }
+  .nav-subitem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    color: var(--sidebar-text, #94a3b8);
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: var(--radius-sm, 6px);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+  }
+  .nav-subitem:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    transform: translateX(2px);
+  }
+  .nav-subitem.active {
+    background: var(--primary, #0037b0);
+    color: #ffffff !important;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0, 55, 176, 0.35);
+  }
+  .nav-subitem-bullet {
+    font-size: 13px;
+    line-height: 1;
+    opacity: 0.6;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+  }
+  .nav-subitem.active .nav-subitem-bullet {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+  .nav-subitem-text {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  body.theme-dark .nav-subitem {
+    color: #94a3b8 !important;
+  }
+  body.theme-dark .nav-subitem:hover {
+    color: #f8fafc !important;
+    background: rgba(0, 240, 255, 0.08) !important;
+  }
+  body.theme-dark .nav-subitem.active {
+    color: #00f0ff !important;
+    background: rgba(0, 240, 255, 0.18) !important;
+    border-left: 3px solid #00f0ff !important;
+    text-shadow: 0 0 8px rgba(0, 240, 255, 0.45) !important;
+    box-shadow: 0 0 14px rgba(0, 240, 255, 0.2) !important;
+  }
+
+  /* Sembunyikan baris tab horizontal di dalam halaman */
+  .in-page-tabs-hidden,
+  [data-tab-group="kp"],
+  [data-tab-group="pensiun"],
+  #kontrakAdminTabs,
+  .jas-nav-tabs,
+  #buatSkTabsBar,
+  .buat-sk-tabs-bar {
+    display: none !important;
+  }
+
   .sidebar-footer { display: none; }
 
   .main-content {
@@ -3899,34 +4005,166 @@
         <div class="nav-item" data-view="dashboard-utama" data-title="Dashboard" id="navDashboardUtama" style="display:none;">
           📊 Dashboard
         </div>
-        <div class="nav-item" data-view="kenaikan-pangkat" data-title="Kenaikan Pangkat" id="navKenaikanPangkat">
-          📈 Kenaikan Pangkat
+
+        <!-- KENAIKAN PANGKAT -->
+        <div class="nav-group" id="navGroupKp">
+          <div class="nav-item nav-parent" data-view="kenaikan-pangkat" data-title="Kenaikan Pangkat" id="navKenaikanPangkat">
+            <span class="nav-parent-label">📈 Kenaikan Pangkat</span>
+            <span class="nav-chevron">▾</span>
+          </div>
+          <div class="nav-submenu" id="navSubmenuKp" style="display:none;">
+            <div class="nav-subitem active" data-parent-view="kenaikan-pangkat" data-tab-group="kp" data-tab-target="tab-checkEligible" id="navSubCheckEligible">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">0. Check Eligible</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kenaikan-pangkat" data-tab-group="kp" data-tab-target="tab-optA" id="navSubOptA" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">Opsi A: AK Konversi Tahunan</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kenaikan-pangkat" data-tab-group="kp" data-tab-target="tab-optB" id="navSubOptB" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">Opsi B: AK Konversi Kumulatif</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kenaikan-pangkat" data-tab-group="kp" data-tab-target="tab-statusUsulan" id="navSubStatusUsulan" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">Status Usulan Saya</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kenaikan-pangkat" data-tab-group="kp" data-tab-target="tab-usulanMasuk" id="navSubUsulanMasuk" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📨 Usulan Masuk</span>
+              <span id="navSubUsulanMasukBadge" class="cdli-badge" style="display:none; font-size:10px; padding:1px 5px; margin-left:auto;"></span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kenaikan-pangkat" data-tab-group="kp" data-tab-target="tab-siapSk" id="navSubSiapSk" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📝 Siap Buat SK</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kenaikan-pangkat" data-tab-group="kp" data-tab-target="tab-approvalSk" id="navSubApprovalSk" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">🔑 Approval SK</span>
+              <span id="navSubApprovalSkBadge" class="cdli-badge" style="display:none; background:#ef4444; color:#fff; font-size:10px; padding:1px 5px; margin-left:auto;"></span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kenaikan-pangkat" data-tab-group="kp" data-tab-target="tab-uploadSk" id="navSubUploadSk" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📤 Upload Final SK</span>
+            </div>
+          </div>
         </div>
+
         <div class="nav-item" data-view="check-kgb" data-title="Check KGB" id="navCheckKgb" style="display:none;">
           💵 Check KGB
         </div>
-        <div class="nav-item" data-view="pensiun" data-title="Pensiun">
-          🧓 Pensiun
+
+        <!-- PENSIUN -->
+        <div class="nav-group" id="navGroupPensiun">
+          <div class="nav-item nav-parent" data-view="pensiun" data-title="Pensiun" id="navPensiun">
+            <span class="nav-parent-label">🧓 Pensiun</span>
+            <span class="nav-chevron">▾</span>
+          </div>
+          <div class="nav-submenu" id="navSubmenuPensiun" style="display:none;">
+            <div class="nav-subitem active" data-parent-view="pensiun" data-tab-group="pensiun" data-tab-target="tab-dpcp" id="navSubDpcp">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">DPCP</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="pensiun" data-tab-group="pensiun" data-tab-target="tab-statusUsulanPensiun" id="navSubStatusUsulanPensiun" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">Status Usulan Saya</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="pensiun" data-tab-group="pensiun" data-tab-target="tab-usulanMasukPensiun" id="navSubUsulanMasukPensiun" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📨 Usulan Masuk</span>
+              <span id="navSubUsulanMasukPensiunBadge" class="cdli-badge" style="display:none; font-size:10px; padding:1px 5px; margin-left:auto;"></span>
+            </div>
+            <div class="nav-subitem" data-parent-view="pensiun" data-tab-group="pensiun" data-tab-target="tab-skPensiunNonAsn" id="navSubSkPensiunNonAsn" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📜 Buat SK Pensiun Non-ASN</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="pensiun" data-tab-group="pensiun" data-tab-target="tab-uploadSkPensiun" id="navSubUploadSkPensiun" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📤 Upload Final SK Pensiun</span>
+            </div>
+          </div>
         </div>
-        <div class="nav-item" data-view="kontrak" data-title="Kontrak" style="display:none;">
-          📄 Kontrak
+
+        <!-- KONTRAK -->
+        <div class="nav-group" id="navGroupKontrak" style="display:none;">
+          <div class="nav-item nav-parent" data-view="kontrak" data-title="Kontrak" id="navKontrak">
+            <span class="nav-parent-label">📄 Kontrak</span>
+            <span class="nav-chevron">▾</span>
+          </div>
+          <div class="nav-submenu" id="navSubmenuKontrak" style="display:none;">
+            <div class="nav-subitem" data-parent-view="kontrak" data-kontrak-action="buat" id="navSubKontrakBuat" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">Buat Kontrak (Admin)</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kontrak" data-kontrak-action="review" id="navSubKontrakReview" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">Review Usulan Unit</span>
+              <span id="navSubKontrakReviewBadge" class="cdli-badge" style="display:none; background:#ff4444; color:#fff; font-size:10px; padding:1px 5px; margin-left:auto;">0</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kontrak" data-kontrak-action="atasan" id="navSubKontrakAtasan" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">👔 Review Bawahan</span>
+              <span id="navSubKontrakAtasanBadge" class="cdli-badge" style="display:none; background:#3b82f6; color:#fff; font-size:10px; padding:1px 5px; margin-left:auto;">0</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="kontrak" data-kontrak-action="user-status" id="navSubKontrakUserStatus" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">Usulan Kontrak Saya</span>
+            </div>
+          </div>
         </div>
+
         <div class="nav-item" data-view="pmk" data-title="Usul PMK &amp; PG" id="navPmk" style="display:none;">
           📑 Usul PMK &amp; PG
         </div>
-        <div class="nav-item" data-view="buat-sk" data-title="Buat SK dan Surat" id="navBuatSk" style="display:none;">
-          📋 Buat SK dan Surat
+
+        <!-- BUAT SK DAN SURAT -->
+        <div class="nav-group" id="navGroupBuatSk" style="display:none;">
+          <div class="nav-item nav-parent" data-view="buat-sk" data-title="Buat SK dan Surat" id="navBuatSk">
+            <span class="nav-parent-label">📋 Buat SK dan Surat</span>
+            <span class="nav-chevron">▾</span>
+          </div>
+          <div class="nav-submenu" id="navSubmenuBuatSk" style="display:none;">
+            <div class="nav-subitem active" data-parent-view="buat-sk" data-buatsk-tab="usul-sk" id="navSubBuatSkUsul">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📤 Usul SK</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="buat-sk" data-buatsk-tab="usulan-masuk" id="navSubBuatSkUsulanMasuk" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📥 Usulan Masuk</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="buat-sk" data-buatsk-tab="buat-sk" id="navSubBuatSkBuat" style="display:none;">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">⚡ Buat SK dan Surat</span>
+            </div>
+          </div>
         </div>
-        <div class="nav-item" data-view="template" data-title="Manajemen Template">
+
+        <div class="nav-item" data-view="template" data-title="Manajemen Template" id="navTemplate">
           🧩 Template
         </div>
-        <div class="nav-item" data-view="peran-akun" data-title="Perubahan Status Akun" style="display:none;">
+        <div class="nav-item" data-view="peran-akun" data-title="Perubahan Status Akun" id="navPeranAkun" style="display:none;">
           🛡️ Perubahan Status Akun
         </div>
-        <div class="nav-item" data-view="jas" data-title="JAS" id="navJas" style="display:none;">
-          📁 JAS
+
+        <!-- JAS -->
+        <div class="nav-group" id="navGroupJas" style="display:none;">
+          <div class="nav-item nav-parent" data-view="jas" data-title="JAS" id="navJas">
+            <span class="nav-parent-label">📁 JAS</span>
+            <span class="nav-chevron">▾</span>
+          </div>
+          <div class="nav-submenu" id="navSubmenuJas" style="display:none;">
+            <div class="nav-subitem active" data-parent-view="jas" data-jas-tab="rename" id="navSubJasRename">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📝 1. Ubah Nama Berkas</span>
+            </div>
+            <div class="nav-subitem" data-parent-view="jas" data-jas-tab="download" id="navSubJasDownload">
+              <span class="nav-subitem-bullet">•</span>
+              <span class="nav-subitem-text">📥 2. Unduh Berkas</span>
+            </div>
+          </div>
         </div>
-        <div class="nav-item" data-view="lainnya" data-title="Menu Lainnya">
+
+        <div class="nav-item" data-view="lainnya" data-title="Menu Lainnya" id="navLainnya">
           ⋯ Menu Lainnya
         </div>
 
@@ -6871,7 +7109,7 @@
               </div>
             </div>
             <!-- TAB NAVIGATION -->
-            <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
+            <div id="buatSkTabsBar" class="buat-sk-tabs-bar" style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
               <button class="btn btn-outline" id="tabBuatSkUsulSk" onclick="buatSkSwitchTab('usul-sk')" style="font-size:13px;padding:0 20px;font-weight:600;min-width:180px;height:42px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;">📤 Usul SK</button>
               <button class="btn btn-outline" id="tabBuatSkUsulanMasuk" onclick="buatSkSwitchTab('usulan-masuk')" style="font-size:13px;padding:0 20px;font-weight:600;display:none;min-width:180px;height:42px;align-items:center;justify-content:center;box-sizing:border-box;">📥 Usulan Masuk</button>
               <button class="btn btn-primary" id="tabBuatSkBuatSk" onclick="buatSkSwitchTab('buat-sk')" style="font-size:13px;padding:0 20px;font-weight:600;display:none;min-width:180px;height:42px;align-items:center;justify-content:center;box-sizing:border-box;">⚡ Buat SK dan Surat</button>
@@ -8963,8 +9201,14 @@ function terapkanBatasanPeran_() {
   const navPeranAkun = document.querySelector('.nav-item[data-view="peran-akun"]');
   const navLainnya = document.querySelector('.nav-item[data-view="lainnya"]');
 
+  const navGroupKp = document.getElementById('navGroupKp');
+  const navGroupPensiun = document.getElementById('navGroupPensiun');
+  const navGroupKontrak = document.getElementById('navGroupKontrak');
+  const navGroupBuatSk = document.getElementById('navGroupBuatSk');
+  const navGroupJas = document.getElementById('navGroupJas');
+
   // Sembunyikan semua dulu (deny-by-default), baru tampilkan sesuai peran.
-  [navProfil, navDashboard, navJas, navKP, navKgb, navPensiun, navKontrak, navPmk, navBuatSk, navTemplate, navPeranAkun, navLainnya].forEach(el => { if (el) el.style.display = 'none'; });
+  [navProfil, navDashboard, navJas, navKP, navKgb, navPensiun, navKontrak, navPmk, navBuatSk, navTemplate, navPeranAkun, navLainnya, navGroupKp, navGroupPensiun, navGroupKontrak, navGroupBuatSk, navGroupJas].forEach(el => { if (el) el.style.display = 'none'; });
 
   // Menu Profil Saya sekarang ditampilkan di urutan paling atas untuk SEMUA peran
   if (navProfil) navProfil.style.display = 'flex';
@@ -8976,6 +9220,7 @@ function terapkanBatasanPeran_() {
   if (role === 'normal') {
     if (navDashboard) navDashboard.style.display = 'none';
     if (navJas) navJas.style.display = 'none';
+    if (navGroupJas) navGroupJas.style.display = 'none';
     
     rpc('getMenuAksesKontrak', [SESSION.token])
       .then(res => {
@@ -8986,6 +9231,9 @@ function terapkanBatasanPeran_() {
         );
         if (navKontrak) {
           navKontrak.style.display = canAccess ? 'flex' : 'none';
+        }
+        if (navGroupKontrak) {
+          navGroupKontrak.style.display = canAccess ? 'block' : 'none';
         }
       })
       .catch(err => {
@@ -8999,12 +9247,25 @@ function terapkanBatasanPeran_() {
     // Menu JAS HANYA untuk role admin dan super_admin
     if (navJas && (role === 'admin' || role === 'super_admin')) {
       navJas.style.display = 'flex';
+      if (navGroupJas) navGroupJas.style.display = 'block';
     }
-    if (navKP) navKP.style.display = 'flex';
-    if (navPensiun) navPensiun.style.display = 'flex';
-    if (navKontrak) navKontrak.style.display = 'flex';
+    if (navKP) {
+      navKP.style.display = 'flex';
+      if (navGroupKp) navGroupKp.style.display = 'block';
+    }
+    if (navPensiun) {
+      navPensiun.style.display = 'flex';
+      if (navGroupPensiun) navGroupPensiun.style.display = 'block';
+    }
+    if (navKontrak) {
+      navKontrak.style.display = 'flex';
+      if (navGroupKontrak) navGroupKontrak.style.display = 'block';
+    }
     if (['user', 'admin', 'super_admin'].includes(role) && navPmk) navPmk.style.display = 'flex';
-    if (['user', 'admin', 'super_admin'].includes(role) && navBuatSk) navBuatSk.style.display = 'flex';
+    if (['user', 'admin', 'super_admin'].includes(role) && navBuatSk) {
+      navBuatSk.style.display = 'flex';
+      if (navGroupBuatSk) navGroupBuatSk.style.display = 'block';
+    }
     if (navLainnya) navLainnya.style.display = 'flex';
     if (role === 'admin' || role === 'super_admin') {
       if (navKgb) navKgb.style.display = 'flex';
@@ -9030,6 +9291,32 @@ function terapkanBatasanPeran_() {
   if (tabOptA) tabOptA.style.display = tampilkanOpsiAB ? '' : 'none';
   if (tabOptB) tabOptB.style.display = tampilkanOpsiAB ? '' : 'none';
 
+  // Submenu Kenaikan Pangkat di sidebar
+  const navSubCheckEligible = document.getElementById('navSubCheckEligible');
+  const navSubOptA = document.getElementById('navSubOptA');
+  const navSubOptB = document.getElementById('navSubOptB');
+  const navSubStatusUsulan = document.getElementById('navSubStatusUsulan');
+  const navSubUsulanMasuk = document.getElementById('navSubUsulanMasuk');
+  const navSubSiapSk = document.getElementById('navSubSiapSk');
+  const navSubApprovalSk = document.getElementById('navSubApprovalSk');
+  const navSubUploadSk = document.getElementById('navSubUploadSk');
+
+  if (navSubCheckEligible) navSubCheckEligible.style.display = 'flex';
+  if (navSubOptA) navSubOptA.style.display = tampilkanOpsiAB ? 'flex' : 'none';
+  if (navSubOptB) navSubOptB.style.display = tampilkanOpsiAB ? 'flex' : 'none';
+  if (navSubStatusUsulan) navSubStatusUsulan.style.display = (role === 'user') ? 'flex' : 'none';
+  if (navSubUsulanMasuk) navSubUsulanMasuk.style.display = (role === 'admin' || role === 'super_admin') ? 'flex' : 'none';
+  if (navSubSiapSk) navSubSiapSk.style.display = (role === 'admin' || role === 'super_admin') ? 'flex' : 'none';
+  if (navSubUploadSk) navSubUploadSk.style.display = (role === 'admin' || role === 'super_admin') ? 'flex' : 'none';
+  if (navSubApprovalSk) {
+    if ((role === 'admin' || role === 'super_admin') && SESSION.user && SESSION.user.sub_role) {
+      navSubApprovalSk.style.display = 'flex';
+      loadApprovalSkBadge();
+    } else {
+      navSubApprovalSk.style.display = 'none';
+    }
+  }
+
   // Tab "Status Usulan Saya" (user) & "Usulan Masuk" (admin/super_admin).
   const tabStatusUsulan = document.getElementById('tabBtnStatusUsulan');
   const tabUsulanMasuk = document.getElementById('tabBtnUsulanMasuk');
@@ -9052,7 +9339,20 @@ function terapkanBatasanPeran_() {
 
   if (role === 'admin' || role === 'super_admin') loadUsulanMasukBadge();
 
-  // Sama untuk modul Pensiun.
+  // Submenu Pensiun di sidebar
+  const navSubDpcp = document.getElementById('navSubDpcp');
+  const navSubStatusUsulanPensiun = document.getElementById('navSubStatusUsulanPensiun');
+  const navSubUsulanMasukPensiun = document.getElementById('navSubUsulanMasukPensiun');
+  const navSubSkPensiunNonAsn = document.getElementById('navSubSkPensiunNonAsn');
+  const navSubUploadSkPensiun = document.getElementById('navSubUploadSkPensiun');
+
+  if (navSubDpcp) navSubDpcp.style.display = 'flex';
+  if (navSubStatusUsulanPensiun) navSubStatusUsulanPensiun.style.display = (role === 'user') ? 'flex' : 'none';
+  if (navSubUsulanMasukPensiun) navSubUsulanMasukPensiun.style.display = (role === 'admin' || role === 'super_admin') ? 'flex' : 'none';
+  if (navSubSkPensiunNonAsn) navSubSkPensiunNonAsn.style.display = (role === 'admin' || role === 'super_admin') ? 'flex' : 'none';
+  if (navSubUploadSkPensiun) navSubUploadSkPensiun.style.display = (role === 'admin' || role === 'super_admin') ? 'flex' : 'none';
+
+  // Sama untuk modul Pensiun tabs.
   const tabStatusUsulanPensiun = document.getElementById('tabBtnStatusUsulanPensiun');
   const tabUsulanMasukPensiun = document.getElementById('tabBtnUsulanMasukPensiun');
   const tabBtnSkPensiunNonAsn = document.getElementById('tabBtnSkPensiunNonAsn');
@@ -9062,6 +9362,21 @@ function terapkanBatasanPeran_() {
   if (tabBtnSkPensiunNonAsn) tabBtnSkPensiunNonAsn.style.display = (role === 'admin' || role === 'super_admin') ? '' : 'none';
   if (tabBtnUploadSkPensiun) tabBtnUploadSkPensiun.style.display = (role === 'admin' || role === 'super_admin') ? '' : 'none';
   if (role === 'admin' || role === 'super_admin') loadUsulanMasukPensiunBadge();
+
+  // Submenu Buat SK di sidebar
+  const navSubBuatSkUsul = document.getElementById('navSubBuatSkUsul');
+  const navSubBuatSkUsulanMasuk = document.getElementById('navSubBuatSkUsulanMasuk');
+  const navSubBuatSkBuat = document.getElementById('navSubBuatSkBuat');
+  const isAdmin = (role === 'admin' || role === 'super_admin');
+  if (navSubBuatSkUsul) navSubBuatSkUsul.style.display = 'flex';
+  if (navSubBuatSkUsulanMasuk) navSubBuatSkUsulanMasuk.style.display = isAdmin ? 'flex' : 'none';
+  if (navSubBuatSkBuat) navSubBuatSkBuat.style.display = isAdmin ? 'flex' : 'none';
+
+  // Submenu JAS di sidebar
+  const navSubJasRename = document.getElementById('navSubJasRename');
+  const navSubJasDownload = document.getElementById('navSubJasDownload');
+  if (navSubJasRename) navSubJasRename.style.display = isAdmin ? 'flex' : 'none';
+  if (navSubJasDownload) navSubJasDownload.style.display = isAdmin ? 'flex' : 'none';
 
   // Tombol akses manual di dashboard Pensiun berubah makna sesuai peran:
   // user -> buka modal Ajukan Usulan; admin/super_admin -> form DPCP penuh.
@@ -9084,6 +9399,9 @@ function terapkanBatasanPeran_() {
 
   // Arahkan ke view default sesuai peran.
   document.querySelectorAll('.nav-item[data-view]').forEach(i => i.classList.remove('active'));
+  document.querySelectorAll('.nav-subitem').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-submenu').forEach(sm => { sm.classList.remove('open'); sm.style.display = 'none'; });
+  document.querySelectorAll('.nav-parent').forEach(p => p.classList.remove('expanded'));
   document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
   const navAktif = document.querySelector(`.nav-item[data-view="${viewAktif}"]`);
   if (navAktif) navAktif.classList.add('active');
@@ -9098,6 +9416,9 @@ function terapkanBatasanPeran_() {
 /** Navigasi langsung ke halaman Profil Saya saat avatar/chip di topbar diklik */
 function navigateToProfilSaya() {
   document.querySelectorAll('.nav-item[data-view]').forEach(i => i.classList.remove('active'));
+  document.querySelectorAll('.nav-subitem').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-submenu').forEach(sm => { sm.classList.remove('open'); sm.style.display = 'none'; });
+  document.querySelectorAll('.nav-parent').forEach(p => p.classList.remove('expanded'));
   document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
   
   const viewProfil = document.getElementById('view-profil-saya');
@@ -10454,43 +10775,186 @@ document.addEventListener('keydown', (e) => {
 });
 
 function bindSidebarNav() {
+  // 1. Menu Induk (Parent) dan Menu Tunggal (Standalone)
   document.querySelectorAll('.nav-item[data-view]').forEach(item => {
     item.addEventListener('click', () => {
-      toggleSidebarMenu(false);
       const view = item.getAttribute('data-view');
+      const isParent = item.classList.contains('nav-parent');
+
       if (view === 'lainnya') {
+        toggleSidebarMenu(false);
         showToast('info', 'postpone');
         return;
       }
       if (view === 'dashboard-utama' && SESSION.user && SESSION.user.role === 'normal') {
+        toggleSidebarMenu(false);
         showToast('error', 'Menu Dashboard hanya dapat diakses oleh Admin, Super Admin, dan User.');
         return;
       }
       if (view === 'check-kgb' && (!SESSION.user || (SESSION.user.role !== 'admin' && SESSION.user.role !== 'super_admin'))) {
+        toggleSidebarMenu(false);
         showToast('error', 'Menu Check KGB hanya dapat diakses oleh Admin dan Super Admin.');
         return;
       }
       if (view === 'jas' && (!SESSION.user || (SESSION.user.role !== 'admin' && SESSION.user.role !== 'super_admin'))) {
+        toggleSidebarMenu(false);
         showToast('error', 'Menu JAS hanya dapat diakses oleh Admin dan Super Admin.');
         return;
       }
-      document.querySelectorAll('.nav-item[data-view]').forEach(i => i.classList.remove('active'));
-      item.classList.add('active');
-      document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
-      document.getElementById('view-' + view).style.display = 'block';
-      document.getElementById('topbarTitle').textContent = item.getAttribute('data-title');
-      if (view === 'profil-saya') loadProfilSaya();
-      if (view === 'dashboard-utama') loadDashboardUtamaData();
-      if (view === 'jas') initJasView();
-      if (view === 'template') { loadGlosariumTag(); loadTemplateLayananOptions(); loadTemplateList(); }
-      if (view === 'check-kgb') loadCheckKgbData();
-      if (view === 'pensiun') loadPensiunDashboardOnce();
-      if (view === 'peran-akun') loadPeranAkunList();
-      if (view === 'kontrak') initKontrakViewForUser();
-      if (view === 'pmk') loadPmkUsulanList();
-      if (view === 'buat-sk') onEnterBuatSkView();
+
+      if (isParent) {
+        const group = item.closest('.nav-group');
+        const submenu = group ? group.querySelector('.nav-submenu') : null;
+        const isCurrentlyExpanded = item.classList.contains('expanded');
+
+        // Tutup submenu lain agar sidebar tetap rapi
+        document.querySelectorAll('.nav-parent').forEach(p => {
+          if (p !== item) p.classList.remove('expanded');
+        });
+        document.querySelectorAll('.nav-submenu').forEach(sm => {
+          if (sm !== submenu) {
+            sm.classList.remove('open');
+            sm.style.display = 'none';
+          }
+        });
+
+        if (submenu) {
+          if (isCurrentlyExpanded) {
+            item.classList.remove('expanded');
+            submenu.classList.remove('open');
+            submenu.style.display = 'none';
+          } else {
+            item.classList.add('expanded');
+            submenu.classList.add('open');
+            submenu.style.display = 'flex';
+          }
+        }
+
+        // Aktifkan view parent
+        document.querySelectorAll('.nav-item[data-view]').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
+        const vp = document.getElementById('view-' + view);
+        if (vp) vp.style.display = 'block';
+        document.getElementById('topbarTitle').textContent = item.getAttribute('data-title');
+
+        // Jika belum ada sub-item yang aktif di grup ini, buka sub-item pertama yang tampak
+        if (submenu && !submenu.querySelector('.nav-subitem.active')) {
+          const firstVisibleSub = Array.from(submenu.querySelectorAll('.nav-subitem')).find(s => s.style.display !== 'none');
+          if (firstVisibleSub) {
+            firstVisibleSub.click();
+            return;
+          }
+        }
+
+        if (view === 'jas') initJasView();
+        if (view === 'pensiun') loadPensiunDashboardOnce();
+        if (view === 'kontrak') initKontrakViewForUser();
+        if (view === 'buat-sk') onEnterBuatSkView();
+      } else {
+        // Menu Standalone (non-parent)
+        toggleSidebarMenu(false);
+
+        // Tutup semua submenu dan bersihkan active state sub-item
+        document.querySelectorAll('.nav-parent').forEach(p => p.classList.remove('expanded'));
+        document.querySelectorAll('.nav-submenu').forEach(sm => {
+          sm.classList.remove('open');
+          sm.style.display = 'none';
+        });
+        document.querySelectorAll('.nav-subitem').forEach(s => s.classList.remove('active'));
+
+        document.querySelectorAll('.nav-item[data-view]').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
+        const vp = document.getElementById('view-' + view);
+        if (vp) vp.style.display = 'block';
+        document.getElementById('topbarTitle').textContent = item.getAttribute('data-title');
+
+        if (view === 'profil-saya') loadProfilSaya();
+        if (view === 'dashboard-utama') loadDashboardUtamaData();
+        if (view === 'template') { loadGlosariumTag(); loadTemplateLayananOptions(); loadTemplateList(); }
+        if (view === 'check-kgb') loadCheckKgbData();
+        if (view === 'peran-akun') loadPeranAkunList();
+        if (view === 'pmk') loadPmkUsulanList();
+      }
     });
   });
+
+  // 2. Klik Sub-Menu Item
+  document.querySelectorAll('.nav-subitem').forEach(subitem => {
+    subitem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleSidebarMenu(false);
+
+      const parentView = subitem.getAttribute('data-parent-view');
+      const parentGroup = subitem.closest('.nav-group');
+      const parentNav = parentGroup ? parentGroup.querySelector('.nav-parent') : null;
+      const submenu = parentGroup ? parentGroup.querySelector('.nav-submenu') : null;
+
+      // Pastikan accordion parent terbuka
+      document.querySelectorAll('.nav-parent').forEach(p => {
+        if (p !== parentNav) p.classList.remove('expanded');
+      });
+      document.querySelectorAll('.nav-submenu').forEach(sm => {
+        if (sm !== submenu) {
+          sm.classList.remove('open');
+          sm.style.display = 'none';
+        }
+      });
+      if (parentNav) parentNav.classList.add('expanded');
+      if (submenu) {
+        submenu.classList.add('open');
+        submenu.style.display = 'flex';
+      }
+
+      // Tandai sub-item aktif
+      document.querySelectorAll('.nav-subitem').forEach(s => s.classList.remove('active'));
+      subitem.classList.add('active');
+
+      // Tandai parent nav-item aktif
+      document.querySelectorAll('.nav-item[data-view]').forEach(i => i.classList.remove('active'));
+      if (parentNav) parentNav.classList.add('active');
+
+      // Tampilkan view-panel parent
+      document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
+      const vp = document.getElementById('view-' + parentView);
+      if (vp) vp.style.display = 'block';
+
+      // Set judul topbar
+      if (parentNav) {
+        document.getElementById('topbarTitle').textContent = parentNav.getAttribute('data-title');
+      }
+
+      // Alihkan ke tab/modul terkait tanpa mengubah logika sistem
+      if (subitem.hasAttribute('data-tab-group')) {
+        const groupName = subitem.getAttribute('data-tab-group');
+        const targetId = subitem.getAttribute('data-tab-target');
+        if (parentView === 'pensiun') loadPensiunDashboardOnce();
+        activateTab(groupName, targetId);
+      } else if (subitem.hasAttribute('data-kontrak-action')) {
+        const action = subitem.getAttribute('data-kontrak-action');
+        initKontrakViewForUser().then(() => {
+          if (action === 'buat') {
+            document.getElementById('tabBtnKontrakAdminBuat')?.click();
+          } else if (action === 'review') {
+            document.getElementById('tabBtnKontrakAdminReview')?.click();
+          } else if (action === 'atasan') {
+            document.getElementById('tabBtnKontrakAtasan')?.click();
+          } else if (action === 'user-status') {
+            document.getElementById('tabBtnKontrakUserStatus')?.click();
+          }
+        });
+      } else if (subitem.hasAttribute('data-buatsk-tab')) {
+        const tab = subitem.getAttribute('data-buatsk-tab');
+        buatSkSwitchTab(tab);
+      } else if (subitem.hasAttribute('data-jas-tab')) {
+        const tab = subitem.getAttribute('data-jas-tab');
+        initJasView();
+        switchJasTab(tab);
+      }
+    });
+  });
+
   document.getElementById('logoutBtn').addEventListener('click', logoutUser);
   bindPeranAkunSearch();
 }
@@ -10644,9 +11108,18 @@ function bindTabs() {
 }
 function activateTab(groupName, targetId) {
   const group = document.querySelector(`[data-tab-group="${groupName}"]`);
-  group.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-tab-target') === targetId));
+  if (group) group.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-tab-target') === targetId));
+
+  // Sinkronkan ke sidebar sub-item
+  const matchingSub = document.querySelector(`.nav-subitem[data-tab-group="${groupName}"][data-tab-target="${targetId}"]`);
+  if (matchingSub) {
+    document.querySelectorAll(`.nav-subitem[data-tab-group="${groupName}"]`).forEach(s => s.classList.remove('active'));
+    matchingSub.classList.add('active');
+  }
+
   document.querySelectorAll(`.tab-panel[data-tab-group-panel="${groupName}"]`).forEach(p => p.classList.remove('active'));
-  document.getElementById(targetId).classList.add('active');
+  const targetEl = document.getElementById(targetId);
+  if (targetEl) targetEl.classList.add('active');
   if (targetId === 'tab-statusUsulan') loadStatusUsulanSaya();
   if (targetId === 'tab-usulanMasuk') loadUsulanMasukDashboard();
   if (targetId === 'tab-siapSk') { bindSkKpNonAsnForm(); loadSiapSkList(); }
@@ -13875,13 +14348,13 @@ async function loadUsulanMasukBadge() {
     const res = await rpc('getUsulanNotifikasiSummary', [SESSION.token]);
     if (!res || !res.success) return;
     const badge = document.getElementById('usulanMasukBadge');
-    if (badge) {
-      if (res.totalUsulanBaru > 0) {
-        badge.textContent = res.totalUsulanBaru;
-        badge.style.display = 'inline-block';
-      } else {
-        badge.style.display = 'none';
-      }
+    const subBadge = document.getElementById('navSubUsulanMasukBadge');
+    if (res.totalUsulanBaru > 0) {
+      if (badge) { badge.textContent = res.totalUsulanBaru; badge.style.display = 'inline-block'; }
+      if (subBadge) { subBadge.textContent = res.totalUsulanBaru; subBadge.style.display = 'inline-block'; }
+    } else {
+      if (badge) badge.style.display = 'none';
+      if (subBadge) subBadge.style.display = 'none';
     }
   } catch (e) {
     if (typeof google !== 'undefined' && google.script && google.script.run) {
@@ -13889,13 +14362,13 @@ async function loadUsulanMasukBadge() {
         .withSuccessHandler(res => {
           if (!res || !res.success) return;
           const badge = document.getElementById('usulanMasukBadge');
-          if (badge) {
-            if (res.totalUsulanBaru > 0) {
-              badge.textContent = res.totalUsulanBaru;
-              badge.style.display = 'inline-block';
-            } else {
-              badge.style.display = 'none';
-            }
+          const subBadge = document.getElementById('navSubUsulanMasukBadge');
+          if (res.totalUsulanBaru > 0) {
+            if (badge) { badge.textContent = res.totalUsulanBaru; badge.style.display = 'inline-block'; }
+            if (subBadge) { subBadge.textContent = res.totalUsulanBaru; subBadge.style.display = 'inline-block'; }
+          } else {
+            if (badge) badge.style.display = 'none';
+            if (subBadge) subBadge.style.display = 'none';
           }
         })
         .withFailureHandler(() => {})
@@ -16363,11 +16836,13 @@ function loadUsulanMasukBadge() {
     .withSuccessHandler(res => {
       if (!res.success) return;
       const badge = document.getElementById('usulanMasukBadge');
+      const subBadge = document.getElementById('navSubUsulanMasukBadge');
       if (res.totalUsulanBaru > 0) {
-        badge.textContent = res.totalUsulanBaru;
-        badge.style.display = 'inline-block';
+        if (badge) { badge.textContent = res.totalUsulanBaru; badge.style.display = 'inline-block'; }
+        if (subBadge) { subBadge.textContent = res.totalUsulanBaru; subBadge.style.display = 'inline-block'; }
       } else {
-        badge.style.display = 'none';
+        if (badge) badge.style.display = 'none';
+        if (subBadge) subBadge.style.display = 'none';
       }
     })
     .withFailureHandler(() => {})
@@ -16641,8 +17116,14 @@ function loadUsulanMasukPensiunBadge() {
     .withSuccessHandler(res => {
       if (!res.success) return;
       const badge = document.getElementById('usulanMasukPensiunBadge');
-      if (res.totalUsulanBaru > 0) { badge.textContent = res.totalUsulanBaru; badge.style.display = 'inline-block'; }
-      else badge.style.display = 'none';
+      const subBadge = document.getElementById('navSubUsulanMasukPensiunBadge');
+      if (res.totalUsulanBaru > 0) {
+        if (badge) { badge.textContent = res.totalUsulanBaru; badge.style.display = 'inline-block'; }
+        if (subBadge) { subBadge.textContent = res.totalUsulanBaru; subBadge.style.display = 'inline-block'; }
+      } else {
+        if (badge) badge.style.display = 'none';
+        if (subBadge) subBadge.style.display = 'none';
+      }
     })
     .withFailureHandler(() => {})
     .getUsulanPensiunNotifikasiSummary(SESSION.token);
@@ -20240,8 +20721,53 @@ function initKontrakTabs() {
         if (userPropSec) userPropSec.style.display = 'block';
         loadUsulanKontrakSaya();
       }
+
+      // Sinkronkan ke sidebar sub-item
+      const matchingSub = document.querySelector(`.nav-subitem[data-kontrak-action="${target}"]`);
+      if (matchingSub) {
+        document.querySelectorAll('.nav-subitem[data-kontrak-action]').forEach(s => s.classList.remove('active'));
+        matchingSub.classList.add('active');
+      }
     });
   });
+}
+
+function syncKontrakSubmenu() {
+  const btnAdminBuat = document.getElementById('tabBtnKontrakAdminBuat');
+  const btnAdminReview = document.getElementById('tabBtnKontrakAdminReview');
+  const btnAtasan = document.getElementById('tabBtnKontrakAtasan');
+  const btnUserStatus = document.getElementById('tabBtnKontrakUserStatus');
+
+  const navSubKontrakBuat = document.getElementById('navSubKontrakBuat');
+  const navSubKontrakReview = document.getElementById('navSubKontrakReview');
+  const navSubKontrakAtasan = document.getElementById('navSubKontrakAtasan');
+  const navSubKontrakUserStatus = document.getElementById('navSubKontrakUserStatus');
+
+  if (navSubKontrakBuat) navSubKontrakBuat.style.display = (btnAdminBuat && btnAdminBuat.style.display !== 'none') ? 'flex' : 'none';
+  if (navSubKontrakReview) navSubKontrakReview.style.display = (btnAdminReview && btnAdminReview.style.display !== 'none') ? 'flex' : 'none';
+  if (navSubKontrakAtasan) navSubKontrakAtasan.style.display = (btnAtasan && btnAtasan.style.display !== 'none') ? 'flex' : 'none';
+  if (navSubKontrakUserStatus) {
+    navSubKontrakUserStatus.style.display = (btnUserStatus && btnUserStatus.style.display !== 'none') ? 'flex' : 'none';
+    if (btnUserStatus) {
+      const textSpan = navSubKontrakUserStatus.querySelector('.nav-subitem-text');
+      if (textSpan) textSpan.textContent = btnUserStatus.textContent || 'Usulan Kontrak Saya';
+    }
+  }
+
+  // Sync active state
+  if (btnAdminBuat && btnAdminBuat.classList.contains('active')) {
+    document.querySelectorAll('.nav-subitem[data-kontrak-action]').forEach(s => s.classList.remove('active'));
+    if (navSubKontrakBuat) navSubKontrakBuat.classList.add('active');
+  } else if (btnAdminReview && btnAdminReview.classList.contains('active')) {
+    document.querySelectorAll('.nav-subitem[data-kontrak-action]').forEach(s => s.classList.remove('active'));
+    if (navSubKontrakReview) navSubKontrakReview.classList.add('active');
+  } else if (btnAtasan && btnAtasan.classList.contains('active')) {
+    document.querySelectorAll('.nav-subitem[data-kontrak-action]').forEach(s => s.classList.remove('active'));
+    if (navSubKontrakAtasan) navSubKontrakAtasan.classList.add('active');
+  } else if (btnUserStatus && btnUserStatus.classList.contains('active')) {
+    document.querySelectorAll('.nav-subitem[data-kontrak-action]').forEach(s => s.classList.remove('active'));
+    if (navSubKontrakUserStatus) navSubKontrakUserStatus.classList.add('active');
+  }
 }
 
 async function initKontrakViewForUser() {
@@ -20307,6 +20833,8 @@ async function initKontrakViewForUser() {
     }
   }
 
+  syncKontrakSubmenu();
+
   // Request menu access details from backend (for Atasan Langsung role/badge & status kontrak)
   try {
     const resAkses = await rpc('getMenuAksesKontrak', [SESSION.token]);
@@ -20323,9 +20851,14 @@ async function initKontrakViewForUser() {
         if (isAtasan || isAdmin) {
           btnAtasan.style.display = 'inline-block';
           const badge = document.getElementById('kontrakAtasanBadge');
+          const subBadge = document.getElementById('navSubKontrakAtasanBadge');
           if (badge) {
             badge.textContent = countAtasan;
             badge.style.display = countAtasan > 0 ? 'inline-block' : 'none';
+          }
+          if (subBadge) {
+            subBadge.textContent = countAtasan;
+            subBadge.style.display = countAtasan > 0 ? 'inline-block' : 'none';
           }
         } else {
           btnAtasan.style.display = 'none';
@@ -20388,6 +20921,7 @@ async function initKontrakViewForUser() {
           if (userPropSec) userPropSec.style.display = 'none';
         }
       }
+      syncKontrakSubmenu();
     }
   } catch (errAkses) {
     console.warn('[initKontrakViewForUser] notice:', errAkses.message);
@@ -23592,13 +24126,13 @@ function loadKontrakReviewBadge() {
   rpc('getUsulanKontrakNotifikasiSummary', [SESSION.token])
     .then(res => {
       const badge = document.getElementById('kontrakReviewBadge');
-      if (badge) {
-        if (res.success && res.totalUsulanBaru > 0) {
-          badge.textContent = res.totalUsulanBaru;
-          badge.style.display = 'inline-block';
-        } else {
-          badge.style.display = 'none';
-        }
+      const subBadge = document.getElementById('navSubKontrakReviewBadge');
+      if (res && res.success && res.totalUsulanBaru > 0) {
+        if (badge) { badge.textContent = res.totalUsulanBaru; badge.style.display = 'inline-block'; }
+        if (subBadge) { subBadge.textContent = res.totalUsulanBaru; subBadge.style.display = 'inline-block'; }
+      } else {
+        if (badge) badge.style.display = 'none';
+        if (subBadge) subBadge.style.display = 'none';
       }
     })
     .catch(() => {
@@ -23606,13 +24140,13 @@ function loadKontrakReviewBadge() {
         google.script.run
           .withSuccessHandler(res => {
             const badge = document.getElementById('kontrakReviewBadge');
-            if (badge) {
-              if (res.success && res.totalUsulanBaru > 0) {
-                badge.textContent = res.totalUsulanBaru;
-                badge.style.display = 'inline-block';
-              } else {
-                badge.style.display = 'none';
-              }
+            const subBadge = document.getElementById('navSubKontrakReviewBadge');
+            if (res && res.success && res.totalUsulanBaru > 0) {
+              if (badge) { badge.textContent = res.totalUsulanBaru; badge.style.display = 'inline-block'; }
+              if (subBadge) { subBadge.textContent = res.totalUsulanBaru; subBadge.style.display = 'inline-block'; }
+            } else {
+              if (badge) badge.style.display = 'none';
+              if (subBadge) subBadge.style.display = 'none';
             }
           })
           .getUsulanKontrakNotifikasiSummary(SESSION.token);
@@ -24822,13 +25356,13 @@ function loadApprovalSkBadge() {
     .withSuccessHandler(res => {
       if (!res.success) return;
       const badge = document.getElementById('approvalSkBadge');
-      if (badge) {
-        if (res.daftar && res.daftar.length > 0) {
-          badge.textContent = res.daftar.length;
-          badge.style.display = 'inline-block';
-        } else {
-          badge.style.display = 'none';
-        }
+      const subBadge = document.getElementById('navSubApprovalSkBadge');
+      if (res.daftar && res.daftar.length > 0) {
+        if (badge) { badge.textContent = res.daftar.length; badge.style.display = 'inline-block'; }
+        if (subBadge) { subBadge.textContent = res.daftar.length; subBadge.style.display = 'inline-block'; }
+      } else {
+        if (badge) badge.style.display = 'none';
+        if (subBadge) subBadge.style.display = 'none';
       }
     })
     .withFailureHandler(() => {})
@@ -26294,6 +26828,15 @@ function buatSkSwitchTab(tab) {
     if (!b) return;
     b.classList.toggle('btn-primary', t === tab);
     b.classList.toggle('btn-outline', t !== tab);
+  });
+  const subMap = {
+    'usul-sk':      'navSubBuatSkUsul',
+    'usulan-masuk': 'navSubBuatSkUsulanMasuk',
+    'buat-sk':      'navSubBuatSkBuat'
+  };
+  Object.entries(subMap).forEach(([t, id]) => {
+    const s = document.getElementById(id);
+    if (s) s.classList.toggle('active', t === tab);
   });
   if (tab === 'usul-sk')      loadUsulanSkSaya();
   if (tab === 'usulan-masuk') loadUsulanSkMasuk();
@@ -32149,6 +32692,11 @@ function switchJasTab(tab) {
     if (panelRename) panelRename.style.display = 'none';
     if (panelDownload) panelDownload.style.display = 'block';
   }
+
+  const subRename = document.getElementById('navSubJasRename');
+  const subDownload = document.getElementById('navSubJasDownload');
+  if (subRename) subRename.classList.toggle('active', tab === 'rename');
+  if (subDownload) subDownload.classList.toggle('active', tab !== 'rename');
 }
 
 let _jasHasCredentials = false;

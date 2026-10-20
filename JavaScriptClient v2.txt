@@ -404,8 +404,14 @@ function terapkanBatasanPeran_() {
   const navPeranAkun = document.querySelector('.nav-item[data-view="peran-akun"]');
   const navLainnya = document.querySelector('.nav-item[data-view="lainnya"]');
 
+  const navGroupKp = document.getElementById('navGroupKp');
+  const navGroupPensiun = document.getElementById('navGroupPensiun');
+  const navGroupKontrak = document.getElementById('navGroupKontrak');
+  const navGroupBuatSk = document.getElementById('navGroupBuatSk');
+  const navGroupJas = document.getElementById('navGroupJas');
+
   // Sembunyikan semua dulu (deny-by-default), baru tampilkan sesuai peran.
-  [navProfil, navDashboard, navJas, navKP, navKgb, navPensiun, navKontrak, navPmk, navBuatSk, navTemplate, navPeranAkun, navLainnya].forEach(el => { if (el) el.style.display = 'none'; });
+  [navProfil, navDashboard, navJas, navKP, navKgb, navPensiun, navKontrak, navPmk, navBuatSk, navTemplate, navPeranAkun, navLainnya, navGroupKp, navGroupPensiun, navGroupKontrak, navGroupBuatSk, navGroupJas].forEach(el => { if (el) el.style.display = 'none'; });
 
   // Menu Profil Saya sekarang ditampilkan di urutan paling atas untuk SEMUA peran
   if (navProfil) navProfil.style.display = 'flex';
@@ -417,6 +423,7 @@ function terapkanBatasanPeran_() {
   if (role === 'normal') {
     if (navDashboard) navDashboard.style.display = 'none';
     if (navJas) navJas.style.display = 'none';
+    if (navGroupJas) navGroupJas.style.display = 'none';
     
     rpc('getMenuAksesKontrak', [SESSION.token])
       .then(res => {
@@ -427,6 +434,9 @@ function terapkanBatasanPeran_() {
         );
         if (navKontrak) {
           navKontrak.style.display = canAccess ? 'flex' : 'none';
+        }
+        if (navGroupKontrak) {
+          navGroupKontrak.style.display = canAccess ? 'block' : 'none';
         }
       })
       .catch(err => {
@@ -440,12 +450,25 @@ function terapkanBatasanPeran_() {
     // Menu JAS HANYA untuk role admin dan super_admin
     if (navJas && (role === 'admin' || role === 'super_admin')) {
       navJas.style.display = 'flex';
+      if (navGroupJas) navGroupJas.style.display = 'block';
     }
-    if (navKP) navKP.style.display = 'flex';
-    if (navPensiun) navPensiun.style.display = 'flex';
-    if (navKontrak) navKontrak.style.display = 'flex';
+    if (navKP) {
+      navKP.style.display = 'flex';
+      if (navGroupKp) navGroupKp.style.display = 'block';
+    }
+    if (navPensiun) {
+      navPensiun.style.display = 'flex';
+      if (navGroupPensiun) navGroupPensiun.style.display = 'block';
+    }
+    if (navKontrak) {
+      navKontrak.style.display = 'flex';
+      if (navGroupKontrak) navGroupKontrak.style.display = 'block';
+    }
     if (['user', 'admin', 'super_admin'].includes(role) && navPmk) navPmk.style.display = 'flex';
-    if (['user', 'admin', 'super_admin'].includes(role) && navBuatSk) navBuatSk.style.display = 'flex';
+    if (['user', 'admin', 'super_admin'].includes(role) && navBuatSk) {
+      navBuatSk.style.display = 'flex';
+      if (navGroupBuatSk) navGroupBuatSk.style.display = 'block';
+    }
     if (navLainnya) navLainnya.style.display = 'flex';
     if (role === 'admin' || role === 'super_admin') {
       if (navKgb) navKgb.style.display = 'flex';
@@ -471,6 +494,32 @@ function terapkanBatasanPeran_() {
   if (tabOptA) tabOptA.style.display = tampilkanOpsiAB ? '' : 'none';
   if (tabOptB) tabOptB.style.display = tampilkanOpsiAB ? '' : 'none';
 
+  // Submenu Kenaikan Pangkat di sidebar
+  const navSubCheckEligible = document.getElementById('navSubCheckEligible');
+  const navSubOptA = document.getElementById('navSubOptA');
+  const navSubOptB = document.getElementById('navSubOptB');
+  const navSubStatusUsulan = document.getElementById('navSubStatusUsulan');
+  const navSubUsulanMasuk = document.getElementById('navSubUsulanMasuk');
+  const navSubSiapSk = document.getElementById('navSubSiapSk');
+  const navSubApprovalSk = document.getElementById('navSubApprovalSk');
+  const navSubUploadSk = document.getElementById('navSubUploadSk');
+
+  if (navSubCheckEligible) navSubCheckEligible.style.display = 'flex';
+  if (navSubOptA) navSubOptA.style.display = tampilkanOpsiAB ? 'flex' : 'none';
+  if (navSubOptB) navSubOptB.style.display = tampilkanOpsiAB ? 'flex' : 'none';
+  if (navSubStatusUsulan) navSubStatusUsulan.style.display = (role === 'user') ? 'flex' : 'none';
+  if (navSubUsulanMasuk) navSubUsulanMasuk.style.display = (role === 'admin' || role === 'super_admin') ? 'flex' : 'none';
+  if (navSubSiapSk) navSubSiapSk.style.display = (role === 'admin' || role === 'super_admin') ? 'flex' : 'none';
+  if (navSubUploadSk) navSubUploadSk.style.display = (role === 'admin' || role === 'super_admin') ? 'flex' : 'none';
+  if (navSubApprovalSk) {
+    if ((role === 'admin' || role === 'super_admin') && SESSION.user && SESSION.user.sub_role) {
+      navSubApprovalSk.style.display = 'flex';
+      loadApprovalSkBadge();
+    } else {
+      navSubApprovalSk.style.display = 'none';
+    }
+  }
+
   // Tab "Status Usulan Saya" (user) & "Usulan Masuk" (admin/super_admin).
   const tabStatusUsulan = document.getElementById('tabBtnStatusUsulan');
   const tabUsulanMasuk = document.getElementById('tabBtnUsulanMasuk');
@@ -493,7 +542,20 @@ function terapkanBatasanPeran_() {
 
   if (role === 'admin' || role === 'super_admin') loadUsulanMasukBadge();
 
-  // Sama untuk modul Pensiun.
+  // Submenu Pensiun di sidebar
+  const navSubDpcp = document.getElementById('navSubDpcp');
+  const navSubStatusUsulanPensiun = document.getElementById('navSubStatusUsulanPensiun');
+  const navSubUsulanMasukPensiun = document.getElementById('navSubUsulanMasukPensiun');
+  const navSubSkPensiunNonAsn = document.getElementById('navSubSkPensiunNonAsn');
+  const navSubUploadSkPensiun = document.getElementById('navSubUploadSkPensiun');
+
+  if (navSubDpcp) navSubDpcp.style.display = 'flex';
+  if (navSubStatusUsulanPensiun) navSubStatusUsulanPensiun.style.display = (role === 'user') ? 'flex' : 'none';
+  if (navSubUsulanMasukPensiun) navSubUsulanMasukPensiun.style.display = (role === 'admin' || role === 'super_admin') ? 'flex' : 'none';
+  if (navSubSkPensiunNonAsn) navSubSkPensiunNonAsn.style.display = (role === 'admin' || role === 'super_admin') ? 'flex' : 'none';
+  if (navSubUploadSkPensiun) navSubUploadSkPensiun.style.display = (role === 'admin' || role === 'super_admin') ? 'flex' : 'none';
+
+  // Sama untuk modul Pensiun tabs.
   const tabStatusUsulanPensiun = document.getElementById('tabBtnStatusUsulanPensiun');
   const tabUsulanMasukPensiun = document.getElementById('tabBtnUsulanMasukPensiun');
   const tabBtnSkPensiunNonAsn = document.getElementById('tabBtnSkPensiunNonAsn');
@@ -503,6 +565,21 @@ function terapkanBatasanPeran_() {
   if (tabBtnSkPensiunNonAsn) tabBtnSkPensiunNonAsn.style.display = (role === 'admin' || role === 'super_admin') ? '' : 'none';
   if (tabBtnUploadSkPensiun) tabBtnUploadSkPensiun.style.display = (role === 'admin' || role === 'super_admin') ? '' : 'none';
   if (role === 'admin' || role === 'super_admin') loadUsulanMasukPensiunBadge();
+
+  // Submenu Buat SK di sidebar
+  const navSubBuatSkUsul = document.getElementById('navSubBuatSkUsul');
+  const navSubBuatSkUsulanMasuk = document.getElementById('navSubBuatSkUsulanMasuk');
+  const navSubBuatSkBuat = document.getElementById('navSubBuatSkBuat');
+  const isAdmin = (role === 'admin' || role === 'super_admin');
+  if (navSubBuatSkUsul) navSubBuatSkUsul.style.display = 'flex';
+  if (navSubBuatSkUsulanMasuk) navSubBuatSkUsulanMasuk.style.display = isAdmin ? 'flex' : 'none';
+  if (navSubBuatSkBuat) navSubBuatSkBuat.style.display = isAdmin ? 'flex' : 'none';
+
+  // Submenu JAS di sidebar
+  const navSubJasRename = document.getElementById('navSubJasRename');
+  const navSubJasDownload = document.getElementById('navSubJasDownload');
+  if (navSubJasRename) navSubJasRename.style.display = isAdmin ? 'flex' : 'none';
+  if (navSubJasDownload) navSubJasDownload.style.display = isAdmin ? 'flex' : 'none';
 
   // Tombol akses manual di dashboard Pensiun berubah makna sesuai peran:
   // user -> buka modal Ajukan Usulan; admin/super_admin -> form DPCP penuh.
@@ -525,6 +602,9 @@ function terapkanBatasanPeran_() {
 
   // Arahkan ke view default sesuai peran.
   document.querySelectorAll('.nav-item[data-view]').forEach(i => i.classList.remove('active'));
+  document.querySelectorAll('.nav-subitem').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-submenu').forEach(sm => { sm.classList.remove('open'); sm.style.display = 'none'; });
+  document.querySelectorAll('.nav-parent').forEach(p => p.classList.remove('expanded'));
   document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
   const navAktif = document.querySelector(`.nav-item[data-view="${viewAktif}"]`);
   if (navAktif) navAktif.classList.add('active');
@@ -539,6 +619,9 @@ function terapkanBatasanPeran_() {
 /** Navigasi langsung ke halaman Profil Saya saat avatar/chip di topbar diklik */
 function navigateToProfilSaya() {
   document.querySelectorAll('.nav-item[data-view]').forEach(i => i.classList.remove('active'));
+  document.querySelectorAll('.nav-subitem').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-submenu').forEach(sm => { sm.classList.remove('open'); sm.style.display = 'none'; });
+  document.querySelectorAll('.nav-parent').forEach(p => p.classList.remove('expanded'));
   document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
   
   const viewProfil = document.getElementById('view-profil-saya');
@@ -1895,43 +1978,186 @@ document.addEventListener('keydown', (e) => {
 });
 
 function bindSidebarNav() {
+  // 1. Menu Induk (Parent) dan Menu Tunggal (Standalone)
   document.querySelectorAll('.nav-item[data-view]').forEach(item => {
     item.addEventListener('click', () => {
-      toggleSidebarMenu(false);
       const view = item.getAttribute('data-view');
+      const isParent = item.classList.contains('nav-parent');
+
       if (view === 'lainnya') {
+        toggleSidebarMenu(false);
         showToast('info', 'postpone');
         return;
       }
       if (view === 'dashboard-utama' && SESSION.user && SESSION.user.role === 'normal') {
+        toggleSidebarMenu(false);
         showToast('error', 'Menu Dashboard hanya dapat diakses oleh Admin, Super Admin, dan User.');
         return;
       }
       if (view === 'check-kgb' && (!SESSION.user || (SESSION.user.role !== 'admin' && SESSION.user.role !== 'super_admin'))) {
+        toggleSidebarMenu(false);
         showToast('error', 'Menu Check KGB hanya dapat diakses oleh Admin dan Super Admin.');
         return;
       }
       if (view === 'jas' && (!SESSION.user || (SESSION.user.role !== 'admin' && SESSION.user.role !== 'super_admin'))) {
+        toggleSidebarMenu(false);
         showToast('error', 'Menu JAS hanya dapat diakses oleh Admin dan Super Admin.');
         return;
       }
-      document.querySelectorAll('.nav-item[data-view]').forEach(i => i.classList.remove('active'));
-      item.classList.add('active');
-      document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
-      document.getElementById('view-' + view).style.display = 'block';
-      document.getElementById('topbarTitle').textContent = item.getAttribute('data-title');
-      if (view === 'profil-saya') loadProfilSaya();
-      if (view === 'dashboard-utama') loadDashboardUtamaData();
-      if (view === 'jas') initJasView();
-      if (view === 'template') { loadGlosariumTag(); loadTemplateLayananOptions(); loadTemplateList(); }
-      if (view === 'check-kgb') loadCheckKgbData();
-      if (view === 'pensiun') loadPensiunDashboardOnce();
-      if (view === 'peran-akun') loadPeranAkunList();
-      if (view === 'kontrak') initKontrakViewForUser();
-      if (view === 'pmk') loadPmkUsulanList();
-      if (view === 'buat-sk') onEnterBuatSkView();
+
+      if (isParent) {
+        const group = item.closest('.nav-group');
+        const submenu = group ? group.querySelector('.nav-submenu') : null;
+        const isCurrentlyExpanded = item.classList.contains('expanded');
+
+        // Tutup submenu lain agar sidebar tetap rapi
+        document.querySelectorAll('.nav-parent').forEach(p => {
+          if (p !== item) p.classList.remove('expanded');
+        });
+        document.querySelectorAll('.nav-submenu').forEach(sm => {
+          if (sm !== submenu) {
+            sm.classList.remove('open');
+            sm.style.display = 'none';
+          }
+        });
+
+        if (submenu) {
+          if (isCurrentlyExpanded) {
+            item.classList.remove('expanded');
+            submenu.classList.remove('open');
+            submenu.style.display = 'none';
+          } else {
+            item.classList.add('expanded');
+            submenu.classList.add('open');
+            submenu.style.display = 'flex';
+          }
+        }
+
+        // Aktifkan view parent
+        document.querySelectorAll('.nav-item[data-view]').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
+        const vp = document.getElementById('view-' + view);
+        if (vp) vp.style.display = 'block';
+        document.getElementById('topbarTitle').textContent = item.getAttribute('data-title');
+
+        // Jika belum ada sub-item yang aktif di grup ini, buka sub-item pertama yang tampak
+        if (submenu && !submenu.querySelector('.nav-subitem.active')) {
+          const firstVisibleSub = Array.from(submenu.querySelectorAll('.nav-subitem')).find(s => s.style.display !== 'none');
+          if (firstVisibleSub) {
+            firstVisibleSub.click();
+            return;
+          }
+        }
+
+        if (view === 'jas') initJasView();
+        if (view === 'pensiun') loadPensiunDashboardOnce();
+        if (view === 'kontrak') initKontrakViewForUser();
+        if (view === 'buat-sk') onEnterBuatSkView();
+      } else {
+        // Menu Standalone (non-parent)
+        toggleSidebarMenu(false);
+
+        // Tutup semua submenu dan bersihkan active state sub-item
+        document.querySelectorAll('.nav-parent').forEach(p => p.classList.remove('expanded'));
+        document.querySelectorAll('.nav-submenu').forEach(sm => {
+          sm.classList.remove('open');
+          sm.style.display = 'none';
+        });
+        document.querySelectorAll('.nav-subitem').forEach(s => s.classList.remove('active'));
+
+        document.querySelectorAll('.nav-item[data-view]').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
+        const vp = document.getElementById('view-' + view);
+        if (vp) vp.style.display = 'block';
+        document.getElementById('topbarTitle').textContent = item.getAttribute('data-title');
+
+        if (view === 'profil-saya') loadProfilSaya();
+        if (view === 'dashboard-utama') loadDashboardUtamaData();
+        if (view === 'template') { loadGlosariumTag(); loadTemplateLayananOptions(); loadTemplateList(); }
+        if (view === 'check-kgb') loadCheckKgbData();
+        if (view === 'peran-akun') loadPeranAkunList();
+        if (view === 'pmk') loadPmkUsulanList();
+      }
     });
   });
+
+  // 2. Klik Sub-Menu Item
+  document.querySelectorAll('.nav-subitem').forEach(subitem => {
+    subitem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleSidebarMenu(false);
+
+      const parentView = subitem.getAttribute('data-parent-view');
+      const parentGroup = subitem.closest('.nav-group');
+      const parentNav = parentGroup ? parentGroup.querySelector('.nav-parent') : null;
+      const submenu = parentGroup ? parentGroup.querySelector('.nav-submenu') : null;
+
+      // Pastikan accordion parent terbuka
+      document.querySelectorAll('.nav-parent').forEach(p => {
+        if (p !== parentNav) p.classList.remove('expanded');
+      });
+      document.querySelectorAll('.nav-submenu').forEach(sm => {
+        if (sm !== submenu) {
+          sm.classList.remove('open');
+          sm.style.display = 'none';
+        }
+      });
+      if (parentNav) parentNav.classList.add('expanded');
+      if (submenu) {
+        submenu.classList.add('open');
+        submenu.style.display = 'flex';
+      }
+
+      // Tandai sub-item aktif
+      document.querySelectorAll('.nav-subitem').forEach(s => s.classList.remove('active'));
+      subitem.classList.add('active');
+
+      // Tandai parent nav-item aktif
+      document.querySelectorAll('.nav-item[data-view]').forEach(i => i.classList.remove('active'));
+      if (parentNav) parentNav.classList.add('active');
+
+      // Tampilkan view-panel parent
+      document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
+      const vp = document.getElementById('view-' + parentView);
+      if (vp) vp.style.display = 'block';
+
+      // Set judul topbar
+      if (parentNav) {
+        document.getElementById('topbarTitle').textContent = parentNav.getAttribute('data-title');
+      }
+
+      // Alihkan ke tab/modul terkait tanpa mengubah logika sistem
+      if (subitem.hasAttribute('data-tab-group')) {
+        const groupName = subitem.getAttribute('data-tab-group');
+        const targetId = subitem.getAttribute('data-tab-target');
+        if (parentView === 'pensiun') loadPensiunDashboardOnce();
+        activateTab(groupName, targetId);
+      } else if (subitem.hasAttribute('data-kontrak-action')) {
+        const action = subitem.getAttribute('data-kontrak-action');
+        initKontrakViewForUser().then(() => {
+          if (action === 'buat') {
+            document.getElementById('tabBtnKontrakAdminBuat')?.click();
+          } else if (action === 'review') {
+            document.getElementById('tabBtnKontrakAdminReview')?.click();
+          } else if (action === 'atasan') {
+            document.getElementById('tabBtnKontrakAtasan')?.click();
+          } else if (action === 'user-status') {
+            document.getElementById('tabBtnKontrakUserStatus')?.click();
+          }
+        });
+      } else if (subitem.hasAttribute('data-buatsk-tab')) {
+        const tab = subitem.getAttribute('data-buatsk-tab');
+        buatSkSwitchTab(tab);
+      } else if (subitem.hasAttribute('data-jas-tab')) {
+        const tab = subitem.getAttribute('data-jas-tab');
+        initJasView();
+        switchJasTab(tab);
+      }
+    });
+  });
+
   document.getElementById('logoutBtn').addEventListener('click', logoutUser);
   bindPeranAkunSearch();
 }
@@ -2085,9 +2311,18 @@ function bindTabs() {
 }
 function activateTab(groupName, targetId) {
   const group = document.querySelector(`[data-tab-group="${groupName}"]`);
-  group.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-tab-target') === targetId));
+  if (group) group.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-tab-target') === targetId));
+
+  // Sinkronkan ke sidebar sub-item
+  const matchingSub = document.querySelector(`.nav-subitem[data-tab-group="${groupName}"][data-tab-target="${targetId}"]`);
+  if (matchingSub) {
+    document.querySelectorAll(`.nav-subitem[data-tab-group="${groupName}"]`).forEach(s => s.classList.remove('active'));
+    matchingSub.classList.add('active');
+  }
+
   document.querySelectorAll(`.tab-panel[data-tab-group-panel="${groupName}"]`).forEach(p => p.classList.remove('active'));
-  document.getElementById(targetId).classList.add('active');
+  const targetEl = document.getElementById(targetId);
+  if (targetEl) targetEl.classList.add('active');
   if (targetId === 'tab-statusUsulan') loadStatusUsulanSaya();
   if (targetId === 'tab-usulanMasuk') loadUsulanMasukDashboard();
   if (targetId === 'tab-siapSk') { bindSkKpNonAsnForm(); loadSiapSkList(); }
@@ -5316,13 +5551,13 @@ async function loadUsulanMasukBadge() {
     const res = await rpc('getUsulanNotifikasiSummary', [SESSION.token]);
     if (!res || !res.success) return;
     const badge = document.getElementById('usulanMasukBadge');
-    if (badge) {
-      if (res.totalUsulanBaru > 0) {
-        badge.textContent = res.totalUsulanBaru;
-        badge.style.display = 'inline-block';
-      } else {
-        badge.style.display = 'none';
-      }
+    const subBadge = document.getElementById('navSubUsulanMasukBadge');
+    if (res.totalUsulanBaru > 0) {
+      if (badge) { badge.textContent = res.totalUsulanBaru; badge.style.display = 'inline-block'; }
+      if (subBadge) { subBadge.textContent = res.totalUsulanBaru; subBadge.style.display = 'inline-block'; }
+    } else {
+      if (badge) badge.style.display = 'none';
+      if (subBadge) subBadge.style.display = 'none';
     }
   } catch (e) {
     if (typeof google !== 'undefined' && google.script && google.script.run) {
@@ -5330,13 +5565,13 @@ async function loadUsulanMasukBadge() {
         .withSuccessHandler(res => {
           if (!res || !res.success) return;
           const badge = document.getElementById('usulanMasukBadge');
-          if (badge) {
-            if (res.totalUsulanBaru > 0) {
-              badge.textContent = res.totalUsulanBaru;
-              badge.style.display = 'inline-block';
-            } else {
-              badge.style.display = 'none';
-            }
+          const subBadge = document.getElementById('navSubUsulanMasukBadge');
+          if (res.totalUsulanBaru > 0) {
+            if (badge) { badge.textContent = res.totalUsulanBaru; badge.style.display = 'inline-block'; }
+            if (subBadge) { subBadge.textContent = res.totalUsulanBaru; subBadge.style.display = 'inline-block'; }
+          } else {
+            if (badge) badge.style.display = 'none';
+            if (subBadge) subBadge.style.display = 'none';
           }
         })
         .withFailureHandler(() => {})
@@ -7804,11 +8039,13 @@ function loadUsulanMasukBadge() {
     .withSuccessHandler(res => {
       if (!res.success) return;
       const badge = document.getElementById('usulanMasukBadge');
+      const subBadge = document.getElementById('navSubUsulanMasukBadge');
       if (res.totalUsulanBaru > 0) {
-        badge.textContent = res.totalUsulanBaru;
-        badge.style.display = 'inline-block';
+        if (badge) { badge.textContent = res.totalUsulanBaru; badge.style.display = 'inline-block'; }
+        if (subBadge) { subBadge.textContent = res.totalUsulanBaru; subBadge.style.display = 'inline-block'; }
       } else {
-        badge.style.display = 'none';
+        if (badge) badge.style.display = 'none';
+        if (subBadge) subBadge.style.display = 'none';
       }
     })
     .withFailureHandler(() => {})
@@ -8082,8 +8319,14 @@ function loadUsulanMasukPensiunBadge() {
     .withSuccessHandler(res => {
       if (!res.success) return;
       const badge = document.getElementById('usulanMasukPensiunBadge');
-      if (res.totalUsulanBaru > 0) { badge.textContent = res.totalUsulanBaru; badge.style.display = 'inline-block'; }
-      else badge.style.display = 'none';
+      const subBadge = document.getElementById('navSubUsulanMasukPensiunBadge');
+      if (res.totalUsulanBaru > 0) {
+        if (badge) { badge.textContent = res.totalUsulanBaru; badge.style.display = 'inline-block'; }
+        if (subBadge) { subBadge.textContent = res.totalUsulanBaru; subBadge.style.display = 'inline-block'; }
+      } else {
+        if (badge) badge.style.display = 'none';
+        if (subBadge) subBadge.style.display = 'none';
+      }
     })
     .withFailureHandler(() => {})
     .getUsulanPensiunNotifikasiSummary(SESSION.token);
@@ -11681,8 +11924,53 @@ function initKontrakTabs() {
         if (userPropSec) userPropSec.style.display = 'block';
         loadUsulanKontrakSaya();
       }
+
+      // Sinkronkan ke sidebar sub-item
+      const matchingSub = document.querySelector(`.nav-subitem[data-kontrak-action="${target}"]`);
+      if (matchingSub) {
+        document.querySelectorAll('.nav-subitem[data-kontrak-action]').forEach(s => s.classList.remove('active'));
+        matchingSub.classList.add('active');
+      }
     });
   });
+}
+
+function syncKontrakSubmenu() {
+  const btnAdminBuat = document.getElementById('tabBtnKontrakAdminBuat');
+  const btnAdminReview = document.getElementById('tabBtnKontrakAdminReview');
+  const btnAtasan = document.getElementById('tabBtnKontrakAtasan');
+  const btnUserStatus = document.getElementById('tabBtnKontrakUserStatus');
+
+  const navSubKontrakBuat = document.getElementById('navSubKontrakBuat');
+  const navSubKontrakReview = document.getElementById('navSubKontrakReview');
+  const navSubKontrakAtasan = document.getElementById('navSubKontrakAtasan');
+  const navSubKontrakUserStatus = document.getElementById('navSubKontrakUserStatus');
+
+  if (navSubKontrakBuat) navSubKontrakBuat.style.display = (btnAdminBuat && btnAdminBuat.style.display !== 'none') ? 'flex' : 'none';
+  if (navSubKontrakReview) navSubKontrakReview.style.display = (btnAdminReview && btnAdminReview.style.display !== 'none') ? 'flex' : 'none';
+  if (navSubKontrakAtasan) navSubKontrakAtasan.style.display = (btnAtasan && btnAtasan.style.display !== 'none') ? 'flex' : 'none';
+  if (navSubKontrakUserStatus) {
+    navSubKontrakUserStatus.style.display = (btnUserStatus && btnUserStatus.style.display !== 'none') ? 'flex' : 'none';
+    if (btnUserStatus) {
+      const textSpan = navSubKontrakUserStatus.querySelector('.nav-subitem-text');
+      if (textSpan) textSpan.textContent = btnUserStatus.textContent || 'Usulan Kontrak Saya';
+    }
+  }
+
+  // Sync active state
+  if (btnAdminBuat && btnAdminBuat.classList.contains('active')) {
+    document.querySelectorAll('.nav-subitem[data-kontrak-action]').forEach(s => s.classList.remove('active'));
+    if (navSubKontrakBuat) navSubKontrakBuat.classList.add('active');
+  } else if (btnAdminReview && btnAdminReview.classList.contains('active')) {
+    document.querySelectorAll('.nav-subitem[data-kontrak-action]').forEach(s => s.classList.remove('active'));
+    if (navSubKontrakReview) navSubKontrakReview.classList.add('active');
+  } else if (btnAtasan && btnAtasan.classList.contains('active')) {
+    document.querySelectorAll('.nav-subitem[data-kontrak-action]').forEach(s => s.classList.remove('active'));
+    if (navSubKontrakAtasan) navSubKontrakAtasan.classList.add('active');
+  } else if (btnUserStatus && btnUserStatus.classList.contains('active')) {
+    document.querySelectorAll('.nav-subitem[data-kontrak-action]').forEach(s => s.classList.remove('active'));
+    if (navSubKontrakUserStatus) navSubKontrakUserStatus.classList.add('active');
+  }
 }
 
 async function initKontrakViewForUser() {
@@ -11748,6 +12036,8 @@ async function initKontrakViewForUser() {
     }
   }
 
+  syncKontrakSubmenu();
+
   // Request menu access details from backend (for Atasan Langsung role/badge & status kontrak)
   try {
     const resAkses = await rpc('getMenuAksesKontrak', [SESSION.token]);
@@ -11764,9 +12054,14 @@ async function initKontrakViewForUser() {
         if (isAtasan || isAdmin) {
           btnAtasan.style.display = 'inline-block';
           const badge = document.getElementById('kontrakAtasanBadge');
+          const subBadge = document.getElementById('navSubKontrakAtasanBadge');
           if (badge) {
             badge.textContent = countAtasan;
             badge.style.display = countAtasan > 0 ? 'inline-block' : 'none';
+          }
+          if (subBadge) {
+            subBadge.textContent = countAtasan;
+            subBadge.style.display = countAtasan > 0 ? 'inline-block' : 'none';
           }
         } else {
           btnAtasan.style.display = 'none';
@@ -11829,6 +12124,7 @@ async function initKontrakViewForUser() {
           if (userPropSec) userPropSec.style.display = 'none';
         }
       }
+      syncKontrakSubmenu();
     }
   } catch (errAkses) {
     console.warn('[initKontrakViewForUser] notice:', errAkses.message);
@@ -15033,13 +15329,13 @@ function loadKontrakReviewBadge() {
   rpc('getUsulanKontrakNotifikasiSummary', [SESSION.token])
     .then(res => {
       const badge = document.getElementById('kontrakReviewBadge');
-      if (badge) {
-        if (res.success && res.totalUsulanBaru > 0) {
-          badge.textContent = res.totalUsulanBaru;
-          badge.style.display = 'inline-block';
-        } else {
-          badge.style.display = 'none';
-        }
+      const subBadge = document.getElementById('navSubKontrakReviewBadge');
+      if (res && res.success && res.totalUsulanBaru > 0) {
+        if (badge) { badge.textContent = res.totalUsulanBaru; badge.style.display = 'inline-block'; }
+        if (subBadge) { subBadge.textContent = res.totalUsulanBaru; subBadge.style.display = 'inline-block'; }
+      } else {
+        if (badge) badge.style.display = 'none';
+        if (subBadge) subBadge.style.display = 'none';
       }
     })
     .catch(() => {
@@ -15047,13 +15343,13 @@ function loadKontrakReviewBadge() {
         google.script.run
           .withSuccessHandler(res => {
             const badge = document.getElementById('kontrakReviewBadge');
-            if (badge) {
-              if (res.success && res.totalUsulanBaru > 0) {
-                badge.textContent = res.totalUsulanBaru;
-                badge.style.display = 'inline-block';
-              } else {
-                badge.style.display = 'none';
-              }
+            const subBadge = document.getElementById('navSubKontrakReviewBadge');
+            if (res && res.success && res.totalUsulanBaru > 0) {
+              if (badge) { badge.textContent = res.totalUsulanBaru; badge.style.display = 'inline-block'; }
+              if (subBadge) { subBadge.textContent = res.totalUsulanBaru; subBadge.style.display = 'inline-block'; }
+            } else {
+              if (badge) badge.style.display = 'none';
+              if (subBadge) subBadge.style.display = 'none';
             }
           })
           .getUsulanKontrakNotifikasiSummary(SESSION.token);
@@ -16263,13 +16559,13 @@ function loadApprovalSkBadge() {
     .withSuccessHandler(res => {
       if (!res.success) return;
       const badge = document.getElementById('approvalSkBadge');
-      if (badge) {
-        if (res.daftar && res.daftar.length > 0) {
-          badge.textContent = res.daftar.length;
-          badge.style.display = 'inline-block';
-        } else {
-          badge.style.display = 'none';
-        }
+      const subBadge = document.getElementById('navSubApprovalSkBadge');
+      if (res.daftar && res.daftar.length > 0) {
+        if (badge) { badge.textContent = res.daftar.length; badge.style.display = 'inline-block'; }
+        if (subBadge) { subBadge.textContent = res.daftar.length; subBadge.style.display = 'inline-block'; }
+      } else {
+        if (badge) badge.style.display = 'none';
+        if (subBadge) subBadge.style.display = 'none';
       }
     })
     .withFailureHandler(() => {})
@@ -17735,6 +18031,15 @@ function buatSkSwitchTab(tab) {
     if (!b) return;
     b.classList.toggle('btn-primary', t === tab);
     b.classList.toggle('btn-outline', t !== tab);
+  });
+  const subMap = {
+    'usul-sk':      'navSubBuatSkUsul',
+    'usulan-masuk': 'navSubBuatSkUsulanMasuk',
+    'buat-sk':      'navSubBuatSkBuat'
+  };
+  Object.entries(subMap).forEach(([t, id]) => {
+    const s = document.getElementById(id);
+    if (s) s.classList.toggle('active', t === tab);
   });
   if (tab === 'usul-sk')      loadUsulanSkSaya();
   if (tab === 'usulan-masuk') loadUsulanSkMasuk();
@@ -23590,6 +23895,11 @@ function switchJasTab(tab) {
     if (panelRename) panelRename.style.display = 'none';
     if (panelDownload) panelDownload.style.display = 'block';
   }
+
+  const subRename = document.getElementById('navSubJasRename');
+  const subDownload = document.getElementById('navSubJasDownload');
+  if (subRename) subRename.classList.toggle('active', tab === 'rename');
+  if (subDownload) subDownload.classList.toggle('active', tab !== 'rename');
 }
 
 let _jasHasCredentials = false;
