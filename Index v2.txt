@@ -250,9 +250,6 @@
         <div class="nav-item" data-view="dashboard-utama" data-title="Dashboard" id="navDashboardUtama" style="display:none;">
           📊 Dashboard
         </div>
-        <div class="nav-item" data-view="jas" data-title="JAS" id="navJas" style="display:none;">
-          📁 JAS
-        </div>
         <div class="nav-item" data-view="kenaikan-pangkat" data-title="Kenaikan Pangkat" id="navKenaikanPangkat">
           📈 Kenaikan Pangkat
         </div>
@@ -276,6 +273,9 @@
         </div>
         <div class="nav-item" data-view="peran-akun" data-title="Perubahan Status Akun" style="display:none;">
           🛡️ Perubahan Status Akun
+        </div>
+        <div class="nav-item" data-view="jas" data-title="JAS" id="navJas" style="display:none;">
+          📁 JAS
         </div>
         <div class="nav-item" data-view="lainnya" data-title="Menu Lainnya">
           ⋯ Menu Lainnya
