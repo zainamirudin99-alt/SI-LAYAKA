@@ -4757,8 +4757,10 @@
         </div>
       </div>
     </div>
+  </div>
+
   <!-- 5. Modal Pengaturan Kredensial Google OAuth (BYOC) -->
-  <div id="modalJasGoogleCredentials" class="guide-modal-overlay" style="display:none; z-index:9998;" onclick="if(event.target===this)closeJasGoogleCredentialsModal()">
+  <div id="modalJasGoogleCredentials" class="guide-modal-overlay" style="display:none; z-index:999999;" onclick="if(event.target===this)closeJasGoogleCredentialsModal()">
     <div class="guide-modal-card" style="max-width:620px; max-height:92vh; overflow-y:auto; border-radius:16px;">
       <div class="guide-modal-header">
         <h3 class="guide-header-title">⚙️ Kredensial Google OAuth (Client ID & Secret)</h3>

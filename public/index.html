@@ -8406,8 +8406,10 @@
         </div>
       </div>
     </div>
+  </div>
+
   <!-- 5. Modal Pengaturan Kredensial Google OAuth (BYOC) -->
-  <div id="modalJasGoogleCredentials" class="guide-modal-overlay" style="display:none; z-index:9998;" onclick="if(event.target===this)closeJasGoogleCredentialsModal()">
+  <div id="modalJasGoogleCredentials" class="guide-modal-overlay" style="display:none; z-index:999999;" onclick="if(event.target===this)closeJasGoogleCredentialsModal()">
     <div class="guide-modal-card" style="max-width:620px; max-height:92vh; overflow-y:auto; border-radius:16px;">
       <div class="guide-modal-header">
         <h3 class="guide-header-title">⚙️ Kredensial Google OAuth (Client ID & Secret)</h3>
@@ -32213,9 +32215,27 @@ function openJasGoogleCredentialsModal() {
     dispUri.textContent = `${origin}/api/jas-google-callback`;
   }
 
-  if (inpId && _jasSavedClientId) {
-    inpId.value = _jasSavedClientId;
+  if (inpId) {
+    if (_jasSavedClientId) {
+      inpId.value = _jasSavedClientId;
+    } else if (SESSION && SESSION.token) {
+      // Coba muat kredensial tersimpan dari backend jika belum terisi
+      fetch('/api/rpc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method: 'getJasGoogleStatus', params: [SESSION.token] })
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (res && (res.fullClientId || res.clientId)) {
+          _jasSavedClientId = res.fullClientId || res.clientId;
+          if (inpId && !inpId.value) inpId.value = _jasSavedClientId;
+        }
+      })
+      .catch(() => {});
+    }
   }
+
   if (inpSecret) {
     inpSecret.value = '';
   }
@@ -32223,6 +32243,11 @@ function openJasGoogleCredentialsModal() {
   if (modal) {
     modal.classList.add('active');
     modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => {
+      if (inpId && !inpId.value) inpId.focus();
+      else if (inpSecret) inpSecret.focus();
+    }, 100);
   }
 }
 
@@ -32231,6 +32256,7 @@ function closeJasGoogleCredentialsModal() {
   if (modal) {
     modal.classList.remove('active');
     modal.style.display = 'none';
+    document.body.style.overflow = '';
   }
 }
 
