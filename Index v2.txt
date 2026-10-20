@@ -250,6 +250,9 @@
         <div class="nav-item" data-view="dashboard-utama" data-title="Dashboard" id="navDashboardUtama" style="display:none;">
           📊 Dashboard
         </div>
+        <div class="nav-item" data-view="jas" data-title="JAS" id="navJas" style="display:none;">
+          📁 JAS
+        </div>
         <div class="nav-item" data-view="kenaikan-pangkat" data-title="Kenaikan Pangkat" id="navKenaikanPangkat">
           📈 Kenaikan Pangkat
         </div>
@@ -448,6 +451,430 @@
               </div>
               <div style="position:relative; width:100%; height:340px;">
                 <canvas id="dashboardUtamaBarChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ VIEW: JAS (JOB AUTOMATION SUITE) ============ -->
+        <div class="view-panel" id="view-jas" style="display:none;">
+          <div class="jas-container">
+            <!-- Hero Header -->
+            <div class="jas-hero-card">
+              <div>
+                <h2 class="jas-hero-title">
+                  <span>📁</span>
+                  <span>JAS — Job Automation Suite</span>
+                  <span class="cdli-badge" style="background:rgba(37, 99, 235, 0.15); color:#2563eb; font-size:11px; font-weight:700;">Khusus Admin / Super Admin</span>
+                </h2>
+                <div class="jas-hero-desc">
+                  Otomatisasi berkas kepegawaian: ekstraksi informasi & ubah nama dokumen PDF menggunakan Gemini AI (BYOK) serta pengunduhan berkas terpusat dari tautan spreadsheet.
+                </div>
+              </div>
+              <!-- Status Google Drive -->
+              <div class="jas-google-status-box" id="jasGoogleStatusBox">
+                <div class="jas-google-indicator" id="jasGoogleIndicator"></div>
+                <div>
+                  <div class="jas-google-text" id="jasGoogleStatusText">Memeriksa Google Drive...</div>
+                  <div style="font-size:11px; color:var(--text-muted);" id="jasGoogleEmailText">Menghubungkan...</div>
+                </div>
+                <button type="button" class="btn btn-outline" id="jasGoogleConnectBtn" onclick="hubungkanGoogleDriveJas()" style="padding:6px 12px; font-size:12px; font-weight:600;">
+                  Hubungkan Google
+                </button>
+              </div>
+            </div>
+
+            <!-- Nav Tabs Fitur JAS -->
+            <div class="jas-nav-tabs">
+              <button type="button" class="jas-tab-btn active" id="jasTabBtnRename" onclick="switchJasTab('rename')">
+                📝 1. Ubah Nama Berkas (Gemini)
+              </button>
+              <button type="button" class="jas-tab-btn" id="jasTabBtnDownload" onclick="switchJasTab('download')">
+                📥 2. Unduh Berkas dari Spreadsheet
+              </button>
+            </div>
+
+            <!-- Tab 1: Ubah Nama Berkas -->
+            <div class="jas-panel-content" id="jasPanelRename">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+                <div>
+                  <h3 style="margin:0 0 4px 0; font-size:16px; font-weight:700; color:var(--text-main);">Fitur 1: Ubah Nama Berkas Otomatis via Gemini</h3>
+                  <div style="font-size:12.5px; color:var(--text-muted);">
+                    Pengguna menentukan bagian dokumen mana yang menjadi nama. Gemini hanya menyalin nilai field dari dokumen PDF.
+                  </div>
+                </div>
+              </div>
+              <!-- Notice BYOK -->
+              <div class="jas-notice-card">
+                <div class="icon">🔒</div>
+                <div class="text">
+                  <strong>Privasi & Keamanan Kunci API:</strong> Isi dokumen PDF dikirim ke Gemini API memakai API key Anda sendiri (BYOK). API key tidak disimpan oleh aplikasi dan hanya berada di memori sesi kerja peramban Anda.
+                </div>
+              </div>
+
+              <!-- Form Input -->
+              <form id="jasRenameForm" onsubmit="event.preventDefault();" style="display:flex; flex-direction:column; gap:16px;">
+                <!-- 0. API Key Gemini -->
+                <div class="jas-form-group">
+                  <label class="jas-form-label" for="jasGeminiApiKey">
+                    0. API Key Google Gemini <span style="color:#ef4444;">*</span>
+                  </label>
+                  <div style="position:relative; max-width:540px;">
+                    <input type="password" id="jasGeminiApiKey" class="jas-input" placeholder="Tempel Google Gemini API Key Anda..." autocomplete="off" style="padding-right:42px;">
+                    <button type="button" onclick="toggleJasGeminiKeyVisibility()" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:15px; color:var(--text-muted);" title="Lihat / Sembunyikan Key">
+                      👁️
+                    </button>
+                  </div>
+                  <div class="jas-form-hint">Dibutuhkan untuk membaca teks PDF. Dapatkan secara gratis melalui Google AI Studio. Key tidak disimpan ke server.</div>
+                </div>
+
+                <!-- a. Link Folder Drive -->
+                <div class="jas-form-group">
+                  <label class="jas-form-label" for="jasDriveFolderUrl">
+                    a. Tautan Folder Google Drive <span style="color:#ef4444;">*</span>
+                  </label>
+                  <input type="text" id="jasDriveFolderUrl" class="jas-input" placeholder="https://drive.google.com/drive/folders/..." style="max-width:680px;">
+                  <div class="jas-form-hint">ID folder diekstrak otomatis. Seluruh berkas PDF di dalam folder dan subfolder akan diproses secara rekursif.</div>
+                </div>
+
+                <!-- b. Format Nama Berkas -->
+                <div class="jas-form-group">
+                  <label class="jas-form-label" for="jasFormatNama">
+                    b. Format Nama Berkas Baru <span style="color:#ef4444;">*</span>
+                  </label>
+                  <input type="text" id="jasFormatNama" class="jas-input" value="BA_{NIP}_{NAMA}" placeholder="Contoh: BA_{NIP}_{NAMA}" style="max-width:440px; font-family:monospace; font-weight:600;">
+                  <div class="jas-form-hint">Setiap placeholder dalam tanda kurung kurawal (contoh: <code>{NIP}</code>, <code>{NAMA}</code>) harus terdaftar pada daftar field di bawah. Ekstensi <code>.pdf</code> ditambahkan otomatis.</div>
+                </div>
+
+                <!-- c. Daftar Field -->
+                <div class="jas-form-group">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <label class="jas-form-label" style="margin:0;">
+                      c. Daftar Field Ekstraksi Gemini <span style="color:#ef4444;">*</span>
+                    </label>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="addJasFieldRow()" style="font-size:12px; padding:4px 10px;">
+                      ➕ Tambah Baris Field
+                    </button>
+                  </div>
+                  <div class="jas-form-hint" style="margin-bottom:10px;">Tentukan placeholder, tipe validasi, serta deskripsi lokasi nilai di dalam dokumen PDF.</div>
+                  
+                  <div id="jasFieldContainer">
+                    <!-- Dynamic field rows -->
+                    <div class="jas-field-item" data-field-index="0">
+                      <div>
+                        <input type="text" class="jas-input jas-field-name" value="NIP" placeholder="Placeholder (cth: NIP)" style="font-family:monospace; font-weight:700; text-transform:uppercase;">
+                      </div>
+                      <div>
+                        <select class="jas-input jas-field-type">
+                          <option value="NIP" selected>NIP (9–18 digit)</option>
+                          <option value="teks">Teks (min 3 huruf)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <input type="text" class="jas-input jas-field-desc" value="NIP pegawai yang disumpah, bukan saksi atau pejabat" placeholder="Deskripsi letak di dokumen (wajib)">
+                      </div>
+                      <div>
+                        <input type="text" class="jas-input jas-field-contoh" value="198501012010011005" placeholder="Contoh bentuk (opsional)">
+                      </div>
+                      <div style="text-align:center;">
+                        <button type="button" class="btn btn-danger btn-sm" onclick="removeJasFieldRow(this)" title="Hapus field ini" style="padding:4px 8px; font-size:12px;">🗑️</button>
+                      </div>
+                    </div>
+
+                    <div class="jas-field-item" data-field-index="1">
+                      <div>
+                        <input type="text" class="jas-input jas-field-name" value="NAMA" placeholder="Placeholder (cth: NAMA)" style="font-family:monospace; font-weight:700; text-transform:uppercase;">
+                      </div>
+                      <div>
+                        <select class="jas-input jas-field-type">
+                          <option value="NIP">NIP (9–18 digit)</option>
+                          <option value="teks" selected>Teks (min 3 huruf)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <input type="text" class="jas-input jas-field-desc" value="Nama lengkap pegawai pada baris tepat di atas NIP" placeholder="Deskripsi letak di dokumen (wajib)">
+                      </div>
+                      <div>
+                        <input type="text" class="jas-input jas-field-contoh" value="Budi Santoso, M.Ak." placeholder="Contoh bentuk (opsional)">
+                      </div>
+                      <div style="text-align:center;">
+                        <button type="button" class="btn btn-danger btn-sm" onclick="removeJasFieldRow(this)" title="Hapus field ini" style="padding:4px 8px; font-size:12px;">🗑️</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- d. Link Spreadsheet Hasil (Opsional) -->
+                <div class="jas-form-group">
+                  <label class="jas-form-label" for="jasSpreadsheetUrl">
+                    d. Tautan Google Spreadsheet Pencatatan Hasil (Opsional)
+                  </label>
+                  <input type="text" id="jasSpreadsheetUrl" class="jas-input" placeholder="https://docs.google.com/spreadsheets/d/..." style="max-width:680px;">
+                  <div class="jas-form-hint">Satu kolom per field. Jika field bertipe NIP ada, sistem otomatis mencegah duplikasi baris berdasarkan NIP.</div>
+                </div>
+
+                <!-- e. Mode Simulasi -->
+                <div class="jas-form-group" style="background:var(--surface-alt); padding:12px 16px; border-radius:10px; border:1px solid var(--border); display:flex; flex-direction:column; gap:4px;">
+                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700; font-size:13.5px; color:var(--text-main); margin:0;">
+                    <input type="checkbox" id="jasIsSimulation" checked style="width:16px; height:16px; accent-color:var(--primary); cursor:pointer;">
+                    🧪 Jalankan Mode Simulasi (Rekomendasi Awal)
+                  </label>
+                  <div class="jas-form-hint" style="margin-left:24px; color:#d97706;">
+                    Simulasi tetap memanggil Gemini dan memakai kuotanya, namun tidak mengubah nama berkas di Google Drive.
+                  </div>
+                </div>
+
+                <!-- g. Tombol Uji & Mulai -->
+                <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-top:8px;">
+                  <div style="display:flex; gap:8px; flex:1; min-width:280px; max-width:540px;">
+                    <input type="text" id="jasSampleFileUrl" class="jas-input" placeholder="Tautan PDF contoh opsional (default: berkas pertama)..." style="font-size:12px;">
+                    <button type="button" id="jasBtnTestSingle" class="btn btn-outline" onclick="runJasTestSingle()" style="white-space:nowrap; padding:9px 14px; font-size:12.5px;">
+                      🧪 Uji 1 Berkas
+                    </button>
+                  </div>
+                  <div style="display:flex; gap:8px;">
+                    <button type="button" id="jasBtnStartJob" class="btn btn-primary" onclick="startJasRenameJob()" style="padding:10px 22px; font-size:13.5px; font-weight:700;">
+                      🚀 Mulai Pekerjaan
+                    </button>
+                    <button type="button" id="jasBtnResumeJob" class="btn btn-outline" onclick="resumeJasRenameJob()" style="display:none; padding:10px 18px; font-size:13.5px; font-weight:700; border-color:#f59e0b; color:#f59e0b;">
+                      ⏯️ Lanjutkan
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              <!-- Kotak Hasil Uji 1 Berkas -->
+              <div id="jasTestResultBox" class="jas-test-result-box" style="display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                  <h4 style="margin:0; font-size:14px; font-weight:700; color:var(--text-main);">
+                    🧪 Hasil Pengujian 1 Berkas
+                  </h4>
+                  <span id="jasTestBadge" class="jas-pill jas-pill-pending">-</span>
+                </div>
+                <div id="jasTestContent" style="font-size:13px; line-height:1.5;"></div>
+              </div>
+
+              <!-- Kotak Monitor Pekerjaan Batch -->
+              <div id="jasBatchProgressBox" class="jas-progress-card" style="display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <div>
+                    <h4 style="margin:0 0 4px 0; font-size:14px; font-weight:700; color:var(--text-main);">
+                      📊 Pemantauan Pekerjaan Batch
+                    </h4>
+                    <span id="jasBatchStatusText" style="font-size:12px; color:var(--text-muted);">Menunggu proses...</span>
+                  </div>
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    <span id="jasBatchStatusPill" class="jas-pill jas-pill-pending">Siap</span>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="refreshCurrentJasJobStatus()" title="Segarkan status">🔄</button>
+                  </div>
+                </div>
+
+                <div class="jas-progress-bar-bg">
+                  <div id="jasBatchProgressBar" class="jas-progress-bar-fill"></div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:10px; text-align:center; margin-bottom:14px;">
+                  <div style="background:var(--surface-alt); padding:8px; border-radius:8px; border:1px solid var(--border);">
+                    <div style="font-size:11px; color:var(--text-muted);">Total Berkas</div>
+                    <div id="jasMetricTotal" style="font-size:16px; font-weight:800; color:var(--text-main);">0</div>
+                  </div>
+                  <div style="background:var(--surface-alt); padding:8px; border-radius:8px; border:1px solid var(--border);">
+                    <div style="font-size:11px; color:var(--text-muted);">Selesai / Simulasi</div>
+                    <div id="jasMetricDone" style="font-size:16px; font-weight:800; color:#10b981;">0</div>
+                  </div>
+                  <div style="background:var(--surface-alt); padding:8px; border-radius:8px; border:1px solid var(--border);">
+                    <div style="font-size:11px; color:var(--text-muted);">Gagal / Lewat</div>
+                    <div id="jasMetricFailed" style="font-size:16px; font-weight:800; color:#ef4444;">0</div>
+                  </div>
+                  <div style="background:var(--surface-alt); padding:8px; border-radius:8px; border:1px solid var(--border);">
+                    <div style="font-size:11px; color:var(--text-muted);">Sisa Pending</div>
+                    <div id="jasMetricPending" style="font-size:16px; font-weight:800; color:#f59e0b;">0</div>
+                  </div>
+                </div>
+
+                <!-- Pesan Peringatan Kuota 429 -->
+                <div id="jasBatchQuotaWarning" style="display:none; background:rgba(245, 158, 11, 0.12); border:1px solid rgba(245, 158, 11, 0.3); border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:12.5px; color:#d97706;">
+                  ⚠️ <strong>Kuota Gemini Tercapai (429):</strong> Pekerjaan dihentikan sementara secara aman. Silakan tunggu sekitar 1–2 menit, kemudian klik tombol <strong>"Lanjutkan"</strong> di atas.
+                </div>
+
+                <!-- Tabel Live Log Item -->
+                <div class="jas-table-container">
+                  <table class="jas-table">
+                    <thead>
+                      <tr>
+                        <th style="width:40px;">No</th>
+                        <th>Nama Asli</th>
+                        <th>Nama Baru</th>
+                        <th style="width:90px;">Status</th>
+                        <th style="width:50px;">Aksi</th>
+                        <th>Keterangan / Error</th>
+                      </tr>
+                    </thead>
+                    <tbody id="jasBatchTableBody">
+                      <tr>
+                        <td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">Belum ada item yang diproses.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab 2: Unduh Berkas dari Spreadsheet -->
+            <div class="jas-panel-content" id="jasPanelDownload" style="display:none;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+                <div>
+                  <h3 style="margin:0 0 4px 0; font-size:16px; font-weight:700; color:var(--text-main);">Fitur 2: Unduh Berkas dari Spreadsheet</h3>
+                  <div style="font-size:12.5px; color:var(--text-muted);">
+                    Unduh dan organisasikan dokumen dari baris spreadsheet ke subfolder Google Drive secara otomatis.
+                  </div>
+                </div>
+              </div>
+              <!-- Notice Info -->
+              <div class="jas-notice-card">
+                <div class="icon">📥</div>
+                <div class="text">
+                  <strong>Pengorganisasian Dokumen Otomatis:</strong> Dokumen yang tercantum pada setiap baris spreadsheet akan disalin atau diunduh ke dalam subfolder masing-masing pegawai di folder Google Drive tujuan. Tautan eksternal (non-Drive) dilindungi proteksi SSRF.
+                </div>
+              </div>
+
+              <!-- Form Input Fitur 2 -->
+              <form id="jasDownloadForm" onsubmit="event.preventDefault();" style="display:flex; flex-direction:column; gap:16px;">
+                <!-- Spreadsheet URL -->
+                <div class="jas-form-group">
+                  <label class="jas-form-label" for="jasDlSpreadsheetUrl">
+                    a. Tautan Google Spreadsheet Sumber <span style="color:#ef4444;">*</span>
+                  </label>
+                  <input type="text" id="jasDlSpreadsheetUrl" class="jas-input" placeholder="https://docs.google.com/spreadsheets/d/..." style="max-width:680px;">
+                  <div class="jas-form-hint">ID spreadsheet diekstrak otomatis. Pastikan akun Google yang terhubung memiliki akses baca.</div>
+                </div>
+
+                <!-- Rentang Baris & Tab -->
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; max-width:680px;">
+                  <div class="jas-form-group">
+                    <label class="jas-form-label" for="jasDlSheetName">Nama Tab / Sheet</label>
+                    <input type="text" id="jasDlSheetName" class="jas-input" placeholder="Otomatis tab pertama">
+                  </div>
+                  <div class="jas-form-group">
+                    <label class="jas-form-label" for="jasDlHeaderRow">Baris Header</label>
+                    <input type="number" id="jasDlHeaderRow" class="jas-input" value="1" min="1">
+                  </div>
+                  <div class="jas-form-group">
+                    <label class="jas-form-label" for="jasDlStartRow">Baris Mulai Data <span style="color:#ef4444;">*</span></label>
+                    <input type="number" id="jasDlStartRow" class="jas-input" value="2" min="2">
+                  </div>
+                  <div class="jas-form-group">
+                    <label class="jas-form-label" for="jasDlEndRow">Baris Akhir Data <span style="color:#ef4444;">*</span></label>
+                    <input type="number" id="jasDlEndRow" class="jas-input" value="20" min="2">
+                  </div>
+                </div>
+
+                <!-- Folder Tujuan Drive -->
+                <div class="jas-form-group">
+                  <label class="jas-form-label" for="jasDlTargetFolderUrl">
+                    b. Tautan Folder Google Drive Tujuan <span style="color:#ef4444;">*</span>
+                  </label>
+                  <input type="text" id="jasDlTargetFolderUrl" class="jas-input" placeholder="https://drive.google.com/drive/folders/..." style="max-width:680px;">
+                  <div class="jas-form-hint">Di folder ini sistem akan membuat subfolder per nama pegawai (re-run safe).</div>
+                </div>
+
+                <!-- Tombol Deteksi -->
+                <div>
+                  <button type="button" id="jasBtnDetectColumns" class="btn btn-outline" onclick="detectJasColumns()" style="padding:10px 20px; font-weight:700;">
+                    🔍 Deteksi Kolom Spreadsheet
+                  </button>
+                </div>
+
+                <!-- Box Konfirmasi Hasil Deteksi Kolom -->
+                <div id="jasDlDetectionBox" style="display:none; background:var(--surface-alt); border:1px solid var(--border); border-radius:12px; padding:18px; margin-top:10px;">
+                  <h4 style="margin:0 0 10px 0; font-size:14px; font-weight:700; color:var(--text-main);">
+                    Konfirmasi Pemetaan Kolom
+                  </h4>
+                  <div style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">
+                    Sistem mendeteksi kolom berikut dari spreadsheet. Pastikan kolom nama dan kolom tautan dokumen yang ingin diunduh sudah benar:
+                  </div>
+
+                  <div class="jas-form-group" style="max-width:440px;">
+                    <label class="jas-form-label" for="jasDlNameColumnSelect">
+                      Kolom Nama Pegawai (Nama Subfolder) <span style="color:#ef4444;">*</span>
+                    </label>
+                    <select id="jasDlNameColumnSelect" class="jas-input" style="font-weight:600;"></select>
+                  </div>
+
+                  <div class="jas-form-group">
+                    <label class="jas-form-label">
+                      Pilih Kolom Tautan Berkas yang Akan Diunduh <span style="color:#ef4444;">*</span>
+                    </label>
+                    <div id="jasDlLinkColumnsContainer" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:8px; margin-top:6px;"></div>
+                  </div>
+
+                  <div style="margin-top:16px;">
+                    <button type="button" id="jasBtnStartDlJob" class="btn btn-primary" onclick="startJasDownloadJob()" style="padding:10px 24px; font-weight:700;">
+                      🚀 Mulai Unduh & Organisasi Dokumen
+                    </button>
+                    <button type="button" id="jasBtnResumeDlJob" class="btn btn-outline" onclick="resumeJasDownloadJob()" style="display:none; padding:10px 18px; font-weight:700; border-color:#f59e0b; color:#f59e0b;">
+                      ⏯️ Lanjutkan Unduhan
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              <!-- Monitor Progres Unduhan Fitur 2 -->
+              <div id="jasDlBatchProgressBox" class="jas-progress-card" style="display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <div>
+                    <h4 style="margin:0 0 4px 0; font-size:14px; font-weight:700; color:var(--text-main);">
+                      📊 Pemantauan Pengunduhan Berkas
+                    </h4>
+                    <span id="jasDlBatchStatusText" style="font-size:12px; color:var(--text-muted);">Menunggu proses...</span>
+                  </div>
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    <span id="jasDlBatchStatusPill" class="jas-pill jas-pill-pending">Siap</span>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="refreshCurrentJasDlJobStatus()" title="Segarkan status">🔄</button>
+                  </div>
+                </div>
+
+                <div class="jas-progress-bar-bg">
+                  <div id="jasDlBatchProgressBar" class="jas-progress-bar-fill"></div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:10px; text-align:center; margin-bottom:14px;">
+                  <div style="background:var(--surface-alt); padding:8px; border-radius:8px; border:1px solid var(--border);">
+                    <div style="font-size:11px; color:var(--text-muted);">Total Tautan</div>
+                    <div id="jasDlMetricTotal" style="font-size:16px; font-weight:800; color:var(--text-main);">0</div>
+                  </div>
+                  <div style="background:var(--surface-alt); padding:8px; border-radius:8px; border:1px solid var(--border);">
+                    <div style="font-size:11px; color:var(--text-muted);">Berhasil Disalin</div>
+                    <div id="jasDlMetricDone" style="font-size:16px; font-weight:800; color:#10b981;">0</div>
+                  </div>
+                  <div style="background:var(--surface-alt); padding:8px; border-radius:8px; border:1px solid var(--border);">
+                    <div style="font-size:11px; color:var(--text-muted);">Gagal / Dilewati</div>
+                    <div id="jasDlMetricFailed" style="font-size:16px; font-weight:800; color:#ef4444;">0</div>
+                  </div>
+                  <div style="background:var(--surface-alt); padding:8px; border-radius:8px; border:1px solid var(--border);">
+                    <div style="font-size:11px; color:var(--text-muted);">Sisa Pending</div>
+                    <div id="jasDlMetricPending" style="font-size:16px; font-weight:800; color:#f59e0b;">0</div>
+                  </div>
+                </div>
+
+                <div class="jas-table-container">
+                  <table class="jas-table">
+                    <thead>
+                      <tr>
+                        <th style="width:40px;">No</th>
+                        <th>Subfolder / Nama Berkas</th>
+                        <th style="width:90px;">Status</th>
+                        <th style="width:50px;">Aksi</th>
+                        <th>Keterangan / Error</th>
+                      </tr>
+                    </thead>
+                    <tbody id="jasDlBatchTableBody">
+                      <tr>
+                        <td colspan="5" style="text-align:center; color:var(--text-muted); padding:20px;">Belum ada berkas yang diunduh.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>

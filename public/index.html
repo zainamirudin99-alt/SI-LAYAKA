@@ -3392,6 +3392,288 @@
     color: var(--text-muted);
     white-space: nowrap;
   }
+
+  /* ==========================================================================
+     MENU JAS (Job Automation Suite) STYLES
+     ========================================================================== */
+  .jas-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .jas-hero-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  }
+  .jas-hero-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 6px 0;
+  }
+  .jas-hero-desc {
+    font-size: 13.5px;
+    color: var(--text-muted);
+    max-width: 650px;
+    line-height: 1.5;
+  }
+  .jas-google-status-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    padding: 12px 18px;
+    border-radius: 12px;
+  }
+  .jas-google-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #94a3b8;
+  }
+  .jas-google-indicator.connected {
+    background: #10b981;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+  }
+  .jas-google-text {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-main);
+  }
+  .jas-nav-tabs {
+    display: flex;
+    gap: 8px;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 2px;
+  }
+  .jas-tab-btn {
+    padding: 10px 18px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 6px 6px 0 0;
+  }
+  .jas-tab-btn:hover {
+    color: var(--primary);
+    background: var(--surface-alt);
+  }
+  .jas-tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    font-weight: 700;
+    background: var(--surface);
+  }
+  .jas-panel-content {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px 28px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  }
+  .jas-form-group {
+    margin-bottom: 18px;
+  }
+  .jas-form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 6px;
+  }
+  .jas-form-hint {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+  .jas-field-row {
+    display: grid;
+    grid-template-columns: 140px 100px 1fr 1fr 40px;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .jas-notice-card {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(99, 102, 241, 0.04));
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 22px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .jas-notice-card .icon {
+    font-size: 20px;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .jas-notice-card .text {
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--text-main);
+  }
+  .jas-field-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 8px;
+    margin-top: 8px;
+  }
+  .jas-field-table th {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0 8px 6px 8px;
+    text-align: left;
+  }
+  .jas-field-item {
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    display: grid;
+    grid-template-columns: 140px 130px 1.5fr 1.2fr 44px;
+    gap: 10px;
+    align-items: center;
+  }
+  @media (max-width: 900px) {
+    .jas-field-item {
+      grid-template-columns: 1fr;
+    }
+  }
+  .jas-input {
+    width: 100%;
+    padding: 9px 12px;
+    font-size: 13px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-main);
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .jas-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  }
+  .jas-test-result-box {
+    margin-top: 24px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    animation: fadeIn 0.3s ease;
+  }
+  .jas-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .jas-pill-success {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+  }
+  .jas-pill-failed {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+  }
+  .jas-pill-simulated {
+    background: rgba(245, 158, 11, 0.12);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+  }
+  .jas-pill-pending {
+    background: rgba(100, 116, 139, 0.12);
+    color: #64748b;
+    border: 1px solid rgba(100, 116, 139, 0.25);
+  }
+  .jas-progress-card {
+    margin-top: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+  }
+  .jas-progress-bar-bg {
+    width: 100%;
+    height: 10px;
+    background: var(--border);
+    border-radius: 5px;
+    overflow: hidden;
+    margin: 12px 0 16px 0;
+  }
+  .jas-progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #3b82f6, #10b981);
+    transition: width 0.3s ease;
+  }
+  .jas-table-container {
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-top: 14px;
+  }
+  .jas-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  .jas-table th {
+    position: sticky;
+    top: 0;
+    background: var(--surface-alt);
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 700;
+    color: var(--text-main);
+    border-bottom: 1px solid var(--border);
+    z-index: 1;
+  }
+  .jas-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-main);
+  }
+  .jas-table tr:last-child td {
+    border-bottom: none;
+  }
+  .jas-table tr:hover {
+    background: var(--surface-alt);
+  }
 </style>
   <!-- Libraries for Word template previewing & Excel/Spreadsheet parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -3617,6 +3899,9 @@
         <div class="nav-item" data-view="dashboard-utama" data-title="Dashboard" id="navDashboardUtama" style="display:none;">
           📊 Dashboard
         </div>
+        <div class="nav-item" data-view="jas" data-title="JAS" id="navJas" style="display:none;">
+          📁 JAS
+        </div>
         <div class="nav-item" data-view="kenaikan-pangkat" data-title="Kenaikan Pangkat" id="navKenaikanPangkat">
           📈 Kenaikan Pangkat
         </div>
@@ -3815,6 +4100,430 @@
               </div>
               <div style="position:relative; width:100%; height:340px;">
                 <canvas id="dashboardUtamaBarChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ VIEW: JAS (JOB AUTOMATION SUITE) ============ -->
+        <div class="view-panel" id="view-jas" style="display:none;">
+          <div class="jas-container">
+            <!-- Hero Header -->
+            <div class="jas-hero-card">
+              <div>
+                <h2 class="jas-hero-title">
+                  <span>📁</span>
+                  <span>JAS — Job Automation Suite</span>
+                  <span class="cdli-badge" style="background:rgba(37, 99, 235, 0.15); color:#2563eb; font-size:11px; font-weight:700;">Khusus Admin / Super Admin</span>
+                </h2>
+                <div class="jas-hero-desc">
+                  Otomatisasi berkas kepegawaian: ekstraksi informasi & ubah nama dokumen PDF menggunakan Gemini AI (BYOK) serta pengunduhan berkas terpusat dari tautan spreadsheet.
+                </div>
+              </div>
+              <!-- Status Google Drive -->
+              <div class="jas-google-status-box" id="jasGoogleStatusBox">
+                <div class="jas-google-indicator" id="jasGoogleIndicator"></div>
+                <div>
+                  <div class="jas-google-text" id="jasGoogleStatusText">Memeriksa Google Drive...</div>
+                  <div style="font-size:11px; color:var(--text-muted);" id="jasGoogleEmailText">Menghubungkan...</div>
+                </div>
+                <button type="button" class="btn btn-outline" id="jasGoogleConnectBtn" onclick="hubungkanGoogleDriveJas()" style="padding:6px 12px; font-size:12px; font-weight:600;">
+                  Hubungkan Google
+                </button>
+              </div>
+            </div>
+
+            <!-- Nav Tabs Fitur JAS -->
+            <div class="jas-nav-tabs">
+              <button type="button" class="jas-tab-btn active" id="jasTabBtnRename" onclick="switchJasTab('rename')">
+                📝 1. Ubah Nama Berkas (Gemini)
+              </button>
+              <button type="button" class="jas-tab-btn" id="jasTabBtnDownload" onclick="switchJasTab('download')">
+                📥 2. Unduh Berkas dari Spreadsheet
+              </button>
+            </div>
+
+            <!-- Tab 1: Ubah Nama Berkas -->
+            <div class="jas-panel-content" id="jasPanelRename">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+                <div>
+                  <h3 style="margin:0 0 4px 0; font-size:16px; font-weight:700; color:var(--text-main);">Fitur 1: Ubah Nama Berkas Otomatis via Gemini</h3>
+                  <div style="font-size:12.5px; color:var(--text-muted);">
+                    Pengguna menentukan bagian dokumen mana yang menjadi nama. Gemini hanya menyalin nilai field dari dokumen PDF.
+                  </div>
+                </div>
+              </div>
+              <!-- Notice BYOK -->
+              <div class="jas-notice-card">
+                <div class="icon">🔒</div>
+                <div class="text">
+                  <strong>Privasi & Keamanan Kunci API:</strong> Isi dokumen PDF dikirim ke Gemini API memakai API key Anda sendiri (BYOK). API key tidak disimpan oleh aplikasi dan hanya berada di memori sesi kerja peramban Anda.
+                </div>
+              </div>
+
+              <!-- Form Input -->
+              <form id="jasRenameForm" onsubmit="event.preventDefault();" style="display:flex; flex-direction:column; gap:16px;">
+                <!-- 0. API Key Gemini -->
+                <div class="jas-form-group">
+                  <label class="jas-form-label" for="jasGeminiApiKey">
+                    0. API Key Google Gemini <span style="color:#ef4444;">*</span>
+                  </label>
+                  <div style="position:relative; max-width:540px;">
+                    <input type="password" id="jasGeminiApiKey" class="jas-input" placeholder="Tempel Google Gemini API Key Anda..." autocomplete="off" style="padding-right:42px;">
+                    <button type="button" onclick="toggleJasGeminiKeyVisibility()" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:15px; color:var(--text-muted);" title="Lihat / Sembunyikan Key">
+                      👁️
+                    </button>
+                  </div>
+                  <div class="jas-form-hint">Dibutuhkan untuk membaca teks PDF. Dapatkan secara gratis melalui Google AI Studio. Key tidak disimpan ke server.</div>
+                </div>
+
+                <!-- a. Link Folder Drive -->
+                <div class="jas-form-group">
+                  <label class="jas-form-label" for="jasDriveFolderUrl">
+                    a. Tautan Folder Google Drive <span style="color:#ef4444;">*</span>
+                  </label>
+                  <input type="text" id="jasDriveFolderUrl" class="jas-input" placeholder="https://drive.google.com/drive/folders/..." style="max-width:680px;">
+                  <div class="jas-form-hint">ID folder diekstrak otomatis. Seluruh berkas PDF di dalam folder dan subfolder akan diproses secara rekursif.</div>
+                </div>
+
+                <!-- b. Format Nama Berkas -->
+                <div class="jas-form-group">
+                  <label class="jas-form-label" for="jasFormatNama">
+                    b. Format Nama Berkas Baru <span style="color:#ef4444;">*</span>
+                  </label>
+                  <input type="text" id="jasFormatNama" class="jas-input" value="BA_{NIP}_{NAMA}" placeholder="Contoh: BA_{NIP}_{NAMA}" style="max-width:440px; font-family:monospace; font-weight:600;">
+                  <div class="jas-form-hint">Setiap placeholder dalam tanda kurung kurawal (contoh: <code>{NIP}</code>, <code>{NAMA}</code>) harus terdaftar pada daftar field di bawah. Ekstensi <code>.pdf</code> ditambahkan otomatis.</div>
+                </div>
+
+                <!-- c. Daftar Field -->
+                <div class="jas-form-group">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <label class="jas-form-label" style="margin:0;">
+                      c. Daftar Field Ekstraksi Gemini <span style="color:#ef4444;">*</span>
+                    </label>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="addJasFieldRow()" style="font-size:12px; padding:4px 10px;">
+                      ➕ Tambah Baris Field
+                    </button>
+                  </div>
+                  <div class="jas-form-hint" style="margin-bottom:10px;">Tentukan placeholder, tipe validasi, serta deskripsi lokasi nilai di dalam dokumen PDF.</div>
+                  
+                  <div id="jasFieldContainer">
+                    <!-- Dynamic field rows -->
+                    <div class="jas-field-item" data-field-index="0">
+                      <div>
+                        <input type="text" class="jas-input jas-field-name" value="NIP" placeholder="Placeholder (cth: NIP)" style="font-family:monospace; font-weight:700; text-transform:uppercase;">
+                      </div>
+                      <div>
+                        <select class="jas-input jas-field-type">
+                          <option value="NIP" selected>NIP (9–18 digit)</option>
+                          <option value="teks">Teks (min 3 huruf)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <input type="text" class="jas-input jas-field-desc" value="NIP pegawai yang disumpah, bukan saksi atau pejabat" placeholder="Deskripsi letak di dokumen (wajib)">
+                      </div>
+                      <div>
+                        <input type="text" class="jas-input jas-field-contoh" value="198501012010011005" placeholder="Contoh bentuk (opsional)">
+                      </div>
+                      <div style="text-align:center;">
+                        <button type="button" class="btn btn-danger btn-sm" onclick="removeJasFieldRow(this)" title="Hapus field ini" style="padding:4px 8px; font-size:12px;">🗑️</button>
+                      </div>
+                    </div>
+
+                    <div class="jas-field-item" data-field-index="1">
+                      <div>
+                        <input type="text" class="jas-input jas-field-name" value="NAMA" placeholder="Placeholder (cth: NAMA)" style="font-family:monospace; font-weight:700; text-transform:uppercase;">
+                      </div>
+                      <div>
+                        <select class="jas-input jas-field-type">
+                          <option value="NIP">NIP (9–18 digit)</option>
+                          <option value="teks" selected>Teks (min 3 huruf)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <input type="text" class="jas-input jas-field-desc" value="Nama lengkap pegawai pada baris tepat di atas NIP" placeholder="Deskripsi letak di dokumen (wajib)">
+                      </div>
+                      <div>
+                        <input type="text" class="jas-input jas-field-contoh" value="Budi Santoso, M.Ak." placeholder="Contoh bentuk (opsional)">
+                      </div>
+                      <div style="text-align:center;">
+                        <button type="button" class="btn btn-danger btn-sm" onclick="removeJasFieldRow(this)" title="Hapus field ini" style="padding:4px 8px; font-size:12px;">🗑️</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- d. Link Spreadsheet Hasil (Opsional) -->
+                <div class="jas-form-group">
+                  <label class="jas-form-label" for="jasSpreadsheetUrl">
+                    d. Tautan Google Spreadsheet Pencatatan Hasil (Opsional)
+                  </label>
+                  <input type="text" id="jasSpreadsheetUrl" class="jas-input" placeholder="https://docs.google.com/spreadsheets/d/..." style="max-width:680px;">
+                  <div class="jas-form-hint">Satu kolom per field. Jika field bertipe NIP ada, sistem otomatis mencegah duplikasi baris berdasarkan NIP.</div>
+                </div>
+
+                <!-- e. Mode Simulasi -->
+                <div class="jas-form-group" style="background:var(--surface-alt); padding:12px 16px; border-radius:10px; border:1px solid var(--border); display:flex; flex-direction:column; gap:4px;">
+                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700; font-size:13.5px; color:var(--text-main); margin:0;">
+                    <input type="checkbox" id="jasIsSimulation" checked style="width:16px; height:16px; accent-color:var(--primary); cursor:pointer;">
+                    🧪 Jalankan Mode Simulasi (Rekomendasi Awal)
+                  </label>
+                  <div class="jas-form-hint" style="margin-left:24px; color:#d97706;">
+                    Simulasi tetap memanggil Gemini dan memakai kuotanya, namun tidak mengubah nama berkas di Google Drive.
+                  </div>
+                </div>
+
+                <!-- g. Tombol Uji & Mulai -->
+                <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-top:8px;">
+                  <div style="display:flex; gap:8px; flex:1; min-width:280px; max-width:540px;">
+                    <input type="text" id="jasSampleFileUrl" class="jas-input" placeholder="Tautan PDF contoh opsional (default: berkas pertama)..." style="font-size:12px;">
+                    <button type="button" id="jasBtnTestSingle" class="btn btn-outline" onclick="runJasTestSingle()" style="white-space:nowrap; padding:9px 14px; font-size:12.5px;">
+                      🧪 Uji 1 Berkas
+                    </button>
+                  </div>
+                  <div style="display:flex; gap:8px;">
+                    <button type="button" id="jasBtnStartJob" class="btn btn-primary" onclick="startJasRenameJob()" style="padding:10px 22px; font-size:13.5px; font-weight:700;">
+                      🚀 Mulai Pekerjaan
+                    </button>
+                    <button type="button" id="jasBtnResumeJob" class="btn btn-outline" onclick="resumeJasRenameJob()" style="display:none; padding:10px 18px; font-size:13.5px; font-weight:700; border-color:#f59e0b; color:#f59e0b;">
+                      ⏯️ Lanjutkan
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              <!-- Kotak Hasil Uji 1 Berkas -->
+              <div id="jasTestResultBox" class="jas-test-result-box" style="display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                  <h4 style="margin:0; font-size:14px; font-weight:700; color:var(--text-main);">
+                    🧪 Hasil Pengujian 1 Berkas
+                  </h4>
+                  <span id="jasTestBadge" class="jas-pill jas-pill-pending">-</span>
+                </div>
+                <div id="jasTestContent" style="font-size:13px; line-height:1.5;"></div>
+              </div>
+
+              <!-- Kotak Monitor Pekerjaan Batch -->
+              <div id="jasBatchProgressBox" class="jas-progress-card" style="display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <div>
+                    <h4 style="margin:0 0 4px 0; font-size:14px; font-weight:700; color:var(--text-main);">
+                      📊 Pemantauan Pekerjaan Batch
+                    </h4>
+                    <span id="jasBatchStatusText" style="font-size:12px; color:var(--text-muted);">Menunggu proses...</span>
+                  </div>
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    <span id="jasBatchStatusPill" class="jas-pill jas-pill-pending">Siap</span>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="refreshCurrentJasJobStatus()" title="Segarkan status">🔄</button>
+                  </div>
+                </div>
+
+                <div class="jas-progress-bar-bg">
+                  <div id="jasBatchProgressBar" class="jas-progress-bar-fill"></div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:10px; text-align:center; margin-bottom:14px;">
+                  <div style="background:var(--surface-alt); padding:8px; border-radius:8px; border:1px solid var(--border);">
+                    <div style="font-size:11px; color:var(--text-muted);">Total Berkas</div>
+                    <div id="jasMetricTotal" style="font-size:16px; font-weight:800; color:var(--text-main);">0</div>
+                  </div>
+                  <div style="background:var(--surface-alt); padding:8px; border-radius:8px; border:1px solid var(--border);">
+                    <div style="font-size:11px; color:var(--text-muted);">Selesai / Simulasi</div>
+                    <div id="jasMetricDone" style="font-size:16px; font-weight:800; color:#10b981;">0</div>
+                  </div>
+                  <div style="background:var(--surface-alt); padding:8px; border-radius:8px; border:1px solid var(--border);">
+                    <div style="font-size:11px; color:var(--text-muted);">Gagal / Lewat</div>
+                    <div id="jasMetricFailed" style="font-size:16px; font-weight:800; color:#ef4444;">0</div>
+                  </div>
+                  <div style="background:var(--surface-alt); padding:8px; border-radius:8px; border:1px solid var(--border);">
+                    <div style="font-size:11px; color:var(--text-muted);">Sisa Pending</div>
+                    <div id="jasMetricPending" style="font-size:16px; font-weight:800; color:#f59e0b;">0</div>
+                  </div>
+                </div>
+
+                <!-- Pesan Peringatan Kuota 429 -->
+                <div id="jasBatchQuotaWarning" style="display:none; background:rgba(245, 158, 11, 0.12); border:1px solid rgba(245, 158, 11, 0.3); border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:12.5px; color:#d97706;">
+                  ⚠️ <strong>Kuota Gemini Tercapai (429):</strong> Pekerjaan dihentikan sementara secara aman. Silakan tunggu sekitar 1–2 menit, kemudian klik tombol <strong>"Lanjutkan"</strong> di atas.
+                </div>
+
+                <!-- Tabel Live Log Item -->
+                <div class="jas-table-container">
+                  <table class="jas-table">
+                    <thead>
+                      <tr>
+                        <th style="width:40px;">No</th>
+                        <th>Nama Asli</th>
+                        <th>Nama Baru</th>
+                        <th style="width:90px;">Status</th>
+                        <th style="width:50px;">Aksi</th>
+                        <th>Keterangan / Error</th>
+                      </tr>
+                    </thead>
+                    <tbody id="jasBatchTableBody">
+                      <tr>
+                        <td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">Belum ada item yang diproses.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab 2: Unduh Berkas dari Spreadsheet -->
+            <div class="jas-panel-content" id="jasPanelDownload" style="display:none;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+                <div>
+                  <h3 style="margin:0 0 4px 0; font-size:16px; font-weight:700; color:var(--text-main);">Fitur 2: Unduh Berkas dari Spreadsheet</h3>
+                  <div style="font-size:12.5px; color:var(--text-muted);">
+                    Unduh dan organisasikan dokumen dari baris spreadsheet ke subfolder Google Drive secara otomatis.
+                  </div>
+                </div>
+              </div>
+              <!-- Notice Info -->
+              <div class="jas-notice-card">
+                <div class="icon">📥</div>
+                <div class="text">
+                  <strong>Pengorganisasian Dokumen Otomatis:</strong> Dokumen yang tercantum pada setiap baris spreadsheet akan disalin atau diunduh ke dalam subfolder masing-masing pegawai di folder Google Drive tujuan. Tautan eksternal (non-Drive) dilindungi proteksi SSRF.
+                </div>
+              </div>
+
+              <!-- Form Input Fitur 2 -->
+              <form id="jasDownloadForm" onsubmit="event.preventDefault();" style="display:flex; flex-direction:column; gap:16px;">
+                <!-- Spreadsheet URL -->
+                <div class="jas-form-group">
+                  <label class="jas-form-label" for="jasDlSpreadsheetUrl">
+                    a. Tautan Google Spreadsheet Sumber <span style="color:#ef4444;">*</span>
+                  </label>
+                  <input type="text" id="jasDlSpreadsheetUrl" class="jas-input" placeholder="https://docs.google.com/spreadsheets/d/..." style="max-width:680px;">
+                  <div class="jas-form-hint">ID spreadsheet diekstrak otomatis. Pastikan akun Google yang terhubung memiliki akses baca.</div>
+                </div>
+
+                <!-- Rentang Baris & Tab -->
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; max-width:680px;">
+                  <div class="jas-form-group">
+                    <label class="jas-form-label" for="jasDlSheetName">Nama Tab / Sheet</label>
+                    <input type="text" id="jasDlSheetName" class="jas-input" placeholder="Otomatis tab pertama">
+                  </div>
+                  <div class="jas-form-group">
+                    <label class="jas-form-label" for="jasDlHeaderRow">Baris Header</label>
+                    <input type="number" id="jasDlHeaderRow" class="jas-input" value="1" min="1">
+                  </div>
+                  <div class="jas-form-group">
+                    <label class="jas-form-label" for="jasDlStartRow">Baris Mulai Data <span style="color:#ef4444;">*</span></label>
+                    <input type="number" id="jasDlStartRow" class="jas-input" value="2" min="2">
+                  </div>
+                  <div class="jas-form-group">
+                    <label class="jas-form-label" for="jasDlEndRow">Baris Akhir Data <span style="color:#ef4444;">*</span></label>
+                    <input type="number" id="jasDlEndRow" class="jas-input" value="20" min="2">
+                  </div>
+                </div>
+
+                <!-- Folder Tujuan Drive -->
+                <div class="jas-form-group">
+                  <label class="jas-form-label" for="jasDlTargetFolderUrl">
+                    b. Tautan Folder Google Drive Tujuan <span style="color:#ef4444;">*</span>
+                  </label>
+                  <input type="text" id="jasDlTargetFolderUrl" class="jas-input" placeholder="https://drive.google.com/drive/folders/..." style="max-width:680px;">
+                  <div class="jas-form-hint">Di folder ini sistem akan membuat subfolder per nama pegawai (re-run safe).</div>
+                </div>
+
+                <!-- Tombol Deteksi -->
+                <div>
+                  <button type="button" id="jasBtnDetectColumns" class="btn btn-outline" onclick="detectJasColumns()" style="padding:10px 20px; font-weight:700;">
+                    🔍 Deteksi Kolom Spreadsheet
+                  </button>
+                </div>
+
+                <!-- Box Konfirmasi Hasil Deteksi Kolom -->
+                <div id="jasDlDetectionBox" style="display:none; background:var(--surface-alt); border:1px solid var(--border); border-radius:12px; padding:18px; margin-top:10px;">
+                  <h4 style="margin:0 0 10px 0; font-size:14px; font-weight:700; color:var(--text-main);">
+                    Konfirmasi Pemetaan Kolom
+                  </h4>
+                  <div style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">
+                    Sistem mendeteksi kolom berikut dari spreadsheet. Pastikan kolom nama dan kolom tautan dokumen yang ingin diunduh sudah benar:
+                  </div>
+
+                  <div class="jas-form-group" style="max-width:440px;">
+                    <label class="jas-form-label" for="jasDlNameColumnSelect">
+                      Kolom Nama Pegawai (Nama Subfolder) <span style="color:#ef4444;">*</span>
+                    </label>
+                    <select id="jasDlNameColumnSelect" class="jas-input" style="font-weight:600;"></select>
+                  </div>
+
+                  <div class="jas-form-group">
+                    <label class="jas-form-label">
+                      Pilih Kolom Tautan Berkas yang Akan Diunduh <span style="color:#ef4444;">*</span>
+                    </label>
+                    <div id="jasDlLinkColumnsContainer" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:8px; margin-top:6px;"></div>
+                  </div>
+
+                  <div style="margin-top:16px;">
+                    <button type="button" id="jasBtnStartDlJob" class="btn btn-primary" onclick="startJasDownloadJob()" style="padding:10px 24px; font-weight:700;">
+                      🚀 Mulai Unduh & Organisasi Dokumen
+                    </button>
+                    <button type="button" id="jasBtnResumeDlJob" class="btn btn-outline" onclick="resumeJasDownloadJob()" style="display:none; padding:10px 18px; font-weight:700; border-color:#f59e0b; color:#f59e0b;">
+                      ⏯️ Lanjutkan Unduhan
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              <!-- Monitor Progres Unduhan Fitur 2 -->
+              <div id="jasDlBatchProgressBox" class="jas-progress-card" style="display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <div>
+                    <h4 style="margin:0 0 4px 0; font-size:14px; font-weight:700; color:var(--text-main);">
+                      📊 Pemantauan Pengunduhan Berkas
+                    </h4>
+                    <span id="jasDlBatchStatusText" style="font-size:12px; color:var(--text-muted);">Menunggu proses...</span>
+                  </div>
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    <span id="jasDlBatchStatusPill" class="jas-pill jas-pill-pending">Siap</span>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="refreshCurrentJasDlJobStatus()" title="Segarkan status">🔄</button>
+                  </div>
+                </div>
+
+                <div class="jas-progress-bar-bg">
+                  <div id="jasDlBatchProgressBar" class="jas-progress-bar-fill"></div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:10px; text-align:center; margin-bottom:14px;">
+                  <div style="background:var(--surface-alt); padding:8px; border-radius:8px; border:1px solid var(--border);">
+                    <div style="font-size:11px; color:var(--text-muted);">Total Tautan</div>
+                    <div id="jasDlMetricTotal" style="font-size:16px; font-weight:800; color:var(--text-main);">0</div>
+                  </div>
+                  <div style="background:var(--surface-alt); padding:8px; border-radius:8px; border:1px solid var(--border);">
+                    <div style="font-size:11px; color:var(--text-muted);">Berhasil Disalin</div>
+                    <div id="jasDlMetricDone" style="font-size:16px; font-weight:800; color:#10b981;">0</div>
+                  </div>
+                  <div style="background:var(--surface-alt); padding:8px; border-radius:8px; border:1px solid var(--border);">
+                    <div style="font-size:11px; color:var(--text-muted);">Gagal / Dilewati</div>
+                    <div id="jasDlMetricFailed" style="font-size:16px; font-weight:800; color:#ef4444;">0</div>
+                  </div>
+                  <div style="background:var(--surface-alt); padding:8px; border-radius:8px; border:1px solid var(--border);">
+                    <div style="font-size:11px; color:var(--text-muted);">Sisa Pending</div>
+                    <div id="jasDlMetricPending" style="font-size:16px; font-weight:800; color:#f59e0b;">0</div>
+                  </div>
+                </div>
+
+                <div class="jas-table-container">
+                  <table class="jas-table">
+                    <thead>
+                      <tr>
+                        <th style="width:40px;">No</th>
+                        <th>Subfolder / Nama Berkas</th>
+                        <th style="width:90px;">Status</th>
+                        <th style="width:50px;">Aksi</th>
+                        <th>Keterangan / Error</th>
+                      </tr>
+                    </thead>
+                    <tbody id="jasDlBatchTableBody">
+                      <tr>
+                        <td colspan="5" style="text-align:center; color:var(--text-muted); padding:20px;">Belum ada berkas yang diunduh.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
@@ -8181,6 +8890,7 @@ function terapkanBatasanPeran_() {
 
   const navProfil = document.querySelector('.nav-item[data-view="profil-saya"]') || document.getElementById('navProfilSaya');
   const navDashboard = document.querySelector('.nav-item[data-view="dashboard-utama"]') || document.getElementById('navDashboardUtama');
+  const navJas = document.querySelector('.nav-item[data-view="jas"]') || document.getElementById('navJas');
   const navKP = document.querySelector('.nav-item[data-view="kenaikan-pangkat"]') || document.getElementById('navKenaikanPangkat');
   const navKgb = document.querySelector('.nav-item[data-view="check-kgb"]');
   const navPensiun = document.querySelector('.nav-item[data-view="pensiun"]');
@@ -8192,7 +8902,7 @@ function terapkanBatasanPeran_() {
   const navLainnya = document.querySelector('.nav-item[data-view="lainnya"]');
 
   // Sembunyikan semua dulu (deny-by-default), baru tampilkan sesuai peran.
-  [navProfil, navDashboard, navKP, navKgb, navPensiun, navKontrak, navPmk, navBuatSk, navTemplate, navPeranAkun, navLainnya].forEach(el => { if (el) el.style.display = 'none'; });
+  [navProfil, navDashboard, navJas, navKP, navKgb, navPensiun, navKontrak, navPmk, navBuatSk, navTemplate, navPeranAkun, navLainnya].forEach(el => { if (el) el.style.display = 'none'; });
 
   // Menu Profil Saya sekarang ditampilkan di urutan paling atas untuk SEMUA peran
   if (navProfil) navProfil.style.display = 'flex';
@@ -8203,6 +8913,7 @@ function terapkanBatasanPeran_() {
 
   if (role === 'normal') {
     if (navDashboard) navDashboard.style.display = 'none';
+    if (navJas) navJas.style.display = 'none';
     
     rpc('getMenuAksesKontrak', [SESSION.token])
       .then(res => {
@@ -8223,6 +8934,10 @@ function terapkanBatasanPeran_() {
     if (navDashboard && ['admin', 'super_admin', 'user'].includes(role)) {
       navDashboard.style.display = 'flex';
     }
+    // Menu JAS HANYA untuk role admin dan super_admin
+    if (navJas && (role === 'admin' || role === 'super_admin')) {
+      navJas.style.display = 'flex';
+    }
     if (navKP) navKP.style.display = 'flex';
     if (navPensiun) navPensiun.style.display = 'flex';
     if (navKontrak) navKontrak.style.display = 'flex';
@@ -8236,6 +8951,14 @@ function terapkanBatasanPeran_() {
     if (role === 'super_admin' && navPeranAkun) {
       navPeranAkun.style.display = 'flex';
     }
+  }
+
+  // Guard: Jika panel view-jas terbuka namun role bukan admin/super_admin, paksa tutup
+  const jasPanel = document.getElementById('view-jas');
+  if (jasPanel && jasPanel.style.display !== 'none' && !['admin', 'super_admin'].includes(role)) {
+    jasPanel.style.display = 'none';
+    viewAktif = 'profil-saya';
+    judulAktif = 'Profil Saya';
   }
 
   // Peran 'user' tidak boleh melihat tab Opsi A/B (hanya Check Eligible).
@@ -9685,6 +10408,10 @@ function bindSidebarNav() {
         showToast('error', 'Menu Check KGB hanya dapat diakses oleh Admin dan Super Admin.');
         return;
       }
+      if (view === 'jas' && (!SESSION.user || (SESSION.user.role !== 'admin' && SESSION.user.role !== 'super_admin'))) {
+        showToast('error', 'Menu JAS hanya dapat diakses oleh Admin dan Super Admin.');
+        return;
+      }
       document.querySelectorAll('.nav-item[data-view]').forEach(i => i.classList.remove('active'));
       item.classList.add('active');
       document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
@@ -9692,6 +10419,7 @@ function bindSidebarNav() {
       document.getElementById('topbarTitle').textContent = item.getAttribute('data-title');
       if (view === 'profil-saya') loadProfilSaya();
       if (view === 'dashboard-utama') loadDashboardUtamaData();
+      if (view === 'jas') initJasView();
       if (view === 'template') { loadGlosariumTag(); loadTemplateLayananOptions(); loadTemplateList(); }
       if (view === 'check-kgb') loadCheckKgbData();
       if (view === 'pensiun') loadPensiunDashboardOnce();
@@ -29424,6 +30152,78 @@ const GUIDE_REGISTRY = {
     }
   },
 
+  "jas": {
+    title: "JAS (Job Automation Suite)",
+    icon: "📁",
+    subMenus: {
+      "tab-jas-rename": {
+        title: "📝 Ubah Nama Berkas (Gemini)",
+        roles: ["admin", "super_admin"],
+        defaultRole: "admin",
+        roleGuides: {
+          "admin": {
+            badge: "Sebagai Administrator / Super Admin",
+            steps: [
+              {
+                title: "1. Hubungkan Akun Google Drive",
+                desc: "Klik tombol 'Hubungkan Google' untuk memberikan izin akses Drive/Sheets melalui OAuth2 pengguna."
+              },
+              {
+                title: "2. Masukkan API Key Gemini (BYOK)",
+                desc: "Tempel API key Gemini Anda sendiri. Key hanya disimpan di memori dan tidak pernah disimpan ke database atau log server."
+              },
+              {
+                title: "3. Tentukan Folder Target & Daftar Field",
+                desc: "Masukkan link folder Google Drive dan konfigurasikan format nama serta field yang akan diekstrak."
+              },
+              {
+                title: "4. Uji Berkas / Simulasi & Jalankan",
+                desc: "Lakukan uji 1 berkas atau jalankan simulasi terlebih dahulu sebelum mengeksekusi perubahan nama secara nyata."
+              }
+            ],
+            tips: "Gunakan fitur Simulasi untuk memastikan format nama sesuai sebelum mengubah nama file secara permanen.",
+            flowchart: [
+              { id: 1, type: "start", icon: "🔑", title: "OAuth & API Key", desc: "Hubungkan Drive & tempel Gemini Key" },
+              { id: 2, type: "process", icon: "📁", title: "Target & Field", desc: "Tentukan folder & daftar placeholder" },
+              { id: 3, type: "process", icon: "🧪", title: "Uji & Simulasi", desc: "Verifikasi tanpa mengubah file asli" },
+              { id: 4, type: "end", icon: "✅", title: "Batch Rename", desc: "Ubah nama berkas PDF di Drive otomatis" }
+            ]
+          }
+        }
+      },
+      "tab-jas-download": {
+        title: "📥 Unduh Berkas dari Spreadsheet",
+        roles: ["admin", "super_admin"],
+        defaultRole: "admin",
+        roleGuides: {
+          "admin": {
+            badge: "Sebagai Administrator / Super Admin",
+            steps: [
+              {
+                title: "1. Masukkan Link Spreadsheet & Folder Tujuan",
+                desc: "Salin link Google Spreadsheet sumber data dan link folder Google Drive tujuan penyimpanan."
+              },
+              {
+                title: "2. Tentukan Rentang Baris & Konfirmasi Kolom",
+                desc: "Sistem mendeteksi kolom nama dan link berkas otomatis. Konfirmasi kolom yang akan diunduh."
+              },
+              {
+                title: "3. Jalankan Pengunduhan Terpusat",
+                desc: "Sistem membuat subfolder per pegawai dan menyimpan berkas sesuai nama header kolom."
+              }
+            ],
+            tips: "Pastikan akun Google yang terhubung memiliki akses melihat spreadsheet dan mengedit folder tujuan.",
+            flowchart: [
+              { id: 1, type: "start", icon: "📊", title: "Input Spreadsheet", desc: "Masukkan link sheet & folder tujuan" },
+              { id: 2, type: "process", icon: "🔍", title: "Deteksi Kolom", desc: "Konfirmasi kolom nama & link berkas" },
+              { id: 3, type: "end", icon: "📂", title: "Eksekusi Download", desc: "Berkas disimpan rapi ke subfolder Drive" }
+            ]
+          }
+        }
+      }
+    }
+  },
+
   "kenaikan-pangkat": {
     title: "Kenaikan Pangkat",
     icon: "📈",
@@ -30418,6 +31218,7 @@ function detectCurrentActiveGuideContext() {
   const views = [
     { id: "view-profil-saya", key: "profil-saya" },
     { id: "view-dashboard-utama", key: "dashboard-utama" },
+    { id: "view-jas", key: "jas" },
     { id: "view-check-kgb", key: "check-kgb" },
     { id: "view-kenaikan-pangkat", key: "kenaikan-pangkat" },
     { id: "view-kontrak", key: "kontrak" },
@@ -30518,6 +31319,9 @@ function detectCurrentActiveGuideContext() {
       activeSubMenuKey = "tab-profil-data";
     } else if (activeMenuKey === "dashboard-utama") {
       activeSubMenuKey = "tab-dash-kpi";
+    } else if (activeMenuKey === "jas") {
+      const isDownloadActive = document.getElementById('jasTabBtnDownload') && document.getElementById('jasTabBtnDownload').classList.contains('active');
+      activeSubMenuKey = isDownloadActive ? "tab-jas-download" : "tab-jas-rename";
     }
 
     // Default jika belum terdeteksi spesifik atau tidak masuk di allowedSubMenuKeys
@@ -31157,6 +31961,938 @@ function renderDashboardUtamaBarChart(data, selectedPensiunHorizon = 2) {
   });
 }
 
+/* ================================================================
+   MODUL JAS (Job Automation Suite)
+   ================================================================ */
+function initJasView() {
+  loadJasGoogleStatus();
+  const savedKey = getJasGeminiKey();
+  const inp = document.getElementById('jasGeminiApiKey');
+  if (savedKey && inp && !inp.value) {
+    inp.value = savedKey;
+  }
+}
+
+function switchJasTab(tab) {
+  const btnRename = document.getElementById('jasTabBtnRename');
+  const btnDownload = document.getElementById('jasTabBtnDownload');
+  const panelRename = document.getElementById('jasPanelRename');
+  const panelDownload = document.getElementById('jasPanelDownload');
+
+  if (tab === 'rename') {
+    if (btnRename) btnRename.classList.add('active');
+    if (btnDownload) btnDownload.classList.remove('active');
+    if (panelRename) panelRename.style.display = 'block';
+    if (panelDownload) panelDownload.style.display = 'none';
+  } else {
+    if (btnRename) btnRename.classList.remove('active');
+    if (btnDownload) btnDownload.classList.add('active');
+    if (panelRename) panelRename.style.display = 'none';
+    if (panelDownload) panelDownload.style.display = 'block';
+  }
+}
+
+function loadJasGoogleStatus() {
+  const indicator = document.getElementById('jasGoogleIndicator');
+  const statusText = document.getElementById('jasGoogleStatusText');
+  const emailText = document.getElementById('jasGoogleEmailText');
+  const connectBtn = document.getElementById('jasGoogleConnectBtn');
+
+  if (statusText) statusText.textContent = 'Memeriksa status...';
+  if (emailText) emailText.textContent = '';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res && res.connected) {
+        if (indicator) indicator.classList.add('connected');
+        if (statusText) statusText.textContent = 'Google Drive: Terhubung';
+        if (emailText) emailText.textContent = res.email || 'Akun Aktif';
+        if (connectBtn) {
+          connectBtn.textContent = 'Putus Koneksi';
+          connectBtn.className = 'btn btn-outline';
+          connectBtn.onclick = putusGoogleDriveJas;
+        }
+      } else {
+        if (indicator) indicator.classList.remove('connected');
+        if (statusText) statusText.textContent = 'Google Drive: Belum Terhubung';
+        if (emailText) emailText.textContent = 'Klik untuk otorisasi akses Drive/Sheets';
+        if (connectBtn) {
+          connectBtn.textContent = 'Hubungkan Google';
+          connectBtn.className = 'btn btn-primary';
+          connectBtn.onclick = hubungkanGoogleDriveJas;
+        }
+      }
+    })
+    .withFailureHandler(err => {
+      if (statusText) statusText.textContent = 'Gagal memeriksa Google Drive';
+      if (emailText) emailText.textContent = err.message || 'Error';
+    })
+    .getJasGoogleStatus(SESSION.token);
+}
+
+function hubungkanGoogleDriveJas() {
+  if (!SESSION.token) {
+    showToast('error', 'Sesi login tidak valid. Silakan login kembali.');
+    return;
+  }
+  const authUrl = '/api/jas-google-auth?token=' + encodeURIComponent(SESSION.token);
+  const w = 600, h = 700;
+  const left = (window.screen.width / 2) - (w / 2);
+  const top = (window.screen.height / 2) - (h / 2);
+  const popup = window.open(authUrl, 'jas_google_auth', `width=${w},height=${h},top=${top},left=${left}`);
+  if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+    window.location.href = authUrl;
+  }
+}
+
+function putusGoogleDriveJas() {
+  if (!confirm('Apakah Anda yakin ingin memutuskan integrasi Google Drive untuk fitur JAS?')) return;
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res && res.success) {
+        showToast('success', res.message || 'Koneksi Google Drive diputuskan.');
+        loadJasGoogleStatus();
+      } else {
+        showToast('error', res.message || 'Gagal memutuskan koneksi.');
+      }
+    })
+    .withFailureHandler(err => {
+      showToast('error', err.message || 'Gagal memutuskan koneksi.');
+    })
+    .disconnectJasGoogle(SESSION.token);
+}
+
+// Listener pesan sukses dari popup Google OAuth
+window.addEventListener('message', function(event) {
+  if (event.data && event.data.type === 'JAS_GOOGLE_CONNECTED') {
+    showToast('success', 'Akun Google Drive berhasil dihubungkan!');
+    loadJasGoogleStatus();
+  }
+});
+
+/* ---- LOGIKA FITUR 1: UBAH NAMA BERKAS GEMINI (BYOK) ---- */
+function toggleJasGeminiKeyVisibility() {
+  const inp = document.getElementById('jasGeminiApiKey');
+  if (!inp) return;
+  inp.type = (inp.type === 'password') ? 'text' : 'password';
+}
+
+function addJasFieldRow(defaultName = '', defaultType = 'teks', defaultDesc = '', defaultContoh = '') {
+  const container = document.getElementById('jasFieldContainer');
+  if (!container) return;
+  const count = container.querySelectorAll('.jas-field-item').length;
+  const div = document.createElement('div');
+  div.className = 'jas-field-item';
+  div.setAttribute('data-field-index', count);
+  div.innerHTML = `
+    <div>
+      <input type="text" class="jas-input jas-field-name" value="${escapeHtml(defaultName)}" placeholder="Placeholder (cth: FIELD)" style="font-family:monospace; font-weight:700; text-transform:uppercase;">
+    </div>
+    <div>
+      <select class="jas-input jas-field-type">
+        <option value="NIP" ${defaultType === 'NIP' ? 'selected' : ''}>NIP (9–18 digit)</option>
+        <option value="teks" ${defaultType !== 'NIP' ? 'selected' : ''}>Teks (min 3 huruf)</option>
+      </select>
+    </div>
+    <div>
+      <input type="text" class="jas-input jas-field-desc" value="${escapeHtml(defaultDesc)}" placeholder="Deskripsi letak di dokumen (wajib)">
+    </div>
+    <div>
+      <input type="text" class="jas-input jas-field-contoh" value="${escapeHtml(defaultContoh)}" placeholder="Contoh bentuk (opsional)">
+    </div>
+    <div style="text-align:center;">
+      <button type="button" class="btn btn-danger btn-sm" onclick="removeJasFieldRow(this)" title="Hapus field ini" style="padding:4px 8px; font-size:12px;">🗑️</button>
+    </div>
+  `;
+  container.appendChild(div);
+}
+
+function removeJasFieldRow(btn) {
+  const container = document.getElementById('jasFieldContainer');
+  if (!container) return;
+  const items = container.querySelectorAll('.jas-field-item');
+  if (items.length <= 1) {
+    showToast('error', 'Minimal harus ada 1 field ekstraksi.');
+    return;
+  }
+  const item = btn.closest('.jas-field-item');
+  if (item) item.remove();
+}
+
+function getJasFieldsFromForm() {
+  const container = document.getElementById('jasFieldContainer');
+  if (!container) return [];
+  const rows = container.querySelectorAll('.jas-field-item');
+  const fields = [];
+  rows.forEach(r => {
+    const nameEl = r.querySelector('.jas-field-name');
+    const typeEl = r.querySelector('.jas-field-type');
+    const descEl = r.querySelector('.jas-field-desc');
+    const contohEl = r.querySelector('.jas-field-contoh');
+    const name = nameEl ? nameEl.value.trim().toUpperCase() : '';
+    const type = typeEl ? typeEl.value : 'teks';
+    const desc = descEl ? descEl.value.trim() : '';
+    const contoh = contohEl ? contohEl.value.trim() : '';
+    if (name) {
+      fields.push({ name, type, desc, contoh });
+    }
+  });
+  return fields;
+}
+
+function getJasGeminiKey() {
+  const inp = document.getElementById('jasGeminiApiKey');
+  const key = (inp && inp.value.trim()) || sessionStorage.getItem('jas_gemini_key') || '';
+  if (key && inp && !inp.value) {
+    inp.value = key;
+  }
+  return key;
+}
+
+function setJasGeminiKey(key) {
+  if (key) {
+    sessionStorage.setItem('jas_gemini_key', key);
+  } else {
+    sessionStorage.removeItem('jas_gemini_key');
+  }
+}
+
+let currentJasJobId = null;
+let jasBatchLoopActive = false;
+
+function runJasTestSingle() {
+  const geminiKey = getJasGeminiKey();
+  if (!geminiKey) {
+    showToast('error', 'Masukkan API key Gemini terlebih dahulu.');
+    const el = document.getElementById('jasGeminiApiKey');
+    if (el) el.focus();
+    return;
+  }
+  setJasGeminiKey(geminiKey);
+
+  const folderUrl = (document.getElementById('jasDriveFolderUrl')?.value || '').trim();
+  const sampleFileUrl = (document.getElementById('jasSampleFileUrl')?.value || '').trim();
+  const formatNama = (document.getElementById('jasFormatNama')?.value || '').trim();
+  const fields = getJasFieldsFromForm();
+  const spreadsheetUrl = (document.getElementById('jasSpreadsheetUrl')?.value || '').trim();
+
+  if (!folderUrl && !sampleFileUrl) {
+    showToast('error', 'Masukkan tautan folder Google Drive atau tautan berkas PDF contoh.');
+    return;
+  }
+  if (!formatNama) {
+    showToast('error', 'Format nama berkas baru wajib diisi.');
+    return;
+  }
+  if (fields.length === 0) {
+    showToast('error', 'Daftar field ekstraksi tidak boleh kosong.');
+    return;
+  }
+
+  // Validasi placeholder format harus ada di fields
+  const allowedFieldNames = fields.map(f => f.name);
+  const placeholders = formatNama.match(/\{([a-zA-Z0-9_]+)\}/g) || [];
+  if (placeholders.length === 0) {
+    showToast('error', 'Format nama harus memuat minimal satu placeholder (contoh: {NAMA}).');
+    return;
+  }
+  for (const p of placeholders) {
+    const varName = p.slice(1, -1).trim().toUpperCase();
+    if (!allowedFieldNames.includes(varName)) {
+      showToast('error', `Placeholder ${p} tidak terdaftar di daftar field.`);
+      return;
+    }
+  }
+
+  const btn = document.getElementById('jasBtnTestSingle');
+  const resultBox = document.getElementById('jasTestResultBox');
+  const resultBadge = document.getElementById('jasTestBadge');
+  const resultContent = document.getElementById('jasTestContent');
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Menguji...'; }
+  if (resultBox) resultBox.style.display = 'block';
+  if (resultBadge) { resultBadge.className = 'jas-pill jas-pill-pending'; resultBadge.textContent = 'Sedang Menguji...'; }
+  if (resultContent) resultContent.innerHTML = '<div style="color:var(--text-muted); padding:10px 0;">Mengunduh sampel PDF dan memanggil Gemini API... Mohon tunggu.</div>';
+
+  fetch('/api/rpc', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-gemini-key': geminiKey
+    },
+    body: JSON.stringify({
+      method: 'testSinglePdfGemini',
+      params: [{
+        token: SESSION.token,
+        folderUrl,
+        sampleFileUrl,
+        formatNama,
+        fields,
+        spreadsheetUrl
+      }]
+    })
+  })
+  .then(res => res.json())
+  .then(res => {
+    if (btn) { btn.disabled = false; btn.textContent = '🧪 Uji 1 Berkas'; }
+    if (!res || !res.success) {
+      if (resultBadge) { resultBadge.className = 'jas-pill jas-pill-failed'; resultBadge.textContent = 'Gagal'; }
+      if (resultContent) {
+        resultContent.innerHTML = `<div style="color:#ef4444; font-weight:600; padding:10px 0;">❌ Pengujian Gagal: ${escapeHtml(res.message || 'Terjadi kesalahan.')}</div>`;
+      }
+      showToast('error', res.message || 'Pengujian gagal.');
+      return;
+    }
+
+    if (resultBadge) {
+      resultBadge.className = res.allValid ? 'jas-pill jas-pill-success' : 'jas-pill jas-pill-failed';
+      resultBadge.textContent = res.allValid ? 'Semua Valid' : 'Sebagian Tidak Valid';
+    }
+
+    let fieldRowsHtml = '';
+    fields.forEach(f => {
+      const k = f.name;
+      const val = res.extracted ? res.extracted[k] : null;
+      const vObj = res.validation ? res.validation[k] : null;
+      const isValid = vObj && vObj.valid;
+      fieldRowsHtml += `
+        <tr>
+          <td style="font-family:monospace; font-weight:700;">{${k}}</td>
+          <td><span style="font-size:11px; padding:2px 6px; background:var(--surface); border-radius:4px; border:1px solid var(--border);">${f.type}</span></td>
+          <td style="font-weight:600;">${val !== null && val !== undefined ? escapeHtml(String(val)) : '<em style="color:#ef4444;">null (tidak ditemukan)</em>'}</td>
+          <td>
+            <span class="jas-pill ${isValid ? 'jas-pill-success' : 'jas-pill-failed'}">
+              ${isValid ? '✅ Valid' : '❌ ' + escapeHtml((vObj && vObj.message) || 'Tidak Valid')}
+            </span>
+          </td>
+        </tr>
+      `;
+    });
+
+    if (resultContent) {
+      resultContent.innerHTML = `
+        <div style="margin-bottom:12px; display:flex; flex-direction:column; gap:6px;">
+          <div><strong>Berkas Sampel:</strong> <a href="https://drive.google.com/file/d/${res.file.id}/view" target="_blank" rel="noopener noreferrer" style="color:var(--primary); text-decoration:underline;">${escapeHtml(res.file.name)}</a></div>
+          <div><strong>Nama Hasil:</strong> <span style="font-family:monospace; font-weight:700; color:${res.allValid ? '#10b981' : '#ef4444'};">${escapeHtml(res.finalName || '-')}</span> ${res.formatError ? `<span style="color:#ef4444;">(${escapeHtml(res.formatError)})</span>` : ''}</div>
+        </div>
+
+        <table class="jas-table" style="margin-top:8px;">
+          <thead>
+            <tr>
+              <th>Field</th>
+              <th>Tipe</th>
+              <th>Nilai Terekstrak</th>
+              <th>Validasi</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${fieldRowsHtml}
+          </tbody>
+        </table>
+
+        <details style="margin-top:14px; font-size:12px; cursor:pointer;">
+          <summary style="color:var(--text-muted); font-weight:600;">🔍 Tampilkan Respon Mentah Gemini</summary>
+          <pre style="background:#0f172a; color:#f8fafc; padding:12px; border-radius:8px; overflow-x:auto; margin-top:8px; font-family:monospace; font-size:11.5px;">${escapeHtml(res.rawGemini || 'Tidak ada respon teks')}</pre>
+        </details>
+      `;
+    }
+  })
+  .catch(err => {
+    if (btn) { btn.disabled = false; btn.textContent = '🧪 Uji 1 Berkas'; }
+    if (resultBadge) { resultBadge.className = 'jas-pill jas-pill-failed'; resultBadge.textContent = 'Error'; }
+    if (resultContent) {
+      resultContent.innerHTML = `<div style="color:#ef4444; font-weight:600; padding:10px 0;">❌ Kesalahan Jaringan: ${escapeHtml(err.message)}</div>`;
+    }
+  });
+}
+
+function startJasRenameJob() {
+  const geminiKey = getJasGeminiKey();
+  if (!geminiKey) {
+    showToast('error', 'Masukkan API key Gemini terlebih dahulu.');
+    const el = document.getElementById('jasGeminiApiKey');
+    if (el) el.focus();
+    return;
+  }
+  setJasGeminiKey(geminiKey);
+
+  const folderUrl = (document.getElementById('jasDriveFolderUrl')?.value || '').trim();
+  const formatNama = (document.getElementById('jasFormatNama')?.value || '').trim();
+  const fields = getJasFieldsFromForm();
+  const spreadsheetUrl = (document.getElementById('jasSpreadsheetUrl')?.value || '').trim();
+  const isSimulation = Boolean(document.getElementById('jasIsSimulation')?.checked);
+
+  if (!folderUrl) {
+    showToast('error', 'Tautan folder Google Drive wajib diisi.');
+    return;
+  }
+  if (!formatNama) {
+    showToast('error', 'Format nama berkas baru wajib diisi.');
+    return;
+  }
+  if (fields.length === 0) {
+    showToast('error', 'Daftar field ekstraksi tidak boleh kosong.');
+    return;
+  }
+
+  if (!confirm(`Mulai pekerjaan ${isSimulation ? 'SIMULASI (tanpa ubah file)' : 'UBAH NAMA BERKAS SECARA NYATA'}?`)) {
+    return;
+  }
+
+  const startBtn = document.getElementById('jasBtnStartJob');
+  if (startBtn) { startBtn.disabled = true; startBtn.textContent = '⏳ Menginisialisasi...'; }
+
+  fetch('/api/rpc', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-gemini-key': geminiKey
+    },
+    body: JSON.stringify({
+      method: 'startJasRenameJob',
+      params: [{
+        token: SESSION.token,
+        folderUrl,
+        formatNama,
+        fields,
+        spreadsheetUrl,
+        isSimulation
+      }]
+    })
+  })
+  .then(res => res.json())
+  .then(res => {
+    if (startBtn) { startBtn.disabled = false; startBtn.textContent = '🚀 Mulai Pekerjaan'; }
+    if (!res || !res.success) {
+      showToast('error', res.message || 'Gagal memulai pekerjaan.');
+      return;
+    }
+
+    currentJasJobId = res.jobId;
+    showToast('success', `Pekerjaan berhasil dibuat (${res.totalItems} berkas PDF). Memulai proses batch...`);
+    
+    const monitorBox = document.getElementById('jasBatchProgressBox');
+    if (monitorBox) monitorBox.style.display = 'block';
+
+    runJasBatchLoop(currentJasJobId);
+  })
+  .catch(err => {
+    if (startBtn) { startBtn.disabled = false; startBtn.textContent = '🚀 Mulai Pekerjaan'; }
+    showToast('error', err.message || 'Kesalahan server.');
+  });
+}
+
+function resumeJasRenameJob() {
+  if (!currentJasJobId) {
+    showToast('error', 'Tidak ada pekerjaan aktif yang dapat dilanjutkan.');
+    return;
+  }
+  const geminiKey = getJasGeminiKey();
+  if (!geminiKey) {
+    showToast('error', 'Masukkan API key Gemini sebelum melanjutkan.');
+    return;
+  }
+  const quotaWarning = document.getElementById('jasBatchQuotaWarning');
+  if (quotaWarning) quotaWarning.style.display = 'none';
+  showToast('info', 'Melanjutkan pemrosesan berkas pending...');
+  runJasBatchLoop(currentJasJobId);
+}
+
+async function runJasBatchLoop(jobId) {
+  if (jasBatchLoopActive) return;
+  jasBatchLoopActive = true;
+
+  const startBtn = document.getElementById('jasBtnStartJob');
+  const resumeBtn = document.getElementById('jasBtnResumeJob');
+  const statusPill = document.getElementById('jasBatchStatusPill');
+  const statusText = document.getElementById('jasBatchStatusText');
+  const quotaWarning = document.getElementById('jasBatchQuotaWarning');
+
+  if (startBtn) startBtn.disabled = true;
+  if (resumeBtn) resumeBtn.style.display = 'none';
+  if (statusPill) { statusPill.className = 'jas-pill jas-pill-pending'; statusPill.textContent = 'Sedang Berjalan'; }
+  if (quotaWarning) quotaWarning.style.display = 'none';
+
+  while (jasBatchLoopActive) {
+    const geminiKey = getJasGeminiKey();
+    if (!geminiKey) {
+      showToast('error', 'Masukkan API key Gemini untuk melanjutkan.');
+      if (resumeBtn) resumeBtn.style.display = 'inline-flex';
+      jasBatchLoopActive = false;
+      break;
+    }
+
+    if (statusText) statusText.textContent = 'Memproses batch berkas... (Maks 180s per batch)';
+
+    try {
+      const res = await fetch('/api/rpc', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-gemini-key': geminiKey
+        },
+        body: JSON.stringify({
+          method: 'processJasRenameBatch',
+          params: [{
+            token: SESSION.token,
+            jobId: jobId
+          }]
+        })
+      }).then(r => r.json());
+
+      // Segarkan tampilan UI item dan metrik
+      await refreshCurrentJasJobStatus();
+
+      if (!res.success) {
+        if (res.statusCode === 429) {
+          if (quotaWarning) quotaWarning.style.display = 'block';
+          if (statusPill) { statusPill.className = 'jas-pill jas-pill-failed'; statusPill.textContent = 'Kuota 429'; }
+          if (statusText) statusText.textContent = 'Terhenti karena batas kuota Gemini (429). Silakan tunggu.';
+          showToast('error', res.message || 'Kuota Gemini terlampaui.');
+        } else {
+          if (statusPill) { statusPill.className = 'jas-pill jas-pill-failed'; statusPill.textContent = 'Terhenti'; }
+          if (statusText) statusText.textContent = res.message || 'Terjadi kesalahan.';
+          showToast('error', res.message || 'Terjadi kesalahan batch.');
+        }
+        if (resumeBtn) resumeBtn.style.display = 'inline-flex';
+        jasBatchLoopActive = false;
+        break;
+      }
+
+      if (res.completed || res.remaining === 0) {
+        if (statusPill) { statusPill.className = 'jas-pill jas-pill-success'; statusPill.textContent = 'Selesai'; }
+        if (statusText) statusText.textContent = 'Semua berkas telah selesai diproses!';
+        showToast('success', 'Seluruh pekerjaan batch berhasil diselesaikan.');
+        if (startBtn) startBtn.disabled = false;
+        if (resumeBtn) resumeBtn.style.display = 'none';
+        jasBatchLoopActive = false;
+        break;
+      }
+
+      if (res.stopped) {
+        if (statusText) statusText.textContent = 'Batas waktu 180s tercapai. Melanjutkan batch berikutnya...';
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    } catch (err) {
+      console.error('[runJasBatchLoop error]:', err);
+      showToast('error', err.message || 'Kesalahan jaringan batch.');
+      if (resumeBtn) resumeBtn.style.display = 'inline-flex';
+      jasBatchLoopActive = false;
+      break;
+    }
+  }
+
+  if (startBtn) startBtn.disabled = false;
+}
+
+async function refreshCurrentJasJobStatus() {
+  if (!currentJasJobId) return;
+  try {
+    const res = await fetch('/api/rpc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        method: 'getJasJobStatus',
+        params: [{
+          token: SESSION.token,
+          jobId: currentJasJobId
+        }]
+      })
+    }).then(r => r.json());
+
+    if (!res || !res.success || !res.job) return;
+    renderJasBatchUI(res.job, res.items || []);
+  } catch (err) {
+    console.warn('[refreshCurrentJasJobStatus error]:', err.message);
+  }
+}
+
+function renderJasBatchUI(job, items) {
+  const total = job.total_items || 0;
+  let doneCount = 0;
+  let failedCount = 0;
+  let pendingCount = 0;
+
+  items.forEach(it => {
+    if (it.status === 'done' || it.status === 'simulated') doneCount++;
+    else if (it.status === 'failed' || it.status === 'skipped') failedCount++;
+    else pendingCount++;
+  });
+
+  const processedCount = doneCount + failedCount;
+  const pct = total > 0 ? Math.round((processedCount / total) * 100) : 0;
+
+  const bar = document.getElementById('jasBatchProgressBar');
+  if (bar) bar.style.width = `${pct}%`;
+
+  const mTotal = document.getElementById('jasMetricTotal');
+  const mDone = document.getElementById('jasMetricDone');
+  const mFailed = document.getElementById('jasMetricFailed');
+  const mPending = document.getElementById('jasMetricPending');
+
+  if (mTotal) mTotal.textContent = total;
+  if (mDone) mDone.textContent = doneCount;
+  if (mFailed) mFailed.textContent = failedCount;
+  if (mPending) mPending.textContent = pendingCount;
+
+  const tbody = document.getElementById('jasBatchTableBody');
+  if (tbody) {
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">Belum ada berkas.</td></tr>';
+      return;
+    }
+
+    let rowsHtml = '';
+    items.forEach((it, idx) => {
+      let statusClass = 'jas-pill-pending';
+      let statusLabel = 'Menunggu';
+      if (it.status === 'done') { statusClass = 'jas-pill-success'; statusLabel = '✅ Selesai'; }
+      else if (it.status === 'simulated') { statusClass = 'jas-pill-simulated'; statusLabel = '🧪 Simulasi'; }
+      else if (it.status === 'failed') { statusClass = 'jas-pill-failed'; statusLabel = '❌ Gagal'; }
+      else if (it.status === 'skipped') { statusClass = 'jas-pill-pending'; statusLabel = '⏭️ Dilewati'; }
+
+      rowsHtml += `
+        <tr>
+          <td>${idx + 1}</td>
+          <td style="font-family:monospace; word-break:break-all;">${escapeHtml(it.old_name || '-')}</td>
+          <td style="font-family:monospace; font-weight:700; color:var(--primary); word-break:break-all;">${escapeHtml(it.new_name || '-')}</td>
+          <td><span class="jas-pill ${statusClass}">${statusLabel}</span></td>
+          <td>
+            ${it.file_url ? `<a href="${escapeHtml(it.file_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm" style="padding:2px 6px; font-size:11px;" title="Buka berkas di Drive">🔗</a>` : '-'}
+          </td>
+          <td style="font-size:11.5px; color:${it.error_reason ? '#ef4444' : 'var(--text-muted)'}; word-break:break-word;">
+            ${escapeHtml(it.error_reason || '-')}
+          </td>
+        </tr>
+      `;
+    });
+    tbody.innerHTML = rowsHtml;
+  }
+}
+
+/* ---- LOGIKA FITUR 2: UNDUH BERKAS DARI SPREADSHEET ---- */
+let currentJasDlJobId = null;
+let jasDlBatchLoopActive = false;
+let detectedJasHeaders = [];
+
+function detectJasColumns() {
+  const spreadsheetUrl = (document.getElementById('jasDlSpreadsheetUrl')?.value || '').trim();
+  const sheetName = (document.getElementById('jasDlSheetName')?.value || '').trim();
+  const headerRow = parseInt(document.getElementById('jasDlHeaderRow')?.value, 10) || 1;
+  const startRow = parseInt(document.getElementById('jasDlStartRow')?.value, 10) || 2;
+  const endRow = parseInt(document.getElementById('jasDlEndRow')?.value, 10) || 20;
+
+  if (!spreadsheetUrl) {
+    showToast('error', 'Masukkan tautan Google Spreadsheet terlebih dahulu.');
+    return;
+  }
+  if (startRow <= headerRow) {
+    showToast('error', 'Baris mulai data harus lebih besar dari baris header.');
+    return;
+  }
+  if (endRow < startRow) {
+    showToast('error', 'Baris akhir data harus lebih besar atau sama dengan baris mulai.');
+    return;
+  }
+
+  const btn = document.getElementById('jasBtnDetectColumns');
+  const box = document.getElementById('jasDlDetectionBox');
+  if (btn) { btn.disabled = true; btn.textContent = '🔍 Memindai Spreadsheet...'; }
+
+  fetch('/api/rpc', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      method: 'detectJasSpreadsheetColumns',
+      params: [{
+        token: SESSION.token,
+        spreadsheetUrl,
+        sheetName,
+        headerRow,
+        startRow,
+        endRow
+      }]
+    })
+  })
+  .then(res => res.json())
+  .then(res => {
+    if (btn) { btn.disabled = false; btn.textContent = '🔍 Deteksi Kolom Spreadsheet'; }
+    if (!res || !res.success) {
+      showToast('error', res.message || 'Gagal mendeteksi kolom spreadsheet.');
+      return;
+    }
+
+    detectedJasHeaders = res.headers || [];
+    const nameSelect = document.getElementById('jasDlNameColumnSelect');
+    const linkContainer = document.getElementById('jasDlLinkColumnsContainer');
+
+    if (nameSelect) {
+      nameSelect.innerHTML = detectedJasHeaders.map((h, i) => `
+        <option value="${i}" ${i === res.nameColumnIndex ? 'selected' : ''}>
+          Kolom ${i + 1}: ${escapeHtml(h || '(Tanpa Judul)')}
+        </option>
+      `).join('');
+    }
+
+    if (linkContainer) {
+      linkContainer.innerHTML = detectedJasHeaders.map((h, i) => {
+        const isChecked = Array.isArray(res.linkColumnIndices) && res.linkColumnIndices.includes(i);
+        return `
+          <label style="display:flex; align-items:center; gap:8px; background:var(--surface); padding:8px 12px; border-radius:8px; border:1px solid var(--border); font-size:12.5px; cursor:pointer;">
+            <input type="checkbox" class="jas-dl-col-check" value="${i}" ${isChecked ? 'checked' : ''} style="cursor:pointer; accent-color:var(--primary);">
+            <span><strong>Kolom ${i + 1}:</strong> ${escapeHtml(h || '(Tanpa Judul)')}</span>
+          </label>
+        `;
+      }).join('');
+    }
+
+    if (box) box.style.display = 'block';
+    showToast('success', `Berhasil mendeteksi ${detectedJasHeaders.length} kolom spreadsheet.`);
+  })
+  .catch(err => {
+    if (btn) { btn.disabled = false; btn.textContent = '🔍 Deteksi Kolom Spreadsheet'; }
+    showToast('error', err.message || 'Kesalahan jaringan.');
+  });
+}
+
+function startJasDownloadJob() {
+  const spreadsheetUrl = (document.getElementById('jasDlSpreadsheetUrl')?.value || '').trim();
+  const sheetName = (document.getElementById('jasDlSheetName')?.value || '').trim();
+  const headerRow = parseInt(document.getElementById('jasDlHeaderRow')?.value, 10) || 1;
+  const startRow = parseInt(document.getElementById('jasDlStartRow')?.value, 10) || 2;
+  const endRow = parseInt(document.getElementById('jasDlEndRow')?.value, 10) || 20;
+  const targetFolderUrl = (document.getElementById('jasDlTargetFolderUrl')?.value || '').trim();
+
+  const nameColSelect = document.getElementById('jasDlNameColumnSelect');
+  const nameColumnIndex = nameColSelect ? parseInt(nameColSelect.value, 10) : -1;
+
+  const checkboxes = document.querySelectorAll('.jas-dl-col-check:checked');
+  const selectedLinkColumnIndices = Array.from(checkboxes).map(c => parseInt(c.value, 10));
+
+  if (!spreadsheetUrl) {
+    showToast('error', 'Tautan Google Spreadsheet wajib diisi.');
+    return;
+  }
+  if (!targetFolderUrl) {
+    showToast('error', 'Tautan folder tujuan Google Drive wajib diisi.');
+    return;
+  }
+  if (nameColumnIndex < 0) {
+    showToast('error', 'Pilih kolom nama pegawai terlebih dahulu.');
+    return;
+  }
+  if (selectedLinkColumnIndices.length === 0) {
+    showToast('error', 'Pilih minimal satu kolom tautan berkas.');
+    return;
+  }
+
+  if (!confirm(`Mulai proses pengunduhan berkas dari baris ${startRow} s.d. ${endRow} ke Google Drive?`)) {
+    return;
+  }
+
+  const startBtn = document.getElementById('jasBtnStartDlJob');
+  if (startBtn) { startBtn.disabled = true; startBtn.textContent = '⏳ Menyiapkan Tugas...'; }
+
+  fetch('/api/rpc', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      method: 'startJasDownloadJob',
+      params: [{
+        token: SESSION.token,
+        spreadsheetUrl,
+        sheetName,
+        headerRow,
+        startRow,
+        endRow,
+        targetFolderUrl,
+        nameColumnIndex,
+        selectedLinkColumnIndices
+      }]
+    })
+  })
+  .then(res => res.json())
+  .then(res => {
+    if (startBtn) { startBtn.disabled = false; startBtn.textContent = '🚀 Mulai Unduh & Organisasi Dokumen'; }
+    if (!res || !res.success) {
+      showToast('error', res.message || 'Gagal memulai unduhan.');
+      return;
+    }
+
+    currentJasDlJobId = res.jobId;
+    showToast('success', `Tugas dibuat (${res.totalItems} tautan berkas dari ${res.totalRows} baris). Memulai proses...`);
+
+    const monitorBox = document.getElementById('jasDlBatchProgressBox');
+    if (monitorBox) monitorBox.style.display = 'block';
+
+    runJasDlBatchLoop(currentJasDlJobId);
+  })
+  .catch(err => {
+    if (startBtn) { startBtn.disabled = false; startBtn.textContent = '🚀 Mulai Unduh & Organisasi Dokumen'; }
+    showToast('error', err.message || 'Kesalahan server.');
+  });
+}
+
+function resumeJasDownloadJob() {
+  if (!currentJasDlJobId) {
+    showToast('error', 'Tidak ada pekerjaan unduh yang aktif.');
+    return;
+  }
+  showToast('info', 'Melanjutkan pengunduhan berkas pending...');
+  runJasDlBatchLoop(currentJasDlJobId);
+}
+
+async function runJasDlBatchLoop(jobId) {
+  if (jasDlBatchLoopActive) return;
+  jasDlBatchLoopActive = true;
+
+  const startBtn = document.getElementById('jasBtnStartDlJob');
+  const resumeBtn = document.getElementById('jasBtnResumeDlJob');
+  const statusPill = document.getElementById('jasDlBatchStatusPill');
+  const statusText = document.getElementById('jasDlBatchStatusText');
+
+  if (startBtn) startBtn.disabled = true;
+  if (resumeBtn) resumeBtn.style.display = 'none';
+  if (statusPill) { statusPill.className = 'jas-pill jas-pill-pending'; statusPill.textContent = 'Sedang Berjalan'; }
+
+  while (jasDlBatchLoopActive) {
+    if (statusText) statusText.textContent = 'Menyalin / mengunduh berkas batch... (Maks 180s per siklus)';
+
+    try {
+      const res = await fetch('/api/rpc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'processJasDownloadBatch',
+          params: [{
+            token: SESSION.token,
+            jobId: jobId
+          }]
+        })
+      }).then(r => r.json());
+
+      await refreshCurrentJasDlJobStatus();
+
+      if (!res.success) {
+        if (statusPill) { statusPill.className = 'jas-pill jas-pill-failed'; statusPill.textContent = 'Terhenti'; }
+        if (statusText) statusText.textContent = res.message || 'Terjadi kesalahan batch.';
+        showToast('error', res.message || 'Terjadi kesalahan saat memproses batch unduhan.');
+        if (resumeBtn) resumeBtn.style.display = 'inline-flex';
+        jasDlBatchLoopActive = false;
+        break;
+      }
+
+      if (res.completed || res.remaining === 0) {
+        if (statusPill) { statusPill.className = 'jas-pill jas-pill-success'; statusPill.textContent = 'Selesai'; }
+        if (statusText) statusText.textContent = 'Semua berkas berhasil diorganisasikan ke Google Drive!';
+        showToast('success', 'Seluruh berkas berhasil diunduh ke folder Google Drive.');
+        if (startBtn) startBtn.disabled = false;
+        if (resumeBtn) resumeBtn.style.display = 'none';
+        jasDlBatchLoopActive = false;
+        break;
+      }
+
+      if (res.stopped) {
+        if (statusText) statusText.textContent = 'Siklus 180s selesai. Melanjutkan berkas berikutnya...';
+        await new Promise(r => setTimeout(r, 1500));
+      }
+    } catch (err) {
+      console.error('[runJasDlBatchLoop error]:', err);
+      showToast('error', err.message || 'Kesalahan jaringan batch.');
+      if (resumeBtn) resumeBtn.style.display = 'inline-flex';
+      jasDlBatchLoopActive = false;
+      break;
+    }
+  }
+
+  if (startBtn) startBtn.disabled = false;
+}
+
+async function refreshCurrentJasDlJobStatus() {
+  if (!currentJasDlJobId) return;
+  try {
+    const res = await fetch('/api/rpc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        method: 'getJasJobStatus',
+        params: [{
+          token: SESSION.token,
+          jobId: currentJasDlJobId
+        }]
+      })
+    }).then(r => r.json());
+
+    if (!res || !res.success || !res.job) return;
+    renderJasDlBatchUI(res.job, res.items || []);
+  } catch (err) {
+    console.warn('[refreshCurrentJasDlJobStatus error]:', err.message);
+  }
+}
+
+function renderJasDlBatchUI(job, items) {
+  const total = job.total_items || 0;
+  let doneCount = 0;
+  let failedCount = 0;
+  let pendingCount = 0;
+
+  items.forEach(it => {
+    if (it.status === 'done') doneCount++;
+    else if (it.status === 'failed' || it.status === 'skipped') failedCount++;
+    else pendingCount++;
+  });
+
+  const processedCount = doneCount + failedCount;
+  const pct = total > 0 ? Math.round((processedCount / total) * 100) : 0;
+
+  const bar = document.getElementById('jasDlBatchProgressBar');
+  if (bar) bar.style.width = `${pct}%`;
+
+  const mTotal = document.getElementById('jasDlMetricTotal');
+  const mDone = document.getElementById('jasDlMetricDone');
+  const mFailed = document.getElementById('jasDlMetricFailed');
+  const mPending = document.getElementById('jasDlMetricPending');
+
+  if (mTotal) mTotal.textContent = total;
+  if (mDone) mDone.textContent = doneCount;
+  if (mFailed) mFailed.textContent = failedCount;
+  if (mPending) mPending.textContent = pendingCount;
+
+  const tbody = document.getElementById('jasDlBatchTableBody');
+  if (tbody) {
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:20px;">Belum ada berkas.</td></tr>';
+      return;
+    }
+
+    let rowsHtml = '';
+    items.forEach((it, idx) => {
+      let statusClass = 'jas-pill-pending';
+      let statusLabel = 'Menunggu';
+      if (it.status === 'done') { statusClass = 'jas-pill-success'; statusLabel = '✅ Selesai'; }
+      else if (it.status === 'failed') { statusClass = 'jas-pill-failed'; statusLabel = '❌ Gagal'; }
+      else if (it.status === 'skipped') { statusClass = 'jas-pill-pending'; statusLabel = '⏭️ Dilewati'; }
+
+      rowsHtml += `
+        <tr>
+          <td>${idx + 1}</td>
+          <td style="font-family:monospace; font-weight:600; color:var(--text-main); word-break:break-all;">
+            ${escapeHtml(it.new_name || '-')}
+          </td>
+          <td><span class="jas-pill ${statusClass}">${statusLabel}</span></td>
+          <td>
+            ${it.file_url ? `<a href="${escapeHtml(it.file_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm" style="padding:2px 6px; font-size:11px;" title="Buka tautan sumber">🔗</a>` : '-'}
+          </td>
+          <td style="font-size:11.5px; color:${it.error_reason ? '#ef4444' : 'var(--text-muted)'}; word-break:break-word;">
+            ${escapeHtml(it.error_reason || '-')}
+          </td>
+        </tr>
+      `;
+    });
+    tbody.innerHTML = rowsHtml;
+  }
+}
+
 // Global window exposure
 window.loadDashboardUtamaData = loadDashboardUtamaData;
 window.renderDashboardUtamaStats = renderDashboardUtamaStats;
@@ -31172,6 +32908,23 @@ window.switchGuideView = switchGuideView;
 window.switchGuideSubMenu = switchGuideSubMenu;
 window.switchGuideRole = switchGuideRole;
 window.renderGuideContent = renderGuideContent;
+window.initJasView = initJasView;
+window.switchJasTab = switchJasTab;
+window.loadJasGoogleStatus = loadJasGoogleStatus;
+window.hubungkanGoogleDriveJas = hubungkanGoogleDriveJas;
+window.putusGoogleDriveJas = putusGoogleDriveJas;
+window.toggleJasGeminiKeyVisibility = toggleJasGeminiKeyVisibility;
+window.addJasFieldRow = addJasFieldRow;
+window.removeJasFieldRow = removeJasFieldRow;
+window.getJasFieldsFromForm = getJasFieldsFromForm;
+window.runJasTestSingle = runJasTestSingle;
+window.startJasRenameJob = startJasRenameJob;
+window.resumeJasRenameJob = resumeJasRenameJob;
+window.refreshCurrentJasJobStatus = refreshCurrentJasJobStatus;
+window.detectJasColumns = detectJasColumns;
+window.startJasDownloadJob = startJasDownloadJob;
+window.resumeJasDownloadJob = resumeJasDownloadJob;
+window.refreshCurrentJasDlJobStatus = refreshCurrentJasDlJobStatus;
 
 </script>
 

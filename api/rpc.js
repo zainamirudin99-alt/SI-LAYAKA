@@ -9,12 +9,13 @@
  * ================================================================
  */
 
-let createClient, jwt, crypto, PizZip, Docxtemplater;
+let createClient, jwt, crypto, PizZip, Docxtemplater, jasCore;
 try { ({ createClient } = require('@supabase/supabase-js')); } catch(e) { console.error('[rpc] Failed to load @supabase/supabase-js:', e.message); createClient = null; }
 try { jwt = require('jsonwebtoken'); } catch(e) { console.error('[rpc] Failed to load jsonwebtoken:', e.message); jwt = null; }
 try { crypto = require('crypto'); } catch(e) { console.error('[rpc] Failed to load crypto:', e.message); crypto = null; }
 try { PizZip = require('pizzip'); } catch(e) { console.error('[rpc] Failed to load pizzip:', e.message); PizZip = null; }
 try { Docxtemplater = require('docxtemplater'); } catch(e) { console.error('[rpc] Failed to load docxtemplater:', e.message); Docxtemplater = null; }
+try { jasCore = require('./jas-core'); } catch(e) { console.warn('[rpc] Failed to load jas-core:', e.message); jasCore = null; }
 
 function uuidv4() {
   if (crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
@@ -380,6 +381,19 @@ function requireRole(token, allowedRoles) {
   const decoded = verifyToken(token);
   if (allowedRoles && !allowedRoles.includes(decoded.role)) {
     throw new Error('Anda tidak memiliki hak akses untuk aksi ini.');
+  }
+  return decoded;
+}
+
+function verifyJasRole(token) {
+  if (jasCore && typeof jasCore.verifyJasGuard === 'function') {
+    return jasCore.verifyJasGuard(token, verifyToken);
+  }
+  const decoded = verifyToken(token);
+  if (!decoded || (decoded.role !== 'admin' && decoded.role !== 'super_admin')) {
+    const err = new Error('Akses ditolak: Menu dan layanan JAS hanya dapat diakses oleh Admin atau Superadmin.');
+    err.statusCode = 403;
+    throw err;
   }
   return decoded;
 }
@@ -3240,6 +3254,811 @@ const methods = {
     } catch (err) {
       console.error('[login] Unhandled error:', err.message);
       return { success: false, message: 'Gagal melakukan login: ' + err.message };
+    }
+  },
+
+  // ---- JAS GOOGLE OAUTH & STATUS ----
+  async getJasGoogleStatus(args) {
+    try {
+      const [token] = extractArgs(args);
+      const decoded = verifyJasRole(token);
+      const db = getDb();
+      const { data, error } = await db.from('jas_google_tokens').select('email,tokens,updated_at').eq('owner_id', decoded.nip).maybeSingle();
+      if (error || !data || !data.tokens) {
+        return { success: true, connected: false };
+      }
+      return {
+        success: true,
+        connected: true,
+        email: data.email || null,
+        updated_at: data.updated_at || null
+      };
+    } catch (err) {
+      return { success: false, statusCode: err.statusCode || 500, message: err.message };
+    }
+  },
+
+  async disconnectJasGoogle(args) {
+    try {
+      const [token] = extractArgs(args);
+      const decoded = verifyJasRole(token);
+      const db = getDb();
+      await db.from('jas_google_tokens').delete().eq('owner_id', decoded.nip);
+      return { success: true, message: 'Koneksi akun Google Drive berhasil diputuskan.' };
+    } catch (err) {
+      return { success: false, statusCode: err.statusCode || 500, message: err.message };
+    }
+  },
+
+  // ---- JAS FITUR 1: RENAME BERKAS VIA GEMINI (BYOK) ----
+  async testSinglePdfGemini(args, req) {
+    try {
+      const [opts] = extractArgs(args);
+      const { token, folderUrl, sampleFileUrl, formatNama, fields, spreadsheetUrl } = opts || {};
+      const geminiKey = (req && req.headers && req.headers['x-gemini-key']) || (opts && opts.geminiKey) || '';
+      if (!geminiKey) {
+        return { success: false, statusCode: 400, message: 'Masukkan API key Gemini' };
+      }
+      const decoded = verifyJasRole(token);
+      const db = getDb();
+      const accessToken = await jasCore.getValidGoogleAccessToken(decoded.nip, db);
+
+      // Tentukan target fileId
+      let fileId = null;
+      let fileName = 'sample.pdf';
+      if (sampleFileUrl) {
+        fileId = jasCore.parseGoogleDriveFileId(sampleFileUrl);
+        if (!fileId) {
+          return { success: false, statusCode: 400, message: 'Tautan berkas contoh tidak valid.' };
+        }
+      } else {
+        const folderId = jasCore.parseGoogleDriveFolderId(folderUrl);
+        if (!folderId) {
+          return { success: false, statusCode: 400, message: 'Tautan folder Google Drive tidak valid.' };
+        }
+        const pdfFiles = await jasCore.listPdfFilesInFolderRecursive(folderId, accessToken);
+        if (!pdfFiles || pdfFiles.length === 0) {
+          return { success: false, statusCode: 404, message: 'Tidak ditemukan berkas PDF di dalam folder tersebut.' };
+        }
+        fileId = pdfFiles[0].id;
+        fileName = pdfFiles[0].name;
+      }
+
+      // Unduh PDF
+      const { buffer } = await jasCore.downloadPdfFromDrive(fileId, accessToken);
+      const promptObj = jasCore.buildGeminiPrompt(fields);
+      const geminiRes = await jasCore.callGeminiExtractPdf(buffer, promptObj.prompt, geminiKey);
+
+      // Validasi tiap field
+      const validation = {};
+      let allValid = true;
+      (fields || []).forEach(f => {
+        const key = String(f.name || '').trim().toUpperCase();
+        const val = geminiRes.parsed ? geminiRes.parsed[key] : null;
+        if (f.type === 'NIP') {
+          const v = jasCore.validateNipValue(val);
+          validation[key] = v;
+          if (!v.valid) allValid = false;
+        } else {
+          const v = jasCore.validateTextValue(val);
+          validation[key] = v;
+          if (!v.valid) allValid = false;
+        }
+      });
+
+      let finalName = '';
+      let formatError = null;
+      try {
+        const allowedKeys = (fields || []).map(f => String(f.name || '').trim().toUpperCase());
+        finalName = jasCore.renderTemplateName(formatNama, geminiRes.parsed, allowedKeys);
+      } catch (err) {
+        formatError = err.message;
+        allValid = false;
+      }
+
+      return {
+        success: true,
+        file: { id: fileId, name: fileName },
+        extracted: geminiRes.parsed,
+        validation,
+        allValid,
+        finalName,
+        formatError,
+        rawGemini: geminiRes.rawGemini
+      };
+    } catch (err) {
+      return { success: false, statusCode: err.statusCode || 500, message: err.message };
+    }
+  },
+
+  async startJasRenameJob(args, req) {
+    try {
+      const [opts] = extractArgs(args);
+      const { token, folderUrl, formatNama, fields, spreadsheetUrl, isSimulation } = opts || {};
+      const geminiKey = (req && req.headers && req.headers['x-gemini-key']) || (opts && opts.geminiKey) || '';
+      if (!geminiKey) {
+        return { success: false, statusCode: 400, message: 'Masukkan API key Gemini' };
+      }
+      const decoded = verifyJasRole(token);
+      const folderId = jasCore.parseGoogleDriveFolderId(folderUrl);
+      if (!folderId) {
+        return { success: false, statusCode: 400, message: 'Tautan folder Google Drive tidak valid.' };
+      }
+
+      const db = getDb();
+      const accessToken = await jasCore.getValidGoogleAccessToken(decoded.nip, db);
+      const pdfFiles = await jasCore.listPdfFilesInFolderRecursive(folderId, accessToken);
+      if (!pdfFiles || pdfFiles.length === 0) {
+        return { success: false, statusCode: 404, message: 'Tidak ditemukan berkas PDF di dalam folder tersebut.' };
+      }
+
+      // Buat job di jas_jobs
+      const { data: job, error: jobErr } = await db.from('jas_jobs').insert({
+        owner_id: decoded.nip,
+        feature_type: 'rename',
+        status: 'pending',
+        config: {
+          folderUrl,
+          folderId,
+          formatNama,
+          fields,
+          spreadsheetUrl: spreadsheetUrl || '',
+          isSimulation: Boolean(isSimulation)
+        },
+        total_items: pdfFiles.length,
+        processed_items: 0
+      }).select().single();
+
+      if (jobErr || !job) {
+        throw new Error('Gagal membuat pekerjaan (job) di basis data: ' + (jobErr ? jobErr.message : ''));
+      }
+
+      // Batch insert items ke jas_job_items
+      const itemsToInsert = pdfFiles.map(f => ({
+        job_id: job.id,
+        item_key: f.id,
+        drive_file_id: f.id,
+        status: 'pending',
+        old_name: f.name,
+        file_url: f.webViewLink
+      }));
+
+      // Insert dalam chunk 100
+      for (let i = 0; i < itemsToInsert.length; i += 100) {
+        const chunk = itemsToInsert.slice(i, i + 100);
+        const { error: itemErr } = await db.from('jas_job_items').insert(chunk);
+        if (itemErr) {
+          console.error('[jas startJasRenameJob] Error inserting items:', itemErr.message);
+        }
+      }
+
+      return {
+        success: true,
+        jobId: job.id,
+        totalItems: pdfFiles.length,
+        isSimulation: Boolean(isSimulation)
+      };
+    } catch (err) {
+      return { success: false, statusCode: err.statusCode || 500, message: err.message };
+    }
+  },
+
+  async processJasRenameBatch(args, req) {
+    try {
+      const [opts] = extractArgs(args);
+      const { token, jobId } = opts || {};
+      const geminiKey = (req && req.headers && req.headers['x-gemini-key']) || (opts && opts.geminiKey) || '';
+      if (!geminiKey) {
+        return { success: false, statusCode: 400, message: 'Masukkan API key Gemini' };
+      }
+      const decoded = verifyJasRole(token);
+      const db = getDb();
+
+      // Ambil job & verifikasi ownership
+      const { data: job, error: jobErr } = await db.from('jas_jobs').select('*').eq('id', jobId).maybeSingle();
+      if (jobErr || !job) {
+        return { success: false, statusCode: 404, message: 'Pekerjaan (job) tidak ditemukan.' };
+      }
+      jasCore.verifyJobOwnership(job, decoded.nip);
+
+      // Cek apakah job sudah selesai
+      if (job.status === 'done') {
+        return { success: true, processed: 0, remaining: 0, stopped: false, completed: true };
+      }
+
+      // Lease DB (300 detik)
+      const leaseExpiry = new Date(Date.now() + 300000).toISOString();
+      await db.from('jas_jobs').update({
+        status: 'running',
+        lease_until: leaseExpiry,
+        updated_at: new Date().toISOString()
+      }).eq('id', jobId);
+
+      const accessToken = await jasCore.getValidGoogleAccessToken(decoded.nip, db);
+      const config = job.config || {};
+      const isSimulation = Boolean(config.isSimulation);
+      const promptObj = jasCore.buildGeminiPrompt(config.fields || []);
+      const allowedKeys = (config.fields || []).map(f => String(f.name || '').trim().toUpperCase());
+
+      // Spreadsheet config jika ada
+      let spreadsheetId = null;
+      let nipFieldName = null;
+      if (config.spreadsheetUrl) {
+        spreadsheetId = jasCore.parseGoogleSpreadsheetId(config.spreadsheetUrl);
+        const nipField = (config.fields || []).find(f => f.type === 'NIP');
+        if (nipField) nipFieldName = String(nipField.name || '').trim().toUpperCase();
+      }
+
+      // Ambil batch item yang masih pending (maks 10 per batch)
+      const { data: items, error: itemsErr } = await db.from('jas_job_items')
+        .select('*')
+        .eq('job_id', jobId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+        .limit(10);
+
+      if (itemsErr || !items || items.length === 0) {
+        await db.from('jas_jobs').update({ status: 'done', lease_until: null, updated_at: new Date().toISOString() }).eq('id', jobId);
+        return { success: true, processed: 0, remaining: 0, stopped: false, completed: true };
+      }
+
+      const startTime = Date.now();
+      let processedInBatch = 0;
+      let quotaExceeded = false;
+      let stoppedEarly = false;
+
+      for (const item of items) {
+        // Hentikan pengambilan item baru jika sudah berjalan 180 detik
+        if (Date.now() - startTime > 180000) {
+          stoppedEarly = true;
+          break;
+        }
+
+        try {
+          // Periksa apakah berkas sudah selesai di-rename di pekerjaan lain (anti-duplikat / rerun safe)
+          const { data: alreadyDone } = await db.from('jas_job_items')
+            .select('id')
+            .eq('drive_file_id', item.drive_file_id)
+            .eq('status', 'done')
+            .maybeSingle();
+
+          if (alreadyDone) {
+            await db.from('jas_job_items').update({
+              status: 'skipped',
+              error_reason: 'Berkas sudah pernah di-rename sebelumnya'
+            }).eq('id', item.id);
+            processedInBatch++;
+            continue;
+          }
+
+          // Unduh PDF
+          const { buffer, sizeBytes } = await jasCore.downloadPdfFromDrive(item.drive_file_id, accessToken);
+          if (sizeBytes > 20 * 1024 * 1024) {
+            await db.from('jas_job_items').update({
+              status: 'failed',
+              error_reason: 'Ukuran berkas PDF melebihi 20MB'
+            }).eq('id', item.id);
+            processedInBatch++;
+            continue;
+          }
+
+          // Panggil Gemini
+          let geminiRes;
+          try {
+            geminiRes = await jasCore.callGeminiExtractPdf(buffer, promptObj.prompt, geminiKey);
+          } catch (geminiErr) {
+            if (geminiErr.message && geminiErr.message.includes('429')) {
+              quotaExceeded = true;
+              break;
+            }
+            throw geminiErr;
+          }
+
+          // Validasi field
+          let valid = true;
+          (config.fields || []).forEach(f => {
+            const key = String(f.name || '').trim().toUpperCase();
+            const val = geminiRes.parsed ? geminiRes.parsed[key] : null;
+            if (f.type === 'NIP') {
+              if (!jasCore.validateNipValue(val).valid) valid = false;
+            } else {
+              if (!jasCore.validateTextValue(val).valid) valid = false;
+            }
+          });
+
+          if (!valid) {
+            await db.from('jas_job_items').update({
+              status: 'failed',
+              error_reason: 'Nilai field tidak memenuhi kriteria validasi atau null',
+              raw_gemini: geminiRes.rawGemini
+            }).eq('id', item.id);
+            processedInBatch++;
+            continue;
+          }
+
+          // Render nama
+          let newName;
+          try {
+            newName = jasCore.renderTemplateName(config.formatNama, geminiRes.parsed, allowedKeys);
+          } catch (renderErr) {
+            await db.from('jas_job_items').update({
+              status: 'failed',
+              error_reason: 'Gagal merender nama: ' + renderErr.message,
+              raw_gemini: geminiRes.rawGemini
+            }).eq('id', item.id);
+            processedInBatch++;
+            continue;
+          }
+
+          if (isSimulation) {
+            await db.from('jas_job_items').update({
+              status: 'simulated',
+              new_name: newName,
+              raw_gemini: geminiRes.rawGemini
+            }).eq('id', item.id);
+          } else {
+            // Mode nyata: rename berkas di Drive
+            await jasCore.renameFileInDrive(item.drive_file_id, newName, accessToken);
+
+            // Tulis ke spreadsheet jika dikonfigurasi
+            if (spreadsheetId) {
+              try {
+                let duplicateNip = false;
+                if (nipFieldName && geminiRes.parsed[nipFieldName]) {
+                  const nipDigits = String(geminiRes.parsed[nipFieldName]).replace(/\D/g, '');
+                  duplicateNip = await jasCore.checkNipExistsInSpreadsheet(spreadsheetId, nipDigits, accessToken);
+                }
+
+                if (!duplicateNip) {
+                  const rowValues = [newName];
+                  (config.fields || []).forEach(f => {
+                    const k = String(f.name || '').trim().toUpperCase();
+                    rowValues.push(geminiRes.parsed[k] || '');
+                  });
+                  rowValues.push(item.file_url || '');
+                  await jasCore.appendRowToSpreadsheet(spreadsheetId, rowValues, accessToken);
+                }
+              } catch (sheetErr) {
+                console.warn('[jas spreadsheet] Error appending row:', sheetErr.message);
+              }
+            }
+
+            await db.from('jas_job_items').update({
+              status: 'done',
+              new_name: newName,
+              raw_gemini: geminiRes.rawGemini
+            }).eq('id', item.id);
+          }
+
+          processedInBatch++;
+        } catch (itemErr) {
+          console.error('[jas process item error]:', itemErr.message);
+          await db.from('jas_job_items').update({
+            status: 'failed',
+            error_reason: itemErr.message
+          }).eq('id', item.id);
+          processedInBatch++;
+        }
+      }
+
+      // Hitung sisa item pending
+      const { count: remainingCount } = await db.from('jas_job_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('job_id', jobId)
+        .eq('status', 'pending');
+
+      const isCompleted = (remainingCount === 0);
+      const newStatus = isCompleted ? 'done' : (quotaExceeded || stoppedEarly ? 'stopped' : 'pending');
+
+      // Update progress di jas_jobs
+      const { count: totalProcessedCount } = await db.from('jas_job_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('job_id', jobId)
+        .neq('status', 'pending');
+
+      await db.from('jas_jobs').update({
+        status: newStatus,
+        lease_until: null,
+        processed_items: totalProcessedCount || 0,
+        updated_at: new Date().toISOString()
+      }).eq('id', jobId);
+
+      if (quotaExceeded) {
+        return {
+          success: false,
+          statusCode: 429,
+          message: 'Kuota Gemini API terlampaui (429). Silakan tunggu beberapa saat sebelum menekan tombol Lanjutkan.',
+          processed: processedInBatch,
+          remaining: remainingCount,
+          stopped: true,
+          completed: false
+        };
+      }
+
+      return {
+        success: true,
+        processed: processedInBatch,
+        remaining: remainingCount,
+        stopped: stoppedEarly || !isCompleted,
+        completed: isCompleted
+      };
+    } catch (err) {
+      return { success: false, statusCode: err.statusCode || 500, message: err.message };
+    }
+  },
+
+  async getJasJobStatus(args) {
+    try {
+      const [opts] = extractArgs(args);
+      const { token, jobId } = opts || {};
+      const decoded = verifyJasRole(token);
+      const db = getDb();
+
+      const { data: job, error: jobErr } = await db.from('jas_jobs').select('*').eq('id', jobId).maybeSingle();
+      if (jobErr || !job) {
+        return { success: false, statusCode: 404, message: 'Pekerjaan (job) tidak ditemukan.' };
+      }
+      jasCore.verifyJobOwnership(job, decoded.nip);
+
+      const { data: items, error: itemsErr } = await db.from('jas_job_items')
+        .select('id, item_key, drive_file_id, status, old_name, new_name, file_url, error_reason, created_at')
+        .eq('job_id', jobId)
+        .order('created_at', { ascending: true });
+
+      return {
+        success: true,
+        job,
+        items: items || []
+      };
+    } catch (err) {
+      return { success: false, statusCode: err.statusCode || 500, message: err.message };
+    }
+  },
+
+  // ---- JAS FITUR 2: UNDUH BERKAS DARI SPREADSHEET ----
+  async detectJasSpreadsheetColumns(args) {
+    try {
+      const [opts] = extractArgs(args);
+      const { token, spreadsheetUrl, sheetName, headerRow, startRow, endRow } = opts || {};
+      const decoded = verifyJasRole(token);
+      const db = getDb();
+      const accessToken = await jasCore.getValidGoogleAccessToken(decoded.nip, db);
+
+      const spreadsheetId = jasCore.parseGoogleSpreadsheetId(spreadsheetUrl);
+      if (!spreadsheetId) {
+        return { success: false, statusCode: 400, message: 'Tautan Google Spreadsheet tidak valid.' };
+      }
+
+      const hRow = Math.max(1, parseInt(headerRow, 10) || 1);
+      const sRow = Math.max(hRow + 1, parseInt(startRow, 10) || (hRow + 1));
+      const eRow = Math.max(sRow, parseInt(endRow, 10) || sRow);
+
+      const info = await jasCore.fetchSpreadsheetInfo(spreadsheetId, accessToken);
+      const activeSheetTitle = sheetName || (info.sheets && info.sheets[0] ? info.sheets[0].title : 'Sheet1');
+
+      // Ambil header row
+      const headerGrid = await jasCore.fetchSpreadsheetRangeGrid(spreadsheetId, activeSheetTitle, hRow, hRow, accessToken);
+      const headers = [];
+      if (headerGrid && headerGrid[0] && Array.isArray(headerGrid[0].values)) {
+        headerGrid[0].values.forEach(v => {
+          headers.push(String(v.formattedValue || '').trim());
+        });
+      }
+
+      // Ambil sampel data dari startRow hingga min(startRow + 4, endRow)
+      const sampleEndRow = Math.min(sRow + 4, eRow);
+      const sampleGrid = await jasCore.fetchSpreadsheetRangeGrid(spreadsheetId, activeSheetTitle, sRow, sampleEndRow, accessToken);
+      const sampleRows = [];
+      if (Array.isArray(sampleGrid)) {
+        sampleGrid.forEach(r => {
+          const rowVals = [];
+          if (r && Array.isArray(r.values)) {
+            r.values.forEach(c => {
+              const urls = jasCore.extractUrlsFromCell(c);
+              rowVals.push(urls.length > 0 ? urls[0] : (c.formattedValue || ''));
+            });
+          }
+          sampleRows.push(rowVals);
+        });
+      }
+
+      const detection = jasCore.detectColumnsFromRows(headers, sampleRows);
+
+      return {
+        success: true,
+        spreadsheetId,
+        sheets: info.sheets || [],
+        activeSheetTitle,
+        headers,
+        nameColumnIndex: detection.nameColumnIndex,
+        linkColumnIndices: detection.linkColumnIndices,
+        hRow,
+        sRow,
+        eRow
+      };
+    } catch (err) {
+      return { success: false, statusCode: err.statusCode || 500, message: err.message };
+    }
+  },
+
+  async startJasDownloadJob(args) {
+    try {
+      const [opts] = extractArgs(args);
+      const { token, spreadsheetUrl, sheetName, headerRow, startRow, endRow, targetFolderUrl, nameColumnIndex, selectedLinkColumnIndices } = opts || {};
+      const decoded = verifyJasRole(token);
+      const db = getDb();
+
+      const spreadsheetId = jasCore.parseGoogleSpreadsheetId(spreadsheetUrl);
+      if (!spreadsheetId) {
+        return { success: false, statusCode: 400, message: 'Tautan Google Spreadsheet tidak valid.' };
+      }
+      const targetFolderId = jasCore.parseGoogleDriveFolderId(targetFolderUrl);
+      if (!targetFolderId) {
+        return { success: false, statusCode: 400, message: 'Tautan folder tujuan Google Drive tidak valid.' };
+      }
+
+      const hRow = Math.max(1, parseInt(headerRow, 10) || 1);
+      const sRow = parseInt(startRow, 10);
+      const eRow = parseInt(endRow, 10);
+      if (sRow <= hRow) {
+        return { success: false, statusCode: 400, message: 'Baris mulai harus lebih besar dari baris header.' };
+      }
+      if (eRow < sRow) {
+        return { success: false, statusCode: 400, message: 'Baris akhir harus lebih besar atau sama dengan baris mulai.' };
+      }
+      if (typeof nameColumnIndex !== 'number' || nameColumnIndex < 0) {
+        return { success: false, statusCode: 400, message: 'Kolom Nama wajib ditentukan.' };
+      }
+      if (!Array.isArray(selectedLinkColumnIndices) || selectedLinkColumnIndices.length === 0) {
+        return { success: false, statusCode: 400, message: 'Pilih minimal satu kolom tautan berkas.' };
+      }
+
+      const accessToken = await jasCore.getValidGoogleAccessToken(decoded.nip, db);
+
+      // Ambil header untuk label file
+      const headerGrid = await jasCore.fetchSpreadsheetRangeGrid(spreadsheetId, sheetName, hRow, hRow, accessToken);
+      const headers = [];
+      if (headerGrid && headerGrid[0] && Array.isArray(headerGrid[0].values)) {
+        headerGrid[0].values.forEach(v => {
+          headers.push(String(v.formattedValue || '').trim());
+        });
+      }
+
+      // Ambil semua data baris dalam rentang yang diminta
+      const fullGrid = await jasCore.fetchSpreadsheetRangeGrid(spreadsheetId, sheetName, sRow, eRow, accessToken);
+
+      // Hitung frekuensi nama untuk deteksi baris kembar: "Nama (baris N)"
+      const nameCounts = {};
+      const rowList = [];
+
+      fullGrid.forEach((r, idx) => {
+        const rowNumber = sRow + idx;
+        const cells = (r && r.values) || [];
+        const nameCell = cells[nameColumnIndex];
+        const rawName = nameCell ? (nameCell.formattedValue || (nameCell.userEnteredValue && nameCell.userEnteredValue.stringValue) || '').trim() : '';
+        const cleanName = jasCore.sanitizeFileNameValue(rawName);
+
+        if (cleanName) {
+          nameCounts[cleanName] = (nameCounts[cleanName] || 0) + 1;
+        }
+
+        rowList.push({
+          rowNumber,
+          rawName,
+          cleanName,
+          cells
+        });
+      });
+
+      // Siapkan job items
+      const itemsToInsert = [];
+      let totalItems = 0;
+
+      rowList.forEach(itemRow => {
+        const { rowNumber, rawName, cleanName, cells } = itemRow;
+
+        if (!cleanName) {
+          itemsToInsert.push({
+            item_key: `row_${rowNumber}_empty`,
+            status: 'skipped',
+            old_name: `Baris ${rowNumber} (Nama Kosong)`,
+            error_reason: 'Nama pegawai kosong pada baris ini'
+          });
+          totalItems++;
+          return;
+        }
+
+        const isDuplicate = (nameCounts[cleanName] > 1);
+        const folderName = isDuplicate ? jasCore.formatDuplicateRowName(cleanName, rowNumber) : cleanName;
+
+        selectedLinkColumnIndices.forEach(colIdx => {
+          const colHeader = headers[colIdx] || `Kolom_${colIdx + 1}`;
+          const cleanHeader = jasCore.sanitizeFileNameValue(colHeader) || `Kolom_${colIdx + 1}`;
+          const cell = cells[colIdx];
+          const urls = jasCore.extractUrlsFromCell(cell);
+
+          urls.forEach((u, uIdx) => {
+            const suffix = jasCore.formatDuplicateSuffix(uIdx + 1);
+            const baseFileName = `${cleanHeader}${suffix}`;
+            totalItems++;
+            itemsToInsert.push({
+              item_key: `row_${rowNumber}_col_${colIdx}_link_${uIdx + 1}`,
+              status: 'pending',
+              old_name: u,
+              new_name: `${folderName}/${baseFileName}`,
+              file_url: u,
+              raw_gemini: JSON.stringify({
+                rowNumber,
+                colIdx,
+                colHeader,
+                folderName,
+                baseFileName
+              })
+            });
+          });
+        });
+      });
+
+      if (itemsToInsert.length === 0) {
+        return { success: false, statusCode: 400, message: 'Tidak ada tautan berkas yang ditemukan pada rentang baris dan kolom yang dipilih.' };
+      }
+
+      // Buat job di jas_jobs
+      const { data: job, error: jobErr } = await db.from('jas_jobs').insert({
+        owner_id: decoded.nip,
+        feature_type: 'download',
+        status: 'pending',
+        config: {
+          spreadsheetUrl,
+          sheetName,
+          headerRow: hRow,
+          startRow: sRow,
+          endRow: eRow,
+          targetFolderUrl,
+          targetFolderId,
+          nameColumnIndex,
+          selectedLinkColumnIndices
+        },
+        total_items: totalItems,
+        processed_items: 0
+      }).select().single();
+
+      if (jobErr || !job) {
+        throw new Error('Gagal membuat pekerjaan di basis data: ' + (jobErr ? jobErr.message : ''));
+      }
+
+      const attachedItems = itemsToInsert.map(it => Object.assign({ job_id: job.id }, it));
+      for (let i = 0; i < attachedItems.length; i += 100) {
+        const chunk = attachedItems.slice(i, i + 100);
+        await db.from('jas_job_items').insert(chunk);
+      }
+
+      return {
+        success: true,
+        jobId: job.id,
+        totalItems,
+        totalRows: rowList.length
+      };
+    } catch (err) {
+      return { success: false, statusCode: err.statusCode || 500, message: err.message };
+    }
+  },
+
+  async processJasDownloadBatch(args) {
+    try {
+      const [opts] = extractArgs(args);
+      const { token, jobId } = opts || {};
+      const decoded = verifyJasRole(token);
+      const db = getDb();
+
+      const { data: job, error: jobErr } = await db.from('jas_jobs').select('*').eq('id', jobId).maybeSingle();
+      if (jobErr || !job) {
+        return { success: false, statusCode: 404, message: 'Pekerjaan (job) tidak ditemukan.' };
+      }
+      jasCore.verifyJobOwnership(job, decoded.nip);
+
+      if (job.status === 'done') {
+        return { success: true, processed: 0, remaining: 0, stopped: false, completed: true };
+      }
+
+      // Lease DB (300s)
+      const leaseExpiry = new Date(Date.now() + 300000).toISOString();
+      await db.from('jas_jobs').update({
+        status: 'running',
+        lease_until: leaseExpiry,
+        updated_at: new Date().toISOString()
+      }).eq('id', jobId);
+
+      const accessToken = await jasCore.getValidGoogleAccessToken(decoded.nip, db);
+      const config = job.config || {};
+      const targetFolderId = config.targetFolderId;
+
+      const { data: items, error: itemsErr } = await db.from('jas_job_items')
+        .select('*')
+        .eq('job_id', jobId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+        .limit(10);
+
+      if (itemsErr || !items || items.length === 0) {
+        await db.from('jas_jobs').update({ status: 'done', lease_until: null, updated_at: new Date().toISOString() }).eq('id', jobId);
+        return { success: true, processed: 0, remaining: 0, stopped: false, completed: true };
+      }
+
+      const startTime = Date.now();
+      let processedInBatch = 0;
+      let stoppedEarly = false;
+      const subfolderCache = {};
+
+      for (const item of items) {
+        if (Date.now() - startTime > 180000) {
+          stoppedEarly = true;
+          break;
+        }
+
+        try {
+          let meta = {};
+          try {
+            meta = JSON.parse(item.raw_gemini || '{}');
+          } catch (_) {}
+
+          const folderName = meta.folderName || 'Umum';
+          const baseFileName = meta.baseFileName || 'Berkas';
+
+          let subfolderId = subfolderCache[folderName];
+          if (!subfolderId) {
+            subfolderId = await jasCore.findOrCreateSubfolder(targetFolderId, folderName, accessToken);
+            subfolderCache[folderName] = subfolderId;
+          }
+
+          const copyRes = await jasCore.copyDriveFileOrDownloadUrl(item.file_url, subfolderId, baseFileName, accessToken);
+
+          await db.from('jas_job_items').update({
+            status: copyRes.skipped ? 'skipped' : 'done',
+            new_name: `${folderName}/${copyRes.fileName}`,
+            error_reason: copyRes.skipped ? 'Berkas sudah ada di folder tujuan' : null
+          }).eq('id', item.id);
+
+          processedInBatch++;
+        } catch (itemErr) {
+          console.error('[jas download item error]:', itemErr.message);
+          await db.from('jas_job_items').update({
+            status: 'failed',
+            error_reason: itemErr.message
+          }).eq('id', item.id);
+          processedInBatch++;
+        }
+      }
+
+      const { count: remainingCount } = await db.from('jas_job_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('job_id', jobId)
+        .eq('status', 'pending');
+
+      const isCompleted = (remainingCount === 0);
+      const newStatus = isCompleted ? 'done' : (stoppedEarly ? 'stopped' : 'pending');
+
+      const { count: totalProcessedCount } = await db.from('jas_job_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('job_id', jobId)
+        .neq('status', 'pending');
+
+      await db.from('jas_jobs').update({
+        status: newStatus,
+        lease_until: null,
+        processed_items: totalProcessedCount || 0,
+        updated_at: new Date().toISOString()
+      }).eq('id', jobId);
+
+      return {
+        success: true,
+        processed: processedInBatch,
+        remaining: remainingCount,
+        stopped: stoppedEarly || !isCompleted,
+        completed: isCompleted
+      };
+    } catch (err) {
+      return { success: false, statusCode: err.statusCode || 500, message: err.message };
     }
   },
 
@@ -14574,7 +15393,7 @@ module.exports = async function handler(req, res) {
     if (fn) {
       try {
         const safeParams = Array.isArray(params) ? params : [];
-        const result = await fn(safeParams);
+        const result = await fn(safeParams, req);
         res.status(200).json(result !== undefined && result !== null ? result : { success: true });
       } catch (fnErr) {
         console.error(`[rpc] ${method} ERROR:`, fnErr.stack || fnErr.message);
