@@ -3354,6 +3354,44 @@
     border-color: rgba(245, 158, 11, 0.5);
     color: #fbbf24;
   }
+
+  .pddikti-dropdown-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  .pddikti-dropdown-item:last-child {
+    border-bottom: none;
+  }
+  .pddikti-dropdown-item:hover {
+    background: var(--surface-alt);
+  }
+  .pddikti-item-title {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-main);
+  }
+  .pddikti-item-jenjang {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10.5px;
+    font-weight: 700;
+    background: rgba(37, 99, 235, 0.12);
+    color: #2563eb;
+    margin-right: 6px;
+  }
+  .pddikti-item-count {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
 </style>
   <!-- Libraries for Word template previewing & Excel/Spreadsheet parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -3375,7 +3413,7 @@
         <span>SI-LAYAKA Personnel</span>
       </div>
       <div class="login-topbar-actions">
-        <button type="button" class="topbar-btn theme-toggle-btn" id="loginThemeToggleBtn" title="Ganti Tema (Light / Godzilla Dark)" aria-label="Ganti Tema (Light / Godzilla Dark)">
+        <button type="button" class="topbar-btn theme-toggle-btn" id="loginThemeToggleBtn" title="Ganti Tema (Light / Dark Mode)" aria-label="Ganti Tema (Light / Dark Mode)">
           <span id="loginThemeBtnIcon" class="theme-btn-icon" style="font-size:18px;">🌙</span>
         </button>
         <button type="button" class="topbar-btn" title="Bantuan" aria-label="Bantuan" onclick="alert('Jika Anda mengalami kendala login, silakan hubungi Administrator DOSDM Universitas Diponegoro.');">
@@ -3626,9 +3664,9 @@
           </div>
           <div class="topbar-actions">
             <div class="topbar-controls-group">
-              <button type="button" class="topbar-theme-btn" id="appThemeToggleBtn" title="Ganti Tema (Light / Godzilla Dark)" aria-label="Ganti Tema (Light / Godzilla Dark)">
+              <button type="button" class="topbar-theme-btn" id="appThemeToggleBtn" title="Ganti Tema (Light / Dark Mode)" aria-label="Ganti Tema (Light / Dark Mode)">
                 <span id="appThemeBtnIcon" class="theme-btn-icon">🌙</span>
-                <span id="appThemeBtnLabel" class="theme-btn-label">Godzilla Dark</span>
+                <span id="appThemeBtnLabel" class="theme-btn-label">Dark Mode</span>
               </button>
               <button type="button" class="topbar-guide-btn" id="appGuideBtn" title="Alur & Panduan Penggunaan Menu Ini" aria-label="Alur & Panduan Penggunaan Menu Ini" onclick="openAppGuideModal()">
                 <span class="guide-btn-icon">📖</span>
@@ -6143,10 +6181,26 @@
                   </select>
                   <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Jenis surat yang tersedia ditentukan oleh admin.</div>
                 </div>
-                <div class="stack-field" id="usulSk_sekprodiWrap" style="display:none;">
-                  <label class="kp-label">Jumlah Mahasiswa <span style="color:#ef4444;">*</span></label>
-                  <input type="number" id="usulSk_jumlahMahasiswa" class="field-input" min="0" placeholder="Harus lebih dari 100" />
-                  <div id="usulSk_sekprodiAlert" class="helper-text" style="display:none;color:#ef4444;margin-top:6px;">⚠️ Jumlah mahasiswa harus lebih dari 100 untuk Sekprodi.</div>
+                <div class="stack-field grid-full" id="usulSk_sekprodiWrap" style="display:none;background:var(--surface-alt);border:1px solid var(--border);border-radius:10px;padding:16px;margin:8px 0 12px 0;">
+                  <div style="font-weight:700;font-size:13px;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                    <span>🎓</span> Validasi Ketentuan SK Tutam Sekprodi (Data PDDIKTI)
+                  </div>
+                  <div class="kp-grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:12px;">
+                    <div class="stack-field" style="position:relative;">
+                      <label class="kp-label">Pilih Program Studi &amp; Jenjang <span style="color:#ef4444;">*</span></label>
+                      <input type="text" id="usulSk_searchProdi" class="field-input" placeholder="Ketik nama Prodi atau Jenjang..." autocomplete="off" oninput="usulSkSearchProdi()" onfocus="usulSkSearchProdi()" />
+                      <div id="usulSk_prodiDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:220px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:300;margin-top:4px;"></div>
+                      <input type="hidden" id="usulSk_selectedProdi" />
+                      <input type="hidden" id="usulSk_selectedJenjang" />
+                      <input type="hidden" id="usulSk_jumlahMahasiswa" value="0" />
+                    </div>
+                    <div class="stack-field">
+                      <label class="kp-label">Jumlah Mahasiswa Aktif (PDDIKTI)</label>
+                      <input type="text" id="usulSk_jumlahMahasiswaDisplay" class="field-input" placeholder="Otomatis terisi setelah memilih prodi" readonly style="background:var(--surface);font-weight:700;" />
+                    </div>
+                  </div>
+                  <!-- Status alert box untuk syarat >= 100 mahasiswa -->
+                  <div id="usulSk_sekprodiAlert" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:12.5px;line-height:1.4;"></div>
                 </div>
                 <div class="stack-field">
                   <label class="kp-label">Nomor Surat Usulan</label>
@@ -6161,7 +6215,7 @@
                   <input type="file" id="usulSk_fileSurat" class="field-input" accept=".pdf,.jpg,.jpeg,.png" />
                 </div>
                 <div class="grid-full" style="margin-top:8px;">
-                  <button class="btn btn-primary" onclick="submitUsulSk()">📤 Ajukan Usulan</button>
+                  <button class="btn btn-primary" id="btnSubmitUsulSk" onclick="submitUsulSk()">📤 Ajukan Usulan</button>
                 </div>
               </div>
               <!-- Riwayat Usulan Saya -->
@@ -7927,14 +7981,14 @@ function updateThemeIcon(mode) {
   if (btn) btn.textContent = isDark ? '🌙' : '☀️';
 
   const label = document.getElementById('themeLabel');
-  if (label) label.textContent = isDark ? 'Dark' : 'Light';
+  if (label) label.textContent = isDark ? 'Dark Mode' : 'Light Mode';
 
   // Login topbar button
   const loginIcon = document.getElementById('loginThemeBtnIcon');
   if (loginIcon) loginIcon.textContent = isDark ? '☀️' : '🌙';
   const loginBtn = document.getElementById('loginThemeToggleBtn');
   if (loginBtn) {
-    const tip = isDark ? 'Beralih ke Mode Terang (Default)' : 'Beralih ke Mode Gelap Godzilla';
+    const tip = isDark ? 'Beralih ke Light Mode' : 'Beralih ke Dark Mode';
     loginBtn.title = tip;
     loginBtn.setAttribute('aria-label', tip);
   }
@@ -7943,10 +7997,10 @@ function updateThemeIcon(mode) {
   const appIcon = document.getElementById('appThemeBtnIcon');
   if (appIcon) appIcon.textContent = isDark ? '☀️' : '🌙';
   const appLabel = document.getElementById('appThemeBtnLabel');
-  if (appLabel) appLabel.textContent = isDark ? 'Mode Terang' : 'Godzilla Dark';
+  if (appLabel) appLabel.textContent = isDark ? 'Light Mode' : 'Dark Mode';
   const appBtn = document.getElementById('appThemeToggleBtn');
   if (appBtn) {
-    const tip = isDark ? 'Beralih ke Mode Terang (Default)' : 'Beralih ke Mode Gelap Godzilla';
+    const tip = isDark ? 'Beralih ke Light Mode' : 'Beralih ke Dark Mode';
     appBtn.title = tip;
     appBtn.setAttribute('aria-label', tip);
   }
@@ -25774,34 +25828,180 @@ function usulSkSelectEmployee(nip, nama, unit) {
   const dropdown = document.getElementById('usulSk_searchDropdown');
   dropdown.innerHTML = ''; dropdown.style.display = 'none';
 }
-function usulSkJenisProposalChange() {
-  const jenis = document.getElementById('usulSk_jenisProposal').value;
-  const wrap  = document.getElementById('usulSk_sekprodiWrap');
-  wrap.style.display = jenis === 'Sekprodi' ? '' : 'none';
-  document.getElementById('usulSk_sekprodiAlert').style.display = 'none';
+let _pddiktiProdiListCache = null;
+
+async function loadPddiktiProdiData() {
+  if (_pddiktiProdiListCache && _pddiktiProdiListCache.length > 0) return _pddiktiProdiListCache;
+  try {
+    const res = await rpc('getPddiktiProdiList', [SESSION.token]);
+    if (res && res.success && Array.isArray(res.data)) {
+      _pddiktiProdiListCache = res.data;
+      return _pddiktiProdiListCache;
+    }
+  } catch(e) {
+    console.warn('[loadPddiktiProdiData] Warning:', e.message || e);
+  }
+  return [];
 }
+
+async function usulSkSearchProdi() {
+  const input = document.getElementById('usulSk_searchProdi');
+  const dropdown = document.getElementById('usulSk_prodiDropdown');
+  if (!input || !dropdown) return;
+
+  const query = (input.value || '').trim().toLowerCase();
+  const list = await loadPddiktiProdiData();
+  if (!list || list.length === 0) {
+    dropdown.innerHTML = '<div style="padding:12px;font-size:12px;color:var(--text-muted);text-align:center;">Memuat data Program Studi...</div>';
+    dropdown.style.display = 'block';
+    return;
+  }
+
+  const filtered = query
+    ? list.filter(item => (item.program_studi || '').toLowerCase().includes(query) || (item.jenjang || '').toLowerCase().includes(query))
+    : list;
+
+  if (filtered.length === 0) {
+    dropdown.innerHTML = '<div style="padding:12px;font-size:12px;color:var(--text-muted);text-align:center;">Tidak ada program studi yang cocok.</div>';
+    dropdown.style.display = 'block';
+    return;
+  }
+
+  dropdown.innerHTML = filtered.slice(0, 50).map(item => {
+    const prodiEsc = escHtml(item.program_studi);
+    const jenjangEsc = escHtml(item.jenjang || 'S1');
+    const jml = Number(item.jumlah_mahasiswa || 0);
+    const isUnder = jml < 100;
+    return `
+      <div class="pddikti-dropdown-item" onclick="usulSkSelectProdi('${prodiEsc.replace(/'/g, "\\'")}', '${jenjangEsc.replace(/'/g, "\\'")}', ${jml})">
+        <div>
+          <span class="pddikti-item-jenjang">${jenjangEsc}</span>
+          <span class="pddikti-item-title">${prodiEsc}</span>
+        </div>
+        <div class="pddikti-item-count" style="color:${isUnder ? '#ef4444' : '#10b981'};">
+          ${jml.toLocaleString('id-ID')} mhs ${isUnder ? '⚠️' : '✅'}
+        </div>
+      </div>
+    `;
+  }).join('');
+  dropdown.style.display = 'block';
+}
+
+function usulSkSelectProdi(prodi, jenjang, jmlMhs) {
+  const input = document.getElementById('usulSk_searchProdi');
+  const dropdown = document.getElementById('usulSk_prodiDropdown');
+  const hidProdi = document.getElementById('usulSk_selectedProdi');
+  const hidJenjang = document.getElementById('usulSk_selectedJenjang');
+  const hidJml = document.getElementById('usulSk_jumlahMahasiswa');
+  const dispJml = document.getElementById('usulSk_jumlahMahasiswaDisplay');
+  const alertBox = document.getElementById('usulSk_sekprodiAlert');
+  const submitBtn = document.getElementById('btnSubmitUsulSk');
+
+  if (input) input.value = `${prodi} (${jenjang})`;
+  if (dropdown) dropdown.style.display = 'none';
+  if (hidProdi) hidProdi.value = prodi;
+  if (hidJenjang) hidJenjang.value = jenjang;
+  if (hidJml) hidJml.value = jmlMhs;
+  if (dispJml) dispJml.value = `${jmlMhs.toLocaleString('id-ID')} Mahasiswa Aktif`;
+
+  if (alertBox) {
+    if (jmlMhs < 100) {
+      alertBox.style.display = 'block';
+      alertBox.style.background = 'rgba(239, 68, 68, 0.12)';
+      alertBox.style.border = '1px solid rgba(239, 68, 68, 0.35)';
+      alertBox.style.color = '#dc2626';
+      alertBox.innerHTML = `<strong>⚠️ Belum Memenuhi Syarat:</strong> Jumlah mahasiswa aktif pada <u>${escHtml(prodi)} (${escHtml(jenjang)})</u> adalah <strong>${jmlMhs} mahasiswa</strong> (kurang dari 100). Sesuai ketentuan, SK Tutam Sekprodi belum bisa diajukan.`;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.5';
+        submitBtn.style.cursor = 'not-allowed';
+        submitBtn.title = 'Jumlah mahasiswa kurang dari 100, tidak memenuhi syarat pengajuan SK Tutam Sekprodi.';
+      }
+    } else {
+      alertBox.style.display = 'block';
+      alertBox.style.background = 'rgba(16, 185, 129, 0.12)';
+      alertBox.style.border = '1px solid rgba(16, 185, 129, 0.35)';
+      alertBox.style.color = '#059669';
+      alertBox.innerHTML = `<strong>✅ Memenuhi Syarat:</strong> Jumlah mahasiswa aktif pada <u>${escHtml(prodi)} (${escHtml(jenjang)})</u> adalah <strong>${jmlMhs.toLocaleString('id-ID')} mahasiswa</strong> (memenuhi syarat minimal 100 mahasiswa).`;
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+        submitBtn.style.cursor = 'pointer';
+        submitBtn.title = '';
+      }
+    }
+  }
+}
+
+// Event listener klik di luar dropdown untuk menutup dropdown prodi
+document.addEventListener('click', function(e) {
+  const dropdown = document.getElementById('usulSk_prodiDropdown');
+  const input = document.getElementById('usulSk_searchProdi');
+  if (dropdown && dropdown.style.display !== 'none') {
+    if (e.target !== input && !dropdown.contains(e.target)) {
+      dropdown.style.display = 'none';
+    }
+  }
+});
+
+function usulSkJenisProposalChange() {
+  const jenis = document.getElementById('usulSk_jenisProposal').value || '';
+  const isSekprodi = /sekprodi/i.test(jenis);
+  const wrap  = document.getElementById('usulSk_sekprodiWrap');
+  const alertBox = document.getElementById('usulSk_sekprodiAlert');
+  const submitBtn = document.getElementById('btnSubmitUsulSk');
+
+  if (wrap) wrap.style.display = isSekprodi ? '' : 'none';
+  if (alertBox) alertBox.style.display = 'none';
+
+  if (isSekprodi) {
+    loadPddiktiProdiData();
+    const curProdi = document.getElementById('usulSk_selectedProdi')?.value || '';
+    const curJml = parseInt(document.getElementById('usulSk_jumlahMahasiswa')?.value || '0', 10);
+    if (!curProdi || curJml < 100) {
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.5';
+        submitBtn.style.cursor = 'not-allowed';
+      }
+    }
+  } else {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.style.opacity = '1';
+      submitBtn.style.cursor = 'pointer';
+      submitBtn.title = '';
+    }
+  }
+}
+
 async function submitUsulSk() {
   const nip_target      = document.getElementById('usulSk_nipTarget').value;
   const jenis_proposal  = document.getElementById('usulSk_jenisProposal').value;
   const nomor_surat_usul= document.getElementById('usulSk_nomorSurat').value;
   const tgl_surat_usul  = document.getElementById('usulSk_tglSurat').value;
-  const jumlah_mahasiswa= document.getElementById('usulSk_jumlahMahasiswa').value;
+  const program_studi   = document.getElementById('usulSk_selectedProdi')?.value || '';
+  const jenjang         = document.getElementById('usulSk_selectedJenjang')?.value || '';
+  const jumlah_mahasiswa= document.getElementById('usulSk_jumlahMahasiswa')?.value || '0';
 
   if (!nip_target) return showToast('error', 'Pilih pegawai target terlebih dahulu.');
   if (!jenis_proposal) return showToast('error', 'Pilih jenis proposal terlebih dahulu.');
 
-  // Validasi Sekprodi di frontend: jumlah_mahasiswa harus > 100
-  if (jenis_proposal === 'Sekprodi') {
+  const isSekprodi = /sekprodi/i.test(jenis_proposal);
+  if (isSekprodi) {
+    if (!program_studi) {
+      return showToast('error', 'Pilih Program Studi dan Jenjang terlebih dahulu.');
+    }
     const jml = parseInt(jumlah_mahasiswa || '0', 10);
-    const alert = document.getElementById('usulSk_sekprodiAlert');
-    if (jml <= 100) { alert.style.display = ''; return showToast('error', 'Jumlah mahasiswa harus lebih dari 100 untuk Sekprodi.'); }
-    alert.style.display = 'none';
+    if (jml < 100) {
+      return showToast('error', `Jumlah mahasiswa (${jml}) kurang dari 100, tidak memenuhi syarat pengajuan SK Tutam Sekprodi.`);
+    }
   }
 
   // Baca file jika ada
   let file_surat_usul_base64 = null, nama_file_surat_usul = null;
   const fileInput = document.getElementById('usulSk_fileSurat');
-  if (fileInput.files[0]) {
+  if (fileInput && fileInput.files[0]) {
     const file = fileInput.files[0];
     nama_file_surat_usul = file.name;
     file_surat_usul_base64 = await new Promise(resolve => {
@@ -25813,19 +26013,32 @@ async function submitUsulSk() {
   try {
     const res = await rpc('ajukanUsulanSk', [SESSION.token, {
       nip_target, jenis_proposal, nomor_surat_usul, tgl_surat_usul,
-      jumlah_mahasiswa: parseInt(jumlah_mahasiswa||'0',10),
+      program_studi, jenjang,
+      jumlah_mahasiswa: parseInt(jumlah_mahasiswa || '0', 10),
       file_surat_usul_base64, nama_file_surat_usul
     }]);
     hideLoadingOverlay();
     if (res.success) {
       showToast('success', res.message || 'Usulan berhasil diajukan.');
       // Reset form
-      ['usulSk_searchEmp','usulSk_nomorSurat','usulSk_tglSurat','usulSk_jumlahMahasiswa'].forEach(id => { const el=document.getElementById(id); if(el)el.value=''; });
+      ['usulSk_searchEmp','usulSk_nomorSurat','usulSk_tglSurat','usulSk_jumlahMahasiswa','usulSk_searchProdi','usulSk_selectedProdi','usulSk_selectedJenjang','usulSk_jumlahMahasiswaDisplay'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
       document.getElementById('usulSk_nipTarget').value = '';
       document.getElementById('usulSk_selectedTarget').style.display = 'none';
       document.getElementById('usulSk_jenisProposal').value = '';
       document.getElementById('usulSk_sekprodiWrap').style.display = 'none';
-      fileInput.value = '';
+      const alertBox = document.getElementById('usulSk_sekprodiAlert');
+      if (alertBox) alertBox.style.display = 'none';
+      const submitBtn = document.getElementById('btnSubmitUsulSk');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+        submitBtn.style.cursor = 'pointer';
+        submitBtn.title = '';
+      }
+      if (fileInput) fileInput.value = '';
       loadUsulanSkSaya();
     } else {
       showToast('error', res.message || 'Gagal mengajukan usulan.');
@@ -29033,6 +29246,184 @@ async function bukaModalGenerateSkp(usulanId) {
    ================================================================= */
 
 const GUIDE_REGISTRY = {
+  "profil-saya": {
+    title: "Profil Saya",
+    icon: "🙍",
+    subMenus: {
+      "tab-profil-data": {
+        title: "📋 Data Kepegawaian Pribadi",
+        roles: ["user", "normal", "admin", "super_admin"],
+        defaultRole: "user",
+        roleGuides: {
+          "user": {
+            badge: "Sebagai Pegawai / Pemilik Akun",
+            steps: [
+              {
+                title: "1. Akses Halaman Profil Saya",
+                desc: "Menu Profil Saya selalu berada di urutan teratas sidebar kiri dan menjadi halaman beranda saat pertama kali Anda login ke sistem."
+              },
+              {
+                title: "2. Tinjau Rincian Data Utama Kepegawaian",
+                desc: "Periksa identitas kepegawaian Anda, mulai dari NIP, Nama Lengkap, Pangkat, Golongan Ruang, TMT Pangkat, Jabatan, Unit Kerja, hingga perkiraan Batas Usia Pensiun (BUP)."
+              },
+              {
+                title: "3. Periksa Riwayat SK & Status Kepegawaian",
+                desc: "Pastikan riwayat kepangkatan dan masa kerja yang tercantum telah sesuai dengan SK fisik terakhir yang Anda miliki."
+              },
+              {
+                title: "4. Ajukan Koreksi Data Bila Diperlukan",
+                desc: "Jika terdapat ketidaksesuaian data (misal: perubahan gelar pendidikan, salah ketik nama/tmt), Anda dapat mengajukan permohonan koreksi profil untuk diverifikasi admin kepegawaian."
+              }
+            ],
+            tips: "Pastikan data NIP dan TMT Golongan Anda selalu mutakhir karena digunakan sebagai acuan otomatis untuk kalkulasi Kenaikan Pangkat dan KGB.",
+            flowchart: [
+              { id: 1, type: "start", icon: "🙍", title: "Masuk Profil Saya", desc: "Akses menu utama profil kepegawaian pribadi" },
+              { id: 2, type: "process", icon: "🔍", title: "Verifikasi Data", desc: "Cek NIP, Nama, Pangkat, TMT, & Unit Kerja" },
+              { id: 3, type: "process", icon: "📂", title: "Cek Riwayat SK", desc: "Pastikan SK terakhir sinkron dengan database" },
+              { id: 4, type: "end", icon: "✅", title: "Data Terverifikasi", desc: "Data siap digunakan untuk seluruh layanan SIMPEG" }
+            ]
+          }
+        }
+      },
+      "tab-profil-foto": {
+        title: "📸 Penggantian Foto Profil",
+        roles: ["user", "normal", "admin", "super_admin"],
+        defaultRole: "user",
+        roleGuides: {
+          "user": {
+            badge: "Sebagai Pegawai / Pemilik Akun",
+            steps: [
+              {
+                title: "1. Siapkan Foto di Google Drive",
+                desc: "Unggah pasfoto resmi Anda ke Google Drive."
+              },
+              {
+                title: "2. Atur Akses Berbagi Menjadi Publik",
+                desc: "Klik kanan file foto di Google Drive, pilih 'Bagikan (Share)' lalu ubah Akses Umum menjadi 'Siapa saja yang memiliki tautan (Anyone with the link can view)'."
+              },
+              {
+                title: "3. Salin Tautan & Tempel ke Kolom Foto",
+                desc: "Salin link sharing Google Drive tersebut, lalu tempelkan ke kolom 'Link Foto Google Drive' pada halaman Profil Saya."
+              },
+              {
+                title: "4. Pratinjau & Simpan Foto",
+                desc: "Sistem otomatis mengonversi tautan menjadi link gambar langsung (CDN Google). Pastikan gambar tampil di kotak pratinjau, lalu tekan tombol '💾 Simpan Foto'. Foto akan tersimpan permanen dan dimuat otomatis setiap login."
+              }
+            ],
+            tips: "Pastikan foto berformat JPG/PNG dan tautan disetel publik agar tidak diblokir oleh Google CDN saat dimuat kembali.",
+            flowchart: [
+              { id: 1, type: "start", icon: "📸", title: "Upload ke GDrive", desc: "Simpan pasfoto resmi di akun Google Drive" },
+              { id: 2, type: "process", icon: "🔗", title: "Setel Akses Publik", desc: "Ubah izin link: Anyone with the link" },
+              { id: 3, type: "process", icon: "📋", title: "Tempel Link & Preview", desc: "Sistem otomatis konversi URL langsung" },
+              { id: 4, type: "end", icon: "💾", title: "Simpan Permanen", desc: "Foto tersimpan di database & topbar profil" }
+            ]
+          }
+        }
+      }
+    }
+  },
+
+  "dashboard-utama": {
+    title: "Dashboard Utama",
+    icon: "📊",
+    subMenus: {
+      "tab-dash-kpi": {
+        title: "📈 Metrik KPI Kepegawaian",
+        roles: ["user", "admin", "super_admin"],
+        defaultRole: "user",
+        roleGuides: {
+          "admin": {
+            badge: "Sebagai Administrator / Super Admin",
+            steps: [
+              {
+                title: "1. Pantau Usulan Pangkat Masuk",
+                desc: "Melihat total akumulasi berkas usulan kenaikan pangkat secara real-time lengkap dengan rincian status: Diterima DOSDM, Diajukan SIASN, TTD Pertek, SK Berhasil, hingga Perbaikan."
+              },
+              {
+                title: "2. Pantau Pegawai Perlu Diperhatikan (Eligible KP)",
+                desc: "Menghitung pegawai yang memenuhi kriteria kenaikan pangkat untuk periode TMT terdekat (Jabatan Fungsional 2 tahun & Reguler 4 tahun) sesuai ketentuan resmi BKN/SIMPEG."
+              },
+              {
+                title: "3. Pantau Pegawai Akan Pensiun (Pilihan Rentang 1-5 Tahun)",
+                desc: "Pilih rentang waktu pada dropdown kartu pensiun: < 1 Tahun, ≤ 2 Tahun, ≤ 3 Tahun, ≤ 4 Tahun, atau ≤ 5 Tahun untuk memetakan kebutuhan regenerasi formasi pegawai."
+              },
+              {
+                title: "4. Pantau Semua Kegiatan Sistem",
+                desc: "Agregasi transaksi kepegawaian menyeluruh meliputi usulan KP, usulan kontrak, permohonan ubah profil, dan template administrasi."
+              }
+            ],
+            tips: "Gunakan tombol Refresh di kanan atas untuk menyegarkan kalkulasi statistik terbaru tanpa perlu memuat ulang seluruh halaman.",
+            flowchart: [
+              { id: 1, type: "start", icon: "📊", title: "Akses Dashboard", desc: "Buka menu Dashboard di bawah Profil Saya" },
+              { id: 2, type: "process", icon: "📈", title: "Analisis Usulan & Eligible", desc: "Cek progres usulan & kandidat KP terdekat" },
+              { id: 3, type: "process", icon: "⏳", title: "Atur Rentang Pensiun", desc: "Ganti rentang waktu < 1 th s.d. 5 th BUP" },
+              { id: 4, type: "end", icon: "⚡", title: "Tindak Lanjut Layanan", desc: "Akses menu terkait untuk pemrosesan berkas" }
+            ]
+          },
+          "user": {
+            badge: "Sebagai Pengelola Unit Kerja",
+            steps: [
+              {
+                title: "1. Tinjau Ringkasan Unit Kerja",
+                desc: "Statistik pada kartu Dashboard Anda otomatis disaring khusus untuk pegawai yang berada di bawah naungan unit kerja Anda."
+              },
+              {
+                title: "2. Cek Pegawai Eligible KP Unit",
+                desc: "Memantau daftar pegawai di unit Anda yang sudah memenuhi syarat masa kerja kepangkatan untuk segera dipersiapkan berkas usulannya."
+              },
+              {
+                title: "3. Pantau Proyeksi Pensiun Pegawai Unit",
+                desc: "Gunakan pilihan rentang < 1 tahun hingga 5 tahun untuk melihat pegawai unit kerja Anda yang akan memasuki Batas Usia Pensiun."
+              },
+              {
+                title: "4. Monitor Kegiatan Administrasi Unit",
+                desc: "Melihat riwayat usulan dan pengajuan kepegawaian yang berasal dari unit Anda."
+              }
+            ],
+            tips: "Pastikan segera berkoordinasi dengan pegawai yang memenuhi syarat KP sebelum batas akhir penutupan usulan periode berjalan.",
+            flowchart: [
+              { id: 1, type: "start", icon: "🏢", title: "Buka Dashboard Unit", desc: "Data otomatis terfilter sesuai unit kerja Anda" },
+              { id: 2, type: "process", icon: "👥", title: "Cek Kandidat Eligible KP", desc: "Pantau dosen & tendik yang siap diusulkan" },
+              { id: 3, type: "process", icon: "⏳", title: "Pilih Horizon Pensiun", desc: "Pilih rentang waktu < 1 th s.d. 5 th" },
+              { id: 4, type: "end", icon: "📤", title: "Ajukan Usulan Berkas", desc: "Lanjutkan ke menu Kenaikan Pangkat / Pensiun" }
+            ]
+          }
+        }
+      },
+      "tab-dash-chart": {
+        title: "📊 Visualisasi Diagram Batang",
+        roles: ["user", "admin", "super_admin"],
+        defaultRole: "user",
+        roleGuides: {
+          "user": {
+            badge: "Analisis Grafik Visual",
+            steps: [
+              {
+                title: "1. Membaca Diagram Batang Komparatif",
+                desc: "Grafik menampilkan perbandingan visual antara jumlah pegawai eligible, pegawai akan pensiun, dan aktivitas sistem."
+              },
+              {
+                title: "2. Interaktivitas Rentang Waktu Pensiun",
+                desc: "Ketika rentang waktu pensiun pada kartu KPI diubah (< 1 th, 2 th, s.d. 5 th), batang diagram 'Akan Pensiun' otomatis ikut menyesuaikan secara dinamis."
+              },
+              {
+                title: "3. Memanfaatkan Tooltip Interaktif",
+                desc: "Arahkan kursor (hover) pada batang diagram untuk melihat angka riil dan persentase secara presisi."
+              }
+            ],
+            tips: "Diagram batang otomatis beradaptasi dengan mode tampilan (Light Mode maupun Dark Mode).",
+            flowchart: [
+              { id: 1, type: "start", icon: "📊", title: "Tinjau Diagram Batang", desc: "Grafik komparatif indikator kepegawaian" },
+              { id: 2, type: "process", icon: "🎯", title: "Arahkan Kursor (Hover)", desc: "Lihat angka rinci pada tooltip data" },
+              { id: 3, type: "process", icon: "🔄", title: "Ubah Filter Rentang", desc: "Grafik otomatis update sesuai pilihan rentang" },
+              { id: 4, type: "end", icon: "💡", title: "Insight Strategis", desc: "Perencanaan SDM unit kerja lebih terarah" }
+            ]
+          }
+        }
+      }
+    }
+  },
+
   "kenaikan-pangkat": {
     title: "Kenaikan Pangkat",
     icon: "📈",
@@ -29698,28 +30089,42 @@ const GUIDE_REGISTRY = {
               },
               {
                 title: "2. Cari Pegawai yang Diusulkan",
-                desc: "Ketik Nama atau NIP pegawai yang akan diusulkan pada kolom pencarian pegawai."
+                desc: "Ketik Nama atau NIP pegawai yang akan diusulkan pada kolom pencarian pegawai dan pilih data yang sesuai."
               },
               {
-                title: "3. Tentukan Jenis Proposal & Template",
-                desc: "Pilih Jenis Proposal (SK Jabatan Tugas Tambahan, Surat Tugas, SK Panitia, dll) serta pilih template dokumen yang dituju."
+                title: "3. Tentukan Jenis Proposal (SK Tutam Sekprodi)",
+                desc: "Pilih Jenis Proposal (misal: 'SK Tutam Sekprodi', Kaprodi, Kadep, dll). Jika memilih SK Tutam Sekprodi, sistem otomatis memunculkan panel validasi data PDDIKTI."
               },
               {
-                title: "4. Isi Rincian & Lampiran Dokumen",
-                desc: "Lengkapi dasar pertimbangan penugasan dan tautan Google Drive berisi nota dinas pengantar dari pimpinan unit."
+                title: "4. Pilih Program Studi & Jenjang (Searchable Dropdown)",
+                desc: "Ketik dan pilih Program Studi serta Jenjang pada kolom pencarian. Sistem otomatis menarik data jumlah mahasiswa aktif resmi dari database PDDIKTI."
               },
               {
-                title: "5. Submit Usulan & Pantau Riwayat",
-                desc: "Klik 'Ajukan Usulan SK / Surat'. Pantau status pemrosesan pada tabel '📋 Riwayat Usulan Saya'."
+                title: "5. Validasi Ambang Batas Jumlah Mahasiswa (Minimal 100)",
+                desc: "Sesuai ketentuan, pengajuan SK Tutam Sekprodi mewajibkan jumlah mahasiswa aktif minimal 100 orang. Jika jumlah mahasiswa < 100, tombol pengajuan dinonaktifkan (belum bisa diajukan) dengan notifikasi peringatan merah. Jika ≥ 100 mahasiswa, status validasi hijau muncul dan tombol usulan siap diklik."
+              },
+              {
+                title: "6. Lengkapi Nomor Surat, Tanggal, dan Upload Dokumen",
+                desc: "Isi nomor surat resmi pengantar, tanggal surat, serta unggah berkas surat usulan resmi bertandatangan pimpinan (PDF/JPG)."
+              },
+              {
+                title: "7. Submit Usulan & Pantau Status Real-Time",
+                desc: "Klik 'Ajukan Usulan' dan pantau proses verifikasi berkas oleh admin kepegawaian melalui tabel '📋 Riwayat Usulan Saya'."
               }
             ],
-            tips: "Pastikan nota dinas pengusulan dari Dekan / Kepala Unit telah dilampirkan sebelum mengirimkan usulan.",
+            tips: "Khusus SK Tutam Sekprodi, pastikan Program Studi Anda memiliki minimal 100 mahasiswa aktif terdaftar di PDDIKTI agar usulan dapat diproses oleh sistem.",
             flowchart: [
-              { id: 1, type: "start", icon: "📤", title: "Buka Tab Usul SK", desc: "Mulai formulir pengajuan usulan SK atau surat dinas" },
-              { id: 2, type: "process", icon: "🔍", title: "Cari Pegawai Diusulkan", desc: "Ketik nama/NIP pegawai penerima SK" },
-              { id: 3, type: "process", icon: "📋", title: "Pilih Jenis Proposal", desc: "Tentukan template dokumen & jenis tugas jabatan" },
-              { id: 4, type: "process", icon: "📎", title: "Input Rincian & Berkas", desc: "Isi dasar pertimbangan & link nota dinas pengantar" },
-              { id: 5, type: "end", icon: "⏳", title: "Submit & Pantau", desc: "Usulan masuk antrean verifikasi Admin DOSDM" }
+              { id: 1, type: "start", icon: "📤", title: "Buka Tab Usul SK", desc: "Mulai formulir pengajuan usulan SK" },
+              { id: 2, type: "process", icon: "🔍", title: "Cari Pegawai Target", desc: "Pilih nama/NIP pegawai yang diusulkan" },
+              { id: 3, type: "process", icon: "🎓", title: "Pilih Prodi & Jenjang", desc: "Cari data PDDIKTI untuk SK Tutam Sekprodi" },
+              { id: 4, type: "decision", icon: "⚖️", title: "Cek Jumlah Mahasiswa", desc: "Apakah jumlah mahasiswa ≥ 100?",
+                branches: [
+                  { label: "< 100 Mhs", desc: "Belum memenuhi syarat; tombol usulan dinonaktifkan." },
+                  { label: "≥ 100 Mhs", desc: "Memenuhi syarat; lanjutkan upload surat usulan." }
+                ]
+              },
+              { id: 5, type: "process", icon: "📎", title: "Upload Dokumen Usulan", desc: "Unggah berkas surat resmi unit (PDF/JPG)" },
+              { id: 6, type: "end", icon: "⏳", title: "Submit & Pantau", desc: "Usulan masuk antrean verifikasi Admin DOSDM" }
             ]
           }
         }
@@ -30011,6 +30416,8 @@ function detectCurrentActiveGuideContext() {
   // 1. Deteksi Active View (prioritaskan view-panel yang sedang tampil di layar)
   let activeMenuKey = "kenaikan-pangkat";
   const views = [
+    { id: "view-profil-saya", key: "profil-saya" },
+    { id: "view-dashboard-utama", key: "dashboard-utama" },
     { id: "view-check-kgb", key: "check-kgb" },
     { id: "view-kenaikan-pangkat", key: "kenaikan-pangkat" },
     { id: "view-kontrak", key: "kontrak" },
@@ -30107,6 +30514,10 @@ function detectCurrentActiveGuideContext() {
           }
         }
       }
+    } else if (activeMenuKey === "profil-saya") {
+      activeSubMenuKey = "tab-profil-data";
+    } else if (activeMenuKey === "dashboard-utama") {
+      activeSubMenuKey = "tab-dash-kpi";
     }
 
     // Default jika belum terdeteksi spesifik atau tidak masuk di allowedSubMenuKeys

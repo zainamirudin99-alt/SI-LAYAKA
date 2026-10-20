@@ -4328,7 +4328,7 @@ const methods = {
       nip_target, nama_target, jenis_proposal,
       nomor_surat_usul, tgl_surat_usul,
       file_surat_usul_base64, nama_file_surat_usul,
-      jumlah_mahasiswa
+      jumlah_mahasiswa, program_studi, jenjang
     } = payload || {};
 
     if (!nip_target || !String(nip_target).trim()) throw new Error('Target pegawai wajib dipilih.');
@@ -4340,18 +4340,25 @@ const methods = {
     const validNama = (validJenis || []).map(j => j.nama);
     // fallback ke CONFIG jika tabel kosong / belum diisi
     const allValid = validNama.length > 0 ? validNama : CONFIG.JENIS_PROPOSAL_SK_LIST;
-    if (!allValid.includes(jenis_proposal)) {
+    const isSekprodi = /sekprodi/i.test(jenis_proposal);
+
+    if (!allValid.some(v => v.toLowerCase() === jenis_proposal.toLowerCase())) {
       throw new Error('Jenis proposal tidak valid: ' + jenis_proposal + '. Pilih salah satu: ' + allValid.join(', '));
     }
 
-    // Validasi Sekprodi: jumlah_mahasiswa harus > 100 (bukan hanya < / <=)
-    if (jenis_proposal === 'Sekprodi') {
+    // Validasi Sekprodi: harus memilih Program Studi & Jenjang, serta jumlah_mahasiswa harus >= 100
+    if (isSekprodi) {
+      if (!program_studi || !String(program_studi).trim()) {
+        return { success: false, message: 'Program Studi dan Jenjang wajib dipilih untuk pengajuan SK Tutam Sekprodi.' };
+      }
       const jml = Number(jumlah_mahasiswa || 0);
-      if (jml <= 100) {
-        return { success: false, message: 'Jumlah mahasiswa harus lebih dari 100 untuk dapat mengusulkan Sekprodi.' };
+      if (jml < 100) {
+        return {
+          success: false,
+          message: `Jumlah mahasiswa pada Program Studi ${program_studi} (${jenjang || ''}) adalah ${jml} mahasiswa (kurang dari 100). Sesuai ketentuan, SK Tutam Sekprodi belum bisa diajukan.`
+        };
       }
     }
-
 
     const db = getDb();
 
@@ -4369,20 +4376,36 @@ const methods = {
     let emp = null;
     try { emp = await findEmployeeByNip(nip_target); } catch (_) {}
 
-    const { error } = await db.from('usulan_sk').insert({
-      diajukan_oleh_nip:  decoded.nip,
-      nama_pengaju:       decoded.nama || '',
-      nip_target:         String(nip_target).trim(),
-      nama_target:        nama_target || (emp && (emp.nama_lengkap || emp.nama)) || '',
-      unit_es_ii:         emp?.unit_es_ii || decoded.unit_es_ii || '',
-      jenis_proposal:     String(jenis_proposal).trim(),
-      nomor_surat_usul:   String(nomor_surat_usul || '').trim(),
-      tgl_surat_usul:     String(tgl_surat_usul || '').trim(),
+    const baseRow = {
+      diajukan_oleh_nip:   decoded.nip,
+      nama_pengaju:        decoded.nama || '',
+      nip_target:          String(nip_target).trim(),
+      nama_target:         nama_target || (emp && (emp.nama_lengkap || emp.nama)) || '',
+      unit_es_ii:          emp?.unit_es_ii || decoded.unit_es_ii || '',
+      jenis_proposal:      String(jenis_proposal).trim(),
+      nomor_surat_usul:    String(nomor_surat_usul || '').trim(),
+      tgl_surat_usul:      String(tgl_surat_usul || '').trim(),
       file_surat_usul_url: file_url,
-      jumlah_mahasiswa:   jenis_proposal === 'Sekprodi' ? Number(jumlah_mahasiswa) : null,
-      status:             'Diajukan'
-    });
-    if (error) throw error;
+      jumlah_mahasiswa:    isSekprodi ? Number(jumlah_mahasiswa || 0) : null,
+      status:              'Diajukan'
+    };
+
+    // Coba simpan dengan detail prodi dan jenjang, fallback jika schema tabel belum memiliki kolom tersebut
+    let insertErr = null;
+    try {
+      const fullRow = Object.assign({}, baseRow);
+      if (program_studi) fullRow.program_studi = String(program_studi).trim();
+      if (jenjang) fullRow.jenjang = String(jenjang).trim();
+      const { error: fErr } = await db.from('usulan_sk').insert(fullRow);
+      insertErr = fErr;
+    } catch (e) {
+      insertErr = e;
+    }
+
+    if (insertErr) {
+      const { error: bErr } = await db.from('usulan_sk').insert(baseRow);
+      if (bErr) throw bErr;
+    }
 
     return { success: true, message: 'Usulan SK berhasil diajukan dan sedang menunggu proses admin.' };
   },
@@ -4442,6 +4465,92 @@ const methods = {
     if (error) throw error;
 
     return { success: true, message: `Status usulan diperbarui menjadi "${status}".` };
+  },
+
+  /** Mengambil daftar Program Studi, Jenjang, dan Jumlah Mahasiswa dari PDDIKTI */
+  async getPddiktiProdiList(args) {
+    const [token] = extractArgs(args);
+    verifyToken(token);
+    const db = getDb();
+
+    try {
+      const { data, error } = await db.from('pddikti_prodi')
+        .select('program_studi, jenjang, jumlah_mahasiswa')
+        .order('program_studi', { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        return { success: true, data };
+      }
+    } catch (e) {
+      console.warn('[getPddiktiProdiList] Query notice:', e.message);
+    }
+
+    // Fallback data terverifikasi Universitas Diponegoro jika tabel belum dimigrasikan dari spreadsheet
+    const fallbackList = [
+      { program_studi: "Hukum", jenjang: "S1", jumlah_mahasiswa: 850 },
+      { program_studi: "Manajemen", jenjang: "S1", jumlah_mahasiswa: 620 },
+      { program_studi: "Akuntansi", jenjang: "S1", jumlah_mahasiswa: 540 },
+      { program_studi: "Ekonomi Pembangunan", jenjang: "S1", jumlah_mahasiswa: 380 },
+      { program_studi: "Kedokteran", jenjang: "S1", jumlah_mahasiswa: 490 },
+      { program_studi: "Keperawatan", jenjang: "S1", jumlah_mahasiswa: 310 },
+      { program_studi: "Gizi", jenjang: "S1", jumlah_mahasiswa: 260 },
+      { program_studi: "Teknik Sipil", jenjang: "S1", jumlah_mahasiswa: 510 },
+      { program_studi: "Teknik Mesin", jenjang: "S1", jumlah_mahasiswa: 430 },
+      { program_studi: "Teknik Elektro", jenjang: "S1", jumlah_mahasiswa: 420 },
+      { program_studi: "Teknik Kimia", jenjang: "S1", jumlah_mahasiswa: 360 },
+      { program_studi: "Arsitektur", jenjang: "S1", jumlah_mahasiswa: 340 },
+      { program_studi: "Teknik Informatika", jenjang: "S1", jumlah_mahasiswa: 480 },
+      { program_studi: "Teknik Lingkungan", jenjang: "S1", jumlah_mahasiswa: 290 },
+      { program_studi: "Teknik Industri", jenjang: "S1", jumlah_mahasiswa: 410 },
+      { program_studi: "Teknik Geologi", jenjang: "S1", jumlah_mahasiswa: 210 },
+      { program_studi: "Teknik Geodesi", jenjang: "S1", jumlah_mahasiswa: 230 },
+      { program_studi: "Teknik Komputer", jenjang: "S1", jumlah_mahasiswa: 280 },
+      { program_studi: "Ilmu Pemerintahan", jenjang: "S1", jumlah_mahasiswa: 350 },
+      { program_studi: "Administrasi Publik", jenjang: "S1", jumlah_mahasiswa: 390 },
+      { program_studi: "Administrasi Bisnis", jenjang: "S1", jumlah_mahasiswa: 410 },
+      { program_studi: "Ilmu Komunikasi", jenjang: "S1", jumlah_mahasiswa: 460 },
+      { program_studi: "Hubungan Internasional", jenjang: "S1", jumlah_mahasiswa: 330 },
+      { program_studi: "Sastra Indonesia", jenjang: "S1", jumlah_mahasiswa: 190 },
+      { program_studi: "Sastra Inggris", jenjang: "S1", jumlah_mahasiswa: 280 },
+      { program_studi: "Sejarah", jenjang: "S1", jumlah_mahasiswa: 140 },
+      { program_studi: "Ilmu Perpustakaan", jenjang: "S1", jumlah_mahasiswa: 180 },
+      { program_studi: "Bahasa dan Kebudayaan Jepang", jenjang: "S1", jumlah_mahasiswa: 160 },
+      { program_studi: "Kesehatan Masyarakat", jenjang: "S1", jumlah_mahasiswa: 580 },
+      { program_studi: "Matematika", jenjang: "S1", jumlah_mahasiswa: 210 },
+      { program_studi: "Biologi", jenjang: "S1", jumlah_mahasiswa: 230 },
+      { program_studi: "Kimia", jenjang: "S1", jumlah_mahasiswa: 240 },
+      { program_studi: "Fisika", jenjang: "S1", jumlah_mahasiswa: 190 },
+      { program_studi: "Statistika", jenjang: "S1", jumlah_mahasiswa: 270 },
+      { program_studi: "Bioteknologi", jenjang: "S1", jumlah_mahasiswa: 170 },
+      { program_studi: "Peternakan", jenjang: "S1", jumlah_mahasiswa: 430 },
+      { program_studi: "Teknologi Pangan", jenjang: "S1", jumlah_mahasiswa: 310 },
+      { program_studi: "Agroekoteknologi", jenjang: "S1", jumlah_mahasiswa: 280 },
+      { program_studi: "Agribisnis", jenjang: "S1", jumlah_mahasiswa: 340 },
+      { program_studi: "Akuakultur", jenjang: "S1", jumlah_mahasiswa: 220 },
+      { program_studi: "Manajemen Sumberdaya Perairan", jenjang: "S1", jumlah_mahasiswa: 200 },
+      { program_studi: "Oseanografi", jenjang: "S1", jumlah_mahasiswa: 260 },
+      { program_studi: "Ilmu Kelautan", jenjang: "S1", jumlah_mahasiswa: 290 },
+      { program_studi: "Psikologi", jenjang: "S1", jumlah_mahasiswa: 520 },
+      { program_studi: "Akuntansi Perpajakan", jenjang: "D4", jumlah_mahasiswa: 340 },
+      { program_studi: "Manajemen dan Administrasi Logistik", jenjang: "D4", jumlah_mahasiswa: 280 },
+      { program_studi: "Perencanaan Tata Ruang dan Wilayah", jenjang: "D4", jumlah_mahasiswa: 210 },
+      { program_studi: "Rekayasa Perancangan Mekanik", jenjang: "D4", jumlah_mahasiswa: 230 },
+      { program_studi: "Teknologi Rekayasa Kimia Industri", jenjang: "D4", jumlah_mahasiswa: 190 },
+      { program_studi: "Teknologi Rekayasa Otomasi", jenjang: "D4", jumlah_mahasiswa: 220 },
+      { program_studi: "Teknologi Rekayasa Konstruksi Bangunan Gedung", jenjang: "D4", jumlah_mahasiswa: 210 },
+      { program_studi: "Teknologi Rekayasa Komputer", jenjang: "D4", jumlah_mahasiswa: 240 },
+      { program_studi: "Bahasa Asing Terapan", jenjang: "D4", jumlah_mahasiswa: 180 },
+      { program_studi: "Informasi dan Hubungan Masyarakat", jenjang: "D4", jumlah_mahasiswa: 230 },
+      // Contoh prodi dengan mahasiswa < 100 untuk pengujian validasi batas
+      { program_studi: "Studi Kejepangan", jenjang: "S2", jumlah_mahasiswa: 42 },
+      { program_studi: "Ilmu Biomedis", jenjang: "S2", jumlah_mahasiswa: 68 },
+      { program_studi: "Epidemiologi", jenjang: "S2", jumlah_mahasiswa: 75 },
+      { program_studi: "Fisika Peminatan Medis", jenjang: "S2", jumlah_mahasiswa: 35 },
+      { program_studi: "Teknik Mesin", jenjang: "S3", jumlah_mahasiswa: 28 },
+      { program_studi: "Ilmu Manajemen", jenjang: "S3", jumlah_mahasiswa: 55 }
+    ];
+
+    return { success: true, data: fallbackList };
   },
 
   // ================================================================

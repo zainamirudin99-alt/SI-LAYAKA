@@ -27,6 +27,7 @@ const SHEET_PIMPINAN         = 'Pimpinan';
 const SHEET_JENIS_TUTAM      = 'Jenis tutam';
 const SHEET_ATASAN_LANGSUNG  = 'Atasan Langsung';
 const SHEET_AKSES_KONTRAK    = 'Akses Kontrak Mandiri';
+const SHEET_DATA_PDDIKTI     = 'Data PDDIKTI';
 
 // ============================================================
 // MENU KUSTOM
@@ -49,6 +50,7 @@ function onOpen() {
     .addItem("10. Migrasi Jenis Tutam saja",        "migrasiJenisTutam")
     .addItem("11. Migrasi Atasan Langsung saja",    "migrasiAtasanLangsung")
     .addItem("12. Migrasi Akses Kontrak saja",      "migrasiAksesKontrakMandiri")
+    .addItem("13. Migrasi Data PDDIKTI saja",       "migrasiDataPddikti")
     .addToUi();
 }
 
@@ -98,7 +100,7 @@ function cekKoneksi() {
 // ============================================================
 function migrasiSemuaData() {
   if (cekKonfigurasi_()) return;
-  if (!confirmSafe_("Migrasi data (Data Utama, User Roles, Templates, Pimpinan, Jenis Tutam, Atasan Langsung, & Akses Kontrak) ke Supabase?\n(Data Utama lama di Supabase akan terhapus total dan diganti dengan data dari Spreadsheet)", "Konfirmasi")) return;
+  if (!confirmSafe_("Migrasi data (Data Utama, User Roles, Templates, Pimpinan, Jenis Tutam, Atasan Langsung, Akses Kontrak, & Data PDDIKTI) ke Supabase?\n(Data Utama lama di Supabase akan terhapus total dan diganti dengan data dari Spreadsheet)", "Konfirmasi")) return;
 
   const r1 = migrasiDataUtama();
   const r2 = migrasiUserRoles();
@@ -110,6 +112,7 @@ function migrasiSemuaData() {
   const r8 = migrasiJenisTutam();
   const r9 = migrasiAtasanLangsung();
   const r10 = migrasiAksesKontrakMandiri();
+  const r11 = migrasiDataPddikti();
 
   alertSafe_(
     "Data Utama: "       + r1.berhasil + " OK, " + r1.gagal + " gagal\n" +
@@ -118,7 +121,8 @@ function migrasiSemuaData() {
     "Pimpinan: "         + r7.berhasil + " OK, " + r7.gagal + " gagal\n" +
     "Jenis Tutam: "      + r8.berhasil + " OK, " + r8.gagal + " gagal\n" +
     "Atasan Langsung: "  + r9.berhasil + " OK, " + r9.gagal + " gagal\n" +
-    "Akses Kontrak: "    + r10.berhasil + " OK, " + r10.gagal + " gagal\n\n" +
+    "Akses Kontrak: "    + r10.berhasil + " OK, " + r10.gagal + " gagal\n" +
+    "Data PDDIKTI: "     + r11.berhasil + " OK, " + r11.gagal + " gagal\n\n" +
     "Catatan: Sheet Usulan KP, Usulan Pensiun, & Usulan Kontrak dilewati (dikelola langsung di web).",
     "Selesai!"
   );
@@ -682,6 +686,113 @@ function migrasiAksesKontrakMandiri() {
   }
 
   Logger.log("akses_kontrak_mandiri: " + berhasil + " OK, " + gagal + " gagal");
+  return {berhasil, gagal};
+}
+
+// ============================================================
+// MIGRASI SHEET: Data PDDIKTI (Program Studi, Jenjang, Jumlah Mahasiswa)
+// ============================================================
+function migrasiDataPddikti() {
+  const ss = getActiveSpreadsheet_();
+  if (!ss) { Logger.log("Spreadsheet tidak ditemukan"); return {berhasil:0, gagal:0}; }
+
+  const sheet = ss.getSheetByName(SHEET_DATA_PDDIKTI)
+             || ss.getSheetByName('data_pddikti')
+             || ss.getSheetByName('PDDIKTI')
+             || ss.getSheetByName('Data Pddikti')
+             || ss.getSheetByName('Pddikti');
+
+  if (!sheet) {
+    Logger.log("Sheet Data PDDIKTI tidak ditemukan");
+    return {berhasil:0, gagal:0};
+  }
+
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return {berhasil:0, gagal:0};
+
+  const rawHeaders = values[0];
+  const headers = rawHeaders.map(h => String(h).trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,''));
+
+  function mapHeaderToPddiktiCol(hKey) {
+    if (!hKey) return null;
+    if (['program_studi', 'prodi', 'nama_prodi', 'nama_program_studi', 'jurusan', 'program_study'].indexOf(hKey) !== -1) return 'program_studi';
+    if (['jenjang', 'jenjang_pendidikan', 'strata', 'tingkat', 'degree'].indexOf(hKey) !== -1) return 'jenjang';
+    if (['jumlah_mahasiswa', 'jumlah_mhs', 'total_mahasiswa', 'jml_mahasiswa', 'jml_mhs', 'mahasiswa', 'mhs_aktif', 'jumlah_mahasiswa_aktif'].indexOf(hKey) !== -1) return 'jumlah_mahasiswa';
+    return null;
+  }
+
+  let berhasil = 0, gagal = 0;
+  const BATCH = 50;
+  let batch = [];
+  const seen = new Set();
+
+  function flushBatch() {
+    if (!batch.length) return;
+    try {
+      const r = UrlFetchApp.fetch(SUPABASE_URL + "/rest/v1/pddikti_prodi?on_conflict=program_studi,jenjang", {
+        method: "POST",
+        headers: Object.assign({}, buildHeaders_(), { "Prefer": "resolution=merge-duplicates" }),
+        payload: JSON.stringify(batch),
+        muteHttpExceptions: true
+      });
+      const code = r.getResponseCode();
+      if (code === 200 || code === 201) { berhasil += batch.length; }
+      else {
+        Logger.log("GAGAL pddikti_prodi batch: " + code + " " + r.getContentText());
+        gagal += batch.length;
+      }
+    } catch(e) {
+      Logger.log("ERROR pddikti_prodi: " + e.message);
+      gagal += batch.length;
+    }
+    batch = [];
+    Utilities.sleep(150);
+  }
+
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    if (row.every(c => c === '' || c === null)) continue;
+
+    let prodi = null;
+    let jenjang = null;
+    let jmlMhs = 0;
+
+    headers.forEach((hKey, idx) => {
+      const col = mapHeaderToPddiktiCol(hKey);
+      const val = row[idx];
+      if (col === 'program_studi') {
+        prodi = String(val || '').trim() || null;
+      } else if (col === 'jenjang') {
+        jenjang = String(val || '').trim().toUpperCase() || null;
+      } else if (col === 'jumlah_mahasiswa') {
+        if (typeof val === 'number') {
+          jmlMhs = Math.round(val);
+        } else {
+          const clean = String(val || '').replace(/[^0-9]/g, '');
+          jmlMhs = parseInt(clean, 10) || 0;
+        }
+      }
+    });
+
+    if (!prodi) continue;
+    if (!jenjang) jenjang = 'S1'; // default jika tidak tercantum
+
+    const key = (prodi + '_' + jenjang).toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    batch.push({
+      program_studi: prodi,
+      jenjang: jenjang,
+      jumlah_mahasiswa: jmlMhs,
+      updated_at: new Date().toISOString()
+    });
+
+    if (batch.length >= BATCH) flushBatch();
+  }
+  flushBatch();
+
+  Logger.log("Data PDDIKTI: " + berhasil + " OK, " + gagal + " gagal");
   return {berhasil, gagal};
 }
 
