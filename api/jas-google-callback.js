@@ -43,6 +43,9 @@ module.exports = async function handler(req, res) {
   }
 
   const ownerNip = stateData.nip;
+  const customClientId = stateData.clientId;
+  const customClientSecret = stateData.clientSecret;
+
   if (!ownerNip) {
     return res.status(400).send('<h3>400 Bad Request: NIP pemilik sesi tidak ditemukan dalam state.</h3>');
   }
@@ -52,7 +55,7 @@ module.exports = async function handler(req, res) {
   const redirectUri = `${proto}://${host}/api/jas-google-callback`;
 
   try {
-    const tokens = await exchangeGoogleAuthCode(code, redirectUri);
+    const tokens = await exchangeGoogleAuthCode(code, redirectUri, customClientId, customClientSecret);
 
     // Ambil info profil Google (email) untuk display
     let googleEmail = null;

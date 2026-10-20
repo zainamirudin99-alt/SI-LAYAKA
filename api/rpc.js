@@ -3264,15 +3264,50 @@ const methods = {
       const decoded = verifyJasRole(token);
       const db = getDb();
       const { data, error } = await db.from('jas_google_tokens').select('email,tokens,updated_at').eq('owner_id', decoded.nip).maybeSingle();
-      if (error || !data || !data.tokens) {
-        return { success: true, connected: false };
-      }
+      const savedClientId = (data && data.tokens && data.tokens.client_id) || process.env.GOOGLE_CLIENT_ID || '';
+      const hasCreds = Boolean(
+        (data && data.tokens && data.tokens.client_id && data.tokens.client_secret) ||
+        (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
+      );
+      const isConnected = Boolean(data && data.tokens && data.tokens.access_token);
       return {
         success: true,
-        connected: true,
-        email: data.email || null,
-        updated_at: data.updated_at || null
+        connected: isConnected,
+        hasCredentials: hasCreds,
+        clientId: savedClientId ? (savedClientId.slice(0, 12) + '...' + savedClientId.slice(-10)) : null,
+        fullClientId: savedClientId,
+        email: (data && data.email) || null,
+        updated_at: (data && data.updated_at) || null
       };
+    } catch (err) {
+      return { success: false, statusCode: err.statusCode || 500, message: err.message };
+    }
+  },
+
+  async saveJasGoogleCredentials(args) {
+    try {
+      const [opts] = extractArgs(args);
+      const { token, clientId, clientSecret } = opts || {};
+      const decoded = verifyJasRole(token);
+      const cId = String(clientId || '').trim();
+      const cSecret = String(clientSecret || '').trim();
+      if (!cId || !cSecret) {
+        return { success: false, statusCode: 400, message: 'Google Client ID dan Client Secret wajib diisi.' };
+      }
+      const db = getDb();
+      const { data: existing } = await db.from('jas_google_tokens').select('*').eq('owner_id', decoded.nip).maybeSingle();
+      const tokensObj = (existing && existing.tokens) || {};
+      tokensObj.client_id = cId;
+      tokensObj.client_secret = cSecret;
+
+      await db.from('jas_google_tokens').upsert({
+        owner_id: decoded.nip,
+        email: existing ? existing.email : null,
+        tokens: tokensObj,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'owner_id' });
+
+      return { success: true, message: 'Kredensial Google OAuth berhasil disimpan.' };
     } catch (err) {
       return { success: false, statusCode: err.statusCode || 500, message: err.message };
     }

@@ -22674,6 +22674,103 @@ const GUIDE_REGISTRY = {
         }
       }
     }
+  },
+
+  "jas": {
+    title: "Job Automation Suite (JAS)",
+    icon: "🤖",
+    subMenus: {
+      "tab-jas-rename": {
+        title: "📝 Fitur 1: Ubah Nama Berkas (Gemini)",
+        roles: ["admin", "super_admin"],
+        defaultRole: "admin",
+        roleGuides: {
+          "admin": {
+            badge: "Sebagai Administrator / Super Admin",
+            steps: [
+              {
+                title: "1. Hubungkan Google & Atur Kredensial (BYOC)",
+                desc: "Klik tombol '⚙️ Kredensial' di kanan atas kartu status Google Drive. Masukkan Google Client ID dan Secret milik Anda sendiri. Cara mengambilnya: buka Google Cloud Console > Aktifkan Google Drive & Sheets API > Buat OAuth Client ID (Web Application) dengan Authorized Redirect URI: https://si-layaka.vercel.app/api/jas-google-callback. Setelah disimpan, klik 'Hubungkan Google'."
+              },
+              {
+                title: "2. Masukkan Gemini API Key (BYOK)",
+                desc: "Dapatkan API key gratis dalam 1 menit di Google AI Studio (aistudio.google.com). Tempelkan ke kolom Gemini API Key. Kunci disimpan aman hanya di sesi peramban Anda (sessionStorage)."
+              },
+              {
+                title: "3. Tentukan Folder Sumber & Format Penamaan",
+                desc: "Tempelkan tautan folder Google Drive yang memuat berkas PDF. Buat pola format nama, contoh: {NAMA}_{NIP}_{DOKUMEN}.pdf."
+              },
+              {
+                title: "4. Rancang Ekstraksi Field Dokumen",
+                desc: "Tambahkan field yang ingin dicari oleh AI dari dalam dokumen PDF (misalnya NAMA bertipe Teks dan NIP bertipe NIP 9-18 digit angka)."
+              },
+              {
+                title: "5. Uji 1 Berkas & Mode Simulasi",
+                desc: "Gunakan tombol '🧪 Uji 1 Berkas' untuk memverifikasi akurasi AI membaca dokumen tanpa mengubah berkas nyata. Centang 'Mode Simulasi' untuk melihat pratinjau seluruh nama berkas sebelum eksekusi."
+              },
+              {
+                title: "6. Eksekusi Batch & Lanjutkan",
+                desc: "Klik '🚀 Mulai Ubah Nama'. Sistem memproses dalam batch 180 detik. Jika kuota gratis Gemini habis (429), sistem otomatis berhenti aman dan Anda cukup menekan '⏯️ Lanjutkan' setelah kuota pulih."
+              }
+            ],
+            tips: "Pastikan berkas PDF di dalam Google Drive memiliki teks yang dapat dibaca (bukan foto buram hasil scan tanpa OCR) agar akurasi ekstraksi Gemini optimal.",
+            flowchart: [
+              { id: 1, type: "start", icon: "🔑", title: "Atur Kredensial Google & Gemini", desc: "Input Client ID/Secret Google dan Gemini API Key" },
+              { id: 2, type: "process", icon: "📁", title: "Input Link Folder & Format", desc: "Tentukan folder Google Drive & format nama berkas" },
+              { id: 3, type: "process", icon: "🧪", title: "Uji 1 Berkas / Simulasi", desc: "Validasi pembacaan AI dan format nama baru" },
+              { id: 4, type: "decision", icon: "⚖️", title: "Apakah Hasil Sesuai?", desc: "Cek nama berkas dan field yang terekstraksi",
+                branches: [
+                  { label: "Belum Sesuai", desc: "Sesuaikan deskripsi field atau pola format nama." },
+                  { label: "Sudah Sesuai", desc: "Lanjutkan ke eksekusi pengubahan nama batch." }
+                ]
+              },
+              { id: 5, type: "process", icon: "🚀", title: "Jalankan Pekerjaan Batch", desc: "Server memproses berkas otomatis dengan batas 180s" },
+              { id: 6, type: "end", icon: "✅", title: "Selesai", desc: "Semua berkas di Google Drive berhasil diganti nama" }
+            ]
+          }
+        }
+      },
+      "tab-jas-download": {
+        title: "📥 Fitur 2: Unduh Berkas dari Spreadsheet",
+        roles: ["admin", "super_admin"],
+        defaultRole: "admin",
+        roleGuides: {
+          "admin": {
+            badge: "Sebagai Administrator / Super Admin",
+            steps: [
+              {
+                title: "1. Siapkan Spreadsheet & Folder Tujuan",
+                desc: "Buka Google Spreadsheet yang memuat tautan berkas dokumen. Tempelkan tautannya ke kolom 'Tautan Google Spreadsheet Sumber', lalu tentukan tautan folder Google Drive tujuan."
+              },
+              {
+                title: "2. Tentukan Rentang Baris Data",
+                desc: "Masukkan baris header (default: 1), baris mulai data (misal: 2), dan baris akhir data (misal: 50)."
+              },
+              {
+                title: "3. Klik '🔍 Deteksi Kolom Spreadsheet'",
+                desc: "Sistem otomatis membaca spreadsheet dan mendeteksi kolom nama pegawai serta kolom tautan berkas (termasuk hyperlink dan formula =HYPERLINK)."
+              },
+              {
+                title: "4. Konfirmasi Pemetaan Kolom",
+                desc: "Pilih kolom mana yang dijadikan nama subfolder pegawai, dan centang kolom tautan mana saja yang ingin diunduh."
+              },
+              {
+                title: "5. Mulai Unduh & Organisasi Dokumen",
+                desc: "Klik '🚀 Mulai Unduh & Organisasi Dokumen'. Sistem akan membuat 1 subfolder per pegawai di Drive tujuan dan mengunduh berkas dengan nama {Header_Kolom}.{ekstensi}."
+              }
+            ],
+            tips: "Sistem dilengkapi fitur perlindungan re-run safe: jika proses dijalankan ulang pada rentang yang sama, berkas yang sudah ada tidak akan diunduh ganda.",
+            flowchart: [
+              { id: 1, type: "start", icon: "📊", title: "Input Link Sheet & Drive", desc: "Tentukan tautan spreadsheet dan folder tujuan" },
+              { id: 2, type: "process", icon: "🔍", title: "Deteksi Kolom", desc: "Pindai kolom nama dan kolom tautan berkas" },
+              { id: 3, type: "process", icon: "☑️", title: "Konfirmasi Pilihan Kolom", desc: "Pilih kolom subfolder nama dan checklist berkas" },
+              { id: 4, type: "process", icon: "📥", title: "Proses Salin & Unduh", desc: "Salin dari Drive atau unduh tautan eksternal (SSRF safe)" },
+              { id: 5, type: "end", icon: "✅", title: "Selesai", desc: "Dokumen terorganisir rapi di subfolder masing-masing" }
+            ]
+          }
+        }
+      }
+    }
   }
 };
 
@@ -23495,6 +23592,9 @@ function switchJasTab(tab) {
   }
 }
 
+let _jasHasCredentials = false;
+let _jasSavedClientId = '';
+
 function loadJasGoogleStatus() {
   const indicator = document.getElementById('jasGoogleIndicator');
   const statusText = document.getElementById('jasGoogleStatusText');
@@ -23504,33 +23604,143 @@ function loadJasGoogleStatus() {
   if (statusText) statusText.textContent = 'Memeriksa status...';
   if (emailText) emailText.textContent = '';
 
-  google.script.run
-    .withSuccessHandler(res => {
-      if (res && res.connected) {
-        if (indicator) indicator.classList.add('connected');
-        if (statusText) statusText.textContent = 'Google Drive: Terhubung';
-        if (emailText) emailText.textContent = res.email || 'Akun Aktif';
-        if (connectBtn) {
-          connectBtn.textContent = 'Putus Koneksi';
-          connectBtn.className = 'btn btn-outline';
-          connectBtn.onclick = putusGoogleDriveJas;
-        }
-      } else {
-        if (indicator) indicator.classList.remove('connected');
-        if (statusText) statusText.textContent = 'Google Drive: Belum Terhubung';
-        if (emailText) emailText.textContent = 'Klik untuk otorisasi akses Drive/Sheets';
-        if (connectBtn) {
-          connectBtn.textContent = 'Hubungkan Google';
-          connectBtn.className = 'btn btn-primary';
-          connectBtn.onclick = hubungkanGoogleDriveJas;
-        }
+  fetch('/api/rpc', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      method: 'getJasGoogleStatus',
+      params: [SESSION.token]
+    })
+  })
+  .then(r => r.json())
+  .then(res => {
+    _jasHasCredentials = Boolean(res && res.hasCredentials);
+    _jasSavedClientId = (res && (res.fullClientId || res.clientId)) || '';
+
+    if (res && res.connected) {
+      if (indicator) indicator.classList.add('connected');
+      if (statusText) statusText.textContent = 'Google Drive: Terhubung';
+      if (emailText) emailText.textContent = res.email || 'Akun Aktif';
+      if (connectBtn) {
+        connectBtn.textContent = 'Putus Koneksi';
+        connectBtn.className = 'btn btn-outline';
+        connectBtn.onclick = putusGoogleDriveJas;
       }
+    } else {
+      if (indicator) indicator.classList.remove('connected');
+      if (statusText) statusText.textContent = 'Google Drive: Belum Terhubung';
+      if (emailText) {
+        emailText.textContent = _jasHasCredentials ? 'Kredensial siap • Klik Hubungkan Google' : 'Klik Kredensial atau Hubungkan Google';
+      }
+      if (connectBtn) {
+        connectBtn.textContent = 'Hubungkan Google';
+        connectBtn.className = 'btn btn-primary';
+        connectBtn.onclick = hubungkanGoogleDriveJas;
+      }
+    }
+  })
+  .catch(err => {
+    if (statusText) statusText.textContent = 'Gagal memeriksa status';
+    if (emailText) emailText.textContent = err.message || 'Error';
+  });
+}
+
+function openJasGoogleCredentialsModal() {
+  const modal = document.getElementById('modalJasGoogleCredentials');
+  const inpId = document.getElementById('jasInputGoogleClientId');
+  const inpSecret = document.getElementById('jasInputGoogleClientSecret');
+  const dispUri = document.getElementById('jasRedirectUriDisplay');
+
+  if (dispUri) {
+    const origin = window.location.origin || 'https://si-layaka.vercel.app';
+    dispUri.textContent = `${origin}/api/jas-google-callback`;
+  }
+
+  if (inpId && _jasSavedClientId) {
+    inpId.value = _jasSavedClientId;
+  }
+  if (inpSecret) {
+    inpSecret.value = '';
+  }
+
+  if (modal) {
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+  }
+}
+
+function closeJasGoogleCredentialsModal() {
+  const modal = document.getElementById('modalJasGoogleCredentials');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+}
+
+function toggleJasGoogleSecretVisibility() {
+  const inp = document.getElementById('jasInputGoogleClientSecret');
+  if (inp) {
+    inp.type = (inp.type === 'password') ? 'text' : 'password';
+  }
+}
+
+function copyJasRedirectUri() {
+  const dispUri = document.getElementById('jasRedirectUriDisplay');
+  const uri = dispUri ? dispUri.textContent.trim() : (window.location.origin + '/api/jas-google-callback');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(uri).then(() => {
+      showToast('success', 'Authorized Redirect URI berhasil disalin ke clipboard!');
+    }).catch(() => {
+      prompt('Salin URL ini secara manual:', uri);
+    });
+  } else {
+    prompt('Salin URL ini secara manual:', uri);
+  }
+}
+
+function saveAndConnectJasGoogle() {
+  const clientId = (document.getElementById('jasInputGoogleClientId')?.value || '').trim();
+  const clientSecret = (document.getElementById('jasInputGoogleClientSecret')?.value || '').trim();
+
+  if (!clientId || !clientSecret) {
+    showToast('error', 'Google Client ID dan Client Secret wajib diisi.');
+    return;
+  }
+
+  const btn = document.getElementById('jasBtnSaveCredentials');
+  if (btn) { btn.disabled = true; btn.textContent = '💾 Menyimpan...'; }
+
+  fetch('/api/rpc', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      method: 'saveJasGoogleCredentials',
+      params: [{
+        token: SESSION.token,
+        clientId,
+        clientSecret
+      }]
     })
-    .withFailureHandler(err => {
-      if (statusText) statusText.textContent = 'Gagal memeriksa Google Drive';
-      if (emailText) emailText.textContent = err.message || 'Error';
-    })
-    .getJasGoogleStatus(SESSION.token);
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan & Hubungkan Akun'; }
+    if (!res || !res.success) {
+      showToast('error', res.message || 'Gagal menyimpan kredensial.');
+      return;
+    }
+    _jasHasCredentials = true;
+    _jasSavedClientId = clientId;
+    showToast('success', 'Kredensial disimpan! Membuka persetujuan Google...');
+    closeJasGoogleCredentialsModal();
+    loadJasGoogleStatus();
+
+    openGoogleAuthPopup(clientId, clientSecret);
+  })
+  .catch(err => {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Simpan & Hubungkan Akun'; }
+    showToast('error', err.message || 'Kesalahan jaringan.');
+  });
 }
 
 function hubungkanGoogleDriveJas() {
@@ -23538,7 +23748,21 @@ function hubungkanGoogleDriveJas() {
     showToast('error', 'Sesi login tidak valid. Silakan login kembali.');
     return;
   }
-  const authUrl = '/api/jas-google-auth?token=' + encodeURIComponent(SESSION.token);
+
+  if (!_jasHasCredentials) {
+    showToast('info', 'Silakan masukkan Google Client ID & Secret Anda terlebih dahulu.');
+    openJasGoogleCredentialsModal();
+    return;
+  }
+
+  openGoogleAuthPopup();
+}
+
+function openGoogleAuthPopup(clientId, clientSecret) {
+  let authUrl = '/api/jas-google-auth?token=' + encodeURIComponent(SESSION.token);
+  if (clientId && clientSecret) {
+    authUrl += '&clientId=' + encodeURIComponent(clientId) + '&clientSecret=' + encodeURIComponent(clientSecret);
+  }
   const w = 600, h = 700;
   const left = (window.screen.width / 2) - (w / 2);
   const top = (window.screen.height / 2) - (h / 2);
@@ -23550,19 +23774,26 @@ function hubungkanGoogleDriveJas() {
 
 function putusGoogleDriveJas() {
   if (!confirm('Apakah Anda yakin ingin memutuskan integrasi Google Drive untuk fitur JAS?')) return;
-  google.script.run
-    .withSuccessHandler(res => {
-      if (res && res.success) {
-        showToast('success', res.message || 'Koneksi Google Drive diputuskan.');
-        loadJasGoogleStatus();
-      } else {
-        showToast('error', res.message || 'Gagal memutuskan koneksi.');
-      }
+  fetch('/api/rpc', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      method: 'disconnectJasGoogle',
+      params: [SESSION.token]
     })
-    .withFailureHandler(err => {
-      showToast('error', err.message || 'Gagal memutuskan koneksi.');
-    })
-    .disconnectJasGoogle(SESSION.token);
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res && res.success) {
+      showToast('success', res.message || 'Koneksi Google Drive diputuskan.');
+      loadJasGoogleStatus();
+    } else {
+      showToast('error', res.message || 'Gagal memutuskan koneksi.');
+    }
+  })
+  .catch(err => {
+    showToast('error', err.message || 'Gagal memutuskan koneksi.');
+  });
 }
 
 // Listener pesan sukses dari popup Google OAuth
@@ -24428,5 +24659,10 @@ window.detectJasColumns = detectJasColumns;
 window.startJasDownloadJob = startJasDownloadJob;
 window.resumeJasDownloadJob = resumeJasDownloadJob;
 window.refreshCurrentJasDlJobStatus = refreshCurrentJasDlJobStatus;
+window.openJasGoogleCredentialsModal = openJasGoogleCredentialsModal;
+window.closeJasGoogleCredentialsModal = closeJasGoogleCredentialsModal;
+window.toggleJasGoogleSecretVisibility = toggleJasGoogleSecretVisibility;
+window.copyJasRedirectUri = copyJasRedirectUri;
+window.saveAndConnectJasGoogle = saveAndConnectJasGoogle;
 
 </script>

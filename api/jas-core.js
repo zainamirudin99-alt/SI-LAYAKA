@@ -346,9 +346,9 @@ function getGoogleOAuthUrl(redirectUri, state) {
   return `${GOOGLE_AUTH_ENDPOINT}?${params.toString()}`;
 }
 
-async function exchangeGoogleAuthCode(code, redirectUri) {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+async function exchangeGoogleAuthCode(code, redirectUri, customClientId, customClientSecret) {
+  const clientId = customClientId || process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = customClientSecret || process.env.GOOGLE_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
     throw new Error('GOOGLE_CLIENT_ID atau GOOGLE_CLIENT_SECRET belum dikonfigurasi.');
@@ -375,13 +375,15 @@ async function exchangeGoogleAuthCode(code, redirectUri) {
     access_token: data.access_token,
     refresh_token: data.refresh_token,
     expires_in: data.expires_in,
-    expiry_date: Date.now() + (Number(data.expires_in || 3600) * 1000)
+    expiry_date: Date.now() + (Number(data.expires_in || 3600) * 1000),
+    client_id: clientId,
+    client_secret: clientSecret
   };
 }
 
-async function refreshGoogleAccessToken(refreshToken) {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+async function refreshGoogleAccessToken(refreshToken, customClientId, customClientSecret) {
+  const clientId = customClientId || process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = customClientSecret || process.env.GOOGLE_CLIENT_SECRET;
 
   const res = await fetch(GOOGLE_TOKEN_ENDPOINT, {
     method: 'POST',
@@ -435,7 +437,7 @@ async function getValidGoogleAccessToken(ownerNip, db) {
     throw err;
   }
 
-  const refreshed = await refreshGoogleAccessToken(tokens.refresh_token);
+  const refreshed = await refreshGoogleAccessToken(tokens.refresh_token, tokens.client_id, tokens.client_secret);
   const updatedTokens = Object.assign({}, tokens, {
     access_token: refreshed.access_token,
     expiry_date: refreshed.expiry_date
