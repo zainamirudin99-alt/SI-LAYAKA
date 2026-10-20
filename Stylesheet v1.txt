@@ -1069,14 +1069,24 @@
     box-shadow: 0 0 14px rgba(0, 240, 255, 0.2) !important;
   }
 
-  /* Sembunyikan baris tab horizontal di dalam halaman */
+  /* Sembunyikan baris tab horizontal di dalam halaman (hanya bar .tabs in-page, BUKAN sub-menu sidebar) */
   .in-page-tabs-hidden,
-  [data-tab-group="kp"],
-  [data-tab-group="pensiun"],
+  .tabs[data-tab-group="kp"],
+  .tabs[data-tab-group="pensiun"],
+  .card.kp-panel > .tabs,
   #kontrakAdminTabs,
   .jas-nav-tabs,
   #buatSkTabsBar,
   .buat-sk-tabs-bar {
+    display: none !important;
+  }
+
+  /* Pastikan subitem sidebar selalu tampil saat accordion terbuka kecuali disembunyikan oleh batasan peran */
+  .nav-submenu .nav-subitem {
+    display: flex;
+  }
+  .nav-submenu .nav-subitem[style*="display: none"],
+  .nav-submenu .nav-subitem[style*="display:none"] {
     display: none !important;
   }
 

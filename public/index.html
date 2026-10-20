@@ -1096,14 +1096,24 @@
     box-shadow: 0 0 14px rgba(0, 240, 255, 0.2) !important;
   }
 
-  /* Sembunyikan baris tab horizontal di dalam halaman */
+  /* Sembunyikan baris tab horizontal di dalam halaman (hanya bar .tabs in-page, BUKAN sub-menu sidebar) */
   .in-page-tabs-hidden,
-  [data-tab-group="kp"],
-  [data-tab-group="pensiun"],
+  .tabs[data-tab-group="kp"],
+  .tabs[data-tab-group="pensiun"],
+  .card.kp-panel > .tabs,
   #kontrakAdminTabs,
   .jas-nav-tabs,
   #buatSkTabsBar,
   .buat-sk-tabs-bar {
+    display: none !important;
+  }
+
+  /* Pastikan subitem sidebar selalu tampil saat accordion terbuka kecuali disembunyikan oleh batasan peran */
+  .nav-submenu .nav-subitem {
+    display: flex;
+  }
+  .nav-submenu .nav-subitem[style*="display: none"],
+  .nav-submenu .nav-subitem[style*="display:none"] {
     display: none !important;
   }
 
@@ -10827,6 +10837,43 @@ function bindSidebarNav() {
             item.classList.add('expanded');
             submenu.classList.add('open');
             submenu.style.display = 'flex';
+
+            // Pastikan ada sub-item yang aktif di grup ini dan tab halamannya terpicu
+            let targetSub = submenu.querySelector('.nav-subitem.active');
+            if (!targetSub || targetSub.style.display === 'none') {
+              targetSub = Array.from(submenu.querySelectorAll('.nav-subitem')).find(s => s.style.display !== 'none');
+            }
+            if (targetSub) {
+              submenu.querySelectorAll('.nav-subitem').forEach(s => s.classList.remove('active'));
+              targetSub.classList.add('active');
+
+              if (view === 'kenaikan-pangkat') {
+                const tg = targetSub.getAttribute('data-tab-group');
+                const tt = targetSub.getAttribute('data-tab-target');
+                if (tg && tt) activateTab(tg, tt);
+              } else if (view === 'pensiun') {
+                loadPensiunDashboardOnce();
+                const tg = targetSub.getAttribute('data-tab-group');
+                const tt = targetSub.getAttribute('data-tab-target');
+                if (tg && tt) activateTab(tg, tt);
+              } else if (view === 'kontrak') {
+                initKontrakViewForUser().then(() => {
+                  const action = targetSub.getAttribute('data-kontrak-action');
+                  if (action === 'buat') document.getElementById('tabBtnKontrakAdminBuat')?.click();
+                  else if (action === 'review') document.getElementById('tabBtnKontrakAdminReview')?.click();
+                  else if (action === 'atasan') document.getElementById('tabBtnKontrakAtasan')?.click();
+                  else if (action === 'user-status') document.getElementById('tabBtnKontrakUserStatus')?.click();
+                });
+              } else if (view === 'buat-sk') {
+                onEnterBuatSkView();
+                const action = targetSub.getAttribute('data-buatsk-tab');
+                if (action) buatSkSwitchTab(action);
+              } else if (view === 'jas') {
+                initJasView();
+                const action = targetSub.getAttribute('data-jas-tab');
+                if (action) switchJasTab(action);
+              }
+            }
           }
         }
 
@@ -10837,20 +10884,6 @@ function bindSidebarNav() {
         const vp = document.getElementById('view-' + view);
         if (vp) vp.style.display = 'block';
         document.getElementById('topbarTitle').textContent = item.getAttribute('data-title');
-
-        // Jika belum ada sub-item yang aktif di grup ini, buka sub-item pertama yang tampak
-        if (submenu && !submenu.querySelector('.nav-subitem.active')) {
-          const firstVisibleSub = Array.from(submenu.querySelectorAll('.nav-subitem')).find(s => s.style.display !== 'none');
-          if (firstVisibleSub) {
-            firstVisibleSub.click();
-            return;
-          }
-        }
-
-        if (view === 'jas') initJasView();
-        if (view === 'pensiun') loadPensiunDashboardOnce();
-        if (view === 'kontrak') initKontrakViewForUser();
-        if (view === 'buat-sk') onEnterBuatSkView();
       } else {
         // Menu Standalone (non-parent)
         toggleSidebarMenu(false);
