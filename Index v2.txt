@@ -337,11 +337,11 @@
             <span class="nav-chevron">▾</span>
           </div>
           <div class="nav-submenu" id="navSubmenuKontrak" style="display:none;">
-            <div class="nav-subitem" data-parent-view="kontrak" data-kontrak-action="buat" id="navSubKontrakBuat" style="display:none;">
+            <div class="nav-subitem active" data-parent-view="kontrak" data-kontrak-action="buat" id="navSubKontrakBuat">
               <span class="nav-subitem-bullet">•</span>
               <span class="nav-subitem-text">Buat Kontrak (Admin)</span>
             </div>
-            <div class="nav-subitem" data-parent-view="kontrak" data-kontrak-action="review" id="navSubKontrakReview" style="display:none;">
+            <div class="nav-subitem" data-parent-view="kontrak" data-kontrak-action="review" id="navSubKontrakReview">
               <span class="nav-subitem-bullet">•</span>
               <span class="nav-subitem-text">Review Usulan Unit</span>
               <span id="navSubKontrakReviewBadge" class="cdli-badge" style="display:none; background:#ff4444; color:#fff; font-size:10px; padding:1px 5px; margin-left:auto;">0</span>

@@ -581,6 +581,27 @@ function terapkanBatasanPeran_() {
   if (navSubJasRename) navSubJasRename.style.display = isAdmin ? 'flex' : 'none';
   if (navSubJasDownload) navSubJasDownload.style.display = isAdmin ? 'flex' : 'none';
 
+  // Submenu Kontrak di sidebar
+  const navSubKontrakBuat = document.getElementById('navSubKontrakBuat');
+  const navSubKontrakReview = document.getElementById('navSubKontrakReview');
+  const navSubKontrakAtasan = document.getElementById('navSubKontrakAtasan');
+  const navSubKontrakUserStatus = document.getElementById('navSubKontrakUserStatus');
+  if (navSubKontrakBuat) navSubKontrakBuat.style.display = isAdmin ? 'flex' : 'none';
+  if (navSubKontrakReview) navSubKontrakReview.style.display = isAdmin ? 'flex' : 'none';
+  if (navSubKontrakAtasan) navSubKontrakAtasan.style.display = isAdmin ? 'flex' : 'none';
+  if (navSubKontrakUserStatus) {
+    if (role === 'user') {
+      navSubKontrakUserStatus.style.display = 'flex';
+      const textSpan = navSubKontrakUserStatus.querySelector('.nav-subitem-text');
+      if (textSpan) textSpan.textContent = 'Pengajuan Usulan Unit';
+    } else {
+      navSubKontrakUserStatus.style.display = 'none';
+    }
+  }
+  if (isAdmin || role === 'user') {
+    initKontrakViewForUser();
+  }
+
   // Tombol akses manual di dashboard Pensiun berubah makna sesuai peran:
   // user -> buka modal Ajukan Usulan; admin/super_admin -> form DPCP penuh.
   const pensiunGoToFormBtn = document.getElementById('pensiunGoToFormBtn');
@@ -2077,6 +2098,11 @@ function bindSidebarNav() {
         const vp = document.getElementById('view-' + view);
         if (vp) vp.style.display = 'block';
         document.getElementById('topbarTitle').textContent = item.getAttribute('data-title');
+
+        if (view === 'jas') initJasView();
+        if (view === 'pensiun') loadPensiunDashboardOnce();
+        if (view === 'kontrak') initKontrakViewForUser();
+        if (view === 'buat-sk') onEnterBuatSkView();
       } else {
         // Menu Standalone (non-parent)
         toggleSidebarMenu(false);
