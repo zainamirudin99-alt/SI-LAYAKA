@@ -284,6 +284,7 @@ function updateUsulanMasukStatus(sessionToken, payload) {
     if (String(values[i][0]) === String(payload.id)) {
       if (payload.status !== undefined) sheet.getRange(i + 1, 10).setValue(payload.status);
       if (payload.tmt !== undefined) sheet.getRange(i + 1, 14).setValue(payload.tmt);
+      if (payload.keterangan !== undefined) sheet.getRange(i + 1, 20).setValue(payload.keterangan);
       sheet.getRange(i + 1, 13).setValue(admin.nip);
       return { success: true, message: 'Status berhasil diperbarui.' };
     }

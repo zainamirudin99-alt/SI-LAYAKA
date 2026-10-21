@@ -6410,7 +6410,7 @@ function buildEksporExcelBlob(filteredList, filterInfo) {
     ['SISTEM LAYANAN ADMINISTRASI KEPEGAWAIAN (SI-LAYAKA)'],
     [`Filter: ${filterInfo} | Tanggal Ekspor: ${dateStr} | Total: ${filteredList.length} Pegawai`],
     [],
-    ['No', 'Nama Pegawai', 'NIP / Unit / Jabatan', 'Proyeksi Pangkat/Golongan', 'TMT', 'Status Saat Ini']
+    ['No', 'Nama Pegawai', 'NIP / Unit / Jabatan', 'Proyeksi Pangkat/Golongan', 'TMT', 'Status Saat Ini', 'Keterangan']
   ];
 
   filteredList.forEach((u, idx) => {
@@ -6429,7 +6429,8 @@ function buildEksporExcelBlob(filteredList, filterInfo) {
       nipUnitJab,
       proyeksi,
       u.tmt || '-',
-      u.status || 'Diterima DOSDM'
+      u.status || 'Diterima DOSDM',
+      u.keterangan || '-'
     ]);
   });
 
@@ -6440,7 +6441,8 @@ function buildEksporExcelBlob(filteredList, filterInfo) {
     { wch: 45 },
     { wch: 25 },
     { wch: 18 },
-    { wch: 20 }
+    { wch: 20 },
+    { wch: 35 }
   ];
 
   const wb = XLSX.utils.book_new();
@@ -6801,7 +6803,22 @@ function renderStatusDetailModalContent() {
           </div>
         </td>
         <td><strong>${escapeHtml(u.tmt || '-')}</strong></td>
-        <td><span class="badge-status ${badgeClass}">${escapeHtml(currentStatus)}</span></td>
+        <td>
+          <span class="badge-status ${badgeClass}">${escapeHtml(currentStatus)}</span>
+          ${(currentStatus === 'Perbaikan' || currentStatus === 'Belum Eligible' || u.keterangan) ? `
+            <div style="margin-top:5px; font-size:11.5px; line-height:1.35; max-width:230px; background:var(--surface-alt); border:1px solid var(--border); border-left:3px solid ${(currentStatus === 'Perbaikan' ? '#f59e0b' : (currentStatus === 'Belum Eligible' ? '#ef4444' : 'var(--primary)'))}; padding:4px 7px; border-radius:4px; text-align:left;">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:4px;">
+                <span style="font-weight:700; color:${(currentStatus === 'Perbaikan' ? '#d97706' : (currentStatus === 'Belum Eligible' ? '#dc2626' : 'var(--primary)'))}; font-size:10.5px;">
+                  ${currentStatus === 'Perbaikan' ? '⚠️ Catatan Perbaikan' : (currentStatus === 'Belum Eligible' ? '❌ Alasan Belum Eligible' : '📝 Keterangan')}:
+                </span>
+                <button type="button" onclick="openQuickEditKeteranganModal('${escapeHtml(u.id)}')" title="Edit Keterangan" style="background:none; border:none; cursor:pointer; color:var(--primary); font-size:11px; padding:0; line-height:1;">✏️ Edit</button>
+              </div>
+              <div style="color:var(--text); margin-top:2px; word-break:break-word;">
+                ${u.keterangan ? escapeHtml(u.keterangan) : '<span style="color:var(--text-muted); font-style:italic; font-size:11px;">Belum ada keterangan. Klik ✏️ Edit untuk menambah.</span>'}
+              </div>
+            </div>
+          ` : ''}
+        </td>
         <td>
           <select class="status-select" onchange="updateStatusFromModal('${escapeHtml(u.id)}', this.value)">
             <option value="Diterima DOSDM" ${(currentStatus === 'Diterima DOSDM' || currentStatus === 'Diterima DSDM') ? 'selected' : ''}>Diterima DOSDM</option>
@@ -6824,6 +6841,10 @@ function renderStatusDetailModalContent() {
 
 async function updateStatusFromModal(id, newStatus) {
   if (!id || !newStatus) return;
+  if (newStatus === 'Perbaikan' || newStatus === 'Belum Eligible') {
+    openQuickEditKeteranganModal(id, newStatus);
+    return;
+  }
 
   const item = (window.umGlobalList || []).find(x => String(x.id) === String(id));
   const oldStatus = item ? item.status : '';
@@ -7231,6 +7252,19 @@ function buildUsulanTableHtml(items) {
         </td>
         <td>
           <span class="badge-status ${badgeClass}">${escapeHtml(currentStatus)}</span>
+          ${(currentStatus === 'Perbaikan' || currentStatus === 'Belum Eligible' || u.keterangan) ? `
+            <div style="margin-top:5px; font-size:11.5px; line-height:1.35; max-width:230px; background:var(--surface-alt); border:1px solid var(--border); border-left:3px solid ${(currentStatus === 'Perbaikan' ? '#f59e0b' : (currentStatus === 'Belum Eligible' ? '#ef4444' : 'var(--primary)'))}; padding:4px 7px; border-radius:4px; text-align:left;">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:4px;">
+                <span style="font-weight:700; color:${(currentStatus === 'Perbaikan' ? '#d97706' : (currentStatus === 'Belum Eligible' ? '#dc2626' : 'var(--primary)'))}; font-size:10.5px;">
+                  ${currentStatus === 'Perbaikan' ? '⚠️ Catatan Perbaikan' : (currentStatus === 'Belum Eligible' ? '❌ Alasan Belum Eligible' : '📝 Keterangan')}:
+                </span>
+                <button type="button" onclick="openQuickEditKeteranganModal('${escapeHtml(u.id)}')" title="Edit Keterangan" style="background:none; border:none; cursor:pointer; color:var(--primary); font-size:11px; padding:0; line-height:1;">✏️ Edit</button>
+              </div>
+              <div style="color:var(--text); margin-top:2px; word-break:break-word;">
+                ${u.keterangan ? escapeHtml(u.keterangan) : '<span style="color:var(--text-muted); font-style:italic; font-size:11px;">Belum ada keterangan. Klik ✏️ Edit untuk menambah.</span>'}
+              </div>
+            </div>
+          ` : ''}
         </td>
         <td>
           <select class="status-select" onchange="updateUsulanStatusInline('${escapeHtml(u.id)}', this.value)">
@@ -7612,6 +7646,7 @@ async function handleInputUsulanMasuk(e) {
   const jabatan = val('umInputJabatan');
   const jenis_pegawai = val('umInputJenisPegawai') || 'Tendik';
   const status_kepegawaian = val('umInputStatusKepegawaian') || 'PNS';
+  const keterangan = val('umInputKeterangan') || '';
 
   if (!nama) { showToast('error', 'Nama pegawai wajib diisi.'); return; }
 
@@ -7619,7 +7654,7 @@ async function handleInputUsulanMasuk(e) {
   if (btn) btn.disabled = true;
 
   const tmt = `${tmtBulan} ${tmtTahun}`;
-  const payload = { nama, nip, status, golLama, golBaru, tmt, unit, jabatan, jenis_pegawai, status_kepegawaian };
+  const payload = { nama, nip, status, golLama, golBaru, tmt, unit, jabatan, jenis_pegawai, status_kepegawaian, keterangan };
 
   try {
     const res = await rpc('insertUsulanMasukSingle', [SESSION.token, payload]);
@@ -7661,11 +7696,20 @@ async function handleInputUsulanMasuk(e) {
 }
 
 async function updateUsulanStatusInline(id, newStatus) {
+  if (newStatus === 'Perbaikan' || newStatus === 'Belum Eligible') {
+    openQuickEditKeteranganModal(id, newStatus);
+    return;
+  }
   showToast('info', 'Memperbarui status...');
   try {
     const res = await rpc('updateUsulanMasukStatus', [SESSION.token, { id, status: newStatus }]);
     if (res && res.success) {
       showToast('success', 'Status usulan berhasil diperbarui.');
+      const updateMem = (item) => {
+        if (item && String(item.id) === String(id)) item.status = newStatus;
+      };
+      (window.umGlobalList || []).forEach(updateMem);
+      (window.umMasterRawList || []).forEach(updateMem);
       loadUsulanMasukTmtDashboard(true);
     } else {
       showToast('error', res?.message || 'Gagal memperbarui status.');
@@ -7679,6 +7723,11 @@ async function updateUsulanStatusInline(id, newStatus) {
             return;
           }
           showToast('success', 'Status usulan berhasil diperbarui.');
+          const updateMem = (item) => {
+            if (item && String(item.id) === String(id)) item.status = newStatus;
+          };
+          (window.umGlobalList || []).forEach(updateMem);
+          (window.umMasterRawList || []).forEach(updateMem);
           loadUsulanMasukTmtDashboard(true);
         })
         .withFailureHandler(e => showToast('error', 'Gagal memperbarui status: ' + (e.message || e)))
@@ -7761,10 +7810,33 @@ function openEditUsulanModal(id) {
   setVal('editUmGolBaru', item.golongan_baru || item.golBaru || '');
   setVal('editUmTmt', item.tmt || '');
   setVal('editUmStatus', item.status || 'Diterima DOSDM');
+  setVal('editUmKeterangan', item.keterangan || '');
+  handleEditUmStatusChange(item.status || 'Diterima DOSDM');
 
   const modal = document.getElementById('modalEditUsulanMasuk');
   if (modal) {
     modal.style.display = 'block';
+  }
+}
+
+function handleEditUmStatusChange(st) {
+  const badge = document.getElementById('editUmKeteranganBadge');
+  const textarea = document.getElementById('editUmKeterangan');
+  const isNeedsKet = (st === 'Perbaikan' || st === 'Belum Eligible');
+  if (badge) {
+    badge.style.display = isNeedsKet ? 'inline' : 'none';
+    if (st === 'Perbaikan') {
+      badge.textContent = '(Perlu catatan perbaikan)';
+      badge.style.color = '#d97706';
+    } else if (st === 'Belum Eligible') {
+      badge.textContent = '(Perlu alasan belum eligible)';
+      badge.style.color = '#dc2626';
+    }
+  }
+  if (textarea && isNeedsKet && !textarea.value.trim()) {
+    textarea.placeholder = st === 'Perbaikan'
+      ? 'Contoh: Berkas perbaikan SKP tahun 2024 belum lengkap...'
+      : 'Contoh: Masa kerja golongan belum genap 2 tahun / belum cukup AK...';
   }
 }
 
@@ -7788,6 +7860,7 @@ async function saveEditUsulanModal() {
   const golongan_baru = document.getElementById('editUmGolBaru')?.value.trim() || '';
   const tmt = document.getElementById('editUmTmt')?.value.trim() || '';
   const status = document.getElementById('editUmStatus')?.value || 'Diterima DOSDM';
+  const keterangan = document.getElementById('editUmKeterangan')?.value.trim() || '';
 
   if (!nama) {
     showToast('warning', 'Nama pegawai tidak boleh kosong.');
@@ -7797,7 +7870,7 @@ async function saveEditUsulanModal() {
   showToast('info', 'Menyimpan perubahan data usulan...');
   const payload = {
     id, originalNip, nama, nip, unit, jabatan,
-    jenis_pegawai, status_kepegawaian, golongan_lama, golongan_baru, tmt, status
+    jenis_pegawai, status_kepegawaian, golongan_lama, golongan_baru, tmt, status, keterangan
   };
 
   try {
@@ -7822,6 +7895,7 @@ async function saveEditUsulanModal() {
         item.golongan_baru = golongan_baru;
         item.tmt = tmt;
         item.status = status;
+        item.keterangan = keterangan;
       }
     };
 
@@ -7836,6 +7910,101 @@ async function saveEditUsulanModal() {
     loadUsulanMasukTmtDashboard(true);
   } catch (err) {
     showToast('error', 'Gagal menyimpan perubahan: ' + (err.message || err));
+  }
+}
+
+/* ---------- QUICK MODAL INPUT/EDIT KETERANGAN (PERBAIKAN & BELUM ELIGIBLE) ---------- */
+function openQuickEditKeteranganModal(id, targetStatus) {
+  const item = (window.umGlobalList || []).find(x => String(x.id) === String(id)) ||
+               (window.umMasterRawList || []).find(x => String(x.id) === String(id));
+  if (!item) {
+    showToast('error', 'Data usulan tidak ditemukan.');
+    return;
+  }
+
+  const setVal = (elemId, val) => {
+    const el = document.getElementById(elemId);
+    if (el) el.value = val !== undefined && val !== null ? val : '';
+  };
+
+  const st = targetStatus || item.status || 'Perbaikan';
+  setVal('quickKetId', item.id || '');
+  setVal('quickKetTargetStatus', st);
+  setVal('quickKetTextarea', item.keterangan || '');
+
+  const subEl = document.getElementById('quickKetSubtitle');
+  if (subEl) {
+    subEl.textContent = `Pegawai: ${item.nama || '-'} (${item.nip ? 'NIP ' + item.nip : 'Tanpa NIP'}) - ${item.unit || 'Unit Kerja'}`;
+  }
+
+  const badgeEl = document.getElementById('quickKetStatusBadge');
+  if (badgeEl) {
+    badgeEl.textContent = st;
+    badgeEl.className = 'badge-status ' + (st === 'Perbaikan' ? 'perbaikan' : (st === 'Belum Eligible' ? 'belumbisa' : 'dsdm'));
+  }
+
+  const modal = document.getElementById('modalQuickEditKeterangan');
+  if (modal) modal.style.display = 'block';
+
+  setTimeout(() => {
+    document.getElementById('quickKetTextarea')?.focus();
+  }, 100);
+}
+
+function closeQuickEditKeteranganModal() {
+  const modal = document.getElementById('modalQuickEditKeterangan');
+  if (modal) modal.style.display = 'none';
+  loadUsulanMasukTmtDashboard(false);
+  if (document.getElementById('umStatusDetailModal')?.style?.display === 'block') {
+    renderStatusDetailModalContent();
+  }
+}
+
+async function saveQuickEditKeterangan() {
+  const id = document.getElementById('quickKetId')?.value || '';
+  const status = document.getElementById('quickKetTargetStatus')?.value || '';
+  const keterangan = document.getElementById('quickKetTextarea')?.value.trim() || '';
+
+  if (!id) {
+    showToast('error', 'ID usulan tidak valid.');
+    return;
+  }
+
+  const btn = document.getElementById('btnSaveQuickKeterangan');
+  if (btn) btn.disabled = true;
+  showToast('info', 'Menyimpan keterangan usulan...');
+
+  try {
+    const payload = { id, keterangan };
+    if (status) payload.status = status;
+    const res = await rpc('updateUsulanMasukStatus', [SESSION.token, payload]);
+    if (btn) btn.disabled = false;
+
+    if (res && res.success) {
+      showToast('success', 'Keterangan berhasil disimpan.');
+      
+      const updateMem = (item) => {
+        if (item && String(item.id) === String(id)) {
+          if (status) item.status = status;
+          item.keterangan = keterangan;
+        }
+      };
+      (window.umGlobalList || []).forEach(updateMem);
+      (window.umMasterRawList || []).forEach(updateMem);
+
+      const modal = document.getElementById('modalQuickEditKeterangan');
+      if (modal) modal.style.display = 'none';
+
+      loadUsulanMasukTmtDashboard(false);
+      if (document.getElementById('umStatusDetailModal')?.style?.display === 'block') {
+        renderStatusDetailModalContent();
+      }
+    } else {
+      showToast('error', res?.message || 'Gagal menyimpan keterangan.');
+    }
+  } catch (err) {
+    if (btn) btn.disabled = false;
+    showToast('error', 'Gagal menyimpan keterangan: ' + (err?.message || err));
   }
 }
 

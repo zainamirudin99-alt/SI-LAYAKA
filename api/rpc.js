@@ -7005,6 +7005,7 @@ const methods = {
       unit: payload.unit || '',
       status: payload.status || 'Diterima DOSDM',
       tmt: payload.tmt || '',
+      keterangan: payload.keterangan || '',
       jenis_pegawai: payload.jenis_pegawai || 'Tendik',
       status_kepegawaian: payload.status_kepegawaian || 'PNS',
       diajukan_oleh_nip: decoded.nip || '',
@@ -7143,7 +7144,7 @@ const methods = {
   async updateUsulanMasukStatus(args) {
     const [token, payload] = extractArgs(args);
     const decoded = requireRole(token, ['admin', 'super_admin']);
-    const { id, status, tmt, golongan_lama, golongan_baru, jabatan } = payload || {};
+    const { id, status, tmt, golongan_lama, golongan_baru, jabatan, keterangan } = payload || {};
     if (!id) return { success: false, message: 'ID usulan tidak valid.' };
     const db = getDb();
     const updateObj = { diproses_oleh_nip: decoded.nip };
@@ -7152,6 +7153,7 @@ const methods = {
     if (golongan_lama !== undefined) updateObj.golongan_lama = String(golongan_lama).trim();
     if (golongan_baru !== undefined) updateObj.golongan_baru = String(golongan_baru).trim();
     if (jabatan !== undefined) updateObj.jabatan = String(jabatan).trim();
+    if (keterangan !== undefined) updateObj.keterangan = String(keterangan).trim();
 
     const { error } = await db.from('usulan_kp').update(updateObj).eq('id', id);
     if (error) throw error;
@@ -7509,7 +7511,7 @@ const methods = {
 
     const {
       id, originalNip, nama, nip, unit, jabatan,
-      jenis_pegawai, status_kepegawaian, golongan_lama, golongan_baru, tmt, status
+      jenis_pegawai, status_kepegawaian, golongan_lama, golongan_baru, tmt, status, keterangan
     } = payload;
 
     if (!id && !originalNip && !nip) {
@@ -7528,6 +7530,7 @@ const methods = {
     if (golongan_baru !== undefined) updateObj.golongan_baru = String(golongan_baru).trim();
     if (tmt !== undefined) updateObj.tmt = String(tmt).trim();
     if (status !== undefined) updateObj.status = String(status).trim();
+    if (keterangan !== undefined) updateObj.keterangan = String(keterangan).trim();
 
     let updated = false;
     let lastError = null;

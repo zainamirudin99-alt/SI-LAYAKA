@@ -1693,9 +1693,9 @@
                       </div>
                     </div>
 
-                    <div style="margin-bottom:20px;">
+                    <div style="margin-bottom:14px;">
                       <label class="label-tech" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:block;">Status Usulan</label>
-                      <select id="editUmStatus" class="field-input" style="width:100%; box-sizing:border-box;">
+                      <select id="editUmStatus" class="field-input" style="width:100%; box-sizing:border-box;" onchange="handleEditUmStatusChange(this.value)">
                         <option value="Diterima DOSDM">Diterima DOSDM</option>
                         <option value="Diajukan SIASN">Diajukan SIASN</option>
                         <option value="TTD Pertek">TTD Pertek</option>
@@ -1706,9 +1706,62 @@
                       </select>
                     </div>
 
+                    <div id="editUmKeteranganWrap" style="margin-bottom:20px;">
+                      <label class="label-tech" for="editUmKeterangan" style="font-size:11.5px; color:var(--text); margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;">
+                        <span>Keterangan / Catatan Status <span id="editUmKeteranganBadge" style="display:none; font-size:10.5px; color:#d97706; font-weight:700;">(Perlu Catatan)</span></span>
+                        <span style="font-size:11px; color:var(--text-muted); font-weight:normal;">Alasan perbaikan / belum eligible</span>
+                      </label>
+                      <textarea id="editUmKeterangan" class="field-input" rows="3" placeholder="Contoh: Berkas SKP tahun 2024 belum lengkap / Masa kerja golongan kurang 3 bulan..." style="width:100%; box-sizing:border-box; resize:vertical; font-family:inherit; font-size:12.5px;"></textarea>
+                    </div>
+
                     <div style="display:flex; justify-content:flex-end; gap:10px; padding-top:12px; border-top:1px solid var(--border);">
                       <button type="button" class="btn btn-outline" onclick="closeEditUsulanModal()" style="padding:9px 18px; font-size:13px;">Batal</button>
                       <button type="submit" class="btn btn-primary" style="padding:9px 20px; font-size:13px; font-weight:700;">💾 Simpan Perubahan</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+
+              <!-- POP-UP MODAL CEPAT INPUT/EDIT KETERANGAN STATUS -->
+              <div id="modalQuickEditKeterangan" class="um-import-card" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; z-index:100004; background:rgba(0,0,0,0.65); backdrop-filter:blur(5px); padding:20px; overflow-y:auto;">
+                <div style="max-width:560px; margin:60px auto; background:var(--surface); border-radius:16px; border:2px solid var(--primary); padding:24px; box-shadow:0 12px 48px rgba(0,0,0,0.35);">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border);">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                      <div style="width:36px; height:36px; border-radius:8px; background:rgba(245,158,11,0.15); color:#f59e0b; display:flex; align-items:center; justify-content:center; font-size:18px;">
+                        📝
+                      </div>
+                      <div>
+                        <h3 style="margin:0; font-size:16px; font-weight:700; color:var(--text);">Keterangan Status Usulan</h3>
+                        <div id="quickKetSubtitle" style="font-size:12px; color:var(--text-muted); margin-top:2px;">Pegawai: -</div>
+                      </div>
+                    </div>
+                    <button type="button" class="btn btn-outline kp-small-btn" onclick="closeQuickEditKeteranganModal()">✕</button>
+                  </div>
+
+                  <form id="formQuickEditKeterangan" onsubmit="event.preventDefault(); saveQuickEditKeterangan();">
+                    <input type="hidden" id="quickKetId" />
+                    <input type="hidden" id="quickKetTargetStatus" />
+
+                    <div style="margin-bottom:14px;">
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                        <label class="label-tech" style="font-size:12px; color:var(--text); font-weight:700;">Status Usulan:</label>
+                        <span id="quickKetStatusBadge" class="badge-status perbaikan">Perbaikan</span>
+                      </div>
+                      <div style="font-size:12px; color:var(--text-muted); background:var(--surface-alt); padding:8px 12px; border-radius:8px; border:1px solid var(--border); line-height:1.4;">
+                        💡 Catat hal-hal yang perlu diperbaiki oleh pegawai/unit kerja, atau jelaskan syarat administratif yang belum terpenuhi sehingga usulan belum eligible.
+                      </div>
+                    </div>
+
+                    <div style="margin-bottom:20px;">
+                      <label for="quickKetTextarea" class="label-tech" style="font-size:12px; color:var(--text); margin-bottom:6px; display:block; font-weight:700;">
+                        Isi Keterangan / Catatan:
+                      </label>
+                      <textarea id="quickKetTextarea" class="field-input" rows="4" placeholder="Contoh: Berkas SKP tahun 2024 belum ditandatangani Dekan / Masa kerja dalam pangkat terakhir kurang 3 bulan..." style="width:100%; box-sizing:border-box; resize:vertical; font-family:inherit; font-size:13px;"></textarea>
+                    </div>
+
+                    <div style="display:flex; justify-content:flex-end; gap:10px; padding-top:14px; border-top:1px solid var(--border);">
+                      <button type="button" class="btn btn-outline" onclick="closeQuickEditKeteranganModal()" style="padding:8px 16px; font-size:13px;">Batal</button>
+                      <button type="submit" id="btnSaveQuickKeterangan" class="btn btn-primary" style="padding:8px 20px; font-size:13px; font-weight:700;">💾 Simpan Keterangan</button>
                     </div>
                   </form>
                 </div>
@@ -1826,6 +1879,10 @@
                     <div class="stack-field">
                       <label class="kp-label" for="umInputJabatan">Jabatan (Opsional)</label>
                       <input type="text" id="umInputJabatan" class="field-input" placeholder="Contoh: Lektor / Dosen / Pengelola..." />
+                    </div>
+                    <div class="stack-field" style="grid-column:1/-1;">
+                      <label class="kp-label" for="umInputKeterangan">Keterangan / Catatan Status (Opsional)</label>
+                      <input type="text" id="umInputKeterangan" class="field-input" placeholder="Khususnya bila status Perbaikan / Belum Eligible (cth: Berkas SKP kurang / Masa kerja belum 2 tahun)..." />
                     </div>
                   </div>
                   <div class="actions-bar" style="margin-top:16px; justify-content:flex-end;">
