@@ -305,7 +305,7 @@ function getPromosiDashboardSummary(sessionToken) {
 
     return {
       success: true,
-      targetTmt: `1 ${BULAN_ID[target.targetMonth - 1]} ${target.targetYear}`,
+      targetTmt: `1 ${(typeof BULAN_ID !== 'undefined' ? BULAN_ID : UTILS_BULAN_ID)[target.targetMonth - 1]} ${target.targetYear}`,
       daftarUnit: daftarUnit
     };
   } catch (err) {
@@ -356,7 +356,8 @@ function getPromosiEligibleList(sessionToken, unit, kategoriFilter) {
 
     list.sort((a, b) => String(a.nama).localeCompare(String(b.nama)));
 
-    return { success: true, targetTmt: `1 ${BULAN_ID[target.targetMonth - 1]} ${target.targetYear}`, daftar: list };
+    const bulanArr = typeof BULAN_ID !== 'undefined' ? BULAN_ID : UTILS_BULAN_ID;
+    return { success: true, targetTmt: `1 ${bulanArr[target.targetMonth - 1]} ${target.targetYear}`, daftar: list };
   } catch (err) {
     return { success: false, message: 'Gagal memuat daftar pegawai eligible: ' + err.message, daftar: [] };
   }

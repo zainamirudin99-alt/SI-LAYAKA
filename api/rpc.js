@@ -13885,14 +13885,30 @@ const methods = {
       if (data) tmpl = data;
     }
 
+    let employee = {};
+    if (cleanNip) {
+      try {
+        employee = (await findEmployeeByNip(cleanNip)) || {};
+        if (!employee.nip) {
+          employee = (await methods.getEmployeeFullData([token, cleanNip])) || {};
+        }
+      } catch (_) {}
+    }
+
+    const nowYearStr = String(new Date().getFullYear());
+    const mergedFormData = (targetSubMenu === 'Calon Pegawai Tetap Undip NON ASN')
+      ? Object.assign({}, actualFormData, {
+          tmt_bulan: actualFormData.tmt_bulan || '1',
+          tmt_tahun: actualFormData.tmt_tahun || nowYearStr,
+          tst_bulan: actualFormData.tst_bulan || '12',
+          tst_tahun: actualFormData.tst_tahun || nowYearStr
+        })
+      : actualFormData;
+
+    const dataCtx = buildKontrakDataContext(null, mergedFormData, employee);
     const isDocx = (tipe === 'docx') || (tmpl && tmpl.tipe === 'docx');
 
     if (isDocx && tmpl) {
-      let employee = {};
-      try {
-        if (cleanNip) employee = await methods.getEmployeeFullData([token, cleanNip]);
-      } catch (_) {}
-      const dataCtx = buildKontrakDataContext(null, actualFormData, employee);
       const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
       const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx);
       return {
@@ -13904,10 +13920,16 @@ const methods = {
       };
     }
 
-    // Google Docs via GAS
+    // Google Docs via GAS (menggunakan previewDocument di DocumentGenerator.gs agar bebas dari bug BULAN_ID di Kontrakgenerator.gs)
     const gasUrl = process.env.GOOGLE_SCRIPT_URL;
     if (!gasUrl) {
       return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi di server.' };
+    }
+
+    const rawGdocsId = tmpl?.file_id || templateFileId || templateId || '';
+    const gdocsFileId = extractDriveFileId(String(rawGdocsId)) || String(rawGdocsId).trim();
+    if (!gdocsFileId) {
+      return { success: false, message: `Template "${targetSubMenu}" (${layanan}) belum terdaftar. Tambahkan di menu Template.` };
     }
 
     const shortId = uuidv4();
@@ -13921,56 +13943,45 @@ const methods = {
       }
     };
 
-    // Sinkronkan template ke GAS sheet jika ditemukan di Supabase
-    if (tmpl && tmpl.file_id) {
-      try {
-        await fetch(gasUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            method: 'addTemplate',
-            params: [shortId, {
-              driveLink: tmpl.file_id,
-              judul: tmpl.judul || 'Template Kontrak',
-              layanan: tmpl.layanan || layanan,
-              subMenu: tmpl.sub_menu || targetSubMenu
-            }],
-            remoteSession
-          })
-        });
-      } catch (syncErr) {
-        console.warn('[previewKontrakDocument] auto-sync template to GAS warning:', syncErr.message);
-      }
-    }
+    const inferredLayanan = layanan || tmpl?.layanan || ((cleanNip.length >= 10 && cleanNip.slice(8, 10) === '01') ? 'Kontrak Dosen' : 'Kontrak Tendik');
+    const enrichedPayload = {
+      templateFileId: gdocsFileId,
+      layanan: inferredLayanan,
+      subLayanan: targetSubMenu || tmpl?.sub_menu || 'Kontrak',
+      entries: [{
+        targetNip: cleanNip,
+        employee: Object.assign({}, employee, {
+          nip: cleanNip,
+          nama_lengkap: dataCtx.nama_lengkap || namaLengkap || 'Pegawai',
+          nama: dataCtx.nama_lengkap || namaLengkap || 'Pegawai'
+        }),
+        formData: dataCtx,
+        dataContext: dataCtx
+      }]
+    };
 
-    const gasPayload = Object.assign({}, payload, {
-      templateFileId: tmpl?.file_id || templateFileId
-    });
-    if (targetSubMenu === 'Calon Pegawai Tetap Undip NON ASN') {
-      gasPayload.formData = Object.assign({}, actualFormData, {
-        tmt_bulan: actualFormData.tmt_bulan || '1',
-        tmt_tahun: actualFormData.tmt_tahun || '2026',
-        tst_bulan: actualFormData.tst_bulan || '12',
-        tst_tahun: actualFormData.tst_tahun || '2026',
-        nik: actualFormData.nik || '',
-        NIK: actualFormData.nik || '',
-        nik_ktp: actualFormData.nik || '',
-        NIK_KTP: actualFormData.nik || '',
-        nppu: actualFormData.nip || '',
-        NPPU: actualFormData.nip || ''
+    const gasCtrl = new AbortController();
+    const gasTimer = setTimeout(() => gasCtrl.abort(), 55000);
+    try {
+      const response = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'previewDocument',
+          params: [shortId, enrichedPayload],
+          remoteSession
+        }),
+        signal: gasCtrl.signal
       });
+      clearTimeout(gasTimer);
+      return await parseGasResponse(response, 'previewKontrakDocument-GAS');
+    } catch (gasErr) {
+      clearTimeout(gasTimer);
+      if (gasErr.name === 'AbortError') {
+        return { success: false, message: 'Waktu preview di Google Apps Script melebihi batas (55s). Silakan gunakan template Word (.docx) untuk preview instan.' };
+      }
+      return { success: false, message: 'Gagal terhubung ke Google Apps Script: ' + gasErr.message };
     }
-
-    const response = await fetch(gasUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        method: 'previewKontrakDocument',
-        params: [shortId, gasPayload],
-        remoteSession
-      })
-    });
-    return await response.json();
   },
 
   async generateKontrakDocument(args) {
@@ -13988,6 +13999,7 @@ const methods = {
 
     const mode = String(payload.mode || actualFormData.mode || actualFormData.jenis_usulan || '').toLowerCase();
     const isPerpanjangan = (mode === 'perpanjangan' || actualFormData.jenis_usulan === 'Perpanjangan');
+    const inferredLayanan = layanan || ((cleanNip.length >= 10 && cleanNip.slice(8, 10) === '01') ? 'Kontrak Dosen' : 'Kontrak Tendik');
 
     // 1. Sesuai instruksi:
     //    - Jika USULAN BARU: Simpan data ke tabel usulan_kontrak_baru & data_utama di Supabase.
@@ -14003,7 +14015,6 @@ const methods = {
         jangkaWaktuStr = (durasiBulan === 12) ? '1 (satu) tahun' : (durasiBulan > 0 ? `${durasiBulan} bulan` : '');
       }
 
-      const inferredLayanan = layanan || ((cleanNip.length >= 10 && cleanNip.slice(8, 10) === '01') ? 'Kontrak Dosen' : 'Kontrak Tendik');
       const safeTglLhr = (actualFormData.tgl_lhr && String(actualFormData.tgl_lhr).trim()) ? String(actualFormData.tgl_lhr).trim() : null;
       const safeFormData = Object.assign({}, actualFormData, {
         status: 'Selesai',
@@ -14161,30 +14172,91 @@ const methods = {
       if (data) tmpl = data;
     }
 
+    let employee = {};
+    if (cleanNip) {
+      try {
+        employee = (await findEmployeeByNip(cleanNip)) || {};
+        if (!employee.nip) {
+          employee = (await methods.getEmployeeFullData([token, cleanNip])) || {};
+        }
+      } catch (_) {}
+    }
+
+    const nowYearStr = String(new Date().getFullYear());
+    const mergedFormData = (targetSubMenu === 'Calon Pegawai Tetap Undip NON ASN')
+      ? Object.assign({}, actualFormData, {
+          tmt_bulan: actualFormData.tmt_bulan || '1',
+          tmt_tahun: actualFormData.tmt_tahun || nowYearStr,
+          tst_bulan: actualFormData.tst_bulan || '12',
+          tst_tahun: actualFormData.tst_tahun || nowYearStr
+        })
+      : actualFormData;
+
+    const dataCtx = buildKontrakDataContext(null, mergedFormData, employee);
     const isDocx = (tipe === 'docx') || (tmpl && tmpl.tipe === 'docx');
 
     if (isDocx && tmpl) {
-      let employee = {};
-      try {
-        if (cleanNip) employee = await methods.getEmployeeFullData([token, cleanNip]);
-      } catch (_) {}
-      const dataCtx = buildKontrakDataContext(null, actualFormData, employee);
       const templateBuffer = await downloadTemplateBuffer(tmpl.file_id);
       const renderedBuffer = docxRenderTemplate(templateBuffer, dataCtx);
+      const docxFileName = `Kontrak_${targetSubMenu || 'Dokumen'}_${dataCtx.nama_lengkap || namaLengkap || 'Pegawai'}.docx`;
+
+      if (['normal', 'user'].includes(role)) {
+        const gasUrl = process.env.GOOGLE_SCRIPT_URL;
+        if (gasUrl) {
+          try {
+            const shortId = uuidv4();
+            const remoteSession = { id: shortId, data: { nip: decoded.nip || '', nama_lengkap: decoded.nama || '', nama: decoded.nama || '', role: 'admin' } };
+            const ctrl = new AbortController();
+            const timeoutId = setTimeout(() => ctrl.abort(), 8000);
+            const response = await fetch(gasUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                method: 'convertDocxToPdf',
+                params: [shortId, renderedBuffer.toString('base64'), docxFileName],
+                remoteSession
+              }),
+              signal: ctrl.signal
+            });
+            clearTimeout(timeoutId);
+            const gasResult = await parseGasResponse(response, 'generateKontrakDocument-convertDocxToPdf');
+            if (gasResult && gasResult.success && gasResult.pdfUrl) {
+              return {
+                success: true,
+                outputType: 'pdf',
+                pdfUrl: gasResult.pdfUrl,
+                pdfViewUrl: gasResult.pdfUrl,
+                viewUrl: gasResult.pdfUrl,
+                fileName: gasResult.fileName || docxFileName.replace(/\.docx$/i, '.pdf'),
+                message: 'Dokumen Kontrak berhasil dibuat sebagai PDF.'
+              };
+            }
+          } catch (pdfErr) {
+            console.warn('[generateKontrakDocument] GAS PDF conversion timeout/error, fallback to DOCX:', pdfErr.message);
+          }
+        }
+      }
+
       return {
         success: true,
         outputType: 'docx',
         base64: renderedBuffer.toString('base64'),
-        fileName: `Kontrak_${targetSubMenu || 'Dokumen'}_${namaLengkap || 'Pegawai'}.docx`,
+        fileName: docxFileName,
         mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         message: 'Dokumen Kontrak berhasil dibuat.'
       };
     }
 
-    // Google Docs via GAS
+    // Google Docs via GAS (menggunakan generateDocument di DocumentGenerator.gs agar bebas dari bug BULAN_ID di Kontrakgenerator.gs)
     const gasUrl = process.env.GOOGLE_SCRIPT_URL;
     if (!gasUrl) {
       return { success: false, message: 'GOOGLE_SCRIPT_URL belum dikonfigurasi di server.' };
+    }
+
+    const rawGdocsId = tmpl?.file_id || templateFileId || templateId || '';
+    const gdocsFileId = extractDriveFileId(String(rawGdocsId)) || String(rawGdocsId).trim();
+    if (!gdocsFileId) {
+      return { success: false, message: `Template "${targetSubMenu}" (${inferredLayanan}) belum terdaftar. Tambahkan di menu Template.` };
     }
 
     const shortId = uuidv4();
@@ -14194,60 +14266,72 @@ const methods = {
         nip: decoded.nip || '',
         nama_lengkap: decoded.nama || '',
         nama: decoded.nama || '',
-        role: decoded.role || 'admin'
+        role: role
       }
     };
 
-    // Sinkronkan template ke GAS sheet jika ditemukan di Supabase
-    if (tmpl && tmpl.file_id) {
-      try {
-        await fetch(gasUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            method: 'addTemplate',
-            params: [shortId, {
-              driveLink: tmpl.file_id,
-              judul: tmpl.judul || 'Template Kontrak',
-              layanan: tmpl.layanan || layanan,
-              subMenu: tmpl.sub_menu || targetSubMenu
-            }],
-            remoteSession
-          })
-        });
-      } catch (syncErr) {
-        console.warn('[generateKontrakDocument] auto-sync template to GAS warning:', syncErr.message);
-      }
-    }
+    const enrichedPayload = {
+      templateFileId: gdocsFileId,
+      layanan: inferredLayanan,
+      subLayanan: targetSubMenu || tmpl?.sub_menu || 'Kontrak',
+      entries: [{
+        targetNip: cleanNip,
+        employee: Object.assign({}, employee, {
+          nip: cleanNip,
+          nama_lengkap: dataCtx.nama_lengkap || namaLengkap || 'PEGAWAI',
+          nama: dataCtx.nama_lengkap || namaLengkap || 'PEGAWAI'
+        }),
+        formData: dataCtx,
+        dataContext: dataCtx
+      }]
+    };
 
-    const gasPayload = Object.assign({}, payload, {
-      templateFileId: tmpl?.file_id || templateFileId
-    });
-    if (targetSubMenu === 'Calon Pegawai Tetap Undip NON ASN') {
-      gasPayload.formData = Object.assign({}, actualFormData, {
-        tmt_bulan: actualFormData.tmt_bulan || '1',
-        tmt_tahun: actualFormData.tmt_tahun || '2026',
-        tst_bulan: actualFormData.tst_bulan || '12',
-        tst_tahun: actualFormData.tst_tahun || '2026',
-        nik: actualFormData.nik || '',
-        NIK: actualFormData.nik || '',
-        nik_ktp: actualFormData.nik || '',
-        NIK_KTP: actualFormData.nik || '',
-        nppu: actualFormData.nip || '',
-        NPPU: actualFormData.nip || ''
+    const gasCtrl = new AbortController();
+    const gasTimer = setTimeout(() => gasCtrl.abort(), 55000);
+    try {
+      const response = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'generateDocument',
+          params: [shortId, enrichedPayload],
+          remoteSession
+        }),
+        signal: gasCtrl.signal
       });
-    }
+      clearTimeout(gasTimer);
+      const gasResult = await parseGasResponse(response, 'generateKontrakDocument-GAS');
+      if (!gasResult || !gasResult.success) {
+        return gasResult || { success: false, message: 'Gagal membuat dokumen kontrak via Google Apps Script.' };
+      }
 
-    const response = await fetch(gasUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        method: 'generateKontrakDocument',
-        params: [shortId, gasPayload],
-        remoteSession
-      })
-    });
-    return await response.json();
+      const fId = gasResult.docFileId || gasResult.pdfFileId || gasResult.fileId || '';
+      const isPdfOut = gasResult.outputType === 'pdf' || ['normal', 'user'].includes(role);
+      const gdocsViewUrl = gasResult.docViewUrl || gasResult.gdocsUrl || gasResult.viewUrl || (fId ? `https://docs.google.com/document/d/${fId}/edit` : '');
+      const pdfViewUrl = gasResult.pdfViewUrl || gasResult.pdfUrl || (gasResult.pdfFileId ? `https://drive.google.com/file/d/${gasResult.pdfFileId}/view` : (isPdfOut && gasResult.viewUrl ? gasResult.viewUrl : (fId ? `https://docs.google.com/document/d/${fId}/export?format=pdf` : '')));
+      const pdfDownloadUrl = gasResult.pdfDownloadUrl || (fId ? `https://drive.google.com/uc?export=download&id=${fId}` : pdfViewUrl);
+
+      return Object.assign({}, gasResult, {
+        success: true,
+        fileId: fId,
+        docFileId: isPdfOut ? undefined : fId,
+        pdfFileId: isPdfOut ? fId : undefined,
+        docViewUrl: gdocsViewUrl,
+        viewUrl: isPdfOut ? pdfViewUrl : gdocsViewUrl,
+        pdfUrl: isPdfOut ? pdfViewUrl : undefined,
+        pdfViewUrl: isPdfOut ? pdfViewUrl : undefined,
+        pdfDownloadUrl: isPdfOut ? pdfDownloadUrl : undefined,
+        fileName: gasResult.fileName || `Kontrak_${targetSubMenu || 'Dokumen'}_${dataCtx.nama_lengkap || namaLengkap || 'Pegawai'}`,
+        outputType: isPdfOut ? 'pdf' : 'gdocs',
+        message: gasResult.message || 'Dokumen Kontrak berhasil dibuat.'
+      });
+    } catch (gasErr) {
+      clearTimeout(gasTimer);
+      if (gasErr.name === 'AbortError') {
+        return { success: false, message: 'Waktu proses di Google Apps Script melebihi batas (55s). Silakan gunakan template Word (.docx) untuk generate instan.' };
+      }
+      return { success: false, message: 'Gagal terhubung ke Google Apps Script: ' + gasErr.message };
+    }
   },
 
   async previewDocumentVercel(args) {
@@ -14324,7 +14408,7 @@ const methods = {
         dataCtx = processDataCtxFormatting(rawDataCtx, isDpcp);
       }
     } else {
-      dataCtx = buildKontrakDataContext(null, firstEntry.formData);
+      dataCtx = buildKontrakDataContext(null, firstEntry.formData, employee);
     }
     
     let templateBuffer;
@@ -14419,7 +14503,7 @@ const methods = {
         dataCtx = processDataCtxFormatting(rawDataCtx, isDpcp);
       }
     } else {
-      dataCtx = buildKontrakDataContext(null, firstEntry.formData);
+      dataCtx = buildKontrakDataContext(null, firstEntry.formData, employee);
     }
     
     let templateBuffer;
@@ -14845,6 +14929,22 @@ const methods = {
   }
 };
 
+function kontrakGenTierUpah(pendidikan) {
+  const raw = String(pendidikan || '').trim().toUpperCase();
+  const compact = raw.replace(/[\s.\-]/g, '');
+  if (compact === 'S2' || compact === 'SP1' || /SPESIALIS\s*(1|I)\b/.test(raw)) return 'tier1';
+  if (compact === 'S3' || compact === 'SP2' || /SPESIALIS\s*(2|II)\b/.test(raw)) return 'tier2';
+  return null;
+}
+
+function kontrakGenBesaranUpahText(pendidikan) {
+  const tier = kontrakGenTierUpah(pendidikan);
+  if (!tier || !CONFIG.KONTRAK_UPAH_TIER || !CONFIG.KONTRAK_UPAH_TIER[tier]) return '';
+  const nominal = CONFIG.KONTRAK_UPAH_TIER[tier];
+  const rupiahFormatted = 'Rp ' + formatRupiah(nominal);
+  return `${rupiahFormatted},- (${docxTerbilang(nominal)} rupiah)`;
+}
+
 function buildKontrakDataContext(usulan, formData, employee) {
   const tglSekarang = formatTanggalIndonesia(new Date());
   const emp = employee || {};
@@ -14876,6 +14976,38 @@ function buildKontrakDataContext(usulan, formData, employee) {
   const nipPegawai = String((usulan && usulan.nip) || fd.nip || emp.nip || '').trim();
   const nikPegawai = String((formData && formData.nik) || fd.nik || emp.nik || (usulan && usulan.nik) || (usulan && usulan.form_data && usulan.form_data.nik) || '').trim();
 
+  // Hitung TMT Kontrak, TST Kontrak, Jangka Waktu Kontrak, dan Besaran Upah di sisi server (bebas dari bug BULAN_ID di GAS)
+  const tb = parseInt(fd.tmt_bulan, 10) || (typeof docxBulanKeAngka === 'function' ? docxBulanKeAngka(fd.tmt_bulan) : 0);
+  const tt = parseInt(fd.tmt_tahun, 10) || 0;
+  const sb = parseInt(fd.tst_bulan, 10) || (typeof docxBulanKeAngka === 'function' ? docxBulanKeAngka(fd.tst_bulan) : 0);
+  const st = parseInt(fd.tst_tahun, 10) || 0;
+
+  const tmtKontrakVal = (tb >= 1 && tb <= 12 && tt > 0)
+    ? `01 ${BULAN_ID[tb - 1]} ${tt}`
+    : String(fd.tmt_kontrak || '').trim();
+
+  const tstKontrakVal = (sb >= 1 && sb <= 12 && st > 0)
+    ? `${String(new Date(st, sb, 0).getDate()).padStart(2, '0')} ${BULAN_ID[sb - 1]} ${st}`
+    : String(fd.tst_kontrak || '').trim();
+
+  const selisihBulan = (tb >= 1 && tb <= 12 && tt > 0 && sb >= 1 && sb <= 12 && st > 0)
+    ? Math.max(0, (st - tt) * 12 + (sb - tb) + 1)
+    : 0;
+
+  const jangkaWaktuVal = selisihBulan === 12
+    ? '1 (satu) tahun'
+    : (selisihBulan > 0
+        ? `${selisihBulan} (${docxTerbilang(selisihBulan)}) bulan`
+        : String(fd.jangka_waktu_kontrak || fd.jangka_waktu || '').trim());
+
+  const pendidikanVal = String(fd.pendidikan || emp.pendidikan || '').trim();
+  const besaranUpahVal = String(fd.besaran_upah_override || fd.besaran_upah || kontrakGenBesaranUpahText(pendidikanVal) || '').trim();
+  const tglLhrFormatted = formatTanggalIndonesia(fd.tgl_lhr || emp.tgl_lhr) || String(fd.tgl_lhr || emp.tgl_lhr || '').trim();
+  const tmpLhrVal = String(fd.tmp_lhr || fd.tempat_lahir || emp.tmp_lhr || '').trim();
+  const unitVal = String(fd.unit_es_ii || fd.unit_kerja || emp.unit_es_ii || (usulan && usulan.unit) || '').trim();
+  const nomorSuratVal = String(fd.nomor_surat_perjanjian || fd.nomor_surat || (usulan && usulan.nomor_surat) || '').trim();
+  const nomorTeleponVal = String(fd.nomor_telepon || fd.no_hp || fd.telepon || emp.nomor_telepon || '').trim();
+
   const aliases = {
     nip: nipPegawai,
     NIP: nipPegawai,
@@ -14897,6 +15029,28 @@ function buildKontrakDataContext(usulan, formData, employee) {
     PIHAK_KEDUA: namaPegawai,
     pihak_kedua_nama: namaPegawai,
     nama_pihak_kedua: namaPegawai,
+    tmp_lhr: tmpLhrVal,
+    tempat_lahir: tmpLhrVal,
+    tgl_lhr: tglLhrFormatted,
+    tanggal_lahir: tglLhrFormatted,
+    pendidikan: pendidikanVal,
+    jurusan: String(fd.jurusan || emp.jurusan || '').trim(),
+    alamat: String(fd.alamat || emp.alamat || '').trim(),
+    unit_es_ii: unitVal,
+    unit_kerja: unitVal,
+    jabatan: String(fd.jabatan || emp.jabatan || '').trim(),
+    nomor_surat_perjanjian: nomorSuratVal,
+    nomor_surat: nomorSuratVal,
+    nomor_telepon: nomorTeleponVal,
+    tmt_kontrak: tmtKontrakVal,
+    TMT_KONTRAK: tmtKontrakVal,
+    tst_kontrak: tstKontrakVal,
+    TST_KONTRAK: tstKontrakVal,
+    jangka_waktu_kontrak: jangkaWaktuVal,
+    JANGKA_WAKTU_KONTRAK: jangkaWaktuVal,
+    jangka_waktu: jangkaWaktuVal,
+    besaran_upah: besaranUpahVal,
+    BESARAN_UPAH: besaranUpahVal,
     today: tglSekarang,
     TODAY: tglSekarang,
     tgl_buat: tglSekarang,

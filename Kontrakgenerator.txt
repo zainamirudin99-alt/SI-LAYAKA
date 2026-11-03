@@ -46,7 +46,7 @@ function kontrakGen_hitungJangkaWaktuBulan_(tmtBulan, tmtTahun, tstBulan, tstTah
 function kontrakGen_hitungTmtKontrak_(bulan, tahun) {
   const b = parseInt(bulan, 10), t = parseInt(tahun, 10);
   if (!b || !t) return '';
-  return `01 ${BULAN_ID[b - 1]} ${t}`;
+  return `01 ${(typeof BULAN_ID !== 'undefined' ? BULAN_ID : UTILS_BULAN_ID)[b - 1]} ${t}`;
 }
 
 /** REF {{tst_kontrak}}: SELALU tanggal terakhir bulan tsb, mis. "31 Maret 2026". */
@@ -54,7 +54,7 @@ function kontrakGen_hitungTstKontrak_(bulan, tahun) {
   const b = parseInt(bulan, 10), t = parseInt(tahun, 10);
   if (!b || !t) return '';
   const lastDay = new Date(t, b, 0).getDate(); // trik: tanggal-0 bulan berikutnya = tanggal terakhir bulan ini
-  return `${String(lastDay).padStart(2, '0')} ${BULAN_ID[b - 1]} ${t}`;
+  return `${String(lastDay).padStart(2, '0')} ${(typeof BULAN_ID !== 'undefined' ? BULAN_ID : UTILS_BULAN_ID)[b - 1]} ${t}`;
 }
 
 /**

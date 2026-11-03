@@ -20750,7 +20750,7 @@ async function runKontrakPreviewGenerate(mode) {
         showToast('error', res?.message || 'Gagal preview Kontrak.');
       }
     } catch (rpcErr) {
-      if (typeof google !== 'undefined' && google.script && google.script.run) {
+      if (typeof google !== 'undefined' && google.script && google.script.run && google.script.host) {
         google.script.run
           .withSuccessHandler(res => {
             if (previewBtn) setBtnLoading(previewBtn, false, 'Preview');
@@ -20774,7 +20774,7 @@ async function runKontrakPreviewGenerate(mode) {
           .previewKontrakDocument(SESSION.token, payload);
       } else {
         if (previewBtn) setBtnLoading(previewBtn, false, 'Preview');
-        showToast('error', 'Gagal preview: ' + (rpcErr.message || rpcErr));
+        showToast('error', 'Gagal preview Kontrak: ' + (rpcErr.message || rpcErr));
       }
     }
     return;
@@ -20796,7 +20796,7 @@ async function runKontrakPreviewGenerate(mode) {
       showToast('error', res?.message || 'Gagal generate Kontrak.');
     }
   } catch (rpcErr) {
-    if (typeof google !== 'undefined' && google.script && google.script.run) {
+    if (typeof google !== 'undefined' && google.script && google.script.run && google.script.host) {
       google.script.run
         .withSuccessHandler(res => {
           setBtnLoading(btn, false, 'Generate');
@@ -20815,7 +20815,7 @@ async function runKontrakPreviewGenerate(mode) {
         .generateKontrakDocument(SESSION.token, payload);
     } else {
       setBtnLoading(btn, false, 'Generate');
-      showToast('error', 'Gagal generate: ' + (rpcErr.message || rpcErr));
+      showToast('error', 'Gagal generate Kontrak: ' + (rpcErr.message || rpcErr));
     }
   }
 }
