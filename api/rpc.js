@@ -6686,6 +6686,10 @@ const methods = {
     const pensiunCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     const pensiunPerUnitByHorizon = { 1: {}, 2: {}, 3: {}, 4: {}, 5: {} };
 
+    // 4. Komposisi Jenis Pegawai & Status Kepegawaian (Pie Charts)
+    let jenisPegStats = { total: 0, breakdown: {} };
+    let statusKepStats = { total: 0, breakdown: {} };
+
     try {
       let pageE = 0;
       let emps = [];
@@ -6704,8 +6708,42 @@ const methods = {
       }
 
       const now = new Date();
+      const jenisPegCounts = {};
+      const statusKepCounts = {};
 
       emps.forEach(emp => {
+        // Komposisi Jenis Pegawai
+        let jp = String(emp.jenis_peg || '').trim();
+        if (!jp) {
+          const stdDosen = getDosenJabatanStandard(emp.jabatan);
+          jp = stdDosen ? 'Dosen' : 'Tendik';
+        } else {
+          const jpLower = jp.toLowerCase();
+          if (jpLower.includes('dosen') || jpLower.includes('pendidik')) jp = 'Dosen';
+          else if (jpLower.includes('tendik') || jpLower.includes('kependidikan')) jp = 'Tendik';
+        }
+        jenisPegCounts[jp] = (jenisPegCounts[jp] || 0) + 1;
+
+        // Komposisi Status Kepegawaian
+        let sk = String(emp.status_kepegawaian || '').trim();
+        if (!sk) {
+          sk = 'Lainnya';
+        } else {
+          const skUpper = sk.toUpperCase();
+          if (skUpper === 'PNS' || (skUpper.includes('PNS') && !skUpper.includes('NON') && !skUpper.includes('TETAP'))) {
+            sk = 'PNS';
+          } else if (skUpper.includes('PPPK')) {
+            sk = 'PPPK';
+          } else if (skUpper.includes('NON ASN') || skUpper.includes('NON-ASN') || skUpper.includes('NON-PNS') || skUpper.includes('TETAP NON') || skUpper.includes('PEGAWAI UNDIP NON ASN')) {
+            sk = 'Pegawai Undip Non ASN';
+          } else if (skUpper.includes('KONTRAK') || skUpper.includes('PROFESIONAL') || skUpper.includes('KDRP') || skUpper.includes('PENGHARGAAN')) {
+            sk = 'Kontrak';
+          } else if (skUpper.includes('CPNS')) {
+            sk = 'CPNS';
+          }
+        }
+        statusKepCounts[sk] = (statusKepCounts[sk] || 0) + 1;
+
         // Pensiun Horizon Calculation: 1 th (365 hr), 2 th (730 hr), 3 th (1095 hr), 4 th (1460 hr), 5 th (1826 hr)
         if (emp.tmt_pensiun_bup) {
           const sisaHari = diffDays(now, emp.tmt_pensiun_bup);
@@ -6748,6 +6786,15 @@ const methods = {
           }
         }
       });
+
+      jenisPegStats = {
+        total: Object.values(jenisPegCounts).reduce((a, b) => a + b, 0),
+        breakdown: jenisPegCounts
+      };
+      statusKepStats = {
+        total: Object.values(statusKepCounts).reduce((a, b) => a + b, 0),
+        breakdown: statusKepCounts
+      };
 
     } catch (empErr) {
       console.warn('[getDashboardUtamaStats] data_utama notice:', empErr.message);
@@ -6832,7 +6879,9 @@ const methods = {
       kegiatanStats: {
         total: totalKegiatan,
         breakdown: kegiatanBreakdown
-      }
+      },
+      jenisPegStats,
+      statusKepStats
     };
   },
 
