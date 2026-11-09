@@ -3443,6 +3443,19 @@
     border-color: rgba(245, 158, 11, 0.5);
     color: #fbbf24;
   }
+  #dashStatusKepFilterSelect {
+    border-color: rgba(16, 185, 129, 0.45);
+    color: #059669;
+  }
+  #dashStatusKepFilterSelect:hover {
+    border-color: #10b981;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.25);
+  }
+  body.theme-dark #dashStatusKepFilterSelect {
+    background: rgba(15, 23, 42, 0.85);
+    border-color: rgba(16, 185, 129, 0.5);
+    color: #34d399;
+  }
 
   .pddikti-dropdown-item {
     padding: 10px 14px;

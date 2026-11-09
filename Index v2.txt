@@ -616,7 +616,14 @@
                     </h3>
                     <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Sebaran status PNS, PPPK, Non ASN, dan Kontrak</div>
                   </div>
-                  <span id="dashTotalStatusKepBadge" class="cdli-badge" style="background:rgba(16, 185, 129, 0.12); color:#10b981; font-size:11px; font-weight:700;">- Pegawai</span>
+                  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <select id="dashStatusKepFilterSelect" class="dash-kpi-select" onchange="onDashboardStatusKepFilterChange(this.value)" aria-label="Filter Kategori Pegawai Status Kepegawaian" title="Pilih kategori pegawai" style="border-color:rgba(16, 185, 129, 0.45); color:#059669; font-size:11.5px; padding:3px 8px;">
+                      <option value="all" selected>Semua</option>
+                      <option value="dosen">Tenaga Dosen</option>
+                      <option value="tendik">Tenaga Kependidikan</option>
+                    </select>
+                    <span id="dashTotalStatusKepBadge" class="cdli-badge" style="background:rgba(16, 185, 129, 0.12); color:#10b981; font-size:11px; font-weight:700;">- Pegawai</span>
+                  </div>
                 </div>
                 <div style="position:relative; width:100%; height:260px; display:flex; justify-content:center; align-items:center;">
                   <canvas id="dashboardUtamaStatusKepPieChart" aria-label="Diagram Lingkaran Komposisi Status Kepegawaian" role="img"></canvas>

@@ -24095,9 +24095,18 @@ function renderDashboardUtamaBarChart(data, selectedPensiunHorizon = 2) {
   });
 }
 
+let _dashboardUtamaStatusKepFilter = 'all';
+
+function onDashboardStatusKepFilterChange(val) {
+  _dashboardUtamaStatusKepFilter = val || 'all';
+  if (_dashboardUtamaDataCache) {
+    renderStatusKepPieChart(_dashboardUtamaDataCache, _dashboardUtamaStatusKepFilter);
+  }
+}
+
 function renderDashboardUtamaPieCharts(data) {
   renderJenisPegPieChart(data);
-  renderStatusKepPieChart(data);
+  renderStatusKepPieChart(data, _dashboardUtamaStatusKepFilter);
 }
 
 function renderJenisPegPieChart(data) {
@@ -24199,9 +24208,18 @@ function renderJenisPegPieChart(data) {
   });
 }
 
-function renderStatusKepPieChart(data) {
+function renderStatusKepPieChart(data, filterKey) {
   const canvas = document.getElementById('dashboardUtamaStatusKepPieChart');
   if (!canvas) return;
+
+  const currentFilter = filterKey || _dashboardUtamaStatusKepFilter || 'all';
+  _dashboardUtamaStatusKepFilter = currentFilter;
+
+  // Sinkronkan elemen dropdown jika ada
+  const selectEl = document.getElementById('dashStatusKepFilterSelect');
+  if (selectEl && selectEl.value !== currentFilter) {
+    selectEl.value = currentFilter;
+  }
 
   if (_dashboardUtamaStatusKepChartInstance) {
     _dashboardUtamaStatusKepChartInstance.destroy();
@@ -24209,13 +24227,24 @@ function renderStatusKepPieChart(data) {
   }
 
   const isDark = document.body.classList.contains('theme-dark');
-  const stats = data.statusKepStats || {};
-  const breakdown = stats.breakdown || {};
+  const statsContainer = (data && data.statusKepStats) || {};
+
+  // Ambil slice data sesuai filter: 'all' | 'dosen' | 'tendik'
+  let targetStats = null;
+  if (currentFilter === 'dosen') {
+    targetStats = statsContainer.dosen || { total: 0, breakdown: {} };
+  } else if (currentFilter === 'tendik') {
+    targetStats = statsContainer.tendik || { total: 0, breakdown: {} };
+  } else {
+    targetStats = statsContainer.all || statsContainer;
+  }
+
+  const breakdown = targetStats.breakdown || {};
   const keys = Object.keys(breakdown);
 
   let labels = keys.length ? keys : ['PNS', 'PPPK', 'Pegawai Undip Non ASN', 'Kontrak'];
   let values = keys.length ? keys.map(k => breakdown[k]) : [0, 0, 0, 0];
-  const total = values.reduce((a, b) => a + b, 0);
+  const total = targetStats.total !== undefined ? targetStats.total : values.reduce((a, b) => a + b, 0);
 
   const totalBadge = document.getElementById('dashTotalStatusKepBadge');
   if (totalBadge) {
@@ -24229,6 +24258,7 @@ function renderStatusKepPieChart(data) {
     'Pegawai Undip Non ASN': { bg: 'rgba(245, 158, 11, 0.85)', border: '#b45309' },
     'Tetap Non-PNS': { bg: 'rgba(245, 158, 11, 0.85)', border: '#b45309' },
     'Kontrak': { bg: 'rgba(139, 92, 246, 0.85)', border: '#6d28d9' },
+    'Pegawai Mitra': { bg: 'rgba(236, 72, 153, 0.85)', border: '#be185d' },
     'Lainnya': { bg: 'rgba(100, 116, 139, 0.85)', border: '#475569' }
   };
   const fallbackColors = [
@@ -24246,16 +24276,20 @@ function renderStatusKepPieChart(data) {
 
   const legendBox = document.getElementById('dashLegendStatusKep');
   if (legendBox) {
-    legendBox.innerHTML = labels.map((lbl, idx) => {
-      const val = values[idx] || 0;
-      const pct = total > 0 ? ((val / total) * 100).toFixed(1) : '0';
-      return `
-        <span style="display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600; color:var(--text); background:var(--surface-alt); padding:4px 10px; border-radius:8px; border:1px solid var(--border);">
-          <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${borderColors[idx]};"></span>
-          <span>${escapeHtml(lbl)}: <strong>${val.toLocaleString('id-ID')}</strong> <span style="color:var(--text-muted); font-size:10.5px;">(${pct}%)</span></span>
-        </span>
-      `;
-    }).join('');
+    if (total === 0) {
+      legendBox.innerHTML = '<span style="font-size:12px; color:var(--text-muted); font-style:italic;">Tidak ada data pegawai untuk kategori ini.</span>';
+    } else {
+      legendBox.innerHTML = labels.map((lbl, idx) => {
+        const val = values[idx] || 0;
+        const pct = total > 0 ? ((val / total) * 100).toFixed(1) : '0';
+        return `
+          <span style="display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600; color:var(--text); background:var(--surface-alt); padding:4px 10px; border-radius:8px; border:1px solid var(--border);">
+            <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${borderColors[idx]};"></span>
+            <span>${escapeHtml(lbl)}: <strong>${val.toLocaleString('id-ID')}</strong> <span style="color:var(--text-muted); font-size:10.5px;">(${pct}%)</span></span>
+          </span>
+        `;
+      }).join('');
+    }
   }
 
   const ctx = canvas.getContext('2d');
@@ -25403,6 +25437,7 @@ window.renderDashboardUtamaBarChart = renderDashboardUtamaBarChart;
 window.renderDashboardUtamaPieCharts = renderDashboardUtamaPieCharts;
 window.renderJenisPegPieChart = renderJenisPegPieChart;
 window.renderStatusKepPieChart = renderStatusKepPieChart;
+window.onDashboardStatusKepFilterChange = onDashboardStatusKepFilterChange;
 window.updatePensiunCardDisplay = updatePensiunCardDisplay;
 window.onDashboardPensiunHorizonChange = onDashboardPensiunHorizonChange;
 window.getAppUserRoleCategory = getAppUserRoleCategory;

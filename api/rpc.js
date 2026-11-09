@@ -6708,20 +6708,65 @@ const methods = {
       }
 
       const now = new Date();
-      const jenisPegCounts = {};
-      const statusKepCounts = {};
+      const jenisPegCounts = { 'Dosen': 0, 'Tendik': 0 };
+      const statusKepCountsAll = {};
+      const statusKepCountsDosen = {};
+      const statusKepCountsTendik = {};
 
       emps.forEach(emp => {
-        // Komposisi Jenis Pegawai
-        let jp = String(emp.jenis_peg || '').trim();
-        if (!jp) {
-          const stdDosen = getDosenJabatanStandard(emp.jabatan);
-          jp = stdDosen ? 'Dosen' : 'Tendik';
-        } else {
-          const jpLower = jp.toLowerCase();
-          if (jpLower.includes('dosen') || jpLower.includes('pendidik')) jp = 'Dosen';
-          else if (jpLower.includes('tendik') || jpLower.includes('kependidikan')) jp = 'Tendik';
+        // Komposisi Jenis Pegawai: Dosen vs Tendik
+        let jp = '';
+        const rawJp = String(emp.jenis_peg || emp.jenis_pegawai || '').trim();
+        const rawJpLower = rawJp.toLowerCase();
+
+        // 1. Cek string jenis_peg / jenis_pegawai
+        // PENTING: kata 'kependidikan' mengandung substring 'pendidik',
+        // sehingga tendik / kependidikan WAJIB dicek lebih dulu sebelum pendidik / dosen!
+        if (rawJpLower.includes('tendik') || rawJpLower.includes('kependidikan') || rawJpLower === '02') {
+          jp = 'Tendik';
+        } else if (
+          rawJpLower.includes('dosen') ||
+          rawJpLower === '01' ||
+          /(^|\s)tenaga\s+pendidik($|\s)/i.test(rawJpLower) ||
+          /pendidik(?!an)/i.test(rawJpLower)
+        ) {
+          jp = 'Dosen';
         }
+
+        // 2. Jika jenis_peg belum jelas / kosong, periksa jabatan
+        if (!jp) {
+          const jab = String(emp.jabatan || '').trim();
+          const jabLower = jab.toLowerCase();
+          if (
+            /guru\s+besar|profesor/i.test(jabLower) ||
+            /lektor/i.test(jabLower) ||
+            /asisten\s+ahli/i.test(jabLower) ||
+            /\bdosen\b/i.test(jabLower) ||
+            (CONFIG.JABATAN_FUNGSIONAL_LIST && CONFIG.JABATAN_FUNGSIONAL_LIST.some(jf => jf.toLowerCase() === jabLower))
+          ) {
+            jp = 'Dosen';
+          } else if (
+            CONFIG.TENDIK_JABATAN_FUNGSIONAL_LIST && CONFIG.TENDIK_JABATAN_FUNGSIONAL_LIST.some(tj => tj.toLowerCase() === jabLower)
+          ) {
+            jp = 'Tendik';
+          }
+        }
+
+        // 3. Jika masih belum teridentifikasi, cek pola NIP Undip Non ASN jika berlaku (posisi ke 9-10: 01=Dosen, 02=Tendik)
+        if (!jp) {
+          const cleanNip = String(emp.nip || '').replace(/[^0-9]/g, '');
+          if (cleanNip.length >= 10) {
+            const kode = cleanNip.slice(8, 10);
+            if (kode === '01') jp = 'Dosen';
+            else if (kode === '02') jp = 'Tendik';
+          }
+        }
+
+        // 4. Fallback default
+        if (!jp) {
+          jp = 'Tendik';
+        }
+
         jenisPegCounts[jp] = (jenisPegCounts[jp] || 0) + 1;
 
         // Komposisi Status Kepegawaian
@@ -6740,9 +6785,16 @@ const methods = {
             sk = 'Kontrak';
           } else if (skUpper.includes('CPNS')) {
             sk = 'CPNS';
+          } else if (skUpper.includes('MITRA')) {
+            sk = 'Pegawai Mitra';
           }
         }
-        statusKepCounts[sk] = (statusKepCounts[sk] || 0) + 1;
+        statusKepCountsAll[sk] = (statusKepCountsAll[sk] || 0) + 1;
+        if (jp === 'Dosen') {
+          statusKepCountsDosen[sk] = (statusKepCountsDosen[sk] || 0) + 1;
+        } else {
+          statusKepCountsTendik[sk] = (statusKepCountsTendik[sk] || 0) + 1;
+        }
 
         // Pensiun Horizon Calculation: 1 th (365 hr), 2 th (730 hr), 3 th (1095 hr), 4 th (1460 hr), 5 th (1826 hr)
         if (emp.tmt_pensiun_bup) {
@@ -6791,9 +6843,25 @@ const methods = {
         total: Object.values(jenisPegCounts).reduce((a, b) => a + b, 0),
         breakdown: jenisPegCounts
       };
+      const totalAll = Object.values(statusKepCountsAll).reduce((a, b) => a + b, 0);
+      const totalDosen = Object.values(statusKepCountsDosen).reduce((a, b) => a + b, 0);
+      const totalTendik = Object.values(statusKepCountsTendik).reduce((a, b) => a + b, 0);
+
       statusKepStats = {
-        total: Object.values(statusKepCounts).reduce((a, b) => a + b, 0),
-        breakdown: statusKepCounts
+        total: totalAll,
+        breakdown: statusKepCountsAll,
+        all: {
+          total: totalAll,
+          breakdown: statusKepCountsAll
+        },
+        dosen: {
+          total: totalDosen,
+          breakdown: statusKepCountsDosen
+        },
+        tendik: {
+          total: totalTendik,
+          breakdown: statusKepCountsTendik
+        }
       };
 
     } catch (empErr) {
